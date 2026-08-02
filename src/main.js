@@ -232,6 +232,9 @@ function boot() {
   // the player rather than to the animal, so they live here.
   const pouch = [];
   let riding = false;
+  // How high you sit. A hippo's back is about a metre and a half up, and the
+  // eye height on top of that is what makes riding one feel like riding one.
+  const RIDE_HEIGHT = 1.55;
 
   /** Somewhere on the shore, in front of where you wake up. */
   function placeOtter() {
@@ -573,6 +576,79 @@ function boot() {
 
   const petName = () => pet.name ?? `the ${pet.species.name.toLowerCase()}`;
 
+  // ── riding ────────────────────────────────────────────────────────────────
+  //
+  // The hippo's whole reason to exist, and for one commit it was a variable
+  // nothing read: `riding` was toggled, a toast said "you climb onto the
+  // hippo", and the player carried on walking. The toast was the only thing I
+  // checked, which is exactly the wrong thing to check.
+  //
+  // What it actually does now: YOU BECOME THE ANIMAL. Your intent drives it
+  // rather than your legs, so its speed, its reach into deep water and its
+  // indifference to bog are yours. That is the whole point — the hippo is not
+  // a faster walk, it is access to ground you could not previously cross.
+  function dismount(why = 'you slide off') {
+    if (!riding) return;
+    riding = false;
+    // Put you down beside it on standable ground rather than wherever the
+    // camera happened to be, or you dismount into the middle of the loch.
+    const side = pet.yaw + Math.PI / 2;
+    const x = pet.position.x + Math.sin(side) * 1.6;
+    const z = pet.position.z + Math.cos(side) * 1.6;
+    const y = heightAt(x, z);
+    if (y > WATER_LEVEL - PLAYER.maxWadeDepth) ctrl.teleport({ x, y, z }, ctrl.yaw);
+    hud.toast(`${why} ${petName()}`, 2.2);
+  }
+
+  /**
+   * Drive the animal from your intent, and sit on it.
+   *
+   * Called from the frame loop after the controller has run, so it overrides
+   * the walk rather than fighting it. The rider's own collision is skipped
+   * entirely — the hippo decides where it can go, and it can go anywhere.
+   */
+  function updateRiding(dt, intent) {
+    if (!riding) return;
+
+    // Getting hurt throws you off. A mauling while riding should not simply
+    // continue.
+    if (vitals.dead) return dismount('you fall from');
+
+    const S = pet.species;
+    const speed = intent.sprint ? S.runSpeed : S.walkSpeed;
+    // Steering: you turn, and it goes where you are looking.
+    if (intent.forward || intent.strafe) {
+      const want = ctrl.yaw + Math.atan2(-intent.strafe, -intent.forward);
+      const diff = ((want - pet.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      pet.yaw += clamp(diff, -2.2 * dt, 2.2 * dt);
+      const move = speed * (intent.forward < 0 ? 0.45 : 1) * dt;
+      pet.position.x += Math.sin(pet.yaw) * move;
+      pet.position.z += Math.cos(pet.yaw) * move;
+      pet.speed = speed;
+      pet.legPhase += speed * S.anim.strideRate * dt;
+    } else {
+      pet.speed = damp(pet.speed, 0, 6, dt);
+    }
+
+    // It wades anything. This is the payload: the lake bed drops to 21 m and
+    // a hippo simply walks along the bottom with you on its back.
+    const ground = heightAt(pet.position.x, pet.position.z);
+    pet.position.y = Math.max(ground, WATER_LEVEL - (S.wadeMax ?? 6));
+    pet.object.rotation.y = pet.yaw;
+
+    // And you sit on it, a little behind the shoulders.
+    ctrl.position.set(
+      pet.position.x - Math.sin(pet.yaw) * 0.35,
+      pet.position.y + RIDE_HEIGHT,
+      pet.position.z - Math.cos(pet.yaw) * 0.35
+    );
+    ctrl.velocity.set(0, 0, 0);
+    ctrl.grounded = true;
+    // Riding is not walking: no footfalls, no wading noise, no gait.
+    ctrl.horizontalSpeed = 0;
+    ctrl.wadeDepth = 0;
+  }
+
   /**
    * Swap which animal came with you.
    *
@@ -764,13 +840,16 @@ function boot() {
 
       // ── hippo: deep water and bog stop you ──
       case 'ferry': {
-        riding = !riding;
-        hud.toast(
-          riding
-            ? `you climb onto ${petName()} — it will wade anything`
-            : `you slide off ${petName()}`,
-          3
-        );
+        if (riding) {
+          dismount('you slide off');
+          return;
+        }
+        if (pet.dist(ctrl.position) > 4.5) {
+          hud.toast(`${petName()} is too far away to climb onto`, 2.2);
+          return;
+        }
+        riding = true;
+        hud.toast(`you climb onto ${petName()} — it will wade anything`, 3);
         return;
       }
 
@@ -1206,7 +1285,7 @@ function boot() {
     seed: SEED,
     mode: ruleset.id,
     atmosphere, weather, ctrl, inventory, vitals, projectiles, pickups, wildlife, fires, sites,
-    structures, harvest, pet,
+    structures, harvest, pet, pouch,
     get totalHours() {
       return totalHours;
     },
@@ -1529,6 +1608,9 @@ function boot() {
     if (ruleset.current.survival && vitals.sprintBlocked) intent.sprint = false;
 
     ctrl.update(dt, intent);
+    // Riding overrides the walk rather than fighting it, so it runs straight
+    // after the controller and before anything reads a position.
+    updateRiding(dt, intent);
     feel.update(dt, ctrl, camera, weapons.fovOffset);
 
     // Weather first: the sky, the grass and the scent model all read from it.
@@ -1564,7 +1646,10 @@ function boot() {
     // ── the pet ──
     // Updated after the wildlife, so a creature that swung this frame has
     // already registered and the pet can answer it in the same tick.
-    pet.update(dt, ctrl, { nearestFood }, {
+    // While you are on its back YOU are steering, so its own brain must not
+    // also try to walk it somewhere — two things driving one body is how an
+    // animal ends up vibrating.
+    if (!riding) pet.update(dt, ctrl, { nearestFood }, {
       airC: env.airC,
       nearFire: !!env.nearFire,
       shelter: structures.shelterAt(pet.position.x, pet.position.z),

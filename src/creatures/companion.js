@@ -16,9 +16,9 @@
 // and would have made five of the six feel like the otter wearing a hat.
 
 import * as THREE from 'three';
-import { OTTER as CARE, WATER_LEVEL } from '../config.js';
+import { WATER_LEVEL } from '../config.js';
 import { heightAt, makeRandom } from '../world/noise.js';
-import { getCompanion, PET_NAMES } from './companions.js';
+import { getCompanion, careOf, PET_NAMES } from './companions.js';
 import { clamp, damp, lerp, smoothstep } from '../util/math.js';
 
 export const IDLE = 'idle';
@@ -33,6 +33,10 @@ export const SWIM = 'swim';
 export class Companion {
   constructor(speciesId, position, rand = makeRandom('companion')) {
     this.species = getCompanion(speciesId);
+    // THIS animal's temperament, not the otter's. Six species used to share
+    // one block, so a hippo trailed you at four and a half metres and bit like
+    // an otter — six animals with one nature and a different coat.
+    this.care_ = careOf(this.species);
     this.rand = rand;
 
     const built = this.species.build();
@@ -67,6 +71,15 @@ export class Companion {
     this.mood = 'wary';
     this.poseWeights = {};
     this.spun = 0;
+    // A monotonic in-game hour count, for anything measured in hours.
+    //
+    // Declared HERE rather than created on the first `decay`, because `ask`
+    // can be called before the animal has ever been ticked — and an undefined
+    // `hours` made the cooldown arithmetic NaN, which silently compares false
+    // and let every power fire without limit. A number that starts undefined
+    // is a cooldown that does not exist.
+    this.hours = 0;
+    this.poweredAt = -Infinity;
     // Whatever the last power produced, for the caller to act on.
     this.result = null;
   }
@@ -75,7 +88,7 @@ export class Companion {
     return this.object.position;
   }
   get tame() {
-    return this.trust >= CARE.tameAt;
+    return this.trust >= this.care_.tameAt;
   }
   get care() {
     return (this.fed + this.played + this.warmth) / 3;
@@ -94,27 +107,27 @@ export class Companion {
     if (!value) return { ok: false, why: 'it turns its nose up at that' };
     if (this.fed > 0.96) return { ok: false, why: 'it has eaten its fill' };
     this.fed = clamp(this.fed + value, 0, 1);
-    this.trust = clamp(this.trust + CARE.trustPerFeed, 0, 1);
+    this.trust = clamp(this.trust + this.care_.trustPerFeed, 0, 1);
     this.setState(EAT);
     this.says = 'chirr';
-    const named = !this.name && this.trust >= CARE.namesAt;
+    const named = !this.name && this.trust >= this.care_.namesAt;
     if (named) this.name = PET_NAMES[Math.floor(this.rand() * PET_NAMES.length) % PET_NAMES.length];
     return { ok: true, named, name: this.name, trust: this.trust };
   }
 
   play() {
     if (this.played > 0.95) return { ok: false, why: 'it has had enough for now' };
-    this.played = clamp(this.played + CARE.playValue, 0, 1);
-    this.trust = clamp(this.trust + CARE.trustPerPlay, 0, 1);
+    this.played = clamp(this.played + this.care_.playValue, 0, 1);
+    this.trust = clamp(this.trust + this.care_.trustPerPlay, 0, 1);
     this.setState(PLAY);
-    this.commandTime = CARE.playSeconds;
+    this.commandTime = this.care_.playSeconds;
     this.says = 'chatter';
     return { ok: true, trust: this.trust };
   }
 
   setHome(x, z) {
     this.home = { x, z };
-    this.trust = clamp(this.trust + CARE.trustPerHome, 0, 1);
+    this.trust = clamp(this.trust + this.care_.trustPerHome, 0, 1);
     this.says = 'chirr';
     return { ok: true, trust: this.trust };
   }
@@ -132,7 +145,25 @@ export class Companion {
     if (!this.tame) return { ok: false, why: 'it does not know you well enough' };
     const known = this.learned.has(trickId);
     if (!known && this.trust < t.needs) return { ok: false, why: 'it is not sure enough of you for that' };
-    if (!known && this.care < CARE.willWorkAbove) return { ok: false, why: `it is ${this.mood} — see to it first` };
+    if (!known && this.care < this.care_.willWorkAbove) return { ok: false, why: `it is ${this.mood} — see to it first` };
+
+    // ── what working costs ──
+    //
+    // A power used to be free, instant and unlimited, so the answer to every
+    // problem was to press the button again — seek, seek, seek until food
+    // appeared. Now the animal gets TIRED, which fits the care model that
+    // already exists rather than bolting a mana bar onto an otter.
+    //
+    // Only the POWER costs anything. Sitting is not work.
+    if (t.power && this.learned.has(trickId)) {
+      const left = this.care_.powerCooldownHours - (this.hours - this.poweredAt);
+      if (left > 0) {
+        return {
+          ok: false,
+          why: `${this.name ?? 'it'} needs a rest — ${Math.ceil(left * 60)} min`,
+        };
+      }
+    }
 
     const before = known;
     this.learn(trickId);
@@ -147,6 +178,15 @@ export class Companion {
     this.commandTime = t.holds;
     this.spun = 0;
     if (t.pose === 'speak') this.says = this.species.voice ?? 'chirp';
+
+    // Spend the effort. A hippo carrying you tires far faster than a parrot
+    // taking a look, which is what makes the six feel different to USE and not
+    // only to look at.
+    if (t.power && this.learned.has(trickId)) {
+      this.poweredAt = this.hours;
+      this.played = clamp(this.played - this.care_.powerTires, 0, 1);
+      this.fed = clamp(this.fed - this.care_.powerHungers, 0, 1);
+    }
 
     return {
       ok: true,
@@ -168,7 +208,7 @@ export class Companion {
     this.progress[trickId] = Math.min(t.reps, (this.progress[trickId] ?? 0) + 1);
     if (this.progress[trickId] >= t.reps) {
       this.learned.add(trickId);
-      this.trust = clamp(this.trust + CARE.trustPerTrick, 0, 1);
+      this.trust = clamp(this.trust + this.care_.trustPerTrick, 0, 1);
       this.says = 'chatter';
     }
   }
@@ -199,26 +239,29 @@ export class Companion {
   }
 
   decay(dt, ctx) {
+    // A monotonic in-game hour count, so a cooldown measured in hours is not
+    // reset every midnight by the wrapping clock.
     const hours = (dt / 60 / (ctx.dayMinutes ?? 24)) * 24;
-    this.fed = clamp(this.fed - CARE.hungerPerHour * hours, 0, 1);
-    this.played = clamp(this.played - CARE.borednessPerHour * hours, 0, 1);
+    this.hours += hours;
+    this.fed = clamp(this.fed - this.care_.hungerPerHour * hours, 0, 1);
+    this.played = clamp(this.played - this.care_.borednessPerHour * hours, 0, 1);
 
     const cold = smoothstep(12, -2, ctx.airC ?? 12);
     const sheltered = clamp(
-      (this.nearHome() ? CARE.homeWarmth : 0) + (ctx.nearFire ? CARE.fireWarmth : 0) + (ctx.shelter ?? 0) * 0.5,
+      (this.nearHome() ? this.care_.homeWarmth : 0) + (ctx.nearFire ? this.care_.fireWarmth : 0) + (ctx.shelter ?? 0) * 0.5,
       0, 1
     );
     // A swimmer is not chilled by being in the water; everything else is.
-    const wet = this.inWater && !this.species.swims ? CARE.wetChill : 0;
-    this.warmth = damp(this.warmth, clamp(1 - cold * (1 - sheltered) - wet, 0, 1), CARE.warmthRate, dt);
+    const wet = this.inWater && !this.species.swims ? this.care_.wetChill : 0;
+    this.warmth = damp(this.warmth, clamp(1 - cold * (1 - sheltered) - wet, 0, 1), this.care_.warmthRate, dt);
 
     this.trust = clamp(
-      this.trust + (this.care > CARE.contentAbove ? CARE.trustGain : -CARE.trustLoss) * dt, 0, 1
+      this.trust + (this.care > this.care_.contentAbove ? this.care_.trustGain : -this.care_.trustLoss) * dt, 0, 1
     );
 
-    if (this.care < CARE.forgetBelow && this.learned.size) {
+    if (this.care < this.care_.forgetBelow && this.learned.size) {
       this.forgetTimer = (this.forgetTimer ?? 0) + dt;
-      if (this.forgetTimer > CARE.forgetSeconds) {
+      if (this.forgetTimer > this.care_.forgetSeconds) {
         this.forgetTimer = 0;
         const hardest = [...this.learned].sort((a, b) => this.tricks[b].needs - this.tricks[a].needs)[0];
         this.learned.delete(hardest);
@@ -231,7 +274,7 @@ export class Companion {
       this.fed < 0.3 ? 'hungry'
       : this.warmth < 0.3 ? 'shivering'
       : this.played < 0.3 ? 'restless'
-      : this.trust < CARE.tameAt ? 'wary'
+      : this.trust < this.care_.tameAt ? 'wary'
       : this.trust > 0.85 ? 'devoted'
       : 'content';
   }
@@ -241,13 +284,13 @@ export class Companion {
 
     if (this.state === ATTACK) {
       const t = this.target;
-      if (!t || t.state === 'dead' || this.dist(t.position) > CARE.giveUpRange || this.stateTime > CARE.attackSeconds) {
+      if (!t || t.state === 'dead' || this.dist(t.position) > this.care_.giveUpRange || this.stateTime > this.care_.attackSeconds) {
         this.target = null;
         this.setState(FOLLOW);
       } else {
         this.faceToward(t.position.x, t.position.z, dt, 6);
         this.targetSpeed = S.runSpeed;
-        if (this.dist(t.position) < CARE.biteRange && this.stateTime % 1.1 < dt) {
+        if (this.dist(t.position) < this.care_.biteRange && this.stateTime % 1.1 < dt) {
           this.pendingBite = t;
           this.says = 'growl';
         }
@@ -264,13 +307,13 @@ export class Companion {
       if (this.pose === 'speak') {
         this.chirpAt = (this.chirpAt ?? 0) - dt;
         if (this.chirpAt <= 0) {
-          this.chirpAt = CARE.chirpEvery;
+          this.chirpAt = this.care_.chirpEvery;
           this.says = S.voice ?? 'chirp';
         }
       }
       if (this.pose === 'roll') {
-        this.spun += CARE.spinRate * dt;
-        this.yaw += CARE.spinRate * dt;
+        this.spun += this.care_.spinRate * dt;
+        this.yaw += this.care_.spinRate * dt;
       }
       return;
     }
@@ -282,9 +325,9 @@ export class Companion {
 
     if (!this.tame) {
       const d = owner ? this.dist(owner.position) : Infinity;
-      if (d < CARE.shyRange) {
+      if (d < this.care_.shyRange) {
         this.faceToward(owner.position.x, owner.position.z, dt, 2);
-        this.targetSpeed = d < CARE.shyRange * 0.55 ? -S.walkSpeed : 0;
+        this.targetSpeed = d < this.care_.shyRange * 0.55 ? -S.walkSpeed : 0;
       } else this.wander(dt);
       return;
     }
@@ -292,7 +335,7 @@ export class Companion {
     if (!owner) return this.wander(dt);
     const d = this.dist(owner.position);
 
-    if (this.home && (this.warmth < 0.35 || (ctx.night ?? 0) > 0.8) && d > CARE.followRange) {
+    if (this.home && (this.warmth < 0.35 || (ctx.night ?? 0) > 0.8) && d > this.care_.followRange) {
       const dh = Math.hypot(this.home.x - this.position.x, this.home.z - this.position.z);
       if (dh > 1.4) {
         this.setState(FOLLOW);
@@ -305,11 +348,11 @@ export class Companion {
       return;
     }
 
-    if (d > CARE.followRange) {
+    if (d > this.care_.followRange) {
       this.setState(FOLLOW);
       this.faceToward(owner.position.x, owner.position.z, dt, 4.5);
-      this.targetSpeed = d > CARE.runRange ? S.runSpeed : S.walkSpeed;
-    } else if (d < CARE.followRange * 0.5) {
+      this.targetSpeed = d > this.care_.runRange ? S.runSpeed : S.walkSpeed;
+    } else if (d < this.care_.followRange * 0.5) {
       this.targetSpeed = 0;
       if (this.state !== IDLE) this.setState(IDLE);
     } else {
@@ -454,7 +497,7 @@ export class Companion {
   }
 
   nearHome() {
-    return this.home && Math.hypot(this.home.x - this.position.x, this.home.z - this.position.z) < CARE.homeRadius;
+    return this.home && Math.hypot(this.home.x - this.position.x, this.home.z - this.position.z) < this.care_.homeRadius;
   }
 
   // ── persistence ───────────────────────────────────────────────────────────

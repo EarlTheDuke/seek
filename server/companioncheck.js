@@ -53,6 +53,25 @@ console.log('');
 
 check('every animal has its own trick list', new Set(trickLists).size === trickLists.length,
   `${trickLists.length} lists, ${new Set(trickLists).size} distinct`);
+
+// ── and its own temperament ──
+// These were one shared block, so a hippo trailed a human at four and a half
+// metres and bit like an otter: six animals with one nature and a coat.
+const temper = COMPANION_IDS.map((id) => {
+  const c = make(id);
+  return { id, follow: c.care_.followRange, bite: c.care_.biteDamage, hunger: c.care_.hungerPerHour };
+});
+console.log('');
+for (const t of temper) {
+  console.log(`    ${COMPANIONS[t.id].name.padEnd(10)} follows at ${String(t.follow).padStart(4)} m · bites ${String(t.bite).padStart(2)} · eats ${t.hunger}`);
+}
+console.log('');
+check('every animal has its own temperament',
+  new Set(temper.map((t) => `${t.follow}|${t.bite}|${t.hunger}`)).size === temper.length,
+  `${new Set(temper.map((t) => t.bite)).size} distinct bites, ${new Set(temper.map((t) => t.follow)).size} distinct follow ranges`);
+check('a hippo does not bite like an otter',
+  temper.find((t) => t.id === 'hippo').bite > temper.find((t) => t.id === 'otter').bite * 4,
+  `hippo ${temper.find((t) => t.id === 'hippo').bite} vs otter ${temper.find((t) => t.id === 'otter').bite}`);
 check('every animal has its own power', new Set(powers).size === powers.length,
   powers.join(' · '));
 // Counting legs is a crude proxy — three of them are four-legged animals, of
@@ -97,8 +116,28 @@ const halfway = c.ask('track');
 check('a half-trained animal performs the shape and no more', halfway.ok && !halfway.power,
   `progress ${Math.round(halfway.progress * 100)}%, power fired: ${!!halfway.power}`);
 for (let i = 0; i < c.tricks.track.reps; i++) c.ask('track');
+// The LAST rep is the one that completes the learning, so the power fires on
+// it and starts the cooldown. Asking again immediately is now correctly
+// refused — which is what the next check is for, and why this one has to wait.
+c.hours += c.care_.powerCooldownHours + 0.01;
 const trained = c.ask('track');
 check('a learned one actually does the job', trained.power === 'track', `power "${trained.power}"`);
+
+// ── working costs the animal something ──
+const tiredAfter = { played: c.played, fed: c.fed };
+const tooSoon = c.ask('track');
+check('and then it needs a rest', !tooSoon.ok && /rest/.test(tooSoon.why), tooSoon.why);
+c.hours += c.care_.powerCooldownHours + 0.01;
+const rested = c.ask('track');
+check('after the cooldown it will work again', rested.power === 'track',
+  `${Math.round(c.care_.powerCooldownHours * 60)} min for a wolf cub`);
+check('using a power tires and hungers it', tiredAfter.played < 0.999 && tiredAfter.fed < 0.999,
+  `played ${tiredAfter.played.toFixed(2)}, fed ${tiredAfter.fed.toFixed(2)} after one use`);
+// A hippo carrying a person should tire far faster than a parrot taking a look.
+const hip = make('hippo');
+const par = make('parrot');
+check('effort is per-species', hip.care_.powerTires > par.care_.powerTires * 2,
+  `hippo ${hip.care_.powerTires} vs parrot ${par.care_.powerTires} per use`);
 
 // ── neglect ──
 c = make('hippo');

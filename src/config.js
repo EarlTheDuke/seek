@@ -489,9 +489,16 @@ export const FISH = {
   noisePenalty: 0.35,
   spookedPenalty: 0.4,
   shoalBonus: 0.14,
-  otterBonusMin: 0.18,
-  otterBonusMax: 0.42,
-  maxChance: 0.92, // never a certainty
+  // The otter's help. At 0.18-0.42 a devoted one put you at 79% for a
+  // renewable 19-fill meal every few seconds, which solved hunger outright and
+  // made the STALK — the thing this game is actually about — the inefficient
+  // way to eat. It should be a good living, not a solved problem.
+  otterBonusMin: 0.12,
+  otterBonusMax: 0.28,
+  // And it catches its own less often, so a doubled haul stays a moment
+  // rather than the norm.
+  doubleChance: 0.28,
+  maxChance: 0.88, // never a certainty
 };
 
 // ── The axe ─────────────────────────────────────────────────────────────────
@@ -516,8 +523,16 @@ export const AXE = {
 
   // A full blow kills a deer outright and takes a serious bite out of a bear;
   // a panicked poke does not. That gap is the reward for holding your nerve.
-  damageLight: 14,
-  damageFull: 52,
+  // A full blow kills a deer and takes a serious bite out of a bear; a
+  // panicked poke does not. That gap is the reward for holding your nerve.
+  //
+  // 52 was a 2.4x overshoot: 99 against a deer's 42 hit points, and two blows
+  // to kill a bear. That made the axe the better answer to the commonest kill
+  // in the game AND to the encounter the bow was designed around. At 34 it is
+  // a clean one-shot on a deer and four blows on a bear — which is the stand
+  // and fight arithmetic the bear was actually built for.
+  damageLight: 10,
+  damageFull: 34,
 
   // As a TOOL. This is most of why you want one: chopping by hand is pulling
   // at deadfall, and with an axe it is chopping.
@@ -1096,7 +1111,14 @@ export const SURVIVAL = {
   // Enough to lift you clear of `neutralC` on a cold, windy ridge — at 16 it
   // fell just short, so a fire slowed you freezing but could never actually
   // warm you back up, which defeats the entire point of building one.
-  fireWarmthC: 22,
+  //
+  // 22 was set when a fire was the ONLY protection in the game. Since then it
+  // has been joined by a 9-degree cloak, a camp at 94% shelter, caves and hot
+  // springs — and stacked, they put you at 32.3 C felt on the coldest ground
+  // in the world, which is not a survival model, it is a sauna. At 13 a fire
+  // still saves you outright on its own; it just no longer makes everything
+  // else you built irrelevant.
+  fireWarmthC: 13,
   fireWarmRadius: 6.5, // and the range over which that falls off
   fireLightRange: 26,
   fireBurnPerSec: 0.34, // fuel units consumed

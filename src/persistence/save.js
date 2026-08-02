@@ -98,10 +98,17 @@ export function captureSave(ctx) {
       structures: ctx.structures ? ctx.structures.serialise() : [],
       harvested: ctx.harvest ? ctx.harvest.serialise() : [],
       totalHours: ctx.totalHours ?? 0,
-      // The otter is the second thing here not derivable from the seed, and
+      // The companion is the second thing here not derivable from the seed, and
       // the one it would hurt most to lose: a tamed, named, trained animal is
       // hours of care, and no part of it can be regenerated.
-      otter: ctx.otter ? ctx.otter.toJSON() : null,
+      // `ctx.otter` when the variable had been renamed to `pet` — so for one
+      // commit the companion silently stopped being saved at all. A rename
+      // that crosses a module boundary through a context OBJECT gets no help
+      // from the compiler, which is the whole hazard of bag-of-refs contexts.
+      pet: ctx.pet ? ctx.pet.toJSON() : null,
+      // And what the kangaroo is holding. Ten stacks lived only in memory, so
+      // logging off with a full pouch destroyed all of it.
+      pouch: ctx.pouch ? ctx.pouch.map((s) => ({ item: s.item, count: s.count })) : [],
     },
   };
 }
@@ -227,7 +234,13 @@ export function applySave(data, ctx) {
   ctx.fires?.restore(data.world.fires);
   ctx.sites?.fromJSON(data.world.sites);
   ctx.structures?.restore(data.world.structures);
-  ctx.otter?.fromJSON(data.world.otter);
+  // Accept the old key too, so a save written before the rename still loads
+  // its companion rather than silently arriving without one.
+  ctx.pet?.fromJSON(data.world.pet ?? data.world.otter);
+  if (ctx.pouch) {
+    ctx.pouch.length = 0;
+    for (const s of data.world.pouch ?? []) ctx.pouch.push({ item: s.item, count: s.count });
+  }
   ctx.harvest?.restore(data.world.harvested);
   ctx.onHoursRestored?.(data.world.totalHours ?? 0);
 

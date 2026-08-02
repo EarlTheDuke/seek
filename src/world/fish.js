@@ -276,7 +276,7 @@ export class Fish {
 
     if (roll > chance) return { ok: false, why: 'they scatter', chance, helped: helping };
     // With an otter along you sometimes get two, because it caught one as well.
-    const count = helping && this.rand() < otter.trust * 0.5 ? 2 : 1;
+    const count = helping && this.rand() < otter.trust * FISH.doubleChance ? 2 : 1;
     return { ok: true, count, chance, helped: helping };
   }
 

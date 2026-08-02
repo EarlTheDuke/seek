@@ -268,6 +268,70 @@ function wolfCubParts() {
   };
 }
 
+// ── temperament ─────────────────────────────────────────────────────────────
+//
+// Everything about how an animal BEHAVES, as opposed to what it looks like.
+//
+// These were one shared block, which meant a hippo trailed you at four and a
+// half metres and bit like an otter — six animals with one temperament and a
+// different coat. The defaults below are the otter's, because that is what
+// they were tuned as; every other species overrides what makes it itself.
+//
+// The rule for an override: it should be something you would NOTICE. A hippo
+// that keeps its distance and hits like a truck is a different companion. A
+// hippo whose `trustPerFeed` is 0.11 instead of 0.1 is a rounding error.
+export const CARE_DEFAULTS = {
+  tameAt: 0.3,
+  namesAt: 0.18,
+
+  trustPerFeed: 0.1,
+  trustPerPlay: 0.07,
+  trustPerHome: 0.12,
+  trustPerTrick: 0.05,
+
+  hungerPerHour: 0.028,
+  borednessPerHour: 0.038,
+
+  contentAbove: 0.55,
+  trustGain: 0.004,
+  trustLoss: 0.011,
+  willWorkAbove: 0.35,
+  forgetBelow: 0.22,
+  forgetSeconds: 90,
+
+  warmthRate: 0.35,
+  homeWarmth: 0.85,
+  fireWarmth: 0.7,
+  wetChill: 0.3,
+  homeRadius: 3.2,
+
+  followRange: 4.5,
+  runRange: 13,
+  shyRange: 9,
+
+  biteDamage: 6,
+  biteRange: 1.9,
+  attackSeconds: 14,
+  giveUpRange: 34,
+
+  playValue: 0.34,
+  playSeconds: 4,
+  spinRate: 6.2,
+  chirpEvery: 0.34,
+
+  // ── what working costs ──
+  // A power used to be free, instant and unlimited, so the answer to every
+  // problem was to press the button again. Now the animal gets TIRED — which
+  // fits the care model that already exists rather than bolting a mana bar
+  // onto an otter.
+  powerCooldownHours: 0.75, // in-game hours before it will do it again
+  powerTires: 0.09, // played, spent per use
+  powerHungers: 0.05, // fed, spent per use
+};
+
+/** One species' full temperament: the defaults, with its own edits on top. */
+export const careOf = (species) => ({ ...CARE_DEFAULTS, ...(species.care ?? {}) });
+
 // ── the table ───────────────────────────────────────────────────────────────
 //
 // `power` is the signature trick — the one that solves this animal's problem
@@ -295,6 +359,8 @@ export const COMPANIONS = {
     walkSpeed: 2.2, runSpeed: 5.4,
     foods: { fish: 0.55, fish_cooked: 0.4, venison: 0.42, venison_cooked: 0.3 },
     voice: 'chirp',
+    // The baseline. Everything else is described relative to this.
+    care: {},
     anim: { strideRate: 3.4, legSwing: 0.34, bodyBob: 0.035 },
     tricks: {
       sit:   { name: 'Sit',   reps: 3, needs: 0.25, holds: 6,   pose: 'sit',   blurb: 'up on its haunches' },
@@ -321,6 +387,19 @@ export const COMPANIONS = {
     walkSpeed: 1.9, runSpeed: 6.2,
     foods: { venison: 0.4, venison_cooked: 0.3, fish: 0.25 },
     voice: 'growl',
+    care: {
+      // It is enormous, so it keeps its distance and you notice when it does
+      // not. Standing where a hippo wants to stand is your problem.
+      followRange: 8, runRange: 22, shyRange: 14, homeRadius: 5,
+      // Four tonnes. The bite is the reason to bring one to a warband.
+      biteDamage: 34, biteRange: 3.2, attackSeconds: 20, giveUpRange: 46,
+      // It eats a great deal and it is slow to warm to you.
+      hungerPerHour: 0.055, trustPerFeed: 0.07, trustGain: 0.003,
+      // But it is unbothered by cold and by being wet.
+      wetChill: 0, warmthRate: 0.2,
+      // Carrying a person is work.
+      powerCooldownHours: 0.2, powerTires: 0.16, powerHungers: 0.12,
+    },
     anim: { strideRate: 1.3, legSwing: 0.42, bodyBob: 0.05 },
     tricks: {
       wallow: { name: 'Wallow', reps: 3, needs: 0.25, holds: 6,  pose: 'lie',   blurb: 'sinks down into the mud, content' },
@@ -348,6 +427,19 @@ export const COMPANIONS = {
     hoverHeight: 1.9, // it flies at your shoulder rather than walking
     foods: { venison: 0.2, fish: 0.2, wood: 0.1 },
     voice: 'chirp',
+    care: {
+      // It flies, so it never lags and it never crowds you.
+      followRange: 3, runRange: 30, shyRange: 6,
+      // A parrot is not a fighter. It is, however, extremely annoying.
+      biteDamage: 2, biteRange: 1.4, attackSeconds: 6, giveUpRange: 20,
+      // Small and fast-burning: eats little but often, bores quickly, and
+      // feels the cold badly.
+      hungerPerHour: 0.042, borednessPerHour: 0.07, wetChill: 0.5, warmthRate: 0.5,
+      // It bonds fast and it forgets fast, which is exactly a parrot.
+      trustPerFeed: 0.14, trustPerPlay: 0.11, trustLoss: 0.016, forgetSeconds: 60,
+      // Climbing to look costs it almost nothing.
+      powerCooldownHours: 0.4, powerTires: 0.06, powerHungers: 0.04,
+    },
     anim: { strideRate: 14, legSwing: 0.9, bodyBob: 0.02 },
     tricks: {
       perch:  { name: 'Perch',  reps: 3, needs: 0.25, holds: 12, pose: 'perch', blurb: 'settles on your shoulder' },
@@ -373,6 +465,16 @@ export const COMPANIONS = {
     hops: true,
     foods: { venison: 0.3, wood: 0.15, fish: 0.2 },
     voice: 'chatter',
+    care: {
+      // It bounds ahead and waits, rather than heeling.
+      followRange: 6.5, runRange: 26, shyRange: 11,
+      // It kicks, and a kick from a kangaroo is not a joke.
+      biteDamage: 19, biteRange: 2.4, attackSeconds: 12,
+      // Grazer's metabolism: eats steadily, bores slowly, hardy.
+      hungerPerHour: 0.036, borednessPerHour: 0.026, wetChill: 0.22,
+      // Carrying your gear all day is the least it can do.
+      powerCooldownHours: 0.1, powerTires: 0.05, powerHungers: 0.06,
+    },
     anim: { strideRate: 2.1, legSwing: 0.5, bodyBob: 0.16 },
     tricks: {
       stand: { name: 'Stand',  reps: 3, needs: 0.25, holds: 7,  pose: 'sit',   blurb: 'rocks back on its tail, up tall' },
@@ -400,6 +502,19 @@ export const COMPANIONS = {
     swimSpeed: 6.0,
     foods: { fish: 0.6, venison: 0.25 },
     voice: 'chirr',
+    care: {
+      // Slow on land, so it stays close and you wait for it — which is the
+      // cost of choosing the cleverest animal in the game.
+      followRange: 3.2, runRange: 8, shyRange: 5, homeRadius: 4,
+      // Eight arms and a beak. Nothing enjoys being held by an octopus.
+      biteDamage: 14, biteRange: 2.2, attackSeconds: 16,
+      // It dries out. Being away from water is the thing that hurts it, so
+      // `wetChill` is negative — water is where it recovers.
+      wetChill: -0.45, warmthRate: 0.4, hungerPerHour: 0.031,
+      // Extremely bright: learns fast and forgives slowly.
+      trustPerTrick: 0.09, forgetSeconds: 140, trustLoss: 0.014,
+      powerCooldownHours: 0.5, powerTires: 0.11, powerHungers: 0.09,
+    },
     anim: { strideRate: 2.2, legSwing: 0.55, bodyBob: 0.05 },
     tricks: {
       furl:   { name: 'Furl',   reps: 3, needs: 0.25, holds: 6, pose: 'lie',   blurb: 'draws its arms in and sulks' },
@@ -423,6 +538,17 @@ export const COMPANIONS = {
     walkSpeed: 2.8, runSpeed: 7.2,
     foods: { venison: 0.5, venison_cooked: 0.36, fish: 0.3 },
     voice: 'growl',
+    care: {
+      // It heels. Of the six it is the one that actually stays with you.
+      followRange: 3.4, runRange: 20, shyRange: 8,
+      // A cub, not a wolf — but it means it.
+      biteDamage: 15, biteRange: 2.0, attackSeconds: 18, giveUpRange: 44,
+      // Carnivore: eats a lot, hates being bored, warm-coated.
+      hungerPerHour: 0.048, borednessPerHour: 0.055, wetChill: 0.34, warmthRate: 0.28,
+      // Pack animal. It bonds hard and it takes neglect badly.
+      trustPerPlay: 0.11, trustGain: 0.006, trustLoss: 0.015,
+      powerCooldownHours: 0.6, powerTires: 0.1, powerHungers: 0.08,
+    },
     anim: { strideRate: 3.0, legSwing: 0.62, bodyBob: 0.04 },
     tricks: {
       sit:   { name: 'Sit',   reps: 3, needs: 0.25, holds: 7, pose: 'sit',   blurb: 'sits, more or less' },
