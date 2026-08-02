@@ -17,6 +17,7 @@ import { hash2i, lerp } from '../util/math.js';
 import { SPECIES, getSpecies } from './registry.js';
 import { Creature } from './creature.js';
 import { strangenessAt, darkness, inBand } from '../world/strangeness.js';
+import { updateMorale, reportDeath } from './morale.js';
 
 const _player = new THREE.Vector3();
 
@@ -260,6 +261,8 @@ export class Wildlife {
       this.refresh(playerPos.x, playerPos.z);
     }
 
+    this.updatePacks(dt, darkness(this.ctx.sunAltitude ?? 90));
+
     for (let i = this.creatures.length - 1; i >= 0; i--) {
       const c = this.creatures[i];
       const d = Math.hypot(c.position.x - playerPos.x, c.position.z - playerPos.z);
@@ -293,6 +296,13 @@ export class Wildlife {
         this.raiseAlarm(c);
       }
 
+      // One of them has gone down. Everyone close enough to have seen it takes
+      // it personally — this is the single lever the player has on a pack.
+      if (c.justDied) {
+        c.justDied = false;
+        if (c.pack) reportDeath(c.pack, c);
+      }
+
       // A predator that has closed to contact swings. The creature only raises
       // the flag; landing the blow is the manager's job, because the creature
       // has no business knowing what a player is.
@@ -323,6 +333,52 @@ export class Wildlife {
 
     // After everyone has moved, push apart anything that ended up overlapping.
     this.separate();
+  }
+
+  /**
+   * Rebuild the pack rosters and recompute everyone's nerve.
+   *
+   * Done centrally, once per frame, before anybody thinks — so every member of
+   * a pack decides against the SAME picture of how the fight is going. If each
+   * goblin counted its own friends inside its own think() they would disagree
+   * about whether they were winning, and the pack would half-commit.
+   *
+   * Rebuilt from scratch rather than maintained incrementally because packs are
+   * small and creatures despawn behind you; a stale roster would have a goblin
+   * drawing courage from a friend that no longer exists.
+   */
+  updatePacks(dt, night) {
+    if (!this.packs) this.packs = new Map();
+    this.packs.clear();
+
+    for (const c of this.creatures) {
+      if (!c.packId) continue;
+      let list = this.packs.get(c.packId);
+      if (!list) this.packs.set(c.packId, (list = []));
+      list.push(c);
+    }
+
+    for (const list of this.packs.values()) {
+      // Centre of the living members — the rally point, and what a prowling
+      // pack loosely orbits.
+      let cx = 0;
+      let cz = 0;
+      let n = 0;
+      for (const c of list) {
+        if (c.state === 'dead') continue;
+        cx += c.position.x;
+        cz += c.position.z;
+        n++;
+      }
+      const centre = n ? { x: cx / n, z: cz / n } : null;
+
+      for (const c of list) {
+        c.pack = list;
+        c.packCentre = centre;
+        if (c.state === 'dead') continue;
+        updateMorale(c, list, night, dt);
+      }
+    }
   }
 
   /**

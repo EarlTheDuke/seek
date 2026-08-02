@@ -40,6 +40,24 @@ export const DEAD = 'dead';
 const _fwd = new THREE.Vector3();
 const _to = new THREE.Vector3();
 
+/**
+ * How a body moves, as data. A species may override any of it in the registry.
+ * The defaults are the deer, since that is what the animator was written
+ * against and what every four-legged grazer should look like.
+ */
+export const ANIM_DEFAULTS = {
+  strideRate: 1.5, // leg cycles per metre-per-second of travel
+  legSwing: 0.65, // radians of fore-aft leg throw at full speed
+  armSwing: 0, // only bodies with arms use this
+  bodyBob: 0.05, // vertical rock, metres
+  bodyRock: 0.05, // pitch, radians
+  neckUp: -0.35, // neck angle head-up (alert)
+  neckDown: 0.95, // ...and head-down (grazing)
+  headUp: 0.2,
+  headDown: 0.55,
+  tailFlick: 0.4,
+};
+
 let nextId = 1;
 
 export class Creature {
@@ -87,6 +105,18 @@ export class Creature {
     // smelt the threat itself; 2 means it is reacting to an animal reacting to
     // an animal. Each hop weakens what gets passed on — see manager.raiseAlarm.
     this.alarmGen = 0;
+
+    // ── pack state ──
+    // Set by the manager for species that have `morale`. A creature with no
+    // pack simply keeps the defaults and nothing reads them.
+    this.packId = null;
+    this.pack = null; // live roster, refreshed each frame
+    this.packCentre = null; // where its fellows are, for rallying and prowling
+    this.packStanding = 1; // how many of them are still up and nearby
+    // Starts confident: a pack that spawns already wavering has no arc.
+    this.morale = 1;
+    this.broken = false;
+    this.shock = 0;
   }
 
   get position() {
@@ -163,8 +193,163 @@ export class Creature {
    */
   think(dt) {
     this.stateTime += dt;
-    if (this.species.behaviour === 'aggressive') this.thinkAggressive(dt);
+    if (this.species.behaviour === 'pack') this.thinkPack(dt);
+    else if (this.species.behaviour === 'aggressive') this.thinkAggressive(dt);
     else this.thinkSkittish(dt);
+  }
+
+  // ── pack: circle, commit, break, rally ─────────────────────────────────────
+
+  /**
+   * The goblin.
+   *
+   * Deliberately not a small bear. A bear is a single decision — stand and
+   * shoot, or die — and repeating that with a weaker enemy would be dull. This
+   * is a fight against a GROUP's confidence rather than against its bodies,
+   * and it has three postures instead of one:
+   *
+   *   * CONFIDENT — it commits, and it commits from a side. Each member holds
+   *     an angular slot around you (see `flankAngle`), so a pack arrives
+   *     spread out and gets behind you rather than queueing up on your
+   *     crosshair. This is the thing that makes six of them frightening.
+   *   * WAVERING — it closes to `hesitateRange` and STAYS there, circling, out
+   *     of reach, watching. Not attacking and not leaving. That posture is
+   *     worse to be on the end of than either alternative, and it is what a
+   *     pack that has taken a loss but not been beaten actually does.
+   *   * BROKEN — it runs. But it runs to regroup, not to leave, and if you let
+   *     it gather with its fellows out of sight its morale climbs back and it
+   *     comes again.
+   *
+   * Everything above is read off `morale`, which the manager recomputes each
+   * frame from the pack's numbers, wounds, shock and the sun.
+   */
+  thinkPack(dt) {
+    const S = this.species.senses;
+    const sp = this.species.speeds;
+    const A = this.species.aggression;
+    const M = this.species.morale;
+
+    this.attackCooldown = Math.max(0, (this.attackCooldown ?? 0) - dt);
+    this.headDown = damp(this.headDown, 0, 4, dt);
+
+    const dist = this.distanceToPlayer ?? Infinity;
+    const tx = this.lastKnownThreat.x;
+    const tz = this.lastKnownThreat.z;
+
+    // ── broken: run to the rally point, not simply away ──
+    if (this.broken) {
+      this.setState(FLEE);
+      this.targetSpeed = sp.flee;
+      // Away from you, but biased toward where the rest of the pack is, so a
+      // routed pack balls up somewhere in the dark instead of scattering to
+      // the four winds and never being a pack again.
+      let rx = this.position.x - tx;
+      let rz = this.position.z - tz;
+      if (this.packCentre) {
+        const gx = this.packCentre.x - this.position.x;
+        const gz = this.packCentre.z - this.position.z;
+        const gl = Math.hypot(gx, gz) || 1;
+        const rl = Math.hypot(rx, rz) || 1;
+        rx = (rx / rl) * (1 - M.rallyPull) + (gx / gl) * M.rallyPull;
+        rz = (rz / rl) * (1 - M.rallyPull) + (gz / gl) * M.rallyPull;
+      }
+      this.steerTo(this.position.x + rx * 10, this.position.z + rz * 10, dt, 4);
+      return;
+    }
+
+    // ── hasn't noticed you ── prowl, in a loose group.
+    if (this.awareness < S.alertAt) {
+      if (this.state !== WANDER && this.state !== GRAZE) this.setState(WANDER);
+      this.targetSpeed = sp.walk;
+      if (!this.wanderTarget || this.stateTime > 11) {
+        this.wanderTarget = null;
+        for (let attempt = 0; attempt < 8; attempt++) {
+          const a = this.rand() * Math.PI * 2;
+          const r = 8 + this.rand() * 20;
+          const px = (this.packCentre?.x ?? this.home.x) + Math.cos(a) * r;
+          const pz = (this.packCentre?.z ?? this.home.z) + Math.sin(a) * r;
+          if (this.passable(px, pz)) {
+            this.wanderTarget = new THREE.Vector3(px, 0, pz);
+            break;
+          }
+        }
+        this.stateTime = 0;
+      }
+      if (this.wanderTarget) this.steerTo(this.wanderTarget.x, this.wanderTarget.z, dt);
+      return;
+    }
+
+    // ── it has you ── how close it is willing to get is pure morale.
+    const committed = this.morale >= M.commitAt;
+    const want = committed ? A.attackRange * 0.75 : M.hesitateRange;
+
+    // Approach on its own arc rather than straight down your sight line.
+    const [gx, gz] = this.ringPoint(tx, tz, want, committed ? M.flankSpread : M.circleSpread);
+
+    if (committed && dist <= A.attackRange) {
+      this.setState(ATTACK);
+      this.targetSpeed = 0;
+      this.faceToward(tx, tz, dt, this.species.turnRate);
+      if (this.attackCooldown === 0) {
+        this.attackCooldown = A.attackInterval;
+        this.pendingAttack = true; // consumed by the manager
+      }
+      return;
+    }
+
+    if (committed) {
+      this.setState(CHARGE);
+      this.targetSpeed = sp.charge ?? sp.trot;
+      this.steerTo(gx, gz, dt, this.species.turnRate);
+      return;
+    }
+
+    // Wavering: hold the ring. Circling rather than standing, because a pack
+    // of statues reads as a bug and a pack that paces reads as a threat.
+    this.setState(ALERT);
+    const ring = Math.abs(dist - M.hesitateRange);
+    this.targetSpeed = ring > 3 ? sp.trot : sp.walk * M.circlePace;
+    this.steerTo(gx, gz, dt, this.species.turnRate);
+  }
+
+  /**
+   * Where on the ring around (tx, tz) this creature is heading.
+   *
+   * Built RADIALLY — the creature's own current bearing from the target, held
+   * at radius `want`, plus a tangential step so it orbits rather than parks.
+   *
+   * The obvious version, "pick an angle from my id and aim at that point on
+   * the circle", spirals. Aiming at a point elsewhere on a circle means
+   * travelling a CHORD, which ends up inside it; do that every frame and the
+   * ring closes. Measured: a wavering pack meant to hold 13 m crept in to 7.8
+   * and was still descending — so the pack that was supposed to hesitate just
+   * outside your reach walked politely into it instead.
+   *
+   * Anchoring on the creature's own bearing fixes it and costs nothing, since
+   * a scattered pack already has scattered bearings — which is the fan-out the
+   * angular version was trying to produce in the first place. The tangential
+   * step is what keeps them moving, because a ring of statues reads as a bug
+   * and a ring that paces reads as a threat.
+   */
+  ringPoint(tx, tz, want, spread) {
+    let bx = this.position.x - tx;
+    let bz = this.position.z - tz;
+    const bl = Math.hypot(bx, bz);
+    if (bl < 1e-3) {
+      // Standing on top of the target — any direction will do, but it must be
+      // a STABLE one, or it jitters. Derived from the id.
+      const a = (((this.id * 2654435761) >>> 0) % 1000) / 1000 * Math.PI * 2;
+      bx = Math.sin(a);
+      bz = Math.cos(a);
+    } else {
+      bx /= bl;
+      bz /= bl;
+    }
+    // Which way round it orbits, fixed per creature so the ring does not
+    // reverse direction every time the arithmetic wobbles.
+    const side = this.id % 2 === 0 ? 1 : -1;
+    const step = want * spread * 0.18;
+    return [tx + bx * want - bz * side * step, tz + bz * want + bx * side * step];
   }
 
   // ── prey: notice, freeze, bolt ─────────────────────────────────────────────
@@ -524,29 +709,50 @@ export class Creature {
       return;
     }
 
+    // Per-species animation shape. The gait code is shared; the numbers are
+    // not, because a hunched biped and a stag do not move alike.
+    const A = this.species.anim ?? ANIM_DEFAULTS;
+
     // Gait: stride frequency follows speed, so a walk and a bolt use the same
     // code and never look out of sync with the ground.
-    const stride = this.speed > 0.05 ? this.speed * 1.5 : 0;
+    const stride = this.speed > 0.05 ? this.speed * A.strideRate : 0;
     this.legPhase += stride * dt;
     const swing = clamp(this.speed / this.species.speeds.trot, 0, 1.5);
     for (let i = 0; i < p.legs.length; i++) {
-      // Diagonal pairs, as a real quadruped moves.
+      // Diagonal pairs for a quadruped. For a two-legged body this same rule
+      // gives a plain left-right alternation, which is exactly right.
       const off = i === 0 || i === 3 ? 0 : Math.PI;
-      p.legs[i].rotation.x = Math.sin(this.legPhase + off) * 0.65 * swing;
+      p.legs[i].rotation.x = Math.sin(this.legPhase + off) * A.legSwing * swing;
+    }
+
+    // Arms, if this body has any. Counter-swung against the legs, the way
+    // anything that walks upright does.
+    if (p.arms) {
+      for (let i = 0; i < p.arms.length; i++) {
+        const off = i === 0 ? Math.PI : 0;
+        p.arms[i].rotation.x = Math.sin(this.legPhase + off) * A.armSwing * swing;
+      }
     }
 
     // Body rocks and lifts slightly at a gallop.
+    //
+    // The rest height is the one the BODY WAS BUILT AT, not a literal. It used
+    // to be hard-coded to the deer's 0.86, so a bear — built at 1.02 — had its
+    // torso yanked 16 cm down into its own legs on the first animated frame,
+    // and then popped back up on death, since the death pose correctly used
+    // restBodyY. Any new species would have inherited the same wrongness.
     const bound = this.speed > this.species.speeds.trot ? 1 : 0;
-    p.body.position.y = 0.86 + Math.sin(this.legPhase * 2) * 0.05 * swing * (1 + bound);
-    p.body.rotation.x = Math.sin(this.legPhase * 2) * 0.05 * swing;
+    p.body.position.y =
+      this.restBodyY + Math.sin(this.legPhase * 2) * A.bodyBob * swing * (1 + bound);
+    p.body.rotation.x = Math.sin(this.legPhase * 2) * A.bodyRock * swing;
 
     // Neck: down to graze, up and alert otherwise.
-    p.neckPivot.rotation.x = lerp(-0.35, 0.95, this.headDown);
-    p.headPivot.rotation.x = lerp(0.2, 0.55, this.headDown);
+    p.neckPivot.rotation.x = lerp(A.neckUp, A.neckDown, this.headDown);
+    p.headPivot.rotation.x = lerp(A.headUp, A.headDown, this.headDown);
 
     // Tail flicks — faster when nervous.
     const nerves = 1 + this.awareness * 4;
-    p.tailPivot.rotation.x = Math.sin(this.legPhase * 1.5 + this.id) * 0.25 * nerves * 0.4;
+    p.tailPivot.rotation.x = Math.sin(this.legPhase * 1.5 + this.id) * 0.25 * nerves * A.tailFlick;
 
     // A predator rears as it swings. This is the tell that a blow is landing,
     // and it is the only reason you get a chance to back off.
@@ -596,6 +802,11 @@ export class Creature {
     this.speed = 0;
     this.targetSpeed = 0;
     this.deathTime = 0;
+    // Consumed by the manager on the next frame, which is what tells the rest
+    // of the pack. Raised as a flag rather than calling into morale from here,
+    // matching `alarmed` / `pendingAttack` / `hurt`: the creature reports what
+    // happened to it and the manager decides what that means to anyone else.
+    this.justDied = true;
     this.fallSide = this.rand() < 0.5 ? -1 : 1;
     this.fallTilt = (this.rand() - 0.5) * 0.4;
     // Front and back legs fold differently, and each one a little differently
@@ -628,7 +839,13 @@ export class Creature {
     // What being shot MEANS depends on the animal. This used to unconditionally
     // set FLEE, which is deer logic — so a bear turned and ran the instant the
     // first arrow landed, which is the opposite of the point of a bear.
-    if (this.species.behaviour === 'aggressive') {
+    if (this.species.behaviour === 'pack') {
+      // A wounded goblin does not decide anything on its own — morale does,
+      // and a wound is only a small term in it. So shooting one member of a
+      // confident pack makes it angry, not cautious. You have to change the
+      // ODDS, and the only way to do that is to put one of them down.
+      this.hurt = true;
+    } else if (this.species.behaviour === 'aggressive') {
       this.charging = true;
       this.chargeTime = 0; // fresh legs: a wounded bear finds another gear
       this.giveUp = 0;

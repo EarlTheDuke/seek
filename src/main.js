@@ -15,6 +15,7 @@ import { AmbientLife } from './fx/ambientLife.js';
 import { Controller } from './player/controller.js';
 import { PlayerInput } from './player/input.js';
 import { checkInput } from './player/inputCheck.js';
+import { describeMorale } from './creatures/morale.js';
 import { sanitiseIntent, IDLE_INTENT } from './sim/intents.js';
 import { CameraFeel } from './player/cameraFeel.js';
 import { ViewModel } from './player/viewmodel.js';
@@ -66,6 +67,8 @@ const camera = new THREE.PerspectiveCamera(
 const hud = new Hud();
 const _drop = new THREE.Vector3(); // scratch: which way a dropped item is tossed
 const _lootRand = makeRandom('drops');
+// Its own stream, so poking at the sandbox tools never shifts the loot rolls.
+const sandboxRand = makeRandom('sandbox');
 /** Inclusive integer in [a, b], from the seeded drop stream. */
 const lerpRand = (a, b) => a + _lootRand() * (b - a);
 
@@ -803,13 +806,56 @@ function boot() {
     spawnBear: gate(
       'allowSpawning',
       (distance = 45) => {
-        const a = Math.random() * Math.PI * 2;
+        // Seeded, not Math.random. Determinism is a project invariant and a
+        // sandbox tool is not exempt: a debug spawn that lands somewhere new
+        // every time makes the bug you are chasing unreproducible.
+        const a = sandboxRand() * Math.PI * 2;
         const x = ctrl.position.x + Math.cos(a) * distance;
         const z = ctrl.position.z + Math.sin(a) * distance;
         return wildlife.spawn('bear', x, z);
       },
       'spawning'
     ),
+    /**
+     * Drop a pack in front of you, already aware of you. The way to actually
+     * look at morale rather than wander the high country at night hoping.
+     */
+    spawnPack: gate(
+      'allowSpawning',
+      (speciesId = 'goblin', count = 5, distance = 34) => {
+        const a = ctrl.yaw;
+        const x = ctrl.position.x - Math.sin(a) * distance;
+        const z = ctrl.position.z - Math.cos(a) * distance;
+        const born = wildlife.spawnHerd(speciesId, x, z, count, 7);
+        const packId = `debug:${speciesId}:${Math.round(x)},${Math.round(z)}`;
+        for (const c of born) {
+          c.packId = packId;
+          c.awareness = 1;
+          c.lastKnownThreat.copy(ctrl.position);
+        }
+        return `${born.length} ${speciesId} at ${distance} m`;
+      },
+      'spawning'
+    ),
+    /** What a pack is thinking. The readout the morale model is tuned against. */
+    packReport: () => {
+      const out = [];
+      for (const c of wildlife.creatures) {
+        if (!c.species.morale) continue;
+        out.push({
+          id: c.id,
+          state: c.state,
+          hp: Math.round(c.hp),
+          morale: +c.morale.toFixed(2),
+          nerve: describeMorale(c.morale),
+          broken: c.broken,
+          standing: c.packStanding,
+          shock: +(c.shock ?? 0).toFixed(2),
+          dist: +(c.distanceToPlayer ?? 0).toFixed(1),
+        });
+      }
+      return out.length ? out : 'no pack creatures nearby';
+    },
     colliders: { scatter: scatterColliders, static: staticColliders },
     get time() { return time; },
 

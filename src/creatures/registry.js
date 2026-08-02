@@ -323,6 +323,147 @@ function buildBear(rand) {
   return { group: g, parts: { body, neckPivot, headPivot, legs, tailPivot }, male: true, scale };
 }
 
+// ── goblin body ─────────────────────────────────────────────────────────────
+//
+// The first thing in the world that is not an animal, so the silhouette has to
+// carry that on its own: upright but hunched, arms too long, head too big. It
+// reads as WRONG at a distance in a way a four-legged shape cannot, which
+// matters because you will usually meet these at the edge of your light.
+
+const GOB_SKIN = new THREE.Color(0x6b7355);
+const GOB_SKIN_DARK = new THREE.Color(0x474d38);
+const GOB_RAG = new THREE.Color(0x3d342a);
+const GOB_EYE = new THREE.Color(0xd8a23c); // the only warm colour on it
+
+let goblinParts = null;
+
+function goblinGeometry() {
+  if (goblinParts) return goblinParts;
+
+  // Torso, pitched forward. The hunch is the whole silhouette.
+  const chest = new THREE.IcosahedronGeometry(0.27, 1);
+  chest.scale(1.1, 1.15, 0.8);
+  const belly = new THREE.IcosahedronGeometry(0.22, 1);
+  belly.scale(1.05, 0.9, 0.85);
+  belly.translate(0, -0.3, 0.02);
+  const rags = new THREE.CylinderGeometry(0.26, 0.19, 0.3, 7);
+  rags.translate(0, -0.42, 0);
+  const body = merge([paint(chest, GOB_SKIN), paint(belly, GOB_SKIN), paint(rags, GOB_RAG)]);
+
+  const neckGeo = new THREE.CylinderGeometry(0.07, 0.1, 0.14, 6);
+  const neck = merge([paint(neckGeo, GOB_SKIN_DARK)]);
+
+  // Head: oversized, with ears that break the outline. At the poly budget the
+  // ears do more work than the face does.
+  const skull = new THREE.IcosahedronGeometry(0.2, 1);
+  skull.scale(0.92, 0.88, 1.0);
+  const jaw = new THREE.IcosahedronGeometry(0.12, 0);
+  jaw.scale(0.85, 0.6, 1.1);
+  jaw.translate(0, -0.11, 0.09);
+  const earL = new THREE.ConeGeometry(0.07, 0.26, 4);
+  earL.rotateZ(-1.15);
+  earL.rotateY(0.3);
+  earL.translate(0.2, 0.06, -0.02);
+  const earR = earL.clone();
+  earR.scale(-1, 1, 1);
+  const eyeL = new THREE.IcosahedronGeometry(0.038, 0);
+  eyeL.translate(0.085, 0.03, 0.15);
+  const eyeR = eyeL.clone();
+  eyeR.translate(-0.17, 0, 0);
+  const head = merge([
+    paint(skull, GOB_SKIN),
+    paint(jaw, GOB_SKIN_DARK),
+    paint(earL, GOB_SKIN_DARK),
+    paint(earR, GOB_SKIN_DARK),
+    paint(eyeL, GOB_EYE),
+    paint(eyeR, GOB_EYE),
+  ]);
+
+  const legGeo = new THREE.CylinderGeometry(0.075, 0.055, 0.52, 6);
+  legGeo.translate(0, -0.26, 0);
+  const foot = new THREE.IcosahedronGeometry(0.09, 0);
+  foot.scale(1, 0.5, 1.5);
+  foot.translate(0, -0.52, 0.05);
+  const leg = merge([paint(legGeo, GOB_SKIN), paint(foot, GOB_SKIN_DARK)]);
+
+  // Arms longer than the legs — the detail that says "not a small person".
+  const armGeo = new THREE.CylinderGeometry(0.055, 0.042, 0.62, 6);
+  armGeo.translate(0, -0.31, 0);
+  const hand = new THREE.IcosahedronGeometry(0.075, 0);
+  hand.scale(1, 0.8, 0.7);
+  hand.translate(0, -0.63, 0.02);
+  const arm = merge([paint(armGeo, GOB_SKIN), paint(hand, GOB_SKIN_DARK)]);
+
+  const tailGeo = new THREE.IcosahedronGeometry(0.05, 0);
+  const tail = merge([paint(tailGeo, GOB_RAG)]);
+
+  goblinParts = { body, neck, head, leg, arm, tail };
+  return goblinParts;
+}
+
+/**
+ * Assemble a goblin. Honours the same part contract as the animals — body,
+ * neckPivot, headPivot, legs[], tailPivot — plus an optional `arms[]` that the
+ * shared animator swings if it finds it. Two legs rather than four falls out
+ * of the existing diagonal-pair rule as a plain left-right alternation.
+ */
+function buildGoblin(rand) {
+  const P = goblinGeometry();
+  const g = new THREE.Group();
+
+  const body = mesh(P.body);
+  body.position.y = 0.92;
+  body.rotation.x = 0.38; // the hunch
+  body.castShadow = true;
+  g.add(body);
+
+  const neckPivot = new THREE.Object3D();
+  neckPivot.position.set(0, 1.12, 0.1);
+  const neck = mesh(P.neck);
+  neckPivot.add(neck);
+
+  const headPivot = new THREE.Object3D();
+  headPivot.position.y = 0.13;
+  const head = mesh(P.head);
+  head.castShadow = true;
+  headPivot.add(head);
+  neckPivot.add(headPivot);
+  g.add(neckPivot);
+
+  const legs = [];
+  for (const ix of [0.12, -0.12]) {
+    const pivot = new THREE.Object3D();
+    pivot.position.set(ix, 0.56, 0);
+    const l = mesh(P.leg);
+    l.castShadow = true;
+    pivot.add(l);
+    g.add(pivot);
+    legs.push(pivot);
+  }
+
+  const arms = [];
+  for (const ix of [0.26, -0.26]) {
+    const pivot = new THREE.Object3D();
+    pivot.position.set(ix, 1.06, 0.04);
+    const a = mesh(P.arm);
+    a.castShadow = true;
+    pivot.add(a);
+    g.add(pivot);
+    arms.push(pivot);
+  }
+
+  // Vestigial, but the animator expects one and an empty pivot costs nothing.
+  const tailPivot = new THREE.Object3D();
+  tailPivot.position.set(0, 0.72, -0.2);
+  tailPivot.add(mesh(P.tail));
+  g.add(tailPivot);
+
+  const scale = 0.86 + rand() * 0.24;
+  g.scale.setScalar(scale);
+
+  return { group: g, parts: { body, neckPivot, headPivot, legs, arms, tailPivot }, male: true, scale };
+}
+
 // ── species table ───────────────────────────────────────────────────────────
 
 export const SPECIES = {
@@ -479,6 +620,159 @@ SPECIES.bear = {
   ],
 
   build: buildBear,
+};
+
+// ── the goblin ──────────────────────────────────────────────────────────────
+//
+// From VISION.md: "hunts you, in packs, by scent. Cowardly alone: break the
+// pack and it breaks. First enemy with morale."
+//
+// What it inverts: everything the deer taught you. Wind is no longer your tool
+// — being downwind of a goblin is how it finds you. Patience is no longer free
+// — standing still in the dark is how they surround you. And it is the first
+// thing in the game that is hunting rather than being hunted.
+//
+// Individually it is nothing: 34 hit points, a bad swing, slower than you.
+// The danger is entirely in the arithmetic, which is what morale.js is for.
+SPECIES.goblin = {
+  id: 'goblin',
+  name: 'Goblin',
+  faction: 'strange',
+  diet: 'carrion',
+  behaviour: 'pack',
+
+  // Two good arrows, or one to the head. It has to die fast, or a pack of six
+  // is simply a wall of hit points and the morale system never gets to speak.
+  hitPoints: 34,
+  hitZones: [
+    { name: 'head', minY: 0.8, multiplier: 3.2 },
+    { name: 'vitals', minY: 0.5, multiplier: 1.8 },
+    { name: 'body', minY: 0.22, multiplier: 1.0 },
+    { name: 'legs', minY: 0.0, multiplier: 0.5 },
+  ],
+
+  radius: 0.42,
+  height: 1.34,
+  eyeHeight: 1.2,
+  wadeMax: 0.9,
+  personalSpace: 1.5, // they crowd; that is the point
+
+  // `charge` is BELOW your 8.6 m/s sprint. You can outrun goblins — but only
+  // in a straight line, and only if you are not already surrounded, and only
+  // if you know which way is downhill in the dark. The threat is position,
+  // not speed, which is what makes it a different fight from the bear.
+  speeds: { graze: 0.5, walk: 1.6, trot: 4.4, flee: 7.6, charge: 7.4 },
+  turnRate: 3.6, // nimble
+  stamina: 14,
+
+  senses: {
+    // Poor eyes, superb nose. Being downwind is now a liability rather than a
+    // tool — the single cleanest inversion of the deer.
+    sightRange: 34,
+    sightFov: 1.9,
+    sightAcuity: 0.55,
+    hearingRange: 54,
+    hearingAcuity: 1.2,
+    scentAcuity: 2.8, // the best nose in the game, and it is hunting you
+    alertAt: 0.28,
+    panicAt: 999, // panic is morale's job, not awareness's
+    calmRate: 0.1,
+  },
+
+  aggression: {
+    chargeAt: 0.4,
+    aggroRange: 90,
+    leash: 200,
+    loseInterest: 18,
+    attackRange: 2.1,
+    attackInterval: 1.5,
+    damage: 11, // survivable one at a time; four at once is not
+    chargeStamina: 99,
+    chasePace: 4.4,
+    fleeBelow: 0, // it does not break on its own health — see morale
+  },
+
+  morale: {
+    // How many of them, standing and nearby, counts as good odds.
+    confidentAt: 4,
+    // Beyond this a pack-mate is no comfort at all. Must exceed the DIAMETER
+    // of the hesitation ring (2 x 13 m), or two goblins circling opposite
+    // sides of you fall out of each other's cohesion and break up purely from
+    // the geometry of watching you — which is what they did at 26 m.
+    cohesionRange: 34,
+
+    // The three thresholds that give the fight its shape. They are set against
+    // what the numbers term can actually PRODUCE: with confidentAt 4, a pack of
+    // two tops out at 0.26, three at 0.74, four or more at 1.
+    //
+    //   4+ standing -> 1.00  commits
+    //   3  standing -> 0.74  commits
+    //   2  standing -> 0.26  circles, and can still rally
+    //   1  standing -> 0.00  runs, and stays run
+    //
+    // rallyAt started at 0.46, ABOVE the ceiling a pair can ever reach — so any
+    // pack reduced to two was permanently broken the first time it took a
+    // fright, and the circling posture existed only as a knife-edge on the way
+    // past. Keeping rallyAt under that ceiling is what makes "let them regroup
+    // and they come again" true for a small pack as well as a large one.
+    commitAt: 0.5, // above this it comes in; below, it circles
+    breakAt: 0.18, // and below this it runs
+    rallyAt: 0.24, // hysteresis, so it commits or breaks rather than dithers
+
+    woundPenalty: 0.3, // its own wounds matter, but not much
+    deathShock: 0.55, // watching one die matters a great deal
+    witnessRange: 30,
+    shockRecovery: 0.11, // ~5 s to shake off a death it survived
+
+    // Daylight is a hard multiplier: no number of goblins fights at noon.
+    // Surviving until sunrise is a real tactic and not a figure of speech.
+    daylightFloor: 0.12,
+
+    fallRate: 3.5, // losing your nerve is a moment...
+    riseRate: 0.55, // ...getting it back is a decision
+
+    hesitateRange: 13, // where a wavering pack sits and watches you
+    circlePace: 1.5,
+    flankSpread: 2.1, // radians of arc a committed pack fans across
+    circleSpread: 3.0, // wider when merely watching — a proper ring
+    rallyPull: 0.45, // how much a routed goblin runs TO its fellows
+  },
+
+  anim: {
+    strideRate: 2.2,
+    legSwing: 0.8,
+    armSwing: 0.55, // the long arms swing, and they are what you notice
+    bodyBob: 0.035,
+    bodyRock: 0.03,
+    // Barely any neck articulation: it does not graze, it stares.
+    neckUp: 0.1,
+    neckDown: 0.35,
+    headUp: -0.05,
+    headDown: 0.2,
+    tailFlick: 0,
+  },
+
+  herd: { min: 3, max: 6, spread: 9 }, // they arrive together
+
+  // Goblins raise the alarm to each other loudly and over a long way, and they
+  // listen to prey too — a bolting deer tells them something is moving.
+  alarm: { radius: 80, core: 34, strength: 1, hears: ['strange', 'prey'], trust: 0.9 },
+
+  spawn: {
+    minHeight: WATER_LEVEL + 1,
+    maxHeight: 95,
+    maxSlope: 0.55,
+    weight: 1.4, // common — where they are allowed at all
+    // Only where the world has already gone wrong, and only after dark.
+    strangeness: [0.42, 1],
+    nightOnly: true,
+  },
+
+  drops: [
+    { item: 'hide', min: 1, max: 1 },
+  ],
+
+  build: buildGoblin,
 };
 
 export const getSpecies = (id) => SPECIES[id] ?? null;
