@@ -40,7 +40,9 @@ npm run dev      # http://localhost:5173
 | `Shift` | sprint |
 | `C` | crouch, as a toggle — quieter, lower, harder to see |
 | `Space` | jump (up, in free-fly) |
-| `G` | build a fire (costs a branch) |
+| `G` | light a fire (costs a branch) |
+| **`B`** | **build — whatever your camp is still missing** |
+| `E` | cut a tree · quarry a rock · use a store · take bearings · open a barrow |
 | `R` | eat |
 | **`Mouse 1`** | **draw the bow — hold to aim, release to loose** |
 | `E` | pick up |
@@ -52,7 +54,7 @@ npm run dev      # http://localhost:5173
 | `P` | save a screenshot |
 | `H` | hide the interface |
 | `M` | mute |
-| `B` | toggle bloom |
+| `N` | toggle bloom |
 | `?` | show the keybinds again |
 | `Esc` | release the mouse |
 

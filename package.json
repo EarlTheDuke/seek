@@ -12,7 +12,8 @@
     "serve": "node server/server.js",
     "netcheck": "node server/smoketest.js",
     "bot": "node server/bot.js",
-    "raidcheck": "node server/raidtest.js"
+    "raidcheck": "node server/raidtest.js",
+    "campcheck": "node server/campcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

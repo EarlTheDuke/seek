@@ -64,7 +64,14 @@ export function airTemperature(y, hours, sunAltitude, weather) {
  * @param {object} ctx { hours, sunAltitude, weather, fires }
  */
 export function sampleEnvironment(pos, ctx) {
-  const { hours, sunAltitude, weather, fires, shelter: extraShelter = 0 } = ctx;
+  const {
+    hours,
+    sunAltitude,
+    weather,
+    fires,
+    shelter: extraShelter = 0,
+    roofed = false,
+  } = ctx;
 
   const ground = heightAt(pos.x, pos.z);
   let air = airTemperature(pos.y, hours, sunAltitude, weather);
@@ -148,7 +155,10 @@ export function sampleEnvironment(pos, ctx) {
     fireWarmth,
     nearFire,
     inWater,
-    rain: weather?.rain ?? 0,
+    // Under a roof — a lean-to, or a cave — the rain does not reach you. That
+    // matters more than it sounds: wetness is the multiplier on everything
+    // cold, so a roof is worth more on a wet night than a fire is.
+    rain: roofed || caveInside > 0.5 ? 0 : weather?.rain ?? 0,
     region,
     effects,
     cave,

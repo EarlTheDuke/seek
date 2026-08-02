@@ -87,6 +87,14 @@ export function captureSave(ctx) {
       // only thing worth storing is which ones you have broken open. Same
       // trick as everything else here — the world is free, the diffs are not.
       sites: ctx.sites ? ctx.sites.toJSON() : null,
+      // Structures are the FIRST THING IN THIS WORLD THAT IS NOT DERIVABLE
+      // FROM THE SEED. Terrain, trees, caves, barrows, creatures and place
+      // names all regenerate for free; a camp does not. So unlike everything
+      // else here it is written out in full — which is precisely what makes it
+      // a mark rather than scenery.
+      structures: ctx.structures ? ctx.structures.serialise() : [],
+      harvested: ctx.harvest ? ctx.harvest.serialise() : [],
+      totalHours: ctx.totalHours ?? 0,
     },
   };
 }
@@ -210,6 +218,9 @@ export function applySave(data, ctx) {
   }
   ctx.fires?.restore(data.world.fires);
   ctx.sites?.fromJSON(data.world.sites);
+  ctx.structures?.restore(data.world.structures);
+  ctx.harvest?.restore(data.world.harvested);
+  ctx.onHoursRestored?.(data.world.totalHours ?? 0);
 
   return true;
 }

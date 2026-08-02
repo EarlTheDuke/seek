@@ -281,6 +281,29 @@ ITEMS.wood = {
   makeObject: () => new THREE.Mesh(ITEMS.wood.geometry(), itemMaterial),
 };
 
+// Quarried from the boulders that were already scattered across this world
+// doing nothing but casting shadows. Heavier than wood — a small stack, so
+// carrying stone is a decision rather than a formality.
+let stoneGeo = null;
+ITEMS.stone = {
+  id: 'stone',
+  name: 'Stone',
+  kind: 'material',
+  stack: 10,
+  geometry: () => {
+    if (stoneGeo) return stoneGeo;
+    const parts = [];
+    const a = new THREE.IcosahedronGeometry(0.15, 0);
+    a.scale(1, 0.75, 0.9);
+    parts.push(paint(a, new THREE.Color(0x5f594e), 0.25));
+    const b = new THREE.IcosahedronGeometry(0.09, 0);
+    b.translate(0.13, -0.03, 0.05);
+    parts.push(paint(b, new THREE.Color(0x4c473e), 0.25));
+    return (stoneGeo = finish(parts));
+  },
+  makeObject: () => new THREE.Mesh(ITEMS.stone.geometry(), itemMaterial),
+};
+
 ITEMS.venison_cooked = {
   id: 'venison_cooked',
   name: 'Cooked Venison',

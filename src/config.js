@@ -445,6 +445,31 @@ export const WILDLIFE = {
   testBearAt: 86,
 };
 
+// ── Building ────────────────────────────────────────────────────────────────
+//
+// See world/structures.js. The rule: a structure must change a DECISION. A
+// windbreak makes a ridge survivable, a lean-to turns a night from a fight into
+// a rest, a store means you need not carry everything, a palisade decides where
+// a warband can reach you. Anything that only looks like something is
+// furniture, and furniture can wait.
+export const STRUCTURES = {
+  useRange: 3.2, // how close you stand to use one
+  placeRange: 3.4, // how far in front of you a new one lands
+  // Minimum gap between two structures, as a fraction of their summed radii.
+  // Below 1.0 they may visually crowd, which is what a camp looks like; the
+  // point of a windbreak is to be right next to the thing it is sheltering.
+  spacing: 0.7,
+  // Gathering. Trees and rocks already exist as scattered objects with
+  // colliders; these are how long you stand there and what you get.
+  chopSeconds: 3.2,
+  chopYield: 3, // wood per tree
+  quarrySeconds: 4.0,
+  quarryYield: 2, // stone per boulder
+  // A gathered tree or rock is gone for this long before the world regrows it.
+  // In-game hours, so it tracks the day/night cycle rather than wall time.
+  regrowHours: 30,
+};
+
 // ── Company: parties, PvP and what dying costs ──────────────────────────────
 //
 // The rules for being in a world with other people. See src/sim/world.js.

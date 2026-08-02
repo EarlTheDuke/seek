@@ -28,7 +28,7 @@ import { CameraFeel } from './player/cameraFeel.js';
 import { ViewModel } from './player/viewmodel.js';
 import { Soundscape } from './audio/soundscape.js';
 import { Hud } from './ui/hud.js';
-import { LOADOUT, LAKE, PLAYER, WATER_LEVEL, WEATHER, WILDLIFE } from './config.js';
+import { LOADOUT, LAKE, PLAYER, WATER_LEVEL, WEATHER, WILDLIFE, SITES, STRUCTURES, TIME } from './config.js';
 import { Inventory } from './items/inventory.js';
 import { getItem } from './items/registry.js';
 import { WeaponHost } from './weapons/index.js';
@@ -41,6 +41,7 @@ import { Body } from './player/body.js';
 import { Fires } from './world/fires.js';
 import { Sites } from './world/sites.js';
 import { Caves } from './world/caves.js';
+import { Structures, Harvest, BUILDABLE } from './world/structures.js';
 import { NetClient } from './net/client.js';
 import { Avatars } from './net/avatars.js';
 import { sampleEnvironment } from './world/environment.js';
@@ -178,6 +179,12 @@ function boot() {
   const fires = new Fires(scene, { audio });
   const sites = new Sites(scene, { audio });
   const caves = new Caves(scene);
+  const structures = new Structures(scene, { audio, colliders: staticColliders });
+  const harvest = new Harvest();
+  // A monotonically rising in-game hour count. The clock itself wraps at 24,
+  // which is useless for "this tree regrows in thirty hours" — the expiry
+  // would be in the past every morning.
+  let totalHours = 0;
 
   // ── multiplayer ───────────────────────────────────────────────────────────
   //
@@ -409,6 +416,68 @@ function boot() {
     hud.toast(PLACE_LINES[band] ?? band, 3.4);
   }
 
+  // ── building ──────────────────────────────────────────────────────────────
+  //
+  // G places the best thing you can currently afford, a short way in front of
+  // you. One key, no build menu, no ghost preview: at four buildable things
+  // the menu would cost more than it saved, and the ordering in the table is
+  // how you choose (cheapest useful thing first).
+  //
+  // G already lit fires in Phase 2. A fire is now just the cheapest structure
+  // in the list conceptually, so the key keeps its meaning — put something
+  // down here — and gains the rest.
+  function placeStructure() {
+    const x = ctrl.position.x - Math.sin(ctrl.yaw) * STRUCTURES.placeRange;
+    const z = ctrl.position.z - Math.cos(ctrl.yaw) * STRUCTURES.placeRange;
+    // Whatever this camp is still missing, so pressing build repeatedly
+    // completes one rather than lining up four windbreaks.
+    const spec = structures.bestToBuild(inventory, x, z);
+    if (!spec) {
+      hud.toast('nothing you can build — gather wood', 2.2);
+      return null;
+    }
+
+    const res = structures.place(spec.id, x, z, ctrl.yaw + Math.PI, net?.id ?? null);
+    if (!res.ok) {
+      hud.toast(res.why, 2.2);
+      return null;
+    }
+    Structures.pay(spec.id, inventory);
+    hud.toast(`${spec.verb} a ${spec.name.toLowerCase()} — ${spec.blurb}`, 3);
+    return null;
+  }
+
+  /**
+   * A store: everything in, or everything out.
+   *
+   * Not an inventory screen. Two presses — one to empty your pack into it, one
+   * to take it all back — cover the actual use, which is "leave the heavy
+   * things at camp". A grid UI is a lot of work to make the same decision.
+   */
+  function useStore(s, spec) {
+    if (s.contents.length > 0) {
+      let taken = 0;
+      for (const stack of s.contents) {
+        inventory.add(stack.item, stack.count);
+        taken += stack.count;
+      }
+      s.contents = [];
+      hud.toast(`took ${taken} from the store`, 2.4);
+      return null;
+    }
+    let stored = 0;
+    for (const slot of inventory.slots) {
+      if (!slot?.item || !slot.count) continue;
+      if (slot.item === 'bow') continue; // you would only regret it
+      if (s.contents.length >= spec.storage) break;
+      s.contents.push({ item: slot.item, count: slot.count });
+      stored += slot.count;
+      inventory.remove(slot.item, slot.count);
+    }
+    hud.toast(stored ? `stored ${stored} things` : 'nothing to store', 2.4);
+    return null;
+  }
+
   // ── what a stone circle is FOR ────────────────────────────────────────────
   //
   // The non-magical answer to "give the circles a function". You are standing
@@ -481,6 +550,42 @@ function boot() {
     const fireDist = fire
       ? Math.hypot(fire.position.x - ctrl.position.x, fire.position.z - ctrl.position.z)
       : Infinity;
+
+    // ── your own structures, and the ground you can work ──
+    // Everything competes on the same distance rule, so whatever you are
+    // nearest to is what E does. That single rule is why the prompt and the
+    // action can never disagree.
+    const mine = structures.nearest(ctrl.position);
+    const source = harvest.nearestSource(scatterColliders, ctrl.position, STRUCTURES.useRange, totalHours);
+    const mineDist = mine ? mine.distance : Infinity;
+    const sourceDist = source ? source.distance : Infinity;
+    const closest = Math.min(near?.distance ?? Infinity, fireDist, mineDist, sourceDist);
+
+    if (mine && mineDist === closest) {
+      const s = mine.structure;
+      const spec = BUILDABLE[s.kind];
+      if (spec.storage) {
+        return {
+          label: `<b>E</b>  ${spec.name.toLowerCase()} — ${s.contents.length}/${spec.storage} stored`,
+          run: () => useStore(s, spec),
+        };
+      }
+      return { label: `<b>E</b>  ${spec.name.toLowerCase()} — ${spec.blurb}`, run: () => null };
+    }
+
+    if (source && sourceDist === closest) {
+      return {
+        label: `<b>E</b>  ${source.verb} ${source.tag} — ${source.amount} ${itemName(source.item).toLowerCase()}`,
+        run: () => {
+          harvest.take(source.x, source.z, totalHours);
+          inventory.add(source.item, source.amount);
+          audio.impact?.(source.tag === 'tree' ? 'wood' : 'rock', {
+            x: source.x, y: ctrl.position.y + 1, z: source.z,
+          });
+          return `${source.verb} — ${source.amount} ${itemName(source.item).toLowerCase()}`;
+        },
+      };
+    }
 
     // ── built sites ──
     // Resolved before loot and fire only when they are genuinely the closest
@@ -561,6 +666,13 @@ function boot() {
     seed: SEED,
     mode: ruleset.id,
     atmosphere, weather, ctrl, inventory, vitals, projectiles, pickups, wildlife, fires, sites,
+    structures, harvest,
+    get totalHours() {
+      return totalHours;
+    },
+    onHoursRestored: (h) => {
+      totalHours = h;
+    },
     onPlayerMoved: (pos) => {
       // Stream the world in around wherever the save put us before the first
       // frame, so a loaded run never opens on empty ground.
@@ -669,6 +781,12 @@ function boot() {
         if (e.shiftKey) hud.toggleKeys();
         break;
       case 'KeyB':
+        // Build. B took this key from the bloom toggle, which moved to N — a
+        // core verb outranks a rendering nicety for the mnemonic letter, and
+        // the toggle is still one press away.
+        placeStructure();
+        break;
+      case 'KeyN':
         hud.toast(`bloom ${composer.toggle('bloom') ? 'on' : 'off'}`);
         break;
       // E, Q and the number row are handled as intents now — see the tick.
@@ -815,8 +933,13 @@ function boot() {
       weather,
       fires,
       // A ring of standing stones breaks the wind, which is the other half of
-      // why anyone would walk to one. No folklore required.
-      shelter: sites.circleAt(ctrl.position) ? SITES.circleShelter : 0,
+      // why anyone would walk to one. No folklore required. Anything you have
+      // BUILT counts the same way — the hook was written for exactly this.
+      shelter: Math.max(
+        sites.circleAt(ctrl.position) ? SITES.circleShelter : 0,
+        structures.shelterAt(ctrl.position.x, ctrl.position.z)
+      ),
+      roofed: structures.roofedAt(ctrl.position.x, ctrl.position.z),
     });
     const weaponState0 = weapons.getState();
     vitals.update(dt, {
@@ -849,6 +972,8 @@ function boot() {
     terrain.update(ctrl.position.x, ctrl.position.z);
     scatter.update(ctrl.position, time);
     atmosphere.tick(dt);
+    // Hours that never wrap, for anything with a duration longer than a day.
+    totalHours += (dt / 60 / TIME.dayMinutes) * 24;
     atmosphere.update(camera.position, time);
     rain.update(dt, camera.position, weather.rain, weather.windDir, weather.wind);
     lake.update(dt, camera.position, atmosphere.sun);
@@ -981,6 +1106,21 @@ function boot() {
     },
     sites,
     caves,
+    structures,
+    harvest,
+    /** Build the best thing you can afford, as B does. */
+    build: () => (placeStructure(), structures.stats),
+    /** What you could put down right now, and what it would cost. */
+    buildable: () =>
+      Object.values(BUILDABLE).map((s) => ({
+        name: s.name,
+        cost: Object.entries(s.cost).map(([k, n]) => `${n} ${k}`).join(' + '),
+        affordable: Structures.affordable(s.id, inventory).ok,
+        does: s.blurb,
+      })),
+    get totalHours() {
+      return +totalHours.toFixed(2);
+    },
     // ── multiplayer ──
     get net() {
       return net;

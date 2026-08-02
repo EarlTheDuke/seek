@@ -436,15 +436,28 @@ And the fight scales — the content knob is warband size, not creature stats:
 
 ---
 
-### Phase 7 — Leaving a mark · *large*
+### Phase 7 — Leaving a mark · *large* — ✅ **shipped**
 **Goal:** somewhere to come back to.
-- Gather (wood from trees, stone from rocks — both already exist as objects).
-- Craft and place. Shelter that genuinely changes temperature.
-- Storage, fire pits, drying racks, defences.
-- Ownership and permissions in multiplayer; persistence across restarts.
+- ✅ Gather — the scatter already tagged every collider `tree` or `rock`, so
+  harvesting needed no new world data at all.
+- ✅ Craft and place (`world/structures.js`) — four buildables, one key.
+- ✅ Storage, shelter, a solid palisade.
+- ✅ Ownership recorded; persistence across restarts.
 
 **Done when:** you can build a camp, log off, and find it still standing next
-week — with your friend's additions to it.
+week — with your friend's additions to it. — `npm run campcheck`
+
+Three in the morning, in a storm, on open moor:
+
+| | exposure | wind | rain |
+|---|---|---|---|
+| open ground | 0.41 | 0.79 | 0.80 |
+| **a camp** | **0.03** | **0.05** | **0.00** |
+
+Structures are the **first thing in this world not derivable from the seed**.
+Terrain, trees, caves, barrows, creatures and place names all regenerate for
+free; a camp does not — which is precisely what makes it a mark rather than
+scenery, and why it is the only thing written out in full.
 
 ---
 
