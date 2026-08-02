@@ -25,6 +25,8 @@ import { Projectiles } from './world/projectiles.js';
 import { Pickups } from './world/pickups.js';
 import { ColliderField, addStaticGroup } from './world/colliders.js';
 import { makeRandom } from './world/noise.js';
+import { StealthProfile } from './player/stealth.js';
+import { Wildlife } from './creatures/manager.js';
 
 // ── renderer ────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({
@@ -50,6 +52,9 @@ const camera = new THREE.PerspectiveCamera(
 
 const hud = new Hud();
 const _drop = new THREE.Vector3(); // scratch: which way a dropped item is tossed
+const _lootRand = makeRandom('drops');
+/** Inclusive integer in [a, b], from the seeded drop stream. */
+const lerpRand = (a, b) => a + _lootRand() * (b - a);
 
 let booted = false;
 
@@ -138,11 +143,28 @@ function boot() {
   viewmodel.setSize(window.innerWidth, window.innerHeight);
 
   const pickups = new Pickups(scene, { inventory, audio, projectiles: null });
+  const stealth = new StealthProfile();
+
+  const wildlife = new Wildlife(scene, { stealth, audio });
+
   const projectiles = new Projectiles(scene, {
     colliders: [scatterColliders, staticColliders],
+    wildlife,
     audio,
     onLanded: (p) => pickups.registerRecoverable(p),
     onRemoved: (p) => pickups.forgetProjectile(p),
+    onCreatureHit: (creature, result, point) => {
+      if (result.killed) {
+        hud.toast(`${creature.species.name} down — ${result.zone}`, 2.2);
+        // Drop table straight into the existing pickup system.
+        for (const d of creature.species.drops) {
+          const n = Math.round(lerpRand(d.min, d.max));
+          if (n > 0) pickups.drop(d.item, n, creature.position, _drop.set(0, 0, 0));
+        }
+      } else {
+        hud.toast(`hit — ${result.zone}`, 1.2);
+      }
+    },
   });
   pickups.deps.projectiles = projectiles;
 
@@ -305,6 +327,8 @@ function boot() {
     atmosphere.update(camera.position, time);
     lake.update(dt, camera.position, atmosphere.sun);
     life.update(dt, time, camera.position);
+    stealth.update(dt, ctrl);
+    wildlife.update(dt, ctrl.position, stealth);
     projectiles.update(dt);
 
     const near = pickups.update(dt, ctrl.position);
@@ -316,12 +340,12 @@ function boot() {
 
     audio.update(dt, ctrl, ctrl.position.y);
 
-    const c = scatter.counts;
+    const wl = wildlife.stats;
     const pr = projectiles.stats;
     hud.update(
       dt,
-      `${terrain.chunkCount} chunks · ${(c.grass / 1000).toFixed(1)}k grass · ${c.trees} trees · ` +
-        `${pr.flying} in flight · ${pr.landed} landed`
+      `${terrain.chunkCount} chunks · ${pr.flying} in flight · ${pr.landed} landed · ` +
+        `${wl.alive} deer (${wl.alert} alert) · ${stealth.label}`
     );
 
     composer.render(dt, time);
@@ -347,7 +371,7 @@ function boot() {
   window.highlands = {
     scene, camera, renderer, ctrl, feel, atmosphere, terrain, scatter, lake,
     composer, life, audio, hud, spawn, landmarks, stepWorld, heightAt,
-    inventory, weapons, projectiles, pickups, viewmodel,
+    inventory, weapons, projectiles, pickups, viewmodel, wildlife, stealth,
     colliders: { scatter: scatterColliders, static: staticColliders },
     get time() { return time; },
 

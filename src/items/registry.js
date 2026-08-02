@@ -216,4 +216,39 @@ export const ITEMS = {
   },
 };
 
+// Quarry. Referenced by creature drop tables; carried, dropped and picked up by
+// exactly the same machinery as everything else.
+let venisonGeo = null;
+let hideGeo = null;
+
+ITEMS.venison = {
+  id: 'venison',
+  name: 'Venison',
+  kind: 'material',
+  stack: 20,
+  geometry: () => {
+    if (venisonGeo) return venisonGeo;
+    const g = new THREE.IcosahedronGeometry(0.11, 1);
+    g.scale(1.3, 0.7, 1);
+    return (venisonGeo = finish([paint(g, new THREE.Color(0x8c3b34), 0.22)]));
+  },
+  makeObject: () => new THREE.Mesh(ITEMS.venison.geometry(), itemMaterial),
+};
+
+ITEMS.hide = {
+  id: 'hide',
+  name: 'Hide',
+  kind: 'material',
+  stack: 20,
+  geometry: () => {
+    if (hideGeo) return hideGeo;
+    // A rolled pelt: a squashed cylinder on its side.
+    const g = new THREE.CylinderGeometry(0.07, 0.07, 0.3, 8);
+    g.rotateZ(Math.PI / 2);
+    g.scale(1, 0.75, 1);
+    return (hideGeo = finish([paint(g, new THREE.Color(0x7d5a37), 0.18)]));
+  },
+  makeObject: () => new THREE.Mesh(ITEMS.hide.geometry(), itemMaterial),
+};
+
 export const getItem = (id) => ITEMS[id] ?? null;

@@ -1,0 +1,213 @@
+// ── creatures/manager.js ────────────────────────────────────────────────────
+// Who exists, where, and how often they get to think.
+//
+// Spawning is hash-placed on a coarse grid exactly like the trees and the loot,
+// so herds live in consistent places rather than materialising at random behind
+// you — but unlike the scenery, a creature that has been killed or has wandered
+// off does not come back when you walk away and return.
+//
+// Distant creatures still run their full brain, just at a lower tick rate. A
+// deer 200 m away does not need 60 decisions a second, but it does need to have
+// actually moved when you next look at it.
+
+import * as THREE from 'three';
+import { WILDLIFE, WATER_LEVEL } from '../config.js';
+import { heightAt, slopeAt, clumpAt, makeRandom } from '../world/noise.js';
+import { hash2i, lerp } from '../util/math.js';
+import { SPECIES, getSpecies } from './registry.js';
+import { Creature } from './creature.js';
+
+const _player = new THREE.Vector3();
+
+export class Wildlife {
+  constructor(scene, deps) {
+    this.scene = scene;
+    this.deps = deps; // { stealth, audio, onKilled }
+    this.creatures = [];
+    this.rand = makeRandom('wildlife');
+    this.spawnedSites = new Set(); // herd sites already used
+    this.clearedSites = new Set(); // sites whose herd is gone for good
+    this.anchor = new THREE.Vector3(Infinity, 0, Infinity);
+    this.accum = new Map(); // creature id -> time owed, for LOD ticking
+  }
+
+  // ── spawning ──────────────────────────────────────────────────────────────
+
+  /** Is this a plausible place for `species` to be standing? */
+  suits(species, x, z) {
+    const s = species.spawn;
+    const y = heightAt(x, z);
+    if (y < s.minHeight || y > s.maxHeight) return false;
+    if (slopeAt(x, z) > s.maxSlope) return false;
+    if (y < WATER_LEVEL + 0.5) return false;
+    if (s.preferClump) {
+      const c = clumpAt(x, z);
+      if (c < s.preferClump[0] || c > s.preferClump[1]) return false;
+    }
+    return true;
+  }
+
+  refresh(px, pz) {
+    const cell = WILDLIFE.spawnCell;
+    const R = WILDLIFE.spawnRadius;
+
+    for (let cj = Math.floor((pz - R) / cell); cj <= Math.ceil((pz + R) / cell); cj++) {
+      for (let ci = Math.floor((px - R) / cell); ci <= Math.ceil((px + R) / cell); ci++) {
+        const key = `${ci},${cj}`;
+        if (this.spawnedSites.has(key) || this.clearedSites.has(key)) continue;
+        if (this.creatures.length >= WILDLIFE.maxAlive) return;
+
+        // Not every cell holds a herd.
+        if (hash2i(ci, cj, 811) > 0.42) {
+          this.spawnedSites.add(key);
+          continue;
+        }
+
+        const x = ci * cell + hash2i(ci, cj, 812) * cell;
+        const z = cj * cell + hash2i(ci, cj, 813) * cell;
+        const d = Math.hypot(x - px, z - pz);
+        if (d > R) continue;
+        // Never appear in front of you at conversational distance.
+        if (d < WILDLIFE.minSpawnDistance) continue;
+
+        this.spawnedSites.add(key);
+        const species = SPECIES.deer;
+        if (!this.suits(species, x, z)) continue;
+
+        const n = Math.round(lerp(species.herd.min, species.herd.max, hash2i(ci, cj, 814)));
+        for (let i = 0; i < n && this.creatures.length < WILDLIFE.maxAlive; i++) {
+          const a = hash2i(ci, cj, 820 + i) * Math.PI * 2;
+          const r = hash2i(ci, cj, 840 + i) * species.herd.spread;
+          const cx = x + Math.cos(a) * r;
+          const cz = z + Math.sin(a) * r;
+          if (!this.suits(species, cx, cz)) continue;
+          this.spawn(species.id, cx, cz, key);
+        }
+      }
+    }
+  }
+
+  spawn(speciesId, x, z, siteKey = null) {
+    const species = getSpecies(speciesId);
+    if (!species) return null;
+    const pos = new THREE.Vector3(x, heightAt(x, z), z);
+    const c = new Creature(species, pos, this.rand);
+    c.siteKey = siteKey;
+    this.scene.add(c.object);
+    this.creatures.push(c);
+    return c;
+  }
+
+  remove(c) {
+    this.scene.remove(c.object);
+    const i = this.creatures.indexOf(c);
+    if (i >= 0) this.creatures.splice(i, 1);
+    this.accum.delete(c.id);
+  }
+
+  // ── per frame ─────────────────────────────────────────────────────────────
+
+  update(dt, playerPos, stealth) {
+    _player.copy(playerPos);
+
+    if (Math.hypot(playerPos.x - this.anchor.x, playerPos.z - this.anchor.z) > 40) {
+      this.anchor.copy(playerPos);
+      this.refresh(playerPos.x, playerPos.z);
+    }
+
+    for (let i = this.creatures.length - 1; i >= 0; i--) {
+      const c = this.creatures[i];
+      const d = Math.hypot(c.position.x - playerPos.x, c.position.z - playerPos.z);
+
+      // Cull far creatures. A corpse you have walked away from is gone for
+      // good; a live one just leaves the simulation and its site can refill.
+      if (d > WILDLIFE.despawnRadius) {
+        if (c.state === 'dead' && c.siteKey) this.clearedSites.add(c.siteKey);
+        this.remove(c);
+        continue;
+      }
+
+      // Distance LOD: near = every frame, mid = 4/s, far = 2/s. The accumulator
+      // means they still get the full elapsed time, so movement stays correct.
+      const period = d < WILDLIFE.lodNear ? 0 : d < WILDLIFE.lodFar ? 0.25 : 0.5;
+      if (period === 0) {
+        c.update(dt, playerPos, stealth);
+      } else {
+        const owed = (this.accum.get(c.id) ?? 0) + dt;
+        if (owed >= period) {
+          this.accum.set(c.id, 0);
+          c.update(owed, playerPos, stealth);
+        } else {
+          this.accum.set(c.id, owed);
+        }
+      }
+
+      if (c.alarmed) {
+        c.alarmed = false;
+        this.deps.audio?.creatureAlarm?.(c.position);
+      }
+    }
+  }
+
+  /**
+   * Nearest creature whose body a world-space point falls inside. Used by the
+   * projectile system; kept here so creatures own their own collision.
+   */
+  hitTest(from, to) {
+    let best = null;
+    let bestT = Infinity;
+    for (const c of this.creatures) {
+      if (c.state === 'dead') continue;
+      const r = c.species.radius * c.scale;
+      const h = c.species.height * c.scale;
+      // Vertical capsule approximated as a cylinder — fine at this scale.
+      const t = segmentCylinder(from, to, c.position, r, h);
+      if (t !== null && t < bestT) {
+        bestT = t;
+        best = c;
+      }
+    }
+    return best ? { creature: best, t: bestT } : null;
+  }
+
+  get stats() {
+    let alive = 0;
+    let dead = 0;
+    let alert = 0;
+    for (const c of this.creatures) {
+      if (c.state === 'dead') dead++;
+      else {
+        alive++;
+        if (c.awareness > c.species.senses.alertAt) alert++;
+      }
+    }
+    return { alive, dead, alert, total: this.creatures.length };
+  }
+}
+
+/** Segment vs vertical cylinder standing on `base`. Returns t in [0,1] or null. */
+function segmentCylinder(a, b, base, r, h) {
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  const ox = a.x - base.x;
+  const oz = a.z - base.z;
+  const A = dx * dx + dz * dz;
+  if (A < 1e-9) {
+    if (ox * ox + oz * oz > r * r) return null;
+    const dy = b.y - a.y;
+    if (Math.abs(dy) < 1e-9) return null;
+    const t = (base.y + (dy > 0 ? 0 : h) - a.y) / dy;
+    return t >= 0 && t <= 1 ? t : null;
+  }
+  const B = 2 * (ox * dx + oz * dz);
+  const C = ox * ox + oz * oz - r * r;
+  const disc = B * B - 4 * A * C;
+  if (disc < 0) return null;
+  const sq = Math.sqrt(disc);
+  for (const t of [(-B - sq) / (2 * A), (-B + sq) / (2 * A)]) {
+    if (t < 0 || t > 1) continue;
+    const y = a.y + (b.y - a.y) * t;
+    if (y >= base.y && y <= base.y + h) return t;
+  }
+  return null;
+}

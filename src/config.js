@@ -289,6 +289,13 @@ export const ARROW = {
   length: 0.72,
   maxInWorld: 64, // landed arrows beyond this despawn oldest-first
   stickToWater: false, // arrows are lost in the lake
+
+  // Damage at `refSpeed`, scaled linearly by actual impact speed — so a
+  // half-drawn shot at long range genuinely wounds rather than kills. Against a
+  // 42 hp deer this means: vitals (x1.9) or head (x3.0) drops it in one, body
+  // (x1.0) takes two, a leg hit (x0.45) takes four. Shot placement matters.
+  damage: 26,
+  refSpeed: 74,
 };
 
 export const PICKUP = {
@@ -313,6 +320,40 @@ export const LOADOUT = {
     { item: 'arrow', count: 12 },
   ],
   equipped: 0,
+};
+
+// ── Creatures ───────────────────────────────────────────────────────────────
+
+export const WILDLIFE = {
+  spawnRadius: 320, // creatures exist within this range of you
+  despawnRadius: 400, // and are removed past this (hysteresis, so no flicker)
+  spawnCell: 110, // hash grid for deterministic herd sites
+  maxAlive: 26,
+  minSpawnDistance: 55, // never pop into existence in your face
+  // Distance bands for update rate. Far creatures still move, just coarsely.
+  lodNear: 90,
+  lodFar: 220,
+};
+
+export const STEALTH = {
+  // Noise you make, 0..1, by movement state. Feeds creature hearing.
+  noiseStill: 0.0,
+  noiseCrouch: 0.08,
+  noiseWalk: 0.38,
+  noiseSprint: 1.0,
+  noiseWade: 0.55, // splashing about is loud
+  noiseSmoothing: 6, // how fast your noise level settles when you change pace
+
+  // How visible you are, 0..1. Crouching and standing still both help.
+  visStand: 1.0,
+  visCrouch: 0.45,
+  visMovingBonus: 0.35, // added when moving — motion catches the eye
+  // Tall grass breaks up your outline, but only if you are low in it.
+  coverCrouchBonus: 0.35,
+
+  hearingRange: 42, // metres at noise 1.0; scales linearly with noise
+  scentRange: 70, // metres directly downwind
+  scentCone: 0.55, // how tightly scent follows the wind direction
 };
 
 /** Show the frame-rate readout. */

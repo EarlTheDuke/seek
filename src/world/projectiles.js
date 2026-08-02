@@ -40,6 +40,8 @@ const TYPES = {
     geometry: () => ITEMS.arrow.geometry(),
     gravity: ARROW.gravity,
     drag: ARROW.drag,
+    damage: ARROW.damage,
+    refSpeed: ARROW.refSpeed,
     maxFlight: ARROW.maxFlightTime,
     embed: ARROW.embedDepth,
     onLand: 'stick',
@@ -190,8 +192,40 @@ export class Projectiles {
       }
     }
 
+    // Living things, tested last so a tree between you and the deer wins.
+    let struck = null;
+    const wildlife = this.deps.wildlife;
+    if (wildlife) {
+      const ch = wildlife.hitTest(pos, _next);
+      if (ch && ch.t < bestT) {
+        bestT = ch.t;
+        surface = 'flesh';
+        struck = ch.creature;
+      }
+    }
+
     if (bestT === Infinity) {
       pos.copy(_next);
+      return false;
+    }
+
+    if (struck) {
+      _probe.lerpVectors(pos, _next, bestT);
+      // Damage falls off with impact speed, so a spent arrow only wounds.
+      const speed = vel.length();
+      const base = (type.damage ?? 0) * (speed / (type.refSpeed ?? speed));
+      const zone = struck.zoneAt(_probe.y);
+      const result = struck.applyDamage(base, zone);
+      this.deps.audio?.impact?.('flesh', _probe);
+      this.deps.onCreatureHit?.(struck, result, _probe);
+      // Drop the arrow at the animal's feet rather than parenting it to a
+      // bolting deer — recoverable, and it never floats in mid-air.
+      pos.set(_probe.x, heightAt(_probe.x, _probe.z) + 0.05, _probe.z);
+      vel.set(0, 0, 0);
+      p.landed = true;
+      p.surface = 'ground';
+      if (type.recover) this.deps.onLanded?.(p);
+      this.enforceLimit(type);
       return false;
     }
 
