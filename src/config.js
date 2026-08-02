@@ -341,6 +341,11 @@ export const WILDLIFE = {
   // there is always something to stalk without going looking for it. Set to 0
   // to turn it off and rely purely on natural spawning.
   testHerdAtLake: 5,
+
+  // Metres from the spawn point to place a bear, off to one side of your
+  // opening view. Far enough outside its 72 m aggro range that you get to see
+  // it before it sees you, and decide whether to take it on. 0 turns it off.
+  testBearAt: 86,
 };
 
 export const STEALTH = {

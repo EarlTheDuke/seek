@@ -17,7 +17,7 @@ import { CameraFeel } from './player/cameraFeel.js';
 import { ViewModel } from './player/viewmodel.js';
 import { Soundscape } from './audio/soundscape.js';
 import { Hud } from './ui/hud.js';
-import { LOADOUT, LAKE, WATER_LEVEL, WILDLIFE } from './config.js';
+import { LOADOUT, LAKE, PLAYER, WATER_LEVEL, WILDLIFE } from './config.js';
 import { Inventory } from './items/inventory.js';
 import { getItem } from './items/registry.js';
 import { WeaponHost } from './weapons/index.js';
@@ -234,7 +234,48 @@ function boot() {
     }
     return [];
   }
+  /**
+   * Put a bear near the spawn point, off to one side of the opening view.
+   *
+   * Deliberately not dead ahead and deliberately outside its aggro range: the
+   * whole point of the encounter is seeing it first and choosing. Tries a
+   * spread of bearings and takes the first that is on dry, standable ground.
+   */
+  function bearNearSpawn(distance = WILDLIFE.testBearAt) {
+    if (!distance) return null;
+    const eye = spawn.position.y + PLAYER.eyeHeight;
+    let best = null;
+
+    for (const deg of [30, -30, 46, -46, 62, -62, 14, -14, 78, -78, 100, -100, 130, -130]) {
+      const a = spawn.yaw + THREE.MathUtils.degToRad(deg);
+      const x = spawn.position.x - Math.sin(a) * distance;
+      const z = spawn.position.z - Math.cos(a) * distance;
+      const y = heightAt(x, z);
+      if (y < WATER_LEVEL + 1.5) continue;
+
+      // Reject spots hidden behind a rise: walk the sight line and check
+      // nothing between here and there stands above it. A bear you cannot see
+      // is useless for testing, however correctly it is placed.
+      let blocked = false;
+      for (let t = 0.15; t < 0.95; t += 0.08) {
+        const sx = spawn.position.x + (x - spawn.position.x) * t;
+        const sz = spawn.position.z + (z - spawn.position.z) * t;
+        if (heightAt(sx, sz) > eye + (y + 1.4 - eye) * t + 1.2) {
+          blocked = true;
+          break;
+        }
+      }
+      // Prefer visible, then open ground, then straight ahead of you.
+      const score = (blocked ? -100 : 0) + y * 0.15 - Math.abs(deg) * 0.05;
+      if (!best || score > best.score) best = { x, z, score, blocked, deg };
+    }
+
+    if (!best) return null;
+    return wildlife.spawn('bear', best.x, best.z);
+  }
+
   herdAtWater();
+  bearNearSpawn();
 
   const itemName = (id) => getItem(id)?.name ?? id;
   function refreshItemUi() {
@@ -434,7 +475,9 @@ function boot() {
     vitals,
     /** Re-stock the lake shore without reloading. `highlands.herdAtWater(6)` */
     herdAtWater,
-    /** Put a bear behind you, for testing. `highlands.spawnBear(45)` */
+    /** Re-place the spawn-side bear. `highlands.bearNearSpawn(90)` */
+    bearNearSpawn,
+    /** Put a bear at a random bearing around you. `highlands.spawnBear(45)` */
     spawnBear(distance = 45) {
       const a = Math.random() * Math.PI * 2;
       const x = ctrl.position.x + Math.cos(a) * distance;
