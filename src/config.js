@@ -239,6 +239,9 @@ export const POST = {
 // ── Audio (all synthesized — there are no sound files) ──────────────────────
 export const AUDIO = {
   master: 0.55,
+  // Send level into the generated convolution reverb. Distant sounds get more
+  // of it automatically; this is the ceiling.
+  reverb: 0.28,
   windBase: 0.1,
   windSpeedGain: 0.16,
   windAltitudeGain: 0.1,

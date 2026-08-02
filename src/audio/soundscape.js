@@ -21,6 +21,7 @@ export class Soundscape {
     this.listener = null; // player position, for distance attenuation
     this.waterDist = Infinity; // metres to the water's edge
     this.waterProbe = 0; // countdown to the next shoreline lookup
+    this.listenerYaw = 0;
   }
 
   /** Build the graph. Must be called from a user gesture. */
@@ -31,9 +32,31 @@ export class Soundscape {
     this.ctx = new Ctx();
     const ctx = this.ctx;
 
+    // ── output chain: everything -> master -> limiter -> speakers ──
+    // The limiter exists because a bear roaring while you loose an arrow into
+    // a rock used to clip. It only engages on peaks.
+    this.limiter = ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -9;
+    this.limiter.knee.value = 6;
+    this.limiter.ratio.value = 12;
+    this.limiter.attack.value = 0.004;
+    this.limiter.release.value = 0.25;
+    this.limiter.connect(ctx.destination);
+
     this.master = ctx.createGain();
     this.master.gain.value = AUDIO.master;
-    this.master.connect(ctx.destination);
+    this.master.connect(this.limiter);
+
+    // ── reverb send ──
+    // A generated impulse — noise under an exponential decay — rather than an
+    // audio file. Gives the valley some air; without it every sound is glued
+    // to the inside of your head.
+    this.reverb = ctx.createConvolver();
+    this.reverb.buffer = this.makeImpulse(2.1, 3.2);
+    this.reverbSend = ctx.createGain();
+    this.reverbSend.gain.value = AUDIO.reverb;
+    this.reverbSend.connect(this.reverb);
+    this.reverb.connect(this.master);
 
     // A few seconds of noise, looped. Everything textural is built from this.
     this.noise = ctx.createBuffer(1, ctx.sampleRate * 3, ctx.sampleRate);
@@ -198,11 +221,78 @@ export class Soundscape {
     return Infinity;
   }
 
+  /** Noise under an exponential decay — a serviceable outdoor impulse. */
+  makeImpulse(seconds, decay) {
+    const rate = this.ctx.sampleRate;
+    const n = Math.floor(rate * seconds);
+    const buf = this.ctx.createBuffer(2, n, rate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < n; i++) {
+        d[i] = (this.rand() * 2 - 1) * (1 - i / n) ** decay;
+      }
+    }
+    return buf;
+  }
+
   /** Attenuate a world sound by how far away it happened. */
   distanceGain(pos) {
     if (!pos || !this.listener) return 1;
     const d = Math.hypot(pos.x - this.listener.x, pos.y - this.listener.y, pos.z - this.listener.z);
     return 1 / (1 + (d / 11) ** 1.6);
+  }
+
+  /**
+   * Where a sound sits in the stereo field, -1 to +1.
+   *
+   * This is the single most useful thing missing from the mix: with everything
+   * centred you cannot tell whether the bear is in front of you or behind, and
+   * that is precisely the information you need.
+   */
+  panFor(pos) {
+    if (!pos || !this.listener) return 0;
+    const dx = pos.x - this.listener.x;
+    const dz = pos.z - this.listener.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 0.001) return 0;
+    // Listener right vector for a yaw whose forward is (-sin, -cos).
+    const rx = Math.cos(this.listenerYaw);
+    const rz = -Math.sin(this.listenerYaw);
+    return clamp(((dx / d) * rx + (dz / d) * rz) * 0.9, -1, 1);
+  }
+
+  /**
+   * Build the chain a positioned sound should play through:
+   * caller -> lowpass -> panner -> gain -> master (+ reverb send).
+   *
+   * The lowpass is distance-driven. Air absorbs high frequencies, so a far-off
+   * sound should go dull as well as quiet — dropping the level alone makes
+   * things sound small rather than distant.
+   */
+  spatial(pos, level = 1) {
+    const ctx = this.ctx;
+    const d = this.listener
+      ? Math.hypot(pos.x - this.listener.x, pos.y - this.listener.y, pos.z - this.listener.z)
+      : 0;
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = lerp(17000, 600, smoothstep(6, 110, d));
+
+    const pan = ctx.createStereoPanner();
+    pan.pan.value = this.panFor(pos);
+
+    const gain = ctx.createGain();
+    gain.gain.value = level * this.distanceGain(pos);
+
+    lp.connect(pan).connect(gain);
+    gain.connect(this.master);
+    // Distant things are wetter — that is most of what "outdoors" sounds like.
+    const send = ctx.createGain();
+    send.gain.value = smoothstep(4, 90, d) * 0.9;
+    gain.connect(send).connect(this.reverbSend);
+
+    return lp;
   }
 
   /**
@@ -309,12 +399,42 @@ export class Soundscape {
 
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(kind.gain * near, now + 0.004);
+    gain.gain.linearRampToValueAtTime(kind.gain, now + 0.004);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + kind.dur);
 
-    src.connect(filter).connect(gain).connect(this.master);
+    src.connect(filter).connect(gain).connect(this.spatial(pos));
     src.start(now);
     src.stop(now + kind.dur + 0.03);
+  }
+
+  /**
+   * A deer's alarm: the sharp nasal blow it makes before it goes. Short,
+   * cutting, and the sound that tells you the stalk is over.
+   */
+  creatureAlarm(pos) {
+    if (!this.running) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const out = this.spatial(pos, 1);
+
+    for (let i = 0; i < 2; i++) {
+      const t = now + i * 0.19;
+      const src = ctx.createBufferSource();
+      src.buffer = this.noise;
+      src.playbackRate.value = lerp(1.5, 2.1, this.rand());
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(lerp(900, 1300, this.rand()), t);
+      bp.frequency.exponentialRampToValueAtTime(430, t + 0.13);
+      bp.Q.value = 2.4;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.34 * (i ? 0.65 : 1), t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+      src.connect(bp).connect(g).connect(out);
+      src.start(t);
+      src.stop(t + 0.19);
+    }
   }
 
   /**
@@ -330,8 +450,9 @@ export class Soundscape {
     if (near < 0.02) return;
 
     const dur = lerp(0.5, 1.15, intent);
-    const level = lerp(0.16, 0.42, intent) * near;
+    const level = lerp(0.2, 0.5, intent);
     const base = lerp(62, 88, intent);
+    const spatial = this.spatial(pos, 1);
 
     const out = ctx.createGain();
     out.gain.setValueAtTime(0, now);
@@ -344,7 +465,7 @@ export class Soundscape {
     lp.frequency.setValueAtTime(lerp(420, 900, intent), now);
     lp.frequency.exponentialRampToValueAtTime(260, now + dur);
     lp.Q.value = 3;
-    lp.connect(out).connect(this.master);
+    lp.connect(out).connect(spatial);
 
     for (const mul of [1, 1.5, 2.51]) {
       const osc = ctx.createOscillator();
@@ -379,7 +500,7 @@ export class Soundscape {
     ng.gain.setValueAtTime(0, now);
     ng.gain.linearRampToValueAtTime(level * 0.5, now + 0.1);
     ng.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-    src.connect(bp).connect(ng).connect(this.master);
+    src.connect(bp).connect(ng).connect(spatial);
     src.start(now);
     src.stop(now + dur + 0.05);
   }
@@ -459,6 +580,7 @@ export class Soundscape {
   update(dt, ctrl, altitude) {
     if (!this.ready) return;
     this.listener = ctrl.position;
+    this.listenerYaw = ctrl.yaw; // drives stereo placement
     const now = this.ctx.currentTime;
 
     // Wind rises with speed and with height — exposed ridges are loud places.

@@ -27,6 +27,7 @@ const _next = new THREE.Vector3();
 const _probe = new THREE.Vector3();
 const _dir = new THREE.Vector3();
 const _normal = new THREE.Vector3();
+const _from = new THREE.Vector3();
 const _m4 = new THREE.Matrix4();
 const _one = new THREE.Vector3(1, 1, 1);
 const _hit = { t: 0, point: new THREE.Vector3(), normal: new THREE.Vector3(), tag: null };
@@ -215,7 +216,10 @@ export class Projectiles {
       const speed = vel.length();
       const base = (type.damage ?? 0) * (speed / (type.refSpeed ?? speed));
       const zone = struck.zoneAt(_probe.y);
-      const result = struck.applyDamage(base, zone);
+      // Point the animal back down the arrow's flight path, so a predator turns
+      // on where the shot came from rather than on nothing.
+      _from.copy(_probe).addScaledVector(_dir, -45);
+      const result = struck.applyDamage(base, zone, _from);
       this.deps.audio?.impact?.('flesh', _probe);
       this.deps.onCreatureHit?.(struck, result, _probe);
       // Drop the arrow at the animal's feet rather than parenting it to a

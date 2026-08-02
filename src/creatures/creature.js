@@ -262,19 +262,39 @@ export class Creature {
     this.attackCooldown = Math.max(0, (this.attackCooldown ?? 0) - dt);
     this.headDown = damp(this.headDown, this.state === WANDER ? 0.6 : 0, 3, dt);
 
-    // Badly wounded, it gives up and runs — so a fight is winnable, not just
-    // survivable.
-    if (this.hp < this.maxHp * A.fleeBelow && this.state !== FLEE) {
-      this.setState(FLEE);
+    this.enraged = Math.max(0, (this.enraged ?? 0) - dt);
+
+    // Badly wounded AND still able to perceive the threat, it breaks off — so a
+    // fight is winnable rather than merely survivable. It has to still sense
+    // you, or a bear that escaped would keep bolting from an empty hillside.
+    //
+    // `brokenOff` is a latch with its OWN timer rather than a test on the
+    // current state. Deriving it from `state` deadlocked: recovery set WANDER,
+    // which reset stateTime, which let the wounded test immediately re-enter
+    // FLEE and reset it again, so the timer could never reach its threshold and
+    // the bear fled forever.
+    if (!this.brokenOff && this.hp < this.maxHp * A.fleeBelow && this.awareness > 0.25) {
+      this.brokenOff = true;
+      this.charging = false;
+      this.fleeTime = 0;
       this.stamina = this.species.stamina;
+      this.setState(FLEE);
     }
 
-    if (this.state === FLEE) {
+    if (this.brokenOff) {
+      this.fleeTime = (this.fleeTime ?? 0) + dt;
       this.stamina -= dt;
       this.targetSpeed = this.stamina > 0 ? sp.flee : sp.trot;
       const ax = this.position.x - this.lastKnownThreat.x;
       const az = this.position.z - this.lastKnownThreat.z;
       this.steerTo(this.position.x + ax, this.position.z + az, dt, 3.5);
+      // Room bought and breath back: it stops running and goes back to being an
+      // animal. Find it again and it will run again — but it is no longer stuck.
+      const dist = this.distanceToPlayer ?? Infinity;
+      if (this.fleeTime > 6 && (dist > 70 || this.awareness < 0.2)) {
+        this.brokenOff = false;
+        this.setState(WANDER);
+      }
       return;
     }
 
@@ -311,8 +331,10 @@ export class Creature {
         }
       } else {
         this.setState(CHARGE);
-        // Flat out, until the lungs give. Then it can no longer catch you.
-        this.chargeSpent = this.chargeTime > A.chargeStamina;
+        // Flat out, until the lungs give. Then it can no longer catch you —
+        // unless it has just been shot, which buys it a few seconds of not
+        // tiring at all. Hitting a bear and running is a bad plan.
+        this.chargeSpent = this.chargeTime > A.chargeStamina && this.enraged <= 0;
         this.targetSpeed = this.chargeSpent ? A.chasePace : sp.charge;
       }
       return;
@@ -577,18 +599,38 @@ export class Creature {
     this.deadLegSplay = this.parts.legs.map(() => (this.rand() - 0.5) * 0.55);
   }
 
-  applyDamage(amount, zone) {
+  /**
+   * @param {number} amount
+   * @param {object} zone       hit zone from the species table
+   * @param {THREE.Vector3} [from]  roughly where the damage came from, so the
+   *                                animal can orient on its attacker
+   */
+  applyDamage(amount, zone, from = null) {
     if (this.state === DEAD) return { killed: false, damage: 0 };
     const dealt = amount * (zone?.multiplier ?? 1);
     this.hp -= dealt;
     // Being hit is instantly and maximally alarming.
     this.awareness = 1;
+    if (from) this.lastKnownThreat.copy(from);
+
     if (this.hp <= 0) {
       this.die();
       return { killed: true, damage: dealt, zone: zone?.name };
     }
-    this.setState(FLEE);
-    this.stamina = this.species.stamina;
+
+    // What being shot MEANS depends on the animal. This used to unconditionally
+    // set FLEE, which is deer logic — so a bear turned and ran the instant the
+    // first arrow landed, which is the opposite of the point of a bear.
+    if (this.species.behaviour === 'aggressive') {
+      this.charging = true;
+      this.chargeTime = 0; // fresh legs: a wounded bear finds another gear
+      this.giveUp = 0;
+      this.enraged = 3.5; // and will not tire while it lasts
+      this.hurt = true; // consumed by the manager for a pain roar
+    } else {
+      this.setState(FLEE);
+      this.stamina = this.species.stamina;
+    }
     return { killed: false, damage: dealt, zone: zone?.name };
   }
 }

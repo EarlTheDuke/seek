@@ -205,6 +205,11 @@ export class Wildlife {
 
       // Vocalising. A bear you can hear coming is far worse than one you can't.
       if (c.species.behaviour === 'aggressive' && c.state !== 'dead') {
+        if (c.hurt) {
+          c.hurt = false;
+          this.deps.audio?.growl?.(c.position, 1); // a roar, not a whimper
+          c.voiceTimer = 1.2;
+        }
         c.voiceTimer = (c.voiceTimer ?? 0) - dt;
         if (c.voiceTimer <= 0) {
           if (c.state === 'charge' || c.state === 'attack') {
