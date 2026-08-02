@@ -40,6 +40,7 @@ import { StealthProfile } from './player/stealth.js';
 import { Body } from './player/body.js';
 import { Fires } from './world/fires.js';
 import { Sites } from './world/sites.js';
+import { Caves } from './world/caves.js';
 import { sampleEnvironment } from './world/environment.js';
 import { insulationOf } from './items/registry.js';
 import { RECIPES, bestAvailable, craft } from './items/recipes.js';
@@ -174,6 +175,7 @@ function boot() {
 
   const fires = new Fires(scene, { audio });
   const sites = new Sites(scene, { audio });
+  const caves = new Caves(scene);
 
   const vitals = new Body({
     onWarning: (text) => hud.toast(text, 3),
@@ -527,6 +529,7 @@ function boot() {
       terrain.buildImmediate(pos.x, pos.z);
       scatter.update(pos, time);
       sites.refresh(pos.x, pos.z);
+      caves.refresh(pos.x, pos.z, heightAt);
     },
   });
 
@@ -767,6 +770,7 @@ function boot() {
     // and, later, shelter placement will read the same query.
     fires.update(dt, weather);
     sites.update(dt, ctrl.position);
+    caves.update(dt, ctrl.position, heightAt);
     const env = sampleEnvironment(ctrl.position, {
       hours: atmosphere.hours,
       sunAltitude: atmosphere.elevation,

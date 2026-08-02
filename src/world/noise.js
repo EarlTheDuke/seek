@@ -10,6 +10,9 @@
 import { createNoise2D, createNoise4D } from 'simplex-noise';
 import { SEED, TERRAIN, LAKE, SCATTER, WATER_LEVEL } from '../config.js';
 import { lerp, smoothstep } from '../util/math.js';
+// caves.js imports nothing from here, so this is not a cycle — the carve is
+// pure integer hashing by design, precisely so it can live inside heightAt.
+import { caveCarve } from './caves.js';
 
 // ── Seeded PRNG (Alea, by Johannes Baagøe) ──────────────────────────────────
 // Inlined rather than pulled from npm: it is fifteen lines, and owning it means
@@ -140,7 +143,20 @@ export function heightAt(x, z) {
   // Small undulation — the hummocks you actually feel underfoot as you walk.
   h += T.detailAmp * nDetail(x * T.detailFreq, z * T.detailFreq);
 
-  return carveLake(x, z, h);
+  h = carveLake(x, z, h);
+
+  // ── caves ──
+  // Driven into the ground AFTER the lake carve, so a cave never opens into
+  // the basin floor and fills with water.
+  //
+  // This is the one place a per-sample cost genuinely matters — heightAt is
+  // called by collision, scatter, creatures, arrows and every terrain vertex —
+  // so `caveCarve` early-outs on a single integer hash per candidate cell and
+  // returns 0 for almost the entire world. See the note in caves.js about why
+  // it is written out longhand rather than calling caveInCell.
+  if (h > WATER_LEVEL + 1) h -= caveCarve(x, z);
+
+  return h;
 }
 
 /**

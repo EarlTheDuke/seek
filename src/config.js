@@ -424,6 +424,11 @@ export const WILDLIFE = {
   // start moving, not the moment they do.
   nightThreshold: 0.6,
 
+  // A cave is a warren: goblins live in the holes in the ground whatever the
+  // surrounding country is like, so a spawn site inside one is treated as at
+  // least this strange. Sits just inside the goblin's [0.55, 1] band.
+  warrenStrangeness: 0.58,
+
   // How far a creature fleeing the sunrise has to get before it is retired.
   // Comfortably beyond the distance you could follow it at a walk, so it always
   // reads as "it got away into the crags" rather than "it vanished".
@@ -438,6 +443,56 @@ export const WILDLIFE = {
   // opening view. Far enough outside its 72 m aggro range that you get to see
   // it before it sees you, and decide whether to take it on. 0 turns it off.
   testBearAt: 86,
+};
+
+// ── Caves ───────────────────────────────────────────────────────────────────
+//
+// A heightfield cannot express an overhang, so a cave here is a BOWL carved
+// into the heightfield (which gives real collision for free) plus a separate
+// roof shell laid over it (which gives the overhang). See world/caves.js.
+export const CAVES = {
+  cellSize: 520, // hash grid for placement
+  density: 0.28, // fraction of cells holding one
+  visibleRange: 420,
+
+  radiusMin: 11,
+  radiusMax: 18,
+  // How far the hollow is driven down. Kept modest against the radius: depth
+  // over run IS the gradient, and a cave you cannot walk into is a hole.
+  depthMin: 3.0,
+  depthMax: 4.8,
+  // Where the floor bottoms out, as a fraction of the radius. Small means the
+  // fall is spread across nearly the whole bowl. At 0.28 the walls came out at
+  // gradient 1.26 — unclimbable — and the whole thing was a pit.
+  floorFraction: 0.08,
+
+  // The mouth. `mouthStart` is how much of the facing side opens up, and
+  // `mouthCut` is how much of the bowl's depth is taken back out there — the
+  // difference between an entrance you walk into and a pit you fall into.
+  mouthStart: -0.15,
+  mouthCut: 0.96,
+  mouthDrop: 0.55, // how far the roof is carried away below the rim
+
+  roofDetail: 3,
+  roofHeightScale: 0.62, // a hemisphere reads as a bubble; squash it
+  roofLift: 0.4,
+  // Inside this fraction of the radius you are properly under the roof, which
+  // is what shelter and darkness key off.
+  roofFraction: 0.72,
+
+  // What being inside does. A cave is the best shelter in the world, and the
+  // whole reason to want one.
+  shelter: 0.95,
+  // Degrees the rock holds against the night. Caves are cold by day and warm
+  // by night relative to outside, which is what real rock does.
+  thermalMassC: 5.5,
+  // The rock settles at the DAILY MEAN, which is above sea-level-minus-lapse
+  // because the sun only adds heat while it is up. See the note in
+  // environment.js — without this the night-time gain measured +0.1 C.
+  meanBiasC: 3.4,
+  // How much of the sky's light reaches you. Near zero: a cave at night is
+  // genuinely dark and you will want a fire.
+  skyOcclusion: 0.9,
 };
 
 // ── Built sites: barrows and stone circles ──────────────────────────────────

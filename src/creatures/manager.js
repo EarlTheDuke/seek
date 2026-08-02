@@ -17,6 +17,7 @@ import { hash2i, lerp } from '../util/math.js';
 import { SPECIES, getSpecies } from './registry.js';
 import { Creature } from './creature.js';
 import { strangenessAt, darkness, inBand } from '../world/strangeness.js';
+import { caveAt } from '../world/caves.js';
 import { updateMorale, reportDeath } from './morale.js';
 
 const _player = new THREE.Vector3();
@@ -150,7 +151,15 @@ export class Wildlife {
         // per species. Deer live in the settled lowlands, goblins only where
         // the world has already gone wrong. Walking uphill in the dark changes
         // the cast, which is the entire point of the gradient.
-        const s = strangenessAt(x, z, { sunAltitude, weather: this.ctx.weather });
+        // A cave is a WARREN. Goblins live in the holes in the ground, so a
+        // site inside one admits them regardless of how tame the surrounding
+        // country is — which is what turns a cave from scenery into a place
+        // you approach carefully, and gives the player a reason to look at a
+        // dark mouth in a hillside and decide something.
+        const warren = caveAt(x, z);
+        const s = warren
+          ? Math.max(strangenessAt(x, z, { sunAltitude, weather: this.ctx.weather }), WILDLIFE.warrenStrangeness)
+          : strangenessAt(x, z, { sunAltitude, weather: this.ctx.weather });
         const { everPossible, now } = this.candidatesFor(x, z, s, night);
 
         if (!everPossible.length) {

@@ -11,9 +11,10 @@
 // What that does to a particular body — clothing, wetness, exertion — belongs
 // to player/body.js.
 
-import { SURVIVAL, WATER_LEVEL } from '../config.js';
+import { SURVIVAL, WATER_LEVEL, CAVES } from '../config.js';
 import { heightAt } from './noise.js';
 import { regionAt, regionEffects, describeRegion } from './regions.js';
+import { caveAt } from './caves.js';
 import { clamp, lerp, smoothstep } from '../util/math.js';
 
 /**
@@ -75,6 +76,26 @@ export function sampleEnvironment(pos, ctx) {
   const effects = regionEffects(region);
   air += effects.warmthC;
 
+  // ── inside a cave ──
+  // Rock has thermal mass: it is cool by day and holds the day's heat into the
+  // night, which is exactly why people and animals have always slept in them.
+  // So a cave is not simply "warmer" — it pulls the temperature TOWARD the
+  // daily mean, which is a gain at 3 a.m. and a loss at noon.
+  const cave = caveAt(pos.x, pos.z);
+  const caveInside = cave ? cave.inside : 0;
+  if (caveInside > 0) {
+    // The mean the rock settles at is NOT just sea level minus the lapse rate.
+    // The sun only adds heat while it is up, so the true daily average sits
+    // above that — and without the bias the night-time gain came out at +0.1 C,
+    // which is not a reason to sleep anywhere. With it, a cave is a couple of
+    // degrees of free warmth at 4 a.m. and several degrees of shade at noon.
+    const mean =
+      SURVIVAL.seaLevelC -
+      Math.max(0, ground - WATER_LEVEL) * SURVIVAL.lapsePerMetre +
+      CAVES.meanBiasC;
+    air += (mean - air) * caveInside * (CAVES.thermalMassC / 10);
+  }
+
   // Exposure: how much of the sky can reach you. Approximated from altitude —
   // a ridge is windier than a hollow — then reduced by whatever you are
   // standing in. This is the promised override: the comment used to say
@@ -83,12 +104,21 @@ export function sampleEnvironment(pos, ctx) {
   // `extraShelter` is whatever is standing around you that the terrain does not
   // know about — a stone circle now, walls in Phase 7. Combined rather than
   // added, so shelter can approach but never reach total.
-  const shelter = clamp(1 - (1 - effects.shelter) * (1 - extraShelter), 0, 0.95);
+  const caveShelter = caveInside * CAVES.shelter;
+  const shelter = clamp(
+    1 - (1 - effects.shelter) * (1 - extraShelter) * (1 - caveShelter),
+    0,
+    0.98
+  );
   const exposure = clamp((0.35 + smoothstep(10, 85, ground) * 0.65) * (1 - shelter), 0, 1);
 
   const windStrength = clamp((weather?.wind ?? 1) * exposure, 0, 2);
 
-  const daylight = smoothstep(-4, 8, sunAltitude);
+  // Under a roof the sun does not reach you, however high it is — which is
+  // what makes a cave a genuinely dark place to be at night AND a cool one at
+  // noon, without either being a special case.
+  const skyReach = 1 - caveInside * CAVES.skyOcclusion;
+  const daylight = smoothstep(-4, 8, sunAltitude) * skyReach;
   const sunWarmth = daylight * SURVIVAL.sunWarmthMax * (1 - (weather?.cloud ?? 0));
 
   // Nearest fire's contribution, falling off with distance.
@@ -121,10 +151,12 @@ export function sampleEnvironment(pos, ctx) {
     rain: weather?.rain ?? 0,
     region,
     effects,
+    cave,
+    inCave: caveInside > 0.5,
     // A short phrase, for the HUD and — later — for describing a place to a
     // language model.
     describe() {
-      const bits = [describeRegion(region)];
+      const bits = [caveInside > 0.5 ? 'in a cave' : describeRegion(region)];
       if (air < 2) bits.push('freezing');
       else if (air < 8) bits.push('cold');
       else if (air > 24) bits.push('hot');
