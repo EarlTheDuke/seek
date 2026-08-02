@@ -6,9 +6,11 @@
 // the codebase needs to learn about it.
 
 import { Bow } from './bow.js';
+import { Axe } from './axe.js';
 
 const BEHAVIOURS = {
   bow: Bow,
+  melee: Axe,
   // crossbow: Crossbow,
   // sling: Sling,
 };

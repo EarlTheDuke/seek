@@ -44,7 +44,7 @@ npm run dev      # http://localhost:5173
 | **`B`** | **build — whatever your camp is still missing** |
 | `E` | cut a tree · quarry a rock · use a store · take bearings · open a barrow |
 | `R` | eat |
-| **`Mouse 1`** | **draw the bow — hold to aim, release to loose** |
+| **`Mouse 1`** | **bow: hold to draw, release to loose · axe: hold to wind up, release to swing** |
 | `E` | pick up |
 | `Q` | drop what you're holding |
 | `1` `2` / wheel | change item |

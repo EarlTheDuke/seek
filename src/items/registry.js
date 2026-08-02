@@ -304,6 +304,46 @@ ITEMS.stone = {
   makeObject: () => new THREE.Mesh(ITEMS.stone.geometry(), itemMaterial),
 };
 
+// A hand axe: a split stone head lashed to a haft. The first thing in this
+// world you MAKE that is a tool rather than a comfort, and the shape says so —
+// it is crude, and it is obviously crude, because you made it by a fire out of
+// a stick and a rock.
+let axeGeo = null;
+ITEMS.axe = {
+  id: 'axe',
+  name: 'Hand Axe',
+  kind: 'weapon',
+  stack: 1,
+  behaviour: 'melee', // resolved in weapons/index.js
+  // No `ammo` — that absence is the whole difference between it and the bow,
+  // and the weapon host already handles a weapon that consumes nothing.
+  geometry: () => {
+    if (axeGeo) return axeGeo;
+    const parts = [];
+    const haft = new THREE.CylinderGeometry(0.022, 0.028, 0.56, 6);
+    haft.rotateZ(0.18);
+    parts.push(paint(haft, new THREE.Color(0x6b5232), 0.25));
+    // The head: a wedge, knapped rather than cast.
+    const head = new THREE.IcosahedronGeometry(0.085, 0);
+    head.scale(0.55, 1, 1.5);
+    head.rotateZ(0.18);
+    head.translate(0.055, 0.25, 0);
+    parts.push(paint(head, new THREE.Color(0x615c53), 0.3));
+    const edge = new THREE.IcosahedronGeometry(0.05, 0);
+    edge.scale(0.3, 0.85, 1.15);
+    edge.translate(0.09, 0.27, 0.055);
+    parts.push(paint(edge, new THREE.Color(0x8b8579), 0.3));
+    // The binding, which is the detail that makes it read as made by hand.
+    const lash = new THREE.TorusGeometry(0.04, 0.011, 5, 8);
+    lash.rotateY(Math.PI / 2);
+    lash.rotateZ(0.18);
+    lash.translate(0.045, 0.21, 0);
+    parts.push(paint(lash, new THREE.Color(0x4a3a26), 0.25));
+    return (axeGeo = finish(parts));
+  },
+  makeObject: () => new THREE.Mesh(ITEMS.axe.geometry(), itemMaterial),
+};
+
 ITEMS.venison_cooked = {
   id: 'venison_cooked',
   name: 'Cooked Venison',

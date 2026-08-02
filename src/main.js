@@ -28,7 +28,7 @@ import { CameraFeel } from './player/cameraFeel.js';
 import { ViewModel } from './player/viewmodel.js';
 import { Soundscape } from './audio/soundscape.js';
 import { Hud } from './ui/hud.js';
-import { LOADOUT, LAKE, PLAYER, WATER_LEVEL, WEATHER, WILDLIFE, SITES, STRUCTURES, TIME, OTTER } from './config.js';
+import { LOADOUT, LAKE, PLAYER, WATER_LEVEL, WEATHER, WILDLIFE, SITES, STRUCTURES, TIME, OTTER, AXE } from './config.js';
 import { Inventory } from './items/inventory.js';
 import { getItem } from './items/registry.js';
 import { WeaponHost } from './weapons/index.js';
@@ -173,6 +173,21 @@ function boot() {
   viewmodel.setSize(window.innerWidth, window.innerHeight);
 
   const pickups = new Pickups(scene, { inventory, audio, projectiles: null });
+
+  /**
+   * A creature has died; put its drop table on the ground.
+   *
+   * Extracted the moment there were two ways to kill something. It lived
+   * inline in the arrow's hit handler, and an axe kill would have quietly
+   * dropped nothing at all — the kind of bug that looks like a balance
+   * decision for a week.
+   */
+  function dropLootFor(creature) {
+    for (const d of creature.species.drops ?? []) {
+      const n = Math.round(lerpRand(d.min, d.max));
+      if (n > 0) pickups.drop(d.item, n, creature.position, _drop.set(0, 0, 0));
+    }
+  }
   const stealth = new StealthProfile();
   const weather = new Weather();
   const rain = new Rain(scene);
@@ -299,11 +314,7 @@ function boot() {
     onCreatureHit: (creature, result, point) => {
       if (result.killed) {
         hud.toast(`${creature.species.name} down — ${result.zone}`, 2.2);
-        // Drop table straight into the existing pickup system.
-        for (const d of creature.species.drops) {
-          const n = Math.round(lerpRand(d.min, d.max));
-          if (n > 0) pickups.drop(d.item, n, creature.position, _drop.set(0, 0, 0));
-        }
+        dropLootFor(creature);
       } else {
         hud.toast(`hit — ${result.zone}`, 1.2);
       }
@@ -317,10 +328,24 @@ function boot() {
     inventory,
     projectiles,
     audio,
+    // A melee weapon needs to know what is in front of it. The bow does not —
+    // it launches a projectile and the projectile finds out — which is why
+    // this only appears now, with the axe.
+    wildlife,
     rand: makeRandom('combat'),
     onDryFire: () => {
       audio.dryFire();
       hud.toast('out of arrows — look for a quiver', 2);
+    },
+    /** Something was hit at arm's length. Same feedback an arrow gets. */
+    onHit: ({ creature, killed, zone, damage }) => {
+      feel.shake(0.35 + Math.min(0.5, damage / 90));
+      if (killed) {
+        hud.toast(`${creature.species.name} down — ${zone ?? 'a solid blow'}`, 2.4);
+        dropLootFor(creature);
+      } else if (zone === 'head') {
+        hud.toast('a good blow', 1.4);
+      }
     },
   });
 
@@ -473,11 +498,17 @@ function boot() {
       if (c.species.faction !== 'prey') continue;
       consider(c.position.x, c.position.z, c.state === 'dead' ? `a dead ${c.species.id}` : `a ${c.species.id}`);
     }
-    for (const p of pickups.items ?? []) {
-      const def = getItem(p.item);
-      if (def?.kind !== 'food') continue;
-      consider(p.position.x, p.position.z, itemName(p.item).toLowerCase());
-    }
+    // Pickups keep three separate collections and there is no `items` — using
+    // that name silently found nothing, so the otter would only ever have
+    // pointed at live deer and never at the venison lying beside them. The kind
+    // of bug that reads as a design choice until someone checks.
+    const food = (pos, item) => {
+      if (getItem(item)?.kind !== 'food') return;
+      consider(pos.x, pos.z, itemName(item).toLowerCase());
+    };
+    for (const d of pickups.dropped) food(d.obj.position, d.item);
+    for (const r of pickups.recovered) food(r.projectile.pos, r.item);
+    for (const l of pickups.loot.values()) food(l.obj.position, l.item);
     return best;
   }
 
@@ -770,15 +801,22 @@ function boot() {
     }
 
     if (source && sourceDist === closest) {
+      // An axe in your pack is worth more here than in a fight. Chopping by
+      // hand is pulling at deadfall; with an axe it is chopping.
+      const hasAxe = inventory.countOf('axe') > 0;
+      const bonus = hasAxe ? (source.tag === 'tree' ? AXE.chopBonus : AXE.quarryBonus) : 0;
+      const amount = source.amount + bonus;
       return {
-        label: `<b>E</b>  ${source.verb} ${source.tag} — ${source.amount} ${itemName(source.item).toLowerCase()}`,
+        label:
+          `<b>E</b>  ${source.verb} ${source.tag} — ${amount} ${itemName(source.item).toLowerCase()}` +
+          (hasAxe ? ' <b>(axe)</b>' : ''),
         run: () => {
           harvest.take(source.x, source.z, totalHours);
-          inventory.add(source.item, source.amount);
+          inventory.add(source.item, amount);
           audio.impact?.(source.tag === 'tree' ? 'wood' : 'rock', {
             x: source.x, y: ctrl.position.y + 1, z: source.z,
           });
-          return `${source.verb} — ${source.amount} ${itemName(source.item).toLowerCase()}`;
+          return `${source.verb} — ${amount} ${itemName(source.item).toLowerCase()}`;
         },
       };
     }

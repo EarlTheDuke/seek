@@ -8,9 +8,28 @@
 // crafting code learning anything new.
 
 export const RECIPES = {
-  // Ordered by priority, since one key offers one recipe. The cloak comes
-  // first because it is a one-off you will almost never be able to make — put
-  // cooking above it and you can never stitch anything while carrying meat.
+  // The axe is first because it is the one thing here that changes what you can
+  // DO rather than how comfortable you are, and because — like the cloak — it
+  // is a one-off. Anything above it would shadow it forever.
+  //
+  // Stone, a haft and something to lash it with, at a fire, which is exactly
+  // the list a person would actually need. Nothing about it is a recipe in the
+  // sense of a menu: you have been carrying all three for hours without knowing
+  // they added up to something.
+  make_axe: {
+    id: 'make_axe',
+    name: 'Knap a Hand Axe',
+    inputs: { stone: 2, wood: 1, hide: 1 },
+    outputs: { axe: 1 },
+    requires: 'fire',
+    seconds: 16,
+    verb: 'knap',
+    maxHeld: 1,
+  },
+
+  // The cloak comes next because it is also a one-off you will rarely be able
+  // to make — put cooking above it and you can never stitch anything while
+  // carrying meat.
   make_cloak: {
     id: 'make_cloak',
     name: 'Stitch a Hide Cloak',

@@ -445,6 +445,38 @@ export const WILDLIFE = {
   testBearAt: 86,
 };
 
+// ── The axe ─────────────────────────────────────────────────────────────────
+//
+// The first melee weapon, and deliberately not a worse bow. Its whole decision
+// is TIMING: the wind-up is long enough that a charging animal reaches you
+// during it, so you either swing early and miss or swing late and get hit.
+// See weapons/axe.js.
+export const AXE = {
+  // Wind-up. Long on purpose — this is the window the fight happens in.
+  windupFull: 0.62, // seconds to a full-power blow
+  windupMoveScale: 0.55, // you cannot run flat out with it over your head
+  windupFov: 3, // degrees, a slight pull-in as you load
+
+  swingTime: 0.42,
+  contactAt: 0.16, // when in the swing the blade actually bites
+  recoverTime: 0.34,
+
+  reach: 2.9, // metres, measured to the surface of the target
+  arc: 1.5, // radians, total — a swung axe is a wide thing
+  strikeHeight: 0.55, // where on the body a level swing lands, 0..1
+
+  // A full blow kills a deer outright and takes a serious bite out of a bear;
+  // a panicked poke does not. That gap is the reward for holding your nerve.
+  damageLight: 14,
+  damageFull: 52,
+
+  // As a TOOL. This is most of why you want one: chopping by hand is pulling
+  // at deadfall, and with an axe it is chopping.
+  chopSpeed: 2.4, // multiplier on how fast you work
+  chopBonus: 2, // extra wood per tree
+  quarryBonus: 1, // and it is a passable hammer
+};
+
 // ── The otter ───────────────────────────────────────────────────────────────
 //
 // Every other creature here is a problem to be solved. This one is a
