@@ -22,6 +22,7 @@ import {
   describePosition,
   findDistrict,
   nearbyDistricts,
+  bearingName,
 } from './world/placenames.js';
 import { sanitiseIntent, IDLE_INTENT } from './sim/intents.js';
 import { CameraFeel } from './player/cameraFeel.js';
@@ -42,7 +43,8 @@ import { Fires } from './world/fires.js';
 import { Sites } from './world/sites.js';
 import { Caves } from './world/caves.js';
 import { Structures, Harvest, BUILDABLE } from './world/structures.js';
-import { Otter, TRICKS, TRICK_IDS } from './creatures/otter.js';
+import { Companion } from './creatures/companion.js';
+import { COMPANIONS, COMPANION_IDS } from './creatures/companions.js';
 import { Fish } from './world/fish.js';
 import { NetClient } from './net/client.js';
 import { Avatars } from './net/avatars.js';
@@ -98,6 +100,12 @@ const sandboxRand = makeRandom('sandbox');
 const lerpRand = (a, b) => a + _lootRand() * (b - a);
 
 let booted = false;
+
+/**
+ * Which animal the player chose. Set by the start screen before boot runs, so
+ * the companion exists from the first frame rather than being swapped in.
+ */
+let chosenCompanion = 'otter';
 
 /** Never fail silently — a black screen with nothing in the console is the worst
  *  possible outcome, so surface a genuine startup failure on the page itself. */
@@ -210,14 +218,20 @@ function boot() {
   const structures = new Structures(scene, { audio, colliders: staticColliders });
   const harvest = new Harvest();
 
-  // ── the otter ─────────────────────────────────────────────────────────────
+  // ── the pet ─────────────────────────────────────────────────────────────
   //
   // Placed near the water, because that is where otters are, and left wild.
   // It becomes yours by being looked after, not by being found.
-  const otter = new Otter(new THREE.Vector3(0, 0, 0), makeRandom('otter'));
-  scene.add(otter.object);
+  // Which animal you chose on the start screen. Defaults to the otter so a
+  // reload straight into the world still has a companion.
+  const pet = new Companion(chosenCompanion, new THREE.Vector3(0, 0, 0), makeRandom('pet'));
+  scene.add(pet.object);
   const fish = new Fish(scene);
-  let otterTrick = 0; // which command Z has selected
+  let petTrick = 0; // which command Z has selected
+  // The kangaroo's pouch and the hippo's back: both are state that belongs to
+  // the player rather than to the animal, so they live here.
+  const pouch = [];
+  let riding = false;
 
   /** Somewhere on the shore, in front of where you wake up. */
   function placeOtter() {
@@ -229,12 +243,12 @@ function boot() {
       const z = spawn.position.z - (dz / len) * r + 3;
       const y = heightAt(x, z);
       if (y > WATER_LEVEL - 0.2 && y < WATER_LEVEL + 2.5) {
-        otter.position.set(x, y, z);
+        pet.position.set(x, y, z);
         return;
       }
     }
-    otter.position.copy(spawn.position);
-    otter.position.x += 6;
+    pet.position.copy(spawn.position);
+    pet.position.x += 6;
   }
   placeOtter();
   // A monotonically rising in-game hour count. The clock itself wraps at 24,
@@ -307,13 +321,13 @@ function boot() {
     onAttack: (creature) => {
       const dmg = creature.species.aggression?.damage ?? 0;
       vitals.damage(dmg, creature);
-      // ── the otter answers ──
+      // ── the pet answers ──
       // Whatever hurt you is what it goes for, with no regard at all for how
-      // big the thing is. That is correct for an otter and it is the reason
+      // big the thing is. That is correct for an pet and it is the reason
       // this is a DISTRACTION rather than a damage source: a goblin with an
-      // otter attached to it is a goblin that is not swinging at you.
-      if (otter.defend(creature)) {
-        hud.toast(`${otter.name ?? 'the otter'} goes for it`, 2);
+      // pet attached to it is a goblin that is not swinging at you.
+      if (pet.defend(creature)) {
+        hud.toast(`${pet.name ?? 'the pet'} goes for it`, 2);
       }
     },
   });
@@ -490,12 +504,12 @@ function boot() {
     hud.toast(PLACE_LINES[band] ?? band, 3.4);
   }
 
-  // ── the otter ─────────────────────────────────────────────────────────────
+  // ── the pet ─────────────────────────────────────────────────────────────
 
   /**
    * Where the nearest thing worth eating is.
    *
-   * RELIABILITY IS THE POINT. The otter never rolls dice about whether it finds
+   * RELIABILITY IS THE POINT. The pet never rolls dice about whether it finds
    * something — it asks this, and this tells the truth. What varies with its
    * training and its condition is how far it can cast, which is a much better
    * knob than accuracy because it never makes the animal look stupid.
@@ -512,7 +526,7 @@ function boot() {
       consider(c.position.x, c.position.z, c.state === 'dead' ? `a dead ${c.species.id}` : `a ${c.species.id}`);
     }
     // Pickups keep three separate collections and there is no `items` — using
-    // that name silently found nothing, so the otter would only ever have
+    // that name silently found nothing, so the pet would only ever have
     // pointed at live deer and never at the venison lying beside them. The kind
     // of bug that reads as a design choice until someone checks.
     const food = (pos, item) => {
@@ -528,38 +542,56 @@ function boot() {
   /**
    * Feed it, or play with it.
    *
-   * `want` is set from the menu; with no menu (a wild otter, which has no
+   * `want` is set from the menu; with no menu (a wild pet, which has no
    * menu) it picks whichever it needs more.
    */
-  function tendOtter(want = null) {
-    const food = Object.keys(OTTER.foods).find((id) => inventory.countOf(id) > 0);
+  function tendPet(want = null) {
+    const food = Object.keys(pet.species.foods).find((id) => inventory.countOf(id) > 0);
     if (want === 'play') {
-      const res = otter.play();
-      hud.toast(res.ok ? `${otterName()} rolls about` : res.why, 2.2);
+      const res = pet.play();
+      hud.toast(res.ok ? `${petName()} rolls about` : res.why, 2.2);
       return null;
     }
     // Something to eat beats a game, if it is hungry and you have any.
-    if ((want === 'feed' || otter.fed < 0.85) && food) {
-      const res = otter.feed(food);
+    if ((want === 'feed' || pet.fed < 0.85) && food) {
+      const res = pet.feed(food);
       if (!res.ok) return hud.toast(res.why, 2), null;
       inventory.remove(food, 1);
       audio.pickup?.();
       if (res.named) hud.toast(`it takes the ${itemName(food).toLowerCase()} — you call it ${res.name}`, 4);
-      else hud.toast(`${otterName()} eats`, 2);
+      else hud.toast(`${petName()} eats`, 2);
       return null;
     }
-    const res = otter.play();
+    const res = pet.play();
     if (!res.ok) {
-      hud.toast(otter.fed < 0.85 ? 'it is hungry — you have nothing it wants' : res.why, 2.4);
+      hud.toast(pet.fed < 0.85 ? 'it is hungry — you have nothing it wants' : res.why, 2.4);
       return null;
     }
-    hud.toast(`${otterName()} rolls about`, 2);
+    hud.toast(`${petName()} rolls about`, 2);
     return null;
   }
 
-  const otterName = () => otter.name ?? 'the otter';
-  const otterNear = () =>
-    Math.hypot(otter.position.x - ctrl.position.x, otter.position.z - ctrl.position.z) < 8;
+  const petName = () => pet.name ?? `the ${pet.species.name.toLowerCase()}`;
+
+  /**
+   * Swap which animal came with you.
+   *
+   * Only meaningful on the start screen — once you are playing, the
+   * relationship IS the thing and you cannot trade it in. `pet` keeps the same
+   * binding so nothing else in this file has to know it happened; only its
+   * innards change.
+   */
+  function swapCompanion(id) {
+    if (id === pet.species.id) return;
+    scene.remove(pet.object);
+    const fresh = new Companion(id, pet.position.clone(), makeRandom(`pet:${id}`));
+    Object.assign(pet, fresh);
+    scene.add(pet.object);
+    petTrick = 0;
+    placeOtter();
+  }
+  const petNear = () =>
+    Math.hypot(pet.position.x - ctrl.position.x, pet.position.z - ctrl.position.z) < 8;
 
   // ── fishing ──────────────────────────────────────────────────────────────
   //
@@ -569,13 +601,13 @@ function boot() {
   // It is the same lesson the deer have been teaching since the first hour,
   // and now the lake teaches it too.
   function fishOdds(shoal) {
-    const helping = otter.tame && otterNear();
+    const helping = pet.tame && petNear();
     let c = FISH.baseChance;
     c += ctrl.crouching ? FISH.crouchBonus : 0;
     c -= stealth.noise * FISH.noisePenalty;
     c -= shoal.spooked * FISH.spookedPenalty;
     c += Math.max(0, Math.min(1, (shoal.size - FISH.shoalMin) / (FISH.shoalMax - FISH.shoalMin))) * FISH.shoalBonus;
-    if (helping) c += FISH.otterBonusMin + (FISH.otterBonusMax - FISH.otterBonusMin) * otter.trust;
+    if (helping) c += FISH.otterBonusMin + (FISH.otterBonusMax - FISH.otterBonusMin) * pet.trust;
     return Math.max(0, Math.min(FISH.maxChance, c));
   }
 
@@ -583,7 +615,7 @@ function boot() {
     const res = fish.tryCatch(shoal, {
       noise: stealth.noise,
       crouched: ctrl.crouching,
-      otter: otter.tame && otterNear() ? otter : null,
+      pet: pet.tame && petNear() ? pet : null,
     });
     audio.impact?.('water', ctrl.position);
 
@@ -592,12 +624,12 @@ function boot() {
       return null;
     }
     inventory.add('fish', res.count);
-    // The otter got one too. Feeding it back to her is the point of all this.
+    // The pet got one too. Feeding it back to her is the point of all this.
     if (res.count > 1) {
-      hud.toast(`two trout — ${otterName()} caught one as well`, 3.2);
-      otter.says = 'chatter';
+      hud.toast(`two trout — ${petName()} caught one as well`, 3.2);
+      pet.says = 'chatter';
     } else {
-      hud.toast(res.helped ? `a trout, with ${otterName()}'s help` : 'a trout', 2.4);
+      hud.toast(res.helped ? `a trout, with ${petName()}'s help` : 'a trout', 2.4);
     }
     return null;
   }
@@ -611,53 +643,51 @@ function boot() {
    * knows, what it is part-way through, and what it will not do yet AND WHY,
    * which is the part that makes the trust model legible instead of mysterious.
    */
-  function openOtterMenu() {
+  function openPetMenu() {
     const items = [];
 
-    const food = Object.keys(OTTER.foods).find((id) => inventory.countOf(id) > 0);
+    const food = Object.keys(pet.species.foods).find((id) => inventory.countOf(id) > 0);
     items.push({
       label: 'Feed',
       value: { do: 'feed' },
       detail: food ? itemName(food) : '',
-      disabled: !food || otter.fed > 0.96,
+      disabled: !food || pet.fed > 0.96,
       why: !food ? 'nothing it wants' : 'it has eaten',
     });
     items.push({
       label: 'Play',
       value: { do: 'play' },
       detail: '',
-      disabled: otter.played > 0.95,
+      disabled: pet.played > 0.95,
       why: 'it has had enough',
     });
 
-    for (const id of TRICK_IDS) {
-      const t = TRICKS[id];
-      const known = otter.learned.has(id);
-      const prog = otter.progress[id] ?? 0;
-      const lockedByTrust = !known && otter.trust < t.needs;
-      const lockedByCare = !known && otter.care < OTTER.willWorkAbove;
+    // Built from THIS animal's own trick list. No two species share one, so
+    // the menu is different for every companion in the game.
+    for (const id of pet.trickIds) {
+      const t = pet.tricks[id];
+      const known = pet.learned.has(id);
+      const prog = pet.progress[id] ?? 0;
+      const lockedByTrust = !known && pet.trust < t.needs;
+      const lockedByCare = !known && pet.care < OTTER.willWorkAbove;
       items.push({
         label: t.name,
         value: { do: 'trick', id },
-        detail: known
-          ? id === 'guard'
-            ? otter.guarding ? 'on' : 'off'
-            : t.blurb
-          : `learning ${prog}/${t.reps}`,
+        detail: known ? (t.toggle ? (pet.isOn(id) ? 'on' : 'off') : t.blurb) : `learning ${prog}/${t.reps}`,
         disabled: lockedByTrust || lockedByCare,
-        why: lockedByTrust ? 'needs more trust' : `it is ${otter.mood}`,
+        why: lockedByTrust ? 'needs more trust' : `it is ${pet.mood}`,
       });
     }
 
     // Pointer lock has to go, or the mouse keeps turning you while you read.
     input.enabled = false;
     hud.openMenu(
-      `${otterName()} · ${otter.mood}`,
+      `${petName()} · ${pet.mood}`,
       items,
       (v) => {
-        if (v.do === 'feed' || v.do === 'play') return tendOtter(v.do);
-        otterTrick = TRICK_IDS.indexOf(v.id);
-        tellOtter();
+        if (v.do === 'feed' || v.do === 'play') return tendPet(v.do);
+        petTrick = pet.trickIds.indexOf(v.id);
+        tellPet();
       },
       () => {
         input.enabled = true;
@@ -666,49 +696,181 @@ function boot() {
     return null;
   }
 
-  /** Z picks a command; V gives it. */
+  /** Z picks a command; V gives it — the keyboard route past the menu. */
   function cycleTrick(dir = 1) {
-    otterTrick = (otterTrick + dir + TRICK_IDS.length) % TRICK_IDS.length;
-    const t = TRICKS[TRICK_IDS[otterTrick]];
-    const known = otter.learned.has(t.id);
-    const prog = otter.progress[t.id] ?? 0;
-    hud.toast(
-      `${t.name}${known ? '' : ` — learning ${prog}/${t.reps}`}: ${t.blurb}`,
-      2.2
-    );
+    const ids = pet.trickIds;
+    petTrick = (petTrick + dir + ids.length) % ids.length;
+    const t = pet.tricks[ids[petTrick]];
+    const known = pet.learned.has(ids[petTrick]);
+    const prog = pet.progress[ids[petTrick]] ?? 0;
+    hud.toast(`${t.name}${known ? '' : ` — learning ${prog}/${t.reps}`}: ${t.blurb}`, 2.2);
   }
 
-  function tellOtter() {
-    const id = TRICK_IDS[otterTrick];
-    if (id === 'seek') {
-      const res = otter.seek({ nearestFood });
-      if (!res.ok) return hud.toast(res.why, 2.4), null;
-      if (!res.found) {
-        hud.toast(`${otterName()} casts about and finds nothing within ${Math.round(res.range)} m`, 3);
-        return null;
-      }
-      const dir = bearingName(ctrl.position.x, ctrl.position.z, res.found.x, res.found.z);
-      hud.toast(
-        `${otterName()} points — ${res.found.what}, ${Math.round(res.found.distance)} m ${dir}`,
-        4.5
-      );
-      return null;
-    }
-
-    const res = otter.command_(id);
+  function tellPet() {
+    const id = pet.trickIds[petTrick];
+    const res = pet.ask(id);
     if (!res.ok) return hud.toast(res.why, 2.4), null;
+
     if (res.toggled !== undefined) {
-      hud.toast(res.toggled ? `${otterName()} will guard you` : `${otterName()} stands down`, 2.6);
-      return null;
-    }
-    if (res.justLearned) hud.toast(`${otterName()} has it — ${res.trick.name.toLowerCase()}!`, 3.4);
-    else if (res.learned) hud.toast(`${otterName()} ${res.trick.blurb}`, 2.2);
-    else
       hud.toast(
-        `${otterName()} half-understands — ${Math.round(res.progress * 100)}% of the way there`,
+        `${petName()} ${res.toggled ? 'will' : 'no longer will'} ${res.trick.name.toLowerCase()}`,
         2.6
       );
+      return null;
+    }
+    if (res.justLearned) hud.toast(`${petName()} has it — ${res.trick.name.toLowerCase()}!`, 3.4);
+    else if (!res.learned) {
+      hud.toast(`${petName()} half-understands — ${Math.round(res.progress * 100)}% there`, 2.6);
+      return null;
+    } else hud.toast(`${petName()} ${res.trick.blurb}`, 2.2);
+
+    // ── the signature power ──
+    // Only fires once the trick is genuinely LEARNED, which is what makes the
+    // repetition mean something: a half-trained animal performs the shape of
+    // it and nothing happens.
+    if (res.power) usePower(res.power);
     return null;
+  }
+
+  /**
+   * What each animal is actually FOR.
+   *
+   * Every one answers a different problem this world genuinely creates, and
+   * that is the test any future companion has to pass — a power that duplicates
+   * another one's makes the animal a skin.
+   */
+  function usePower(power) {
+    const here = ctrl.position;
+    switch (power) {
+      // ── otter: you cannot find food ──
+      case 'seek': {
+        // OTTER.seekRange*, not FISH.* — I reached for the wrong config block
+        // and invented two keys that do not exist, which made the range NaN.
+        const { seekRangeMin: lo, seekRangeMax: hi } = OTTER;
+        const range = (lo + (hi - lo) * pet.trust) * (0.6 + pet.care * 0.4);
+        const found = nearestFood(here.x, here.z, range);
+        pet.pointingAt = found;
+        if (!found) {
+          hud.toast(`${petName()} casts about and finds nothing within ${Math.round(range)} m`, 3);
+          return;
+        }
+        hud.toast(
+          `${petName()} points — ${found.what}, ${Math.round(found.distance)} m ` +
+            bearingName(here.x, here.z, found.x, found.z),
+          4.5
+        );
+        return;
+      }
+
+      // ── hippo: deep water and bog stop you ──
+      case 'ferry': {
+        riding = !riding;
+        hud.toast(
+          riding
+            ? `you climb onto ${petName()} — it will wade anything`
+            : `you slide off ${petName()}`,
+          3
+        );
+        return;
+      }
+
+      // ── parrot: you cannot see over the ridge ──
+      case 'scout': {
+        const lines = nearbyDistricts(here.x, here.z, 2)
+          .filter((d) => d.distance > 60)
+          .slice(0, 5)
+          .map((d) => `${d.name} · ${d.distance} m ${d.bearing}`);
+        // And what is moving out there, which is the half you cannot get from
+        // a stone circle.
+        const seen = [];
+        for (const c of wildlife.creatures) {
+          if (c.state === 'dead') continue;
+          const d = Math.hypot(c.position.x - here.x, c.position.z - here.z);
+          if (d > 220) continue;
+          seen.push({ what: c.species.name, d: Math.round(d), b: bearingName(here.x, here.z, c.position.x, c.position.z) });
+        }
+        seen.sort((a, b) => a.d - b.d);
+        for (const s of seen.slice(0, 4)) lines.push(`${s.what} · ${s.d} m ${s.b}`);
+        hud.showSurvey(`${petName()} climbs and looks`, lines.length ? lines : ['nothing but weather'], 13);
+        return;
+      }
+
+      // ── kangaroo: your pack is full ──
+      case 'pouch': {
+        if (!pouch.length) {
+          let stored = 0;
+          for (const slot of [...inventory.slots]) {
+            if (!slot?.item || !slot.count) continue;
+            if (slot.item === 'bow' || slot.item === 'axe') continue; // you would regret it
+            if (pouch.length >= 10) break;
+            pouch.push({ item: slot.item, count: slot.count });
+            stored += slot.count;
+            inventory.remove(slot.item, slot.count);
+          }
+          hud.toast(stored ? `${petName()} takes ${stored} things` : 'nothing to give it', 2.6);
+        } else {
+          let taken = 0;
+          for (const s of pouch) {
+            inventory.add(s.item, s.count);
+            taken += s.count;
+          }
+          pouch.length = 0;
+          hud.toast(`${petName()} gives back ${taken} things`, 2.6);
+        }
+        return;
+      }
+
+      // ── octopus: the deep lake is unreachable ──
+      case 'dive': {
+        // Anything you dropped in water you cannot stand in, plus fish from a
+        // shoal too deep to wade to. Exactly the things the lake keeps.
+        const shoal = fish.nearest(here, 60);
+        const lost = pickups.dropped.find(
+          (d) => heightAt(d.obj.position.x, d.obj.position.z) < WATER_LEVEL - 1.2
+        );
+        if (lost) {
+          inventory.add(lost.item, lost.count);
+          pickups.dropped.splice(pickups.dropped.indexOf(lost), 1);
+          scene.remove(lost.obj);
+          hud.toast(`${petName()} comes up with your ${itemName(lost.item).toLowerCase()}`, 3.4);
+          return;
+        }
+        if (shoal) {
+          const n = 1 + (this?.rand?.() > 0.5 ? 1 : 0);
+          inventory.add('fish', n);
+          shoal.shoal.spooked = 1;
+          hud.toast(`${petName()} brings up ${n} trout from the deep water`, 3.4);
+          return;
+        }
+        hud.toast(`${petName()} finds nothing down there`, 2.6);
+        return;
+      }
+
+      // ── wolf cub: you shoot a deer and lose it ──
+      case 'track': {
+        // The actual hunting problem. A wounded animal that bolted is the one
+        // thing this game reliably takes away from you.
+        let best = null;
+        for (const c of wildlife.creatures) {
+          if (c.hp >= c.maxHp && c.state !== 'dead') continue; // unhurt and alive: not yours
+          const d = Math.hypot(c.position.x - here.x, c.position.z - here.z);
+          if (d > 320 || (best && d >= best.d)) continue;
+          best = { c, d };
+        }
+        pet.pointingAt = best ? { x: best.c.position.x, z: best.c.position.z } : null;
+        if (!best) {
+          hud.toast(`${petName()} casts about — nothing wounded out there`, 3);
+          return;
+        }
+        const dead = best.c.state === 'dead';
+        hud.toast(
+          `${petName()} has the scent — ${dead ? 'a dead' : 'a wounded'} ${best.c.species.name.toLowerCase()}, ` +
+            `${Math.round(best.d)} m ${bearingName(here.x, here.z, best.c.position.x, best.c.position.z)}`,
+          5
+        );
+        return;
+      }
+    }
   }
 
   // ── wearing ───────────────────────────────────────────────────────────────
@@ -773,13 +935,13 @@ function boot() {
       return null;
     }
     Structures.pay(spec.id, inventory);
-    // A holt is not a building, it is a gift. Telling the otter where it is is
+    // A holt is not a building, it is a gift. Telling the pet where it is is
     // the whole point of having dug it.
     if (spec.holt) {
-      otter.setHome(x, z);
+      pet.setHome(x, z);
       hud.toast(
-        otter.tame
-          ? `a holt for ${otterName()} — it will sleep here and stay warm`
+        pet.tame
+          ? `a holt for ${petName()} — it will sleep here and stay warm`
           : 'a holt — now find something to put in it',
         4
       );
@@ -836,7 +998,7 @@ function boot() {
       .slice(0, SITES.surveyRings * 3);
     for (const d of found) sites.known.add(d.name);
     const lines = found.map((d) => `${d.name} · ${Math.round(d.distance)} m ${d.bearing}`);
-    hud.showSurvey(site.name, lines);
+    hud.showSurvey(`from ${site.name}`, lines);
     return null; // the panel is the feedback; a toast on top would be noise
   }
 
@@ -897,7 +1059,7 @@ function boot() {
     // Everything competes on the same distance rule, so whatever you are
     // nearest to is what E does. That single rule is why the prompt and the
     // action can never disagree.
-    // ── the otter ──
+    // ── the pet ──
     // Care is a world interaction like any other, on the same distance rule,
     // so tending it never fights with picking something up.
     // ── fishing ──
@@ -909,20 +1071,20 @@ function boot() {
       return {
         label:
           `<b>E</b>  reach for the trout — ${Math.round(odds * 100)}%` +
-          (otter.tame && otterNear() ? ` <b>(${otterName()})</b>` : ''),
+          (pet.tame && petNear() ? ` <b>(${petName()})</b>` : ''),
         run: () => goFishing(shoal.shoal),
       };
     }
 
-    const otterDist = Math.hypot(otter.position.x - ctrl.position.x, otter.position.z - ctrl.position.z);
+    const otterDist = Math.hypot(pet.position.x - ctrl.position.x, pet.position.z - ctrl.position.z);
     if (otterDist < OTTER.followRange * 0.8) {
-      // A wild otter has one thing you can do to it. A tame one has a dozen,
+      // A wild pet has one thing you can do to it. A tame one has a dozen,
       // which is a menu rather than a keybind.
-      const label = otter.tame
-        ? `<b>E</b>  ${otterName()}`
-        : `<b>E</b>  offer the otter something`;
+      const label = pet.tame
+        ? `<b>E</b>  ${petName()}`
+        : `<b>E</b>  offer the pet something`;
       if (otterDist < Math.min(near?.distance ?? Infinity, fireDist)) {
-        return { label, run: () => (otter.tame ? openOtterMenu() : tendOtter()) };
+        return { label, run: () => (pet.tame ? openPetMenu() : tendPet()) };
       }
     }
 
@@ -1044,7 +1206,7 @@ function boot() {
     seed: SEED,
     mode: ruleset.id,
     atmosphere, weather, ctrl, inventory, vitals, projectiles, pickups, wildlife, fires, sites,
-    structures, harvest, otter,
+    structures, harvest, pet,
     get totalHours() {
       return totalHours;
     },
@@ -1090,7 +1252,13 @@ function boot() {
       hud.setMode(ruleset.current);
       input.requestLock();
     },
-    () => input.requestLock()
+    () => input.requestLock(),
+    COMPANION_IDS.map((id) => ({
+      id,
+      name: COMPANIONS[id].name,
+      helps: COMPANIONS[id].helps,
+    })),
+    (id) => swapCompanion(id)
   );
 
   // Last-ditch save when the tab goes away. `pagehide` fires in cases
@@ -1181,7 +1349,7 @@ function boot() {
         cycleTrick(e.shiftKey ? -1 : 1);
         break;
       case 'KeyV':
-        tellOtter();
+        tellPet();
         break;
       // E, Q and the number row are handled as intents now — see the tick.
       default:
@@ -1393,26 +1561,26 @@ function boot() {
     // scatters them and crouching still does not — one model, everywhere.
     fish.update(dt, ctrl.position, stealth.noise);
 
-    // ── the otter ──
+    // ── the pet ──
     // Updated after the wildlife, so a creature that swung this frame has
-    // already registered and the otter can answer it in the same tick.
-    otter.update(dt, ctrl, { nearestFood }, {
+    // already registered and the pet can answer it in the same tick.
+    pet.update(dt, ctrl, { nearestFood }, {
       airC: env.airC,
       nearFire: !!env.nearFire,
-      shelter: structures.shelterAt(otter.position.x, otter.position.z),
+      shelter: structures.shelterAt(pet.position.x, pet.position.z),
       night: darkness(atmosphere.elevation),
       dayMinutes: TIME.dayMinutes,
     });
-    if (otter.pendingBite) {
-      const victim = otter.pendingBite;
-      otter.pendingBite = null;
+    if (pet.pendingBite) {
+      const victim = pet.pendingBite;
+      pet.pendingBite = null;
       const zone = victim.species?.hitZones?.find((z) => z.name === 'body');
-      victim.applyDamage?.(OTTER.biteDamage, zone, otter.position);
+      victim.applyDamage?.(OTTER.biteDamage, zone, pet.position);
     }
-    if (otter.says) audio.otterCall?.(otter.position, otter.says);
-    if (otter.forgot) {
-      hud.toast(`${otterName()} has forgotten how to ${TRICKS[otter.forgot].cue}`, 3.5);
-      otter.forgot = null;
+    if (pet.says) audio.otterCall?.(pet.position, pet.says);
+    if (pet.forgot) {
+      hud.toast(`${petName()} has forgotten how to ${pet.tricks[pet.forgot].name.toLowerCase()}`, 3.5);
+      pet.forgot = null;
     }
 
     // ── the other people ──
@@ -1433,19 +1601,19 @@ function boot() {
     hud.setVitals(vitals);
     hud.setNeeds(vitals, ruleset.current.survival);
     hud.setStance(ctrl.crouching && !vitals.dead, inventory.wornItems.map((id) => itemName(id)));
-    // The otter's needs, but only once it is yours and only when something is
+    // The pet's needs, but only once it is yours and only when something is
     // actually wrong — the same rule the body's own gauges follow.
     hud.setPet(
-      otter.tame
+      pet.tame
         ? {
-            name: otterName(),
-            mood: otter.mood,
-            fed: otter.fed,
-            played: otter.played,
-            warmth: otter.warmth,
-            trust: otter.trust,
-            trick: TRICKS[TRICK_IDS[otterTrick]].name,
-            known: otter.learned.has(TRICK_IDS[otterTrick]),
+            name: petName(),
+            mood: pet.mood,
+            fed: pet.fed,
+            played: pet.played,
+            warmth: pet.warmth,
+            trust: pet.trust,
+            trick: pet.tricks[pet.trickIds[petTrick]].name,
+            known: pet.learned.has(pet.trickIds[petTrick]),
           }
         : null
     );
@@ -1525,8 +1693,8 @@ function boot() {
       return `weather pinned to ${name}`;
     },
     vitals, body: vitals, ruleset, fires,
-    // ── the otter ──
-    otter,
+    // ── the pet ──
+    pet,
     fish,
     /** The odds on the nearest shoal, and why they are what they are. */
     fishing: () => {
@@ -1539,23 +1707,23 @@ function boot() {
         crouched: ctrl.crouching,
         yourNoise: +stealth.noise.toFixed(2),
         spooked: +s.shoal.spooked.toFixed(2),
-        otterHelping: otter.tame && otterNear(),
+        petHelping: pet.tame && petNear(),
         chance: `${Math.round(fishOdds(s.shoal) * 100)}%`,
       };
     },
-    /** Open the otter's menu, as standing next to it and pressing E does. */
-    otterMenu: () => (openOtterMenu(), 'open'),
+    /** Open the pet's menu, as standing next to it and pressing E does. */
+    petMenu: () => (openPetMenu(), 'open'),
     /** What E would do right now. Exposed so the prompt can be tested. */
     whatWouldEDo: () => resolveInteraction()?.label ?? 'nothing in reach',
     /** Where the nearest thing worth eating is — what "seek" actually asks. */
     nearestFood,
     /** Ask it for something by name, without cycling to it. */
     tell: (trick) => {
-      const i = TRICK_IDS.indexOf(trick);
-      if (i < 0) return `it knows: ${TRICK_IDS.join(', ')}`;
-      otterTrick = i;
-      tellOtter();
-      return otter.status;
+      const i = pet.trickIds.indexOf(trick);
+      if (i < 0) return `it knows: ${pet.trickIds.join(', ')}`;
+      petTrick = i;
+      tellPet();
+      return pet.status;
     },
     /**
      * Assert the keyboard→intent path with events shaped like a real keyboard's.

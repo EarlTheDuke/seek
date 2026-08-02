@@ -40,6 +40,25 @@ const CSS = `
 #hl-modes .t { display: block; font-size: 15px; letter-spacing: .16em; color: #ffe0b0; }
 #hl-modes .d { display: block; font-size: 10.5px; opacity: .55; margin-top: 5px; line-height: 1.45; }
 
+/* Choosing your companion. Sits under the mode buttons because it is the
+   second decision, not the first — you pick how you want to play, then who
+   comes with you. Each one says what it is FOR, because a choice between six
+   animals you know nothing about is a coin toss. */
+#hl-pets { margin-top: 26px; }
+#hl-pets .lbl { font-size: 10px; letter-spacing: .26em; text-transform: uppercase;
+  opacity: .45; margin-bottom: 10px; }
+#hl-pets .grid { display: flex; flex-wrap: wrap; gap: 8px; max-width: 640px; }
+#hl-pets button {
+  font: inherit; color: #f3e6d4; cursor: pointer; text-align: left;
+  background: rgba(20,14,9,.4); border: 1px solid rgba(255,220,180,.16);
+  border-radius: 6px; padding: 9px 13px; min-width: 196px;
+  transition: border-color .16s, background .16s;
+}
+#hl-pets button:hover { border-color: rgba(255,214,150,.6); background: rgba(44,28,14,.6); }
+#hl-pets button.on { border-color: rgba(255,214,150,.9); background: rgba(60,38,18,.75); }
+#hl-pets .n { display: block; font-size: 13px; letter-spacing: .12em; color: #ffe0b0; }
+#hl-pets .h { display: block; font-size: 10px; opacity: .6; margin-top: 3px; }
+
 #hl-continue {
   margin-top: 20px; cursor: pointer; font-size: 12px; letter-spacing: .1em;
   color: #ffd9a0; opacity: .85; border-bottom: 1px dashed rgba(255,217,160,.4);
@@ -255,6 +274,7 @@ export class Hud {
         <h1>HIGHLANDS</h1>
         <div class="sub">a golden hour, somewhere high up</div>
         <div id="hl-modes"></div>
+        <div id="hl-pets"><div class="lbl">who comes with you</div><div class="grid"></div></div>
         <div id="hl-continue" style="display:none"></div>
         <div class="note">mouse to look &middot; W A S D to walk &middot; <b>Tab</b> for controls</div>
       </div>
@@ -346,7 +366,37 @@ export class Hud {
    * @param {(mode, continuing) => void} onBegin
    * @param {() => void} onResume  re-acquire pointer lock after Esc
    */
-  wire(modes, resumeText, onBegin, onResume) {
+  /**
+   * @param {{id,name,helps}[]} companions  who you may bring
+   * @param {(id:string)=>void} onCompanion  called as soon as you choose
+   */
+  wire(modes, resumeText, onBegin, onResume, companions = [], onCompanion = null) {
+    // ── who comes with you ──
+    // Chosen BEFORE you start, so the animal exists from the first frame
+    // rather than being swapped in afterwards. Each button says what the
+    // animal is FOR, because a choice between six creatures you know nothing
+    // about is a coin toss rather than a decision.
+    if (companions.length) {
+      const grid = this.root.querySelector('#hl-pets .grid');
+      grid.innerHTML = companions
+        .map(
+          (c, i) =>
+            `<button data-pet="${c.id}"${i === 0 ? ' class="on"' : ''}>` +
+            `<span class="n">${c.name}</span><span class="h">${c.helps}</span></button>`
+        )
+        .join('');
+      for (const btn of grid.querySelectorAll('button')) {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          for (const b of grid.querySelectorAll('button')) b.classList.remove('on');
+          btn.classList.add('on');
+          onCompanion?.(btn.dataset.pet);
+        });
+      }
+    } else {
+      this.root.querySelector('#hl-pets').style.display = 'none';
+    }
+
     const begin = (mode, continuing) => {
       this.start.style.opacity = '0';
       setTimeout(() => (this.start.style.display = 'none'), 520);
@@ -720,7 +770,10 @@ export class Hud {
    * point is that you have to remember it, or walk back and look again.
    */
   showSurvey(title, lines, seconds = 11) {
-    this.surveyTitle.textContent = `from ${title}`;
+    // The caller supplies the whole phrase. It used to prepend "from", which
+    // read fine for a stone circle ("from Ring of Thrawn") and absurdly for a
+    // bird ("from the parrot climbs and looks").
+    this.surveyTitle.textContent = title;
     this.surveyRows.innerHTML = lines
       .map((l) => {
         const [name, rest] = l.split(' · ');
