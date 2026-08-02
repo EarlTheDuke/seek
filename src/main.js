@@ -14,6 +14,7 @@ import { Composer } from './fx/composer.js';
 import { AmbientLife } from './fx/ambientLife.js';
 import { Controller } from './player/controller.js';
 import { PlayerInput } from './player/input.js';
+import { checkInput } from './player/inputCheck.js';
 import { sanitiseIntent, IDLE_INTENT } from './sim/intents.js';
 import { CameraFeel } from './player/cameraFeel.js';
 import { ViewModel } from './player/viewmodel.js';
@@ -435,7 +436,7 @@ function boot() {
           hud.toast('you have only your legs here', 1.6);
           break;
         }
-        hud.toast(ctrl.toggleFly() ? 'free-fly on — Space / Ctrl for up and down' : 'free-fly off');
+        hud.toast(ctrl.toggleFly() ? 'free-fly on — Space / C for up and down' : 'free-fly off');
         break;
       case 'KeyH':
         hud.toggleHidden();
@@ -669,6 +670,7 @@ function boot() {
     hud.setCrosshair(vitals.dead ? null : weaponState, weapons.spreadHint);
     hud.setVitals(vitals);
     hud.setNeeds(vitals, ruleset.current.survival);
+    hud.setStance(ctrl.crouching && !vitals.dead);
     viewmodel.update(dt, ctrl, weaponState, atmosphere.sun, camera.quaternion);
 
     audio.update(dt, ctrl, ctrl.position.y);
@@ -744,6 +746,14 @@ function boot() {
       return `weather pinned to ${name}`;
     },
     vitals, body: vitals, ruleset, fires,
+    /**
+     * Assert the keyboard→intent path with events shaped like a real keyboard's.
+     * Returns failures only, or 'input ok · N checks'.
+     */
+    checkInput: () => {
+      const { pass, results } = checkInput(input);
+      return pass ? `input ok · ${results.length} checks` : results.filter((r) => !r.ok);
+    },
     /** What it is like where you are standing. */
     conditions: () => {
       const env = sampleEnvironment(ctrl.position, {

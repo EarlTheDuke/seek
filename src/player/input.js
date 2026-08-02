@@ -27,6 +27,8 @@ export class PlayerInput {
     this.pressedPlace = false;
     this.pressedEat = false;
     this.pendingSlot = -1;
+    // Crouch is a state, not a held key. See the note on `onKeyDown`.
+    this.crouchToggled = false;
 
     this.locked = false;
     // Pointer lock is refused inside an iframe without `allow="pointer-lock"`.
@@ -40,13 +42,38 @@ export class PlayerInput {
   }
 
   bind() {
+    // ── on crouch, and why it is C and not Ctrl ──────────────────────────────
+    //
+    // Two things were wrong with binding crouch to Ctrl, and they compound.
+    //
+    // 1. A keydown for the Control key ITSELF reports `ctrlKey === true`. The
+    //    modifier guard that used to sit at the top of this handler therefore
+    //    dropped the very key crouch was bound to, and crouch had never once
+    //    worked in a real browser. It passed my tests because those dispatched
+    //    a synthetic `KeyboardEvent('keydown', { code: 'ControlLeft' })`
+    //    WITHOUT the modifier flag a real keyboard sets — the test was not
+    //    reproducing the event it claimed to.
+    //
+    // 2. Worse, the same guard dropped W A S D while Ctrl was held, and Ctrl+W
+    //    closes the browser tab. A page cannot preventDefault that outside of
+    //    fullscreen keyboard-lock. So in a game where you crouch-WALK, Ctrl is
+    //    a button that deletes your session — that is not a binding to fix, it
+    //    is a binding to remove.
+    //
+    // Crouch now toggles on C. A toggle also happens to suit the game: you
+    // stalk a deer for minutes at a time, and holding a key that long is a
+    // chore rather than a decision.
     this.onKeyDown = (e) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // Meta and Alt belong to the OS. Ctrl no longer blanket-blocks — holding
+      // it used to freeze every movement key the game reads.
+      if (e.metaKey || e.altKey) return;
       this.keys.add(e.code);
       if (e.code === 'Space') e.preventDefault();
       // Edge-triggered actions are latched here and cleared on the next poll,
-      // so a tap is never lost between ticks.
-      if (e.repeat) return;
+      // so a tap is never lost between ticks. Ctrl+<key> is a browser shortcut
+      // — Ctrl+R must reload rather than eat your venison.
+      if (e.repeat || e.ctrlKey) return;
+      if (e.code === 'KeyC') this.crouchToggled = !this.crouchToggled;
       if (e.code === 'KeyE') this.pressedInteract = true;
       if (e.code === 'KeyQ') this.pressedDrop = true;
       if (e.code === 'KeyG') this.pressedPlace = true;
@@ -119,6 +146,7 @@ export class PlayerInput {
   /** Everything held down is released — used on death, and on losing focus. */
   releaseAll() {
     this.keys.clear();
+    this.crouchToggled = false;
     this.pendingYaw = 0;
     this.pendingPitch = 0;
     this.pressedInteract = false;
@@ -135,8 +163,11 @@ export class PlayerInput {
     i.forward = (k.has('KeyW') ? 1 : 0) - (k.has('KeyS') ? 1 : 0);
     i.strafe = (k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0);
     i.jump = k.has('Space');
-    i.crouch = k.has('ControlLeft') || k.has('ControlRight');
     i.sprint = k.has('ShiftLeft') || k.has('ShiftRight');
+    // Sprinting or jumping stands you up. Without this a forgotten toggle
+    // leaves you shuffling at 2 m/s wondering what is wrong with the game.
+    if (i.sprint || i.jump) this.crouchToggled = false;
+    i.crouch = this.crouchToggled;
     i.primary = this.primaryHeld === true;
 
     i.lookYaw = this.pendingYaw;

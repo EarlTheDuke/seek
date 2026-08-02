@@ -157,13 +157,21 @@ const CSS = `
 #hl-cond.show { opacity: .9; }
 #hl-cond .bad { color: #e8836f; }
 #hl-cond .mid { color: #e8c07f; }
+
+/* Crouch is a toggle, so it needs to say so. Without a readout the only cue is
+   two thirds of a metre of eye height, which is easy to miss and impossible to
+   tell from "the key did nothing". */
+#hl-stance { position: absolute; left: 24px; bottom: 26px; font-size: 10px;
+  letter-spacing: .22em; text-transform: uppercase; color: #9fc08a;
+  opacity: 0; transition: opacity .25s ease; }
+#hl-stance.show { opacity: .75; }
 `;
 
 const KEYS = [
   ['W A S D', 'walk'],
   ['Shift', 'sprint'],
   ['Space', 'jump'],
-  ['Ctrl', 'crouch'],
+  ['C', 'crouch — a toggle, not a hold'],
   ['Mouse 1', 'draw the bow — hold to aim, release to loose'],
   ['E', 'pick up · feed the fire · cook'],
   ['G', 'build a fire (costs a branch)'],
@@ -208,6 +216,7 @@ export class Hud {
         <div class="row" data-need="wind"><span class="lbl">breath</span><span class="bar"><i></i></span><span class="val"></span></div>
       </div>
       <div id="hl-cond"></div>
+      <div id="hl-stance">crouched</div>
       <div id="hl-health"><i></i></div>
       <div id="hl-fps"></div>
       <div id="hl-toast"></div>
@@ -234,6 +243,7 @@ export class Hud {
     this.deadScreen = this.root.querySelector('#hl-dead');
     this.needsEl = this.root.querySelector('#hl-needs');
     this.condEl = this.root.querySelector('#hl-cond');
+    this.stanceEl = this.root.querySelector('#hl-stance');
     this.needRows = {};
     for (const row of this.needsEl.querySelectorAll('.row')) {
       this.needRows[row.dataset.need] = {
@@ -470,6 +480,11 @@ export class Hud {
     } else {
       this.condEl.classList.remove('show');
     }
+  }
+
+  /** Standing or crouched. The only permanent readout of a toggled state. */
+  setStance(crouching) {
+    this.stanceEl.classList.toggle('show', !!crouching);
   }
 
   setPrompt(text) {

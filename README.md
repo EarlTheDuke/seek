@@ -38,7 +38,7 @@ npm run dev      # http://localhost:5173
 |---|---|
 | `W` `A` `S` `D` | walk |
 | `Shift` | sprint |
-| `Ctrl` | crouch — quieter, lower, harder to see |
+| `C` | crouch, as a toggle — quieter, lower, harder to see |
 | `Space` | jump (up, in free-fly) |
 | **`Mouse 1`** | **draw the bow — hold to aim, release to loose** |
 | `E` | pick up |

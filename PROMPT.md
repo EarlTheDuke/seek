@@ -115,7 +115,10 @@ depth is what creates the urge to start walking.
 Most worlds like this fail not on graphics but on feeling like a floating spreadsheet. Get this
 right:
 
-- WASD + mouse look under pointer lock. `Shift` sprint, `Space` a small hop, `Ctrl` crouch.
+- WASD + mouse look under pointer lock. `Shift` sprint, `Space` a small hop, `C` crouch.
+  (Do not bind crouch to `Ctrl` in a browser game: `Ctrl+W` closes the tab and a page
+  cannot prevent it, and a `Control` keydown reports `ctrlKey === true`, so any
+  "ignore modified keys" guard silently eats the binding.)
 - **Acceleration and friction**, not instant velocity. Slightly lower air control than ground.
 - Eye height smoothly follows the terrain height query — critically damped, so slopes feel like
   slopes and small bumps don't jolt the camera.
