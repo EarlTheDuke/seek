@@ -83,6 +83,10 @@ export class Creature {
     // otherwise charge at (0, 0, 0) from wherever it happens to be standing.
     this.lastKnownThreat = position.clone();
     this.alarmed = false; // set for one frame when it first panics
+    // How many retellings away this animal's information is. 0 means it saw or
+    // smelt the threat itself; 2 means it is reacting to an animal reacting to
+    // an animal. Each hop weakens what gets passed on — see manager.raiseAlarm.
+    this.alarmGen = 0;
   }
 
   get position() {
@@ -140,6 +144,9 @@ export class Creature {
       // Rises fast, so being spotted is decisive.
       this.awareness = clamp(this.awareness + signal * dt * 1.5, 0, 1);
       this.lastKnownThreat.set(px, 0, pz);
+      // First-hand knowledge. Anything it passes on from here is a fresh
+      // rumour rather than a retelling of one, so the chain can restart.
+      this.alarmGen = 0;
     } else {
       this.awareness = clamp(this.awareness - S.calmRate * dt, 0, 1);
     }

@@ -371,6 +371,12 @@ export const SPECIES = {
 
     herd: { min: 1, max: 4, spread: 14 },
 
+    // A bolting deer is the loudest thing on the hillside. Inside `core` — a
+    // herd's own spacing — it is unmissable and the neighbours go with it.
+    // Beyond that out to `radius` it fades to a rumour that lifts heads
+    // without emptying the hillside.
+    alarm: { radius: 58, core: 24, strength: 1, hears: ['prey'], trust: 1 },
+
     spawn: {
       minHeight: WATER_LEVEL + 1.5,
       maxHeight: 74,
@@ -444,6 +450,12 @@ SPECIES.bear = {
   },
 
   herd: { min: 1, max: 1, spread: 0 }, // solitary
+
+  // A bear does not raise the alarm — it IS the alarm — but it listens to prey,
+  // at low trust. So a herd bolting nearby makes it lift its head and come to
+  // look rather than sending it into a charge. Blow a stalk badly enough and
+  // the thing that answers is not the deer.
+  alarm: { radius: 0, core: 0, strength: 0, hears: ['prey'], trust: 0.42 },
 
   spawn: {
     minHeight: WATER_LEVEL + 2,

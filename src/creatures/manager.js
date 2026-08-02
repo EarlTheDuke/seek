@@ -11,7 +11,7 @@
 // actually moved when you next look at it.
 
 import * as THREE from 'three';
-import { WILDLIFE, WATER_LEVEL } from '../config.js';
+import { WILDLIFE, WATER_LEVEL, ALARM } from '../config.js';
 import { heightAt, slopeAt, clumpAt, makeRandom } from '../world/noise.js';
 import { hash2i, lerp } from '../util/math.js';
 import { SPECIES, getSpecies } from './registry.js';
@@ -193,6 +193,7 @@ export class Wildlife {
       if (c.alarmed) {
         c.alarmed = false;
         this.deps.audio?.creatureAlarm?.(c.position);
+        this.raiseAlarm(c);
       }
 
       // A predator that has closed to contact swings. The creature only raises
@@ -225,6 +226,66 @@ export class Wildlife {
 
     // After everyone has moved, push apart anything that ended up overlapping.
     this.separate();
+  }
+
+  /**
+   * One animal has panicked; tell the ones that would notice.
+   *
+   * In plain terms: you get one chance per hillside, not one chance per deer.
+   * Blow a stalk and the whole herd is looking at where you are — because the
+   * ones that never saw you saw *the deer that did*.
+   *
+   * Three properties make it behave rather than explode:
+   *
+   *   * It is a CHAIN. Each animal that panics from an alarm can pass it on,
+   *     weaker (`generationDecay`) and only so far (`maxGenerations`). So the
+   *     panic ripples outward through a herd instead of teleporting to every
+   *     animal in range at once, and a strung-out herd genuinely does raise the
+   *     alarm more slowly than a tight one.
+   *   * It only ever RAISES awareness, and never past `ceiling`. Being told is
+   *     not the same as seeing: the animal still has to confirm it, so freezing
+   *     when a neighbour bolts is not automatically fatal to your stalk.
+   *   * `hears` is per-species, so who listens to whom is data. Deer listen to
+   *     deer. A bear listens to prey too — and that costs you nothing to write,
+   *     but it means shooting a deer badly can bring something else to look at
+   *     the carcass.
+   */
+  raiseAlarm(source) {
+    const A = source.species.alarm;
+    if (!A) return;
+    if (source.alarmGen >= ALARM.maxGenerations) return;
+
+    const carried = A.strength * ALARM.generationDecay ** source.alarmGen;
+    if (carried < 0.05) return;
+
+    for (const other of this.creatures) {
+      if (other === source || other.state === 'dead') continue;
+      const ear = other.species.alarm;
+      if (!ear?.hears?.includes(source.species.faction)) continue;
+
+      const d = Math.hypot(
+        other.position.x - source.position.x,
+        other.position.z - source.position.z
+      );
+      if (d > A.radius) continue;
+
+      // Flat inside `core`, then falling away to nothing at `radius`.
+      //
+      // A plain linear falloff was wrong, and measurably so: at herd spacing
+      // (~20 m) it delivered 0.59 against a panic threshold of 0.75, so a
+      // bolting deer left its own herd merely *alert* and the chain died at one
+      // hop. A herd that does not go up together is not a herd. Inside the
+      // core the alarm is unmissable; outside it, it is a rumour.
+      const near = d <= A.core ? 1 : 1 - (d - A.core) / Math.max(1e-3, A.radius - A.core);
+      const gain = Math.min(ALARM.ceiling, carried * near * (ear.trust ?? 1));
+      if (gain <= other.awareness) continue; // never talk an animal down
+
+      other.awareness = gain;
+      other.alarmGen = source.alarmGen + 1;
+      // It looks where the panicking animal is looking, not at the panicking
+      // animal — a herd that bolts toward the hunter is not a herd.
+      other.lastKnownThreat.copy(source.lastKnownThreat);
+    }
   }
 
   /**

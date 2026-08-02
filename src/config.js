@@ -423,6 +423,30 @@ export const WILDLIFE = {
   testBearAt: 86,
 };
 
+// ── Alarm ───────────────────────────────────────────────────────────────────
+//
+// When one animal panics, the ones around it find out. In the real world this
+// is the single most important thing about hunting a herd: you do not get one
+// chance per deer, you get one chance per hillside. Miss, and everything with
+// ears knows where you are.
+//
+// The mechanism is deliberately a CHAIN rather than a broadcast — a deer at the
+// edge of the herd spots you, the ones beside it react to *the deer*, and it
+// ripples inward. That means cover and spacing matter: a strung-out herd raises
+// the alarm slowly and a tight one goes up all at once.
+export const ALARM = {
+  // Each retelling is weaker than the last, and after this many hops it stops.
+  // Without a cap the chain is a feedback loop that pins the whole map at
+  // awareness 1 the instant anything anywhere gets startled.
+  generationDecay: 0.55,
+  maxGenerations: 3,
+  // Alarm never *lowers* an animal's awareness, and it never fully panics one
+  // on its own — being told is not the same as seeing. Something has to be left
+  // for the animal's own senses to confirm, or a distant rumour is as decisive
+  // as an arrow past the ear.
+  ceiling: 0.92,
+};
+
 export const STEALTH = {
   // Noise you make, 0..1, by movement state. Feeds creature hearing.
   noiseStill: 0.0,
