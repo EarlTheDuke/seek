@@ -81,6 +81,17 @@ const camera = new THREE.PerspectiveCamera(
 const hud = new Hud();
 const _drop = new THREE.Vector3(); // scratch: which way a dropped item is tossed
 const _lootRand = makeRandom('drops');
+
+/**
+ * Everything you can eat, best meal first.
+ *
+ * Built once from SURVIVAL.food so that adding a food to that table is the
+ * only thing anyone ever has to do. The alternative — a hand-written order
+ * alongside the table — is what made trout inedible the moment they were added.
+ */
+const EDIBLE = Object.entries(SURVIVAL.food)
+  .sort((a, b) => b[1].fills - a[1].fills)
+  .map(([id]) => id);
 // Its own stream, so poking at the sandbox tools never shifts the loot rolls.
 const sandboxRand = makeRandom('sandbox');
 /** Inclusive integer in [a, b], from the seeded drop stream. */
@@ -1282,10 +1293,17 @@ function boot() {
 
     // ── eat ──
     if (intent.eat) {
-      // Cooked first: it fills you more, and eating the good food last is a
+      // Best meal first: it fills you more, and eating the good food last is a
       // mistake the interface should not let you make by accident.
-      const order = ['venison_cooked', 'venison', 'berries'];
-      const found = order.find((id) => inventory.countOf(id) > 0);
+      //
+      // DERIVED FROM THE NUTRITION TABLE, not written out here. The hardcoded
+      // list was ['venison_cooked', 'venison', 'berries'] — it still listed
+      // `berries`, which has never existed, and it did not list fish, so
+      // adding trout to the world silently made them inedible: R said
+      // "nothing to eat" while you stood there holding one. A list that has to
+      // be kept in step with a table will eventually not be, so now there is
+      // only the table.
+      const found = EDIBLE.find((id) => inventory.countOf(id) > 0);
       if (!found) hud.toast('nothing to eat', 1.4);
       else {
         const filled = vitals.eat(found);
