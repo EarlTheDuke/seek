@@ -15,10 +15,9 @@ const _fwd = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _wish = new THREE.Vector3();
 
-// Two footfalls per bob cycle. Derived from the bob frequency rather than typed
-// separately, because if these two numbers ever disagree the footstep sounds
-// visibly desync from the camera.
-const STEPS_PER_METRE = FEEL.bobDistanceFreq * 2;
+/** Stride length right now, in metres. Shorter when crouched. */
+const strideFor = (crouching) =>
+  FEEL.strideMetres * (crouching ? FEEL.crouchStrideScale : 1);
 
 export class Controller {
   constructor(domElement) {
@@ -47,7 +46,8 @@ export class Controller {
 
     // Set by whatever is in your hands — a drawn bow should root you a little.
     this.speedScale = 1;
-    this.distanceTravelled = 0; // drives head bob and footsteps
+    this.distanceTravelled = 0;
+    this.footfalls = 0; // the gait clock — see step()
     this.horizontalSpeed = 0;
     this.strafeInput = 0;
     this.wadeDepth = 0;
@@ -226,8 +226,13 @@ export class Controller {
     this.horizontalSpeed = moved / dt;
     if (this.grounded) {
       this.distanceTravelled += moved;
-      // Two footfalls per bob cycle.
-      const idx = Math.floor(this.distanceTravelled * STEPS_PER_METRE);
+      // The gait phase is ACCUMULATED, not derived from total distance, so the
+      // stride can change (crouching) without the footfall count jumping. This
+      // counter is the single source of truth for the walk cycle — the camera
+      // bob, the viewmodel sway and the footstep sounds all read it, so they
+      // cannot drift apart.
+      this.footfalls += moved / strideFor(this.crouching);
+      const idx = Math.floor(this.footfalls);
       if (idx !== this.stepIndex) {
         this.stepIndex = idx;
         this.steppedThisFrame = true;

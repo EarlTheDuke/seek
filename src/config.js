@@ -249,9 +249,25 @@ export const PLAYER = {
 };
 
 export const FEEL = {
-  bobDistanceFreq: 0.62, // bob cycles per metre travelled — NOT per second, so
-  bobAmpVertical: 0.052, // it stays in sync at walk, sprint and crouch alike
-  bobAmpLateral: 0.038,
+  // Distance covered per footfall, in metres. THE knob for how the walk feels.
+  //
+  // Everything about the gait derives from this one number — the head bob rate,
+  // the lateral sway, the viewmodel sway and when footstep sounds fire — so
+  // they cannot drift apart. And because it is keyed to distance rather than
+  // time, the cadence stays correct at walk, sprint and crouch alike.
+  //
+  // 2.4 m is a long, loping stride. A literal human stride is nearer 0.8 m, but
+  // this world moves you at 4.2 m/s at a walk, and 0.8 m there means five
+  // footfalls a second — a frantic patter that reads as scurrying. Longer
+  // strides at the same speed feel like covering ground.
+  strideMetres: 2.4,
+  // Crouched movement is short and shuffling, not long and loping. Without
+  // this a crouch-walk gives a footfall every 1.1 s, which reads as limping.
+  crouchStrideScale: 0.62,
+  // Deeper than before, because a longer stride genuinely displaces the head
+  // further. Shallow bob over a long stride reads as gliding.
+  bobAmpVertical: 0.085,
+  bobAmpLateral: 0.058,
   fovBase: 70,
   fovSprint: 78.5,
   fovLerp: 3.4,

@@ -135,9 +135,9 @@ export class ViewModel {
     // ── bob, on the same distance-driven phase as the camera ──
     const moving = controller.grounded && !controller.flying && controller.horizontalSpeed > 0.4;
     this.bobAmp = damp(this.bobAmp, moving ? 1 : 0, 7, dt);
-    const phase = controller.distanceTravelled * FEEL.bobDistanceFreq * Math.PI * 2;
-    const bobX = Math.sin(phase) * 0.014 * this.bobAmp;
-    const bobY = Math.sin(phase * 2) * 0.011 * this.bobAmp;
+    // Same footfall clock as the camera, so the held item rides the same gait.
+    const bobX = Math.sin(controller.footfalls * Math.PI) * 0.022 * this.bobAmp;
+    const bobY = Math.sin(controller.footfalls * Math.PI * 2) * 0.017 * this.bobAmp;
 
     this.root.position.set(this.swayX + bobX, this.swayY + bobY, 0);
 

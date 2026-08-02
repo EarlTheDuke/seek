@@ -43,11 +43,11 @@ export class CameraFeel {
         : 0;
     this.bobAmp = damp(this.bobAmp, target, 8, dt);
 
-    // Vertical bobs at twice the lateral rate: one dip per footfall, one sway
-    // per full stride. That 2:1 relationship is what makes it read as walking.
-    const phase = ctrl.distanceTravelled * FEEL.bobDistanceFreq * Math.PI * 2;
-    const bobY = Math.sin(phase * 2) * FEEL.bobAmpVertical * this.bobAmp;
-    const bobX = Math.sin(phase) * FEEL.bobAmpLateral * this.bobAmp;
+    // Counted in footfalls, so the maths says what it means: one vertical dip
+    // per footfall, one lateral sway per full stride (a left and a right). That
+    // 2:1 relationship is what makes it read as walking rather than floating.
+    const bobY = Math.sin(ctrl.footfalls * Math.PI * 2) * FEEL.bobAmpVertical * this.bobAmp;
+    const bobX = Math.sin(ctrl.footfalls * Math.PI) * FEEL.bobAmpLateral * this.bobAmp;
 
     // ── lean into a strafe ──
     this.roll = damp(this.roll, -ctrl.strafeInput * FEEL.strafeRoll, FEEL.rollLerp, dt);
