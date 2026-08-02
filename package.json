@@ -1,0 +1,19 @@
+{
+  "name": "highlands",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A walkable golden-hour highlands world. Fully procedural, zero external assets.",
+  "scripts": {
+    "dev": "vite --port 5173 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --port 5175 --strictPort"
+  },
+  "dependencies": {
+    "simplex-noise": "4.0.3",
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.11"
+  }
+}
