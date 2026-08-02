@@ -19,6 +19,18 @@ export class StealthProfile {
     this.visibility = 1; // 0..1
     this.inCover = 0; // 0..1, how much the grass is breaking your outline
     this.windDot = 0; // +1 = the wind is carrying your scent straight at them
+    // Live wind, fed from the weather system. Starts at the config default so
+    // scent still works before the first weather update.
+    this.windX = WIND.dirX;
+    this.windZ = WIND.dirZ;
+    this.rainMask = 0; // 0..1, how much rain is covering your noise and scent
+  }
+
+  /** Called by main each frame with the current weather. */
+  setWeather(weather) {
+    this.windX = weather.windDir.x;
+    this.windZ = weather.windDir.y;
+    this.rainMask = weather.rain;
   }
 
   update(dt, ctrl) {
@@ -37,6 +49,10 @@ export class StealthProfile {
     if (ctrl.wadeDepth > 0.1 && speed > 0.35) target = Math.max(target, STEALTH.noiseWade);
     // Landing from a jump is a thump.
     if (ctrl.steppedThisFrame && !ctrl.grounded) target = Math.max(target, 0.7);
+
+    // Rain covers you. Not because you are quieter, but because everything else
+    // is louder — which is the single best reason to hunt in bad weather.
+    target *= lerp(1, STEALTH.rainNoiseMask, this.rainMask);
 
     this.noise = damp(this.noise, target, STEALTH.noiseSmoothing, dt);
 
@@ -63,18 +79,24 @@ export class StealthProfile {
    * Circling downwind is the single most useful thing a hunter can do here.
    */
   scentAt(fromX, fromZ, toX, toZ) {
+    // Rain beats your scent out of the air. Combined with the noise mask above,
+    // heavy rain is the closest thing to invisibility this world offers.
+    const wash = lerp(1, STEALTH.rainScentMask, this.rainMask);
+    if (wash <= 0.001) return 0;
+
     const dx = toX - fromX;
     const dz = toZ - fromZ;
     const d = Math.hypot(dx, dz);
-    if (d < 0.01) return 1;
-    if (d > STEALTH.scentRange) return 0;
-    // Wind direction, normalised.
-    const wl = Math.hypot(WIND.dirX, WIND.dirZ) || 1;
-    const dot = ((dx / d) * WIND.dirX + (dz / d) * WIND.dirZ) / wl;
+    if (d < 0.01) return wash;
+    const range = STEALTH.scentRange;
+    if (d > range) return 0;
+    // Live wind direction, normalised.
+    const wl = Math.hypot(this.windX, this.windZ) || 1;
+    const dot = ((dx / d) * this.windX + (dz / d) * this.windZ) / wl;
     if (dot <= 0) return 0; // they are upwind of you; nothing carries
     const cone = clamp((dot - (1 - STEALTH.scentCone)) / STEALTH.scentCone, 0, 1);
-    const falloff = 1 - d / STEALTH.scentRange;
-    return cone * falloff;
+    const falloff = 1 - d / range;
+    return cone * falloff * wash;
   }
 
   /** A one-word summary for the HUD. */

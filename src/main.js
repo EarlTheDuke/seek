@@ -17,7 +17,7 @@ import { CameraFeel } from './player/cameraFeel.js';
 import { ViewModel } from './player/viewmodel.js';
 import { Soundscape } from './audio/soundscape.js';
 import { Hud } from './ui/hud.js';
-import { LOADOUT, LAKE, PLAYER, WATER_LEVEL, WILDLIFE } from './config.js';
+import { LOADOUT, LAKE, PLAYER, WATER_LEVEL, WEATHER, WILDLIFE } from './config.js';
 import { Inventory } from './items/inventory.js';
 import { getItem } from './items/registry.js';
 import { WeaponHost } from './weapons/index.js';
@@ -28,6 +28,8 @@ import { makeRandom } from './world/noise.js';
 import { StealthProfile } from './player/stealth.js';
 import { Vitals } from './player/vitals.js';
 import { Wildlife } from './creatures/manager.js';
+import { Weather } from './world/weather.js';
+import { Rain } from './fx/rain.js';
 
 // ── renderer ────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({
@@ -145,6 +147,8 @@ function boot() {
 
   const pickups = new Pickups(scene, { inventory, audio, projectiles: null });
   const stealth = new StealthProfile();
+  const weather = new Weather();
+  const rain = new Rain(scene);
 
   const vitals = new Vitals({
     onDamage: (amount) => {
@@ -424,10 +428,17 @@ function boot() {
     ctrl.update(dt);
     feel.update(dt, ctrl, camera, weapons.fovOffset);
 
+    // Weather first: the sky, the grass and the scent model all read from it.
+    weather.update(dt);
+    atmosphere.setWeather(weather);
+    stealth.setWeather(weather);
+    scatter.setWind(weather.windDir.x, weather.windDir.y, weather.wind);
+
     terrain.update(ctrl.position.x, ctrl.position.z);
     scatter.update(ctrl.position, time);
     atmosphere.tick(dt);
     atmosphere.update(camera.position, time);
+    rain.update(dt, camera.position, weather.rain, weather.windDir, weather.wind);
     lake.update(dt, camera.position, atmosphere.sun);
     life.update(dt, time, camera.position);
     stealth.update(dt, ctrl);
@@ -448,8 +459,8 @@ function boot() {
     const pr = projectiles.stats;
     hud.update(
       dt,
-      `${terrain.chunkCount} chunks · ${pr.flying} in flight · ${pr.landed} landed · ` +
-        `${wl.alive} deer (${wl.alert} alert) · ${stealth.label}`
+      `${atmosphere.clockText} · ${weather.label} · wind ${weather.bearingText} · ` +
+        `${wl.alive} alive (${wl.alert} alert) · ${stealth.label}`
     );
 
     composer.render(dt, time);
@@ -475,7 +486,29 @@ function boot() {
   window.highlands = {
     scene, camera, renderer, ctrl, feel, atmosphere, terrain, scatter, lake,
     composer, life, audio, hud, spawn, landmarks, stepWorld, heightAt,
-    inventory, weapons, projectiles, pickups, viewmodel, wildlife, stealth,
+    inventory, weapons, projectiles, pickups, viewmodel, wildlife, stealth, weather, rain,
+    /**
+     * Pin the weather. `highlands.setWeather('rain')`, or omit the argument to
+     * hand control back to the state machine.
+     */
+    setWeather(name) {
+      const names = Object.keys(WEATHER.states);
+      if (name === undefined) {
+        weather.hold = 1;
+        return `released — cycling again from ${weather.stateName}`;
+      }
+      if (!names.includes(name)) return `unknown state. try: ${names.join(', ')}`;
+      const cfg = WEATHER.states[name];
+      weather.stateName = name;
+      weather.nextName = name;
+      weather.blend = 1;
+      weather.hold = Infinity; // held until released
+      weather.cloud = cfg.cloud;
+      weather.fog = cfg.fog;
+      weather.wind = cfg.wind;
+      weather.rain = cfg.rain;
+      return `weather pinned to ${name}`;
+    },
     vitals,
     /** Re-stock the lake shore without reloading. `highlands.herdAtWater(6)` */
     herdAtWater,

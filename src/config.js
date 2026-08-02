@@ -158,6 +158,38 @@ export const SKY = {
   sunHazeOpacity: 0.1,
 };
 
+// ── Weather ─────────────────────────────────────────────────────────────────
+export const WEATHER = {
+  enabled: true,
+  startState: 'clear',
+  // Real minutes a weather state holds before it considers changing.
+  minHold: 2.2,
+  maxHold: 6.5,
+  // How long a transition takes. Long, because weather that snaps is jarring
+  // and half the pleasure is watching it come in over the ridge.
+  blendSeconds: 26,
+
+  // Each state is a set of targets everything else lerps toward.
+  //   cloud     0..1  drives how much the sun is smothered
+  //   fog       multiplier on SKY.fogDensity
+  //   wind      multiplier on the base wind strength
+  //   rain      0..1  particle density and audio level
+  //   weight    relative likelihood of being picked next
+  states: {
+    clear:    { cloud: 0.05, fog: 0.85, wind: 0.7,  rain: 0,    weight: 3 },
+    fair:     { cloud: 0.3,  fog: 1.0,  wind: 1.0,  rain: 0,    weight: 3 },
+    overcast: { cloud: 0.78, fog: 1.35, wind: 1.35, rain: 0,    weight: 2 },
+    drizzle:  { cloud: 0.85, fog: 1.7,  wind: 1.2,  rain: 0.35, weight: 1.6 },
+    rain:     { cloud: 0.95, fog: 2.2,  wind: 1.9,  rain: 1.0,  weight: 1.2 },
+    mist:     { cloud: 0.55, fog: 3.2,  wind: 0.35, rain: 0,    weight: 1 },
+  },
+
+  // Wind direction drifts continuously, which matters more here than in most
+  // games: scent tracking reads it, so a stalk can go wrong halfway through.
+  windTurnRate: 0.9, // degrees per second, maximum
+  windWanderScale: 0.05, // how fast the underlying direction noise evolves
+};
+
 // ── Wind (shared by grass, trees, reeds, mist and motes) ────────────────────
 export const WIND = {
   dirX: 0.82,
@@ -386,6 +418,10 @@ export const STEALTH = {
   hearingRange: 42, // metres at noise 1.0; scales linearly with noise
   scentRange: 70, // metres directly downwind
   scentCone: 0.55, // how tightly scent follows the wind direction
+
+  // What heavy rain does for you. Multipliers applied at rain = 1.
+  rainNoiseMask: 0.3, // your footsteps carry 30% as far
+  rainScentMask: 0.25, // and your scent barely reaches at all
 };
 
 export const VITALS = {

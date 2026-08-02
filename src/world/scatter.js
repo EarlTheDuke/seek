@@ -679,6 +679,23 @@ export class Scatter {
     this.onCollidersRebuilt?.(field);
   }
 
+  /**
+   * Point every wind-driven shader at the current wind.
+   *
+   * All the stems and canopies share one direction and one strength multiplier,
+   * so weather can swing the whole landscape at once — which is the point: when
+   * the wind turns, you can see it turn.
+   */
+  setWind(dirX, dirZ, strength = 1) {
+    const blocks = [this.grassWind, this.reedWind];
+    for (const t of this.trees) blocks.push(t.wind, t.depthWind);
+    for (const b of blocks) {
+      b.uWindDir.value.set(dirX, dirZ).normalize();
+      if (b.uBaseStrength === undefined) b.uBaseStrength = b.uStrength.value;
+      b.uStrength.value = b.uBaseStrength * strength;
+    }
+  }
+
   /** Re-centre the fields on the player if they have walked far enough. */
   update(pos, time) {
     // Re-placing on a travel threshold rather than every frame: the grass pass

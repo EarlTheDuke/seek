@@ -61,6 +61,7 @@ const SUN_DAY = new THREE.Color(0xfff4e2);
 const FOG_NIGHT = new THREE.Color(0x141b2a);
 const FOG_DUSK = new THREE.Color(0xd08c50);
 const FOG_DAY = new THREE.Color(0xaebdcb);
+const FOG_OVERCAST = new THREE.Color(0x9aa3ac);
 
 // Moonlight. Cool and weak, but never nothing — a moonlit night you cannot
 // navigate is just a black screen, and this world is worth seeing at night.
@@ -181,7 +182,16 @@ export class Atmosphere {
 
     this.hours = TIME.startHour;
     this.running = TIME.running;
+    /** Set from the weather system; 0 = clear sky, 1 = fully smothered. */
+    this.cloudCover = 0;
+    this.fogMul = 1;
     this.apply();
+  }
+
+  /** Take the current weather targets. Cheap; safe to call every frame. */
+  setWeather(weather) {
+    this.cloudCover = weather.cloud;
+    this.fogMul = weather.fog;
   }
 
   /**
@@ -302,8 +312,10 @@ export class Atmosphere {
     // deep blue the stars can sit against.
     const dayness = smoothstep(-7, 3, el);
     const u = this.sky.material.uniforms;
-    u.turbidity.value = lerp(1.2, SKY.turbidity, dayness);
-    u.rayleigh.value = lerp(0.25, SKY.rayleigh, dayness);
+    // Cloud raises turbidity (more haze) and flattens rayleigh (less blue),
+    // which is most of what "overcast" looks like from inside the model.
+    u.turbidity.value = lerp(1.2, lerp(SKY.turbidity, 22, this.cloudCover), dayness);
+    u.rayleigh.value = lerp(0.25, lerp(SKY.rayleigh, 0.5, this.cloudCover), dayness);
     u.mieCoefficient.value = lerp(0.0012, SKY.mieCoefficient, dayness);
     u.mieDirectionalG.value = SKY.mieDirectionalG;
     u.sunPosition.value.copy(this.sun);
@@ -319,7 +331,10 @@ export class Atmosphere {
     else this.sunColor.copy(SUN_GOLD).lerp(SUN_DAY, smoothstep(10, 34, el));
     this.light.color.copy(this.sunColor);
     // Large numbers because the exposure is low — see SKY.exposure in config.
-    this.light.intensity = lerp(0, 7.5, smoothstep(-1.5, 22, el));
+    // Cloud smothers the direct sun hard: under heavy overcast almost all the
+    // light arriving is skylight, which is why overcast days have no shadows.
+    const cloud = this.cloudCover;
+    this.light.intensity = lerp(0, 7.5, smoothstep(-1.5, 22, el)) * lerp(1, 0.12, cloud);
     this.light.visible = this.light.intensity > 0.01;
 
     // ── moon ──
@@ -336,13 +351,20 @@ export class Atmosphere {
 
     const day = smoothstep(0, 30, el);
     this.scene.fog.color.copy(FOG_DUSK).lerp(FOG_DAY, day).lerp(FOG_NIGHT, night);
+    // Overcast greys the air out and pulls the horizon in.
+    this.scene.fog.color.lerp(FOG_OVERCAST, cloud * 0.55 * daylight);
+    this.scene.fog.density = SKY.fogDensity * this.fogMul;
 
     // Fill is the horizon colour pulled a long way toward cool skylight, so
     // shadows read blue against the warm sun rather than going black. At night
     // it becomes the only ambient there is, so it never falls to zero.
     this.hemi.color.copy(this.scene.fog.color).lerp(FILL_SKY, 0.62);
     this.hemi.groundColor.copy(FILL_GROUND);
-    this.hemi.intensity = lerp(0.95, lerp(1.8, 3.0, day), daylight);
+    // Overcast LIFTS the ambient even as it kills the sun — an overcast day is
+    // flat and shadowless, not dark.
+    this.hemi.intensity = lerp(0.95, lerp(1.8, 3.0, day), daylight) * lerp(1, 1.5, cloud);
+    // And the dome itself goes flat grey.
+    this.skyGrey = cloud;
 
     for (const layer of this.mistLayers) layer.mat.color.copy(this.scene.fog.color);
     this.haze.material.color.copy(this.sunColor);
