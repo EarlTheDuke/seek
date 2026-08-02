@@ -54,6 +54,9 @@ export function captureSave(ctx) {
       inventory: {
         slots: inventory.slots.map((s) => ({ item: s.item, count: s.count })),
         equipped: inventory.equipped,
+        // What you had ON. Loading in your shirtsleeves on the ridge you went
+        // to sleep on wearing a cloak is a nine-degree surprise.
+        worn: [...(inventory.worn ?? [])],
       },
     },
 
@@ -200,6 +203,7 @@ export function applySave(data, ctx) {
 
   inventory.slots = p.inventory.slots.map((s) => ({ item: s.item, count: s.count }));
   inventory.equipped = Math.min(p.inventory.equipped, Math.max(0, inventory.slots.length - 1));
+  inventory.worn = new Set(p.inventory.worn ?? []);
   inventory.changed();
 
   onPlayerMoved?.(ctrl.position);

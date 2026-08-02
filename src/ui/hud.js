@@ -189,6 +189,7 @@ const KEYS = [
   ['E', 'pick up · cut · quarry · cook · use · take bearings'],
   ['G', 'light a fire (costs a branch)'],
   ['B', 'build — whatever your camp is still missing'],
+  ['X', 'put on / take off your cloak'],
   ['R', 'eat'],
   ['Q', 'drop what you are holding'],
   ['1 2 / wheel', 'change item'],
@@ -501,9 +502,23 @@ export class Hud {
     }
   }
 
-  /** Standing or crouched. The only permanent readout of a toggled state. */
-  setStance(crouching) {
-    this.stanceEl.classList.toggle('show', !!crouching);
+  /**
+   * Standing or crouched, and what you have on.
+   *
+   * Both are toggled states with no other cue — a crouch is two thirds of a
+   * metre of eye height and a cloak is a number you cannot see — so this is the
+   * only way to tell either from "the key did nothing".
+   */
+  setStance(crouching, worn = []) {
+    const bits = [];
+    if (crouching) bits.push('crouched');
+    for (const w of worn) bits.push(w.toLowerCase());
+    const text = bits.join(' · ');
+    if (text !== this.stanceText) {
+      this.stanceText = text;
+      this.stanceEl.textContent = text;
+    }
+    this.stanceEl.classList.toggle('show', bits.length > 0);
   }
 
   /**

@@ -238,14 +238,23 @@ export class Atmosphere {
         vertexColors: true,
         transparent: true,
         opacity: 0,
+        // Never WRITE depth — a star must not occlude anything, including the
+        // next star along.
         depthWrite: false,
-        depthTest: false,
+        // But it must be depth TESTED, or it shines through mountains.
+        //
+        // This was `false`, which is a plausible-looking setting for a sky
+        // dome and wrong here. A transparent material is drawn after every
+        // opaque one regardless of renderOrder, so with the test off the stars
+        // were painted over terrain and trees that were already in front of
+        // them. The dome sits at 4000 m and the camera's far plane is 6000, so
+        // it is comfortably inside the frustum and tests correctly.
+        depthTest: true,
         fog: false,
         blending: THREE.AdditiveBlending,
       })
     );
     this.stars.frustumCulled = false;
-    this.stars.renderOrder = -1;
     this.scene.add(this.stars);
   }
 

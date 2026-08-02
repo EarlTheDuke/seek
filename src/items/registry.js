@@ -345,12 +345,27 @@ ITEMS.venison.kind = 'food';
 
 export const getItem = (id) => ITEMS[id] ?? null;
 
-/** Total insulation from everything worn (i.e. carried) right now. */
+/**
+ * Total insulation from everything you are actually WEARING.
+ *
+ * It used to count anything of kind 'clothing' sitting in the pack, which is
+ * tidy to code and nonsense to play: you stitched a cloak and nothing happened,
+ * because the only thing that changed was a number you could not see. It also
+ * meant carrying three cloaks made you three times as warm, which is not how
+ * cloaks work.
+ *
+ * Now one worn garment insulates, once, and putting it on is something you do.
+ */
 export function insulationOf(inventory) {
   let total = 0;
-  for (const slot of inventory.slots) {
-    const def = ITEMS[slot.item];
-    if (def?.kind === 'clothing' && def.insulation) total += def.insulation * slot.count;
+  // Older saves and the headless sim may hand us a plain object without a worn
+  // set; treat that as wearing nothing rather than crashing.
+  const worn = inventory?.worn;
+  if (!worn?.size) return 0;
+  for (const id of worn) {
+    if (inventory.countOf(id) < 1) continue; // worn but no longer held
+    const def = ITEMS[id];
+    if (def?.kind === 'clothing' && def.insulation) total += def.insulation;
   }
   return total;
 }

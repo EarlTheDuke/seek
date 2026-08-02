@@ -416,6 +416,41 @@ function boot() {
     hud.toast(PLACE_LINES[band] ?? band, 3.4);
   }
 
+  // ── wearing ───────────────────────────────────────────────────────────────
+  //
+  // X puts on or takes off the warmest thing you are carrying and not already
+  // wearing. One key, because there is one garment — and when there are five,
+  // the rule "the warmest one you are not already in" still needs no menu.
+  //
+  // Taking a cloak OFF matters as much as putting it on: nine degrees of
+  // insulation is a liability by a fire or in the afternoon sun, and the body
+  // model has always cooked you for it. Previously there was no way to.
+  function wearSomething() {
+    const clothing = inventory.slots
+      .filter((s) => s?.item && s.count && getItem(s.item)?.kind === 'clothing')
+      .map((s) => getItem(s.item))
+      .sort((a, b) => (b.insulation ?? 0) - (a.insulation ?? 0));
+
+    if (!clothing.length) {
+      hud.toast('you have nothing to wear', 2);
+      return;
+    }
+    // Prefer putting something on; if it is all already on, take the top layer
+    // off again. That makes X a genuine toggle rather than a one-way door.
+    const target = clothing.find((d) => !inventory.isWorn(d.id)) ?? clothing[0];
+    const res = inventory.toggleWorn(target.id);
+    if (!res.ok) {
+      hud.toast(res.why, 2);
+      return;
+    }
+    hud.toast(
+      res.wearing
+        ? `${res.name.toLowerCase()} on — ${insulationOf(inventory).toFixed(0)}° of shelter`
+        : `${res.name.toLowerCase()} off`,
+      2.4
+    );
+  }
+
   // ── building ──────────────────────────────────────────────────────────────
   //
   // G places the best thing you can currently afford, a short way in front of
@@ -789,6 +824,9 @@ function boot() {
       case 'KeyN':
         hud.toast(`bloom ${composer.toggle('bloom') ? 'on' : 'off'}`);
         break;
+      case 'KeyX':
+        wearSomething();
+        break;
       // E, Q and the number row are handled as intents now — see the tick.
       default:
         break;
@@ -1004,7 +1042,7 @@ function boot() {
     hud.setCrosshair(vitals.dead ? null : weaponState, weapons.spreadHint);
     hud.setVitals(vitals);
     hud.setNeeds(vitals, ruleset.current.survival);
-    hud.setStance(ctrl.crouching && !vitals.dead);
+    hud.setStance(ctrl.crouching && !vitals.dead, inventory.wornItems.map((id) => itemName(id)));
     reportPlace(dt);
     viewmodel.update(dt, ctrl, weaponState, atmosphere.sun, camera.quaternion);
 

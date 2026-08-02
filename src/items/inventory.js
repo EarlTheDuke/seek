@@ -12,7 +12,41 @@ export class Inventory {
     /** @type {{item: string, count: number}[]} */
     this.slots = slots.map((s) => ({ item: s.item, count: s.count }));
     this.equipped = equipped;
+    // What is actually ON you, as opposed to in your pack.
+    //
+    // Clothing used to insulate from inside the bag, which is tidy to code and
+    // nonsense to play: you stitch a cloak and nothing happens, because the
+    // thing that changed was a number you cannot see. Wearing it is an act.
+    this.worn = new Set();
     this.onChange = null; // set by the HUD
+  }
+
+  /** Is this item on your back right now? */
+  isWorn(id) {
+    return this.worn.has(id);
+  }
+
+  /**
+   * Put something on or take it off. Returns what happened, so the caller can
+   * say so — a toggle that reports nothing is a toggle you cannot trust.
+   */
+  toggleWorn(id) {
+    const def = getItem(id);
+    if (!def || def.kind !== 'clothing') return { ok: false, why: 'not something you can wear' };
+    if (this.worn.has(id)) {
+      this.worn.delete(id);
+      this.changed();
+      return { ok: true, wearing: false, name: def.name };
+    }
+    if (this.countOf(id) < 1) return { ok: false, why: `you have no ${def.name.toLowerCase()}` };
+    this.worn.add(id);
+    this.changed();
+    return { ok: true, wearing: true, name: def.name };
+  }
+
+  /** Everything worn, as ids. */
+  get wornItems() {
+    return [...this.worn].filter((id) => this.countOf(id) > 0);
   }
 
   changed() {
@@ -76,6 +110,10 @@ export class Inventory {
         this.slots.splice(i, 1);
         if (this.equipped >= this.slots.length) this.equipped = Math.max(0, this.slots.length - 1);
         else if (i < this.equipped) this.equipped--;
+        // You cannot still be wearing something you no longer have. Dropping a
+        // cloak you were wearing must actually take it off, or the insulation
+        // outlives the garment.
+        if (this.countOf(id) === 0) this.worn.delete(id);
       }
     }
     this.changed();
