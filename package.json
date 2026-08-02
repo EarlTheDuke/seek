@@ -15,7 +15,8 @@
     "raidcheck": "node server/raidtest.js",
     "campcheck": "node server/campcheck.js",
     "mindcheck": "node server/mindcheck.js",
-    "companioncheck": "node server/companioncheck.js"
+    "companioncheck": "node server/companioncheck.js",
+    "audit": "node server/audit.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",
@@ -26,4 +27,3 @@
     "vite": "^5.4.11"
   }
 }
-
