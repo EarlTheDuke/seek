@@ -456,6 +456,26 @@ export class Creature {
 
     this.enraged = Math.max(0, (this.enraged ?? 0) - dt);
 
+    // ── the sun ── an override on everything below, for the one thing that
+    // cannot bear it. Not "it takes damage in daylight" — it simply will not
+    // be out in it. So the night has a hard edge, and holding out until the
+    // sky greys is a genuine way to win a fight you could not otherwise win.
+    //
+    // It leaves DOWNHILL and away from you at once, because a troll heading for
+    // its gorge while you stand on the ridge watching is a much better image
+    // than one that evaporates.
+    const sun = this.sunPressure;
+    if (sun > 0) {
+      this.retreating = true;
+      this.charging = false;
+      this.setState(FLEE);
+      this.targetSpeed = lerp(this.species.speeds.trot, this.species.speeds.flee, sun);
+      const away = this.downhillAway(this.lastKnownThreat.x, this.lastKnownThreat.z);
+      this.steerTo(away[0], away[1], dt, this.species.turnRate * 1.4);
+      return;
+    }
+    this.retreating = false;
+
     // Badly wounded AND still able to perceive the threat, it breaks off — so a
     // fight is winnable rather than merely survivable. It has to still sense
     // you, or a bear that escaped would keep bolting from an empty hillside.
@@ -578,6 +598,40 @@ export class Creature {
 
   steerTo(x, z, dt, rate = null) {
     this.faceToward(x, z, dt, rate);
+  }
+
+  /**
+   * A point that is both away from (tx, tz) and downhill — where something
+   * driven off by the light actually goes.
+   *
+   * Samples a fan of headings on the away side and scores each by how much
+   * ground it loses, so it finds the gully rather than running blindly at a
+   * cliff. Cheap: eleven height lookups, and only for creatures that flee the
+   * sun at all.
+   */
+  downhillAway(tx, tz) {
+    const ax = this.position.x - tx;
+    const az = this.position.z - tz;
+    const base = Math.atan2(ax, az);
+    const REACH = 22;
+    let bestX = this.position.x + Math.sin(base) * REACH;
+    let bestZ = this.position.z + Math.cos(base) * REACH;
+    let bestScore = -Infinity;
+    for (let i = -5; i <= 5; i++) {
+      const a = base + i * 0.24;
+      const x = this.position.x + Math.sin(a) * REACH;
+      const z = this.position.z + Math.cos(a) * REACH;
+      if (!this.passable(x, z)) continue;
+      // Losing height is good; deviating from straight-away is mildly bad.
+      const drop = this.position.y - heightAt(x, z);
+      const score = drop - Math.abs(i) * 0.35;
+      if (score > bestScore) {
+        bestScore = score;
+        bestX = x;
+        bestZ = z;
+      }
+    }
+    return [bestX, bestZ];
   }
 
   // ── movement + animation ──────────────────────────────────────────────────
@@ -768,7 +822,8 @@ export class Creature {
     }
   }
 
-  update(dt, player, stealth) {
+  update(dt, player, stealth, ctx = null) {
+    if (ctx) this.world = ctx;
     if (this.state === DEAD) {
       // Advanced here, not in think() — think() is skipped for the dead, which
       // is why the death animation never used to play at all.
@@ -779,6 +834,20 @@ export class Creature {
       this.move(dt);
     }
     this.animate(dt);
+  }
+
+  /**
+   * Is the sun high enough to drive this thing off?
+   *
+   * Returns 0 for anything that does not care, which is almost everything.
+   * The one creature that does treats it as an override on all other reasoning:
+   * you can be standing in front of it, bleeding, and it will still leave.
+   */
+  get sunPressure() {
+    const S = this.species.sunlight;
+    if (!S) return 0;
+    const alt = this.world?.sunAltitude ?? 90;
+    return clamp((alt - S.fleeAbove) / Math.max(1e-3, S.blindedAt - S.fleeAbove), 0, 1);
   }
 
   // ── damage ────────────────────────────────────────────────────────────────

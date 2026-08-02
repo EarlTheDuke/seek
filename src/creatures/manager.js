@@ -62,7 +62,12 @@ export class Wildlife {
     const s = species.spawn;
     const y = heightAt(x, z);
     if (y < s.minHeight || y > s.maxHeight) return false;
-    if (slopeAt(x, z) > s.maxSlope) return false;
+    const slope = slopeAt(x, z);
+    if (slope > s.maxSlope) return false;
+    // Some things want broken ground. A minimum slope is how "gorges and crags"
+    // gets expressed without any new terrain data — the steep places already
+    // exist, nothing had ever asked for them.
+    if (s.minSlope && slope < s.minSlope) return false;
     if (y < WATER_LEVEL + 0.5) return false;
     if (s.preferClump) {
       const c = clumpAt(x, z);
@@ -279,15 +284,25 @@ export class Wildlife {
       // means they still get the full elapsed time, so movement stays correct.
       const period = d < WILDLIFE.lodNear ? 0 : d < WILDLIFE.lodFar ? 0.25 : 0.5;
       if (period === 0) {
-        c.update(dt, playerPos, stealth);
+        c.update(dt, playerPos, stealth, this.ctx);
       } else {
         const owed = (this.accum.get(c.id) ?? 0) + dt;
         if (owed >= period) {
           this.accum.set(c.id, 0);
-          c.update(owed, playerPos, stealth);
+          c.update(owed, playerPos, stealth, this.ctx);
         } else {
           this.accum.set(c.id, owed);
         }
+      }
+
+      // Driven off by the light and now a long way gone. Retired quietly rather
+      // than left jogging into the distance forever — and its site is marked
+      // cleared, so the daylight hillside it left does not immediately refill
+      // with something else strange.
+      if (c.retreating && d > WILDLIFE.retreatDespawn) {
+        if (c.siteKey) this.clearedSites.add(c.siteKey);
+        this.remove(c);
+        continue;
       }
 
       if (c.alarmed) {

@@ -417,6 +417,11 @@ export const WILDLIFE = {
   // start moving, not the moment they do.
   nightThreshold: 0.6,
 
+  // How far a creature fleeing the sunrise has to get before it is retired.
+  // Comfortably beyond the distance you could follow it at a walk, so it always
+  // reads as "it got away into the crags" rather than "it vanished".
+  retreatDespawn: 190,
+
   // Testing aid: put a herd on the lake shore in front of the spawn point, so
   // there is always something to stalk without going looking for it. Set to 0
   // to turn it off and rely purely on natural spawning.

@@ -464,6 +464,151 @@ function buildGoblin(rand) {
   return { group: g, parts: { body, neckPivot, headPivot, legs, arms, tailPivot }, male: true, scale };
 }
 
+// ── troll body ──────────────────────────────────────────────────────────────
+//
+// Built to be looked at from a distance, because that is where you will spend
+// most of your time near one: it cannot see you, so watching it is the whole
+// encounter until you make a noise. Everything is therefore silhouette — the
+// stoop, the shoulders, the arms that reach the ground. Stone colours, so it
+// reads as part of the crag until it moves.
+
+const TROLL_STONE = new THREE.Color(0x5c5b56);
+const TROLL_STONE_DARK = new THREE.Color(0x3a3a36);
+const TROLL_MOSS = new THREE.Color(0x4d5540);
+const TROLL_EYE = new THREE.Color(0xbfc9b0); // pale, near-useless
+
+let trollParts = null;
+
+function trollGeometry() {
+  if (trollParts) return trollParts;
+
+  const torso = new THREE.IcosahedronGeometry(0.78, 1);
+  torso.scale(1.15, 1.2, 0.85);
+  const shoulders = new THREE.IcosahedronGeometry(0.62, 1);
+  shoulders.scale(1.45, 0.7, 0.9);
+  shoulders.translate(0, 0.62, 0);
+  const gut = new THREE.IcosahedronGeometry(0.6, 1);
+  gut.scale(1.05, 0.85, 0.95);
+  gut.translate(0, -0.62, 0.06);
+  // Moss on the back and shoulders — it has been standing still a long time.
+  const moss = new THREE.IcosahedronGeometry(0.5, 1);
+  moss.scale(1.25, 0.4, 0.5);
+  moss.translate(0, 0.5, -0.45);
+  const body = merge([
+    paint(torso, TROLL_STONE),
+    paint(shoulders, TROLL_STONE),
+    paint(gut, TROLL_STONE_DARK),
+    paint(moss, TROLL_MOSS),
+  ]);
+
+  const neckGeo = new THREE.CylinderGeometry(0.26, 0.34, 0.2, 7);
+  const neck = merge([paint(neckGeo, TROLL_STONE_DARK)]);
+
+  // Small head, low between the shoulders. Tiny eyes, and a lot of ear.
+  const skull = new THREE.IcosahedronGeometry(0.32, 1);
+  skull.scale(0.9, 0.8, 1.0);
+  const brow = new THREE.IcosahedronGeometry(0.2, 0);
+  brow.scale(1.5, 0.42, 0.7);
+  brow.translate(0, 0.14, 0.2);
+  const jaw = new THREE.IcosahedronGeometry(0.2, 0);
+  jaw.scale(0.95, 0.6, 1.1);
+  jaw.translate(0, -0.18, 0.1);
+  // Ears the size of its face. The one honest tell about how it hunts.
+  const earL = new THREE.IcosahedronGeometry(0.2, 0);
+  earL.scale(0.28, 1.15, 0.85);
+  earL.translate(0.34, 0.06, -0.04);
+  const earR = earL.clone();
+  earR.translate(-0.68, 0, 0);
+  const eyeL = new THREE.IcosahedronGeometry(0.032, 0);
+  eyeL.translate(0.11, 0.02, 0.26);
+  const eyeR = eyeL.clone();
+  eyeR.translate(-0.22, 0, 0);
+  const head = merge([
+    paint(skull, TROLL_STONE),
+    paint(brow, TROLL_STONE_DARK),
+    paint(jaw, TROLL_STONE_DARK),
+    paint(earL, TROLL_STONE_DARK),
+    paint(earR, TROLL_STONE_DARK),
+    paint(eyeL, TROLL_EYE),
+    paint(eyeR, TROLL_EYE),
+  ]);
+
+  const legGeo = new THREE.CylinderGeometry(0.24, 0.19, 0.9, 7);
+  legGeo.translate(0, -0.45, 0);
+  const foot = new THREE.IcosahedronGeometry(0.26, 0);
+  foot.scale(1, 0.5, 1.5);
+  foot.translate(0, -0.9, 0.1);
+  const leg = merge([paint(legGeo, TROLL_STONE), paint(foot, TROLL_STONE_DARK)]);
+
+  // Arms long enough to knuckle on the ground.
+  const armGeo = new THREE.CylinderGeometry(0.2, 0.16, 1.24, 7);
+  armGeo.translate(0, -0.62, 0);
+  const fist = new THREE.IcosahedronGeometry(0.24, 0);
+  fist.translate(0, -1.26, 0.03);
+  const arm = merge([paint(armGeo, TROLL_STONE), paint(fist, TROLL_STONE_DARK)]);
+
+  const tailGeo = new THREE.IcosahedronGeometry(0.09, 0);
+  const tail = merge([paint(tailGeo, TROLL_STONE_DARK)]);
+
+  trollParts = { body, neck, head, leg, arm, tail };
+  return trollParts;
+}
+
+function buildTroll(rand) {
+  const P = trollGeometry();
+  const g = new THREE.Group();
+
+  const body = mesh(P.body);
+  body.position.y = 1.78;
+  body.rotation.x = 0.3; // the stoop
+  body.castShadow = true;
+  g.add(body);
+
+  const neckPivot = new THREE.Object3D();
+  neckPivot.position.set(0, 2.3, 0.18);
+  neckPivot.add(mesh(P.neck));
+
+  const headPivot = new THREE.Object3D();
+  headPivot.position.set(0, 0.16, 0.12);
+  const head = mesh(P.head);
+  head.castShadow = true;
+  headPivot.add(head);
+  neckPivot.add(headPivot);
+  g.add(neckPivot);
+
+  const legs = [];
+  for (const ix of [0.3, -0.3]) {
+    const pivot = new THREE.Object3D();
+    pivot.position.set(ix, 1.02, 0);
+    const l = mesh(P.leg);
+    l.castShadow = true;
+    pivot.add(l);
+    g.add(pivot);
+    legs.push(pivot);
+  }
+
+  const arms = [];
+  for (const ix of [0.72, -0.72]) {
+    const pivot = new THREE.Object3D();
+    pivot.position.set(ix, 2.16, 0.06);
+    const a = mesh(P.arm);
+    a.castShadow = true;
+    pivot.add(a);
+    g.add(pivot);
+    arms.push(pivot);
+  }
+
+  const tailPivot = new THREE.Object3D();
+  tailPivot.position.set(0, 1.2, -0.5);
+  tailPivot.add(mesh(P.tail));
+  g.add(tailPivot);
+
+  const scale = 1.0 + rand() * 0.2;
+  g.scale.setScalar(scale);
+
+  return { group: g, parts: { body, neckPivot, headPivot, legs, arms, tailPivot }, male: true, scale };
+}
+
 // ── species table ───────────────────────────────────────────────────────────
 
 export const SPECIES = {
@@ -773,6 +918,128 @@ SPECIES.goblin = {
   ],
 
   build: buildGoblin,
+};
+
+// ── the troll ───────────────────────────────────────────────────────────────
+//
+// From VISION.md: "nearly blind, superb hearing — the exact reverse of the
+// deer. You can watch it from open ground and it has no idea. Retreats at
+// sunrise."
+//
+// This is the species that pays off the whole senses model, because it inverts
+// the lesson the deer spent the first ten hours teaching you:
+//
+//   * With a deer, being SEEN is the risk and noise is secondary. You use the
+//     wind, you keep low, you move when its head is down.
+//   * With a troll, you can stand in the open at thirty metres in full view
+//     and it has no idea you exist. Then you jog, and it knows exactly where
+//     you are from a hundred and forty metres away.
+//
+// So every instinct the game has trained turns into a liability, and crouching
+// — which drops your noise from 0.38 to 0.08, a factor of nearly five — stops
+// being a stealth option and becomes the entire encounter.
+//
+// It is not a fight. It has 420 hit points and hits for 62, and its charge is
+// slower than your sprint, so the correct answer is almost always to be quiet
+// and go around. The ones who try are the reason it drops anything worth having.
+SPECIES.troll = {
+  id: 'troll',
+  name: 'Troll',
+  faction: 'strange',
+  diet: 'omnivore',
+  behaviour: 'aggressive',
+
+  hitPoints: 420,
+  hitZones: [
+    // The head is low and between the shoulders, and hard to hit — but it is
+    // the only zone that makes the arithmetic work at all.
+    { name: 'head', minY: 0.82, multiplier: 3.4 },
+    { name: 'vitals', minY: 0.55, multiplier: 1.6 },
+    { name: 'body', minY: 0.25, multiplier: 0.9 },
+    { name: 'legs', minY: 0.0, multiplier: 0.6 },
+  ],
+
+  radius: 1.15,
+  height: 2.9,
+  eyeHeight: 2.5,
+  wadeMax: 2.2, // it simply walks through water that would drown you
+  personalSpace: 4.2,
+
+  // Slower than your sprint at full charge. You can always outrun a troll.
+  // What you cannot do is outrun it while it can still hear you, because it
+  // never stops and never loses the thread.
+  speeds: { graze: 0.4, walk: 1.5, trot: 4.0, flee: 6.4, charge: 7.2 },
+  turnRate: 1.5, // ponderous — sidestepping one actually works
+  stamina: 40,
+
+  senses: {
+    // THE INVERSION, in four numbers.
+    sightRange: 11, // it can barely make out its own hands
+    sightFov: 1.5,
+    sightAcuity: 0.16,
+    hearingRange: 145, // and it hears a running man from the next valley
+    hearingAcuity: 3.0,
+    scentAcuity: 0.5, // a poor nose, so the wind will not save you either way
+    alertAt: 0.22,
+    panicAt: 999,
+    calmRate: 0.05, // it does not forget in a hurry
+  },
+
+  aggression: {
+    chargeAt: 0.42,
+    aggroRange: 150, // as far as it can hear
+    leash: 300,
+    loseInterest: 26,
+    attackRange: 4.2, // those arms
+    attackInterval: 2.1,
+    damage: 62, // two of these kill you
+    chargeStamina: 999, // it does not tire; it just is not very fast
+    chasePace: 6.4,
+    fleeBelow: 0, // it does not run from you. It runs from the sun.
+  },
+
+  // The one thing that beats it. `fleeAbove` is a few degrees before sunrise —
+  // the grey light, not the sun itself — so dawn is a process you can watch
+  // happening rather than a switch that flips.
+  sunlight: { fleeAbove: -7, blindedAt: 2 },
+
+  anim: {
+    strideRate: 1.0, // long, slow strides
+    legSwing: 0.5,
+    armSwing: 0.42,
+    bodyBob: 0.07,
+    bodyRock: 0.04,
+    neckUp: 0.15,
+    neckDown: 0.5,
+    headUp: 0.05,
+    headDown: 0.3,
+    tailFlick: 0,
+  },
+
+  herd: { min: 1, max: 1, spread: 0 }, // always alone
+
+  // It is far too deaf-to-its-own-kind to be alarmed by anything smaller, and
+  // there is never a second one to tell.
+  alarm: { radius: 0, core: 0, strength: 0, hears: [], trust: 0 },
+
+  spawn: {
+    minHeight: WATER_LEVEL + 1,
+    maxHeight: 95,
+    // Gorges and crags: it wants BROKEN ground, which is the one habitat
+    // nothing else in the table has ever asked for.
+    minSlope: 0.3,
+    maxSlope: 1.6,
+    weight: 0.5,
+    strangeness: [0.55, 1],
+    nightOnly: true,
+  },
+
+  drops: [
+    { item: 'hide', min: 3, max: 5 },
+    { item: 'venison', min: 4, max: 7 },
+  ],
+
+  build: buildTroll,
 };
 
 export const getSpecies = (id) => SPECIES[id] ?? null;
