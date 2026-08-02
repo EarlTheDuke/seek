@@ -188,6 +188,14 @@ export const WEATHER = {
   // games: scent tracking reads it, so a stalk can go wrong halfway through.
   windTurnRate: 0.9, // degrees per second, maximum
   windWanderScale: 0.05, // how fast the underlying direction noise evolves
+
+  // `weather.wind` is a multiplier (0.35 in mist, 1.9 in rain), not a speed.
+  // The glider is the first thing that needs it in real units, and this is the
+  // conversion: fair weather is 9 m/s, a mist is 3, and rain is 17. Which makes
+  // the weather a flying forecast as well as a hunting one — you can soar a
+  // ridge in a blow and you cannot in a mist, and now you have a reason to look
+  // at the sky before carrying a wing uphill.
+  windSpeedScale: 9,
 };
 
 // ── Wind (shared by grass, trees, reeds, mist and motes) ────────────────────
@@ -552,7 +560,27 @@ export const GLIDER = {
 
   // ── beginning and ending ──
   launchSpeed: 9.5,      // m/s, the run off the edge
-  minLaunchSlope: 0.26,  // the ground ahead has to fall away this steeply
+  // The ground ahead has to fall away this steeply, and keep falling — see
+  // canLaunch. Not a guess: measured against this world's actual terrain, 0.26
+  // made 59% of the map a runway and 0.7 makes it 6%, which is what a hill
+  // ought to be. Finding an edge is now a thing you go and do.
+  minLaunchSlope: 0.7,
+  // ── the air going up ──
+  // Ridge lift, and it is the reason the aircraft is worth building. The
+  // terrain here tops out at 80 m: a 6:1 glide off the highest point in the
+  // world lands you 130 m away, measured, which is a hop and not an aeroplane.
+  // The height was never going to come from the hills. It comes from the wind
+  // blowing over them — which is exactly where real glider pilots get it.
+  // How much of the wind's deflection you actually get. Measured against this
+  // world's real slopes rather than picked: at 0.55 the only flyable weather
+  // was RAIN, because a fair-weather 9 m/s over a top-10% face still left you
+  // sinking. That is a feature nobody would ever see. At 0.78 a good windward
+  // face soars in fair wind, a typical slope still puts you down, and a storm
+  // will lift you almost anywhere steep — so the sky becomes a forecast you
+  // read before carrying a wing uphill.
+  liftEfficiency: 0.78,
+  liftBandHeight: 60,    // metres of usable lift above the slope, then nothing
+
   crashSpeed: 21,        // arriving this fast breaks it
   crashSink: 6.5,        // so does arriving this hard
   crashDamage: 34,

@@ -49,7 +49,8 @@ import { GLIDER } from '../config.js';
 
 const { rho, wingArea, mass, cl0, clAlpha, alphaStall, clStall, cd0, k,
         gravity, alphaTrim, pitchAuthority, pitchRate, rollRate, maxBank,
-        launchSpeed, minLaunchSlope, crashSpeed, crashSink } = GLIDER;
+        launchSpeed, minLaunchSlope, crashSpeed, crashSink,
+        liftEfficiency, liftBandHeight } = GLIDER;
 
 /** Lift coefficient at an angle of attack, in radians. */
 export function liftCoefficient(alpha) {
@@ -96,15 +97,61 @@ export function launch({ x, y, z, heading, speed = launchSpeed }) {
 }
 
 /**
+ * Ridge lift: the air going up the windward side of a hill.
+ *
+ * WHAT THIS IS IN REAL TERMS. Wind hitting a hillside has nowhere to go but
+ * over it, so the air on the windward face is rising — sometimes faster than a
+ * glider sinks. That is not a trick, it is how people stay airborne for hours
+ * on machines with no engine, and it has been how since the 1920s. Fly along
+ * the windward face and you climb. Cross to the lee side and the same air is
+ * coming DOWN, and you will be on the ground shortly.
+ *
+ * Why it is here rather than a bigger number somewhere: measured against this
+ * world, the ground tops out at 80 m. A 6:1 glide off the highest point in the
+ * Highlands lands you 130 m away, which is a hop, not an aeroplane — and no
+ * amount of tuning the wing fixes that, because the wing is right. The height
+ * was never going to come from the terrain. It comes from the weather, which
+ * this world already has: wind with a direction that wanders, that the scent
+ * model has been using to hunt you with since Phase 2.
+ *
+ * So the aircraft is worth its fourteen branches, and what makes it worth them
+ * is a skill rather than a number: find an edge, and find one facing the wind.
+ *
+ * @param {number} slopeUpwind  how steeply the ground rises INTO the wind here,
+ *   rise over run, from the terrain
+ * @param {number} windSpeed    m/s
+ * @param {number} heightAbove  metres above the ground beneath you
+ */
+export function ridgeLift(slopeUpwind, windSpeed, heightAbove) {
+  if (slopeUpwind <= 0 || windSpeed <= 0) return 0;
+  // The air deflects upward by roughly the slope it is climbing. Capped,
+  // because a cliff does not give you infinite lift — past a point the flow
+  // separates and it is turbulent rather than useful.
+  const rise = windSpeed * Math.min(slopeUpwind, 1.1) * liftEfficiency;
+  // And it fades with height: the band of usable lift is thin, which is what
+  // makes ridge soaring a matter of staying close to a hillside rather than
+  // circling comfortably above one.
+  //
+  // Linear, not squared. Squared was the first guess and it was measured at
+  // giving 6 m of climb off a good ridge in a 12 m/s wind — technically lift,
+  // practically nothing, because the falloff had already halved it by the
+  // height you launch from. Linear climbs you about 40 m above the slope and
+  // then stops, which is a ridge you can actually work.
+  const fade = Math.max(0, 1 - heightAbove / liftBandHeight);
+  return rise * fade;
+}
+
+/**
  * One step of flight.
  *
  * @param {object} s      state from launch(), mutated in place
  * @param {{pitch:number, roll:number}} c   −1..1 each
  * @param {number} dt
  * @param {(x:number,z:number)=>number} groundAt
+ * @param {{angle:number, speed:number}} [wind]  where it blows TOWARD, and how hard
  * @returns {object} the same state, plus `landed` / `crashed` when it is over
  */
-export function stepGlide(s, c, dt, groundAt) {
+export function stepGlide(s, c, dt, groundAt, wind = null) {
   if (!s.airborne) return s;
 
   // ── the pilot ──
@@ -156,11 +203,28 @@ export function stepGlide(s, c, dt, groundAt) {
   s.x += Math.sin(s.heading) * horizontal * dt;
   s.z += Math.cos(s.heading) * horizontal * dt;
   const climb = s.v * Math.sin(s.gamma);
-  s.y += climb * dt;
-  s.sink = -climb;
+
+  // ── the air itself ──
+  // The aircraft flies through a parcel of air, and if the parcel is going up
+  // then so are you. Adding the air's own vertical speed to yours is not an
+  // approximation of soaring, it IS soaring — there is nothing else to it.
+  const ground = groundAt(s.x, s.z);
+  let air = 0;
+  if (wind && wind.speed > 0) {
+    // How steeply the ground rises into the wind, sampled upwind of you.
+    const ux = -Math.sin(wind.angle), uz = -Math.cos(wind.angle);
+    const upwind = groundAt(s.x + ux * 30, s.z + uz * 30);
+    air = ridgeLift((ground - upwind) / 30, wind.speed, s.y - ground);
+  }
+  s.lift = air;
+
+  s.y += (climb + air) * dt;
+  // What a pilot feels and the HUD reports: your sink through the AIR is one
+  // thing, and whether the ground is getting closer is another. On a good ridge
+  // the second one is negative while the first never changes.
+  s.sink = -(climb + air);
 
   // ── the ground ──
-  const ground = groundAt(s.x, s.z);
   if (s.y <= ground + 0.4) {
     s.y = ground + 0.4;
     s.airborne = false;
@@ -184,21 +248,37 @@ export function stepGlide(s, c, dt, groundAt) {
  */
 export function canLaunch(x, z, heading, groundAt) {
   const here = groundAt(x, z);
-  const ahead = groundAt(x + Math.sin(heading) * 14, z + Math.cos(heading) * 14);
-  const drop = (here - ahead) / 14;
-  if (drop < minLaunchSlope) {
-    return { ok: false, why: drop < 0.02 ? 'you need a hill, and it has to fall away in front of you'
-      : 'not steep enough — find an edge' };
+  const near = (here - groundAt(x + Math.sin(heading) * 14, z + Math.cos(heading) * 14)) / 14;
+  // And SUSTAINED, out to 45 m. Checking only the ground immediately ahead
+  // cannot tell a hillside from a hollow, and on rolling terrain that is most
+  // of the map: measured against this world, a single 14 m probe called 59% of
+  // it launchable, which makes an aeroplane something you can take off in
+  // anywhere and takes the hill out of hill flying. Both probes together, at
+  // this threshold, leave about 6% — a real edge, that you have to go and find.
+  const far = (here - groundAt(x + Math.sin(heading) * 45, z + Math.cos(heading) * 45)) / 45;
+  if (near < minLaunchSlope || far < minLaunchSlope * 0.6) {
+    return {
+      ok: false,
+      why: near < 0.08 ? 'you need a hill, and it has to fall away in front of you'
+        : near < minLaunchSlope ? 'not steep enough — find a proper edge'
+        : 'it drops away and then flattens — you would land in seconds',
+    };
   }
-  return { ok: true, drop };
+  return { ok: true, drop: near };
 }
 
 /** What a person would say about how it is going. No instruments in 3000 BC. */
 export function flightReport(s) {
   if (s.stalled) return 'stalled — nose down';
-  if (s.sink > 3.2) return 'sinking fast';
   if (s.v > 19) return 'too fast — ease back';
   if (s.v < 8.5) return 'slow — nose down';
+  // Climbing comes above the sink warnings on purpose. Finding lift is the
+  // skill the whole aircraft is built around, and a pilot who has just found
+  // some needs to be told NOW so they can turn back into it — a second of
+  // "gliding" while you fly out the other side of a thermal is a second too
+  // many. It is also the only good news the machine ever gives you.
+  if (s.sink < -0.3) return 'rising — hold the ridge';
+  if (s.sink > 3.2) return 'sinking fast';
   if (s.sink < 1.4) return 'flying well';
   return 'gliding';
 }

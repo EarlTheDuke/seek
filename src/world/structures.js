@@ -21,7 +21,7 @@
 // moment it is worth defending and worth showing someone.
 
 import * as THREE from 'three';
-import { STRUCTURES, WATER_LEVEL } from '../config.js';
+import { STRUCTURES, WATER_LEVEL, GLIDER } from '../config.js';
 import { heightAt, slopeAt, makeRandom } from './noise.js';
 import { regionAt } from './regions.js';
 import { clamp, smoothstep } from '../util/math.js';
@@ -139,6 +139,28 @@ export const BUILDABLE = {
     height: 2.3,
     build: buildPalisade,
     blurb: 'a wall, and something has to go round it',
+  },
+
+  // The most expensive thing in the world, and the only one that is not about
+  // staying alive. Everything else here is shelter, storage or defence — a
+  // season's work that makes the next season survivable. This is a season's
+  // work that makes the next VALLEY reachable, which is a different kind of
+  // want entirely, and it is the first thing in the game you build because you
+  // want to rather than because you are cold.
+  //
+  // The steep `maxSlope` is the feature, not a concession: this is the one
+  // structure that BELONGS on a hillside, because a hillside is the only place
+  // it is any use. See world/glider.js.
+  glider: {
+    id: 'glider',
+    name: 'Glider',
+    verb: 'build',
+    cost: GLIDER.cost,
+    radius: 4.6, // nine metres of span needs the room
+    maxSlope: 0.55,
+    flyable: true,
+    build: buildGlider,
+    blurb: 'a wing of branches and hide — carry it up a hill',
   },
 };
 
@@ -268,6 +290,64 @@ function geometries() {
     cache.palisade = parts;
   }
 
+  // Glider: a wing of bent branches with hide stretched over it, sitting nose
+  // down on the grass waiting to be picked up. Deliberately BIG — nine metres
+  // of span — because the whole point of it is that it is the largest thing
+  // anybody in this world has ever made, and it should stop you when you come
+  // over the ridge and find one somebody else built.
+  {
+    const parts = [];
+    const HIDE_WING = new THREE.Color(0x9a7f5c);
+    const span = 4.5;   // half-span
+    const chord = 2.1;
+
+    // Two wing halves, angled up into a shallow dihedral. Flat plates rather
+    // than an aerofoil, which is honest: this thing is a stretched skin, and
+    // the model in glider.js is not reading the geometry anyway.
+    for (const sign of [1, -1]) {
+      const panel = new THREE.BoxGeometry(span, 0.07, chord);
+      panel.translate(sign * span * 0.5, 0, 0);
+      panel.rotateZ(-sign * 0.11); // dihedral — what keeps it the right way up
+      panel.translate(0, 1.55, 0);
+      parts.push(paint(panel, HIDE_WING));
+
+      // Ribs, so it reads as made rather than moulded.
+      for (let i = 1; i <= 3; i++) {
+        const rib = new THREE.CylinderGeometry(0.035, 0.035, chord * 1.02, 5);
+        rib.rotateX(Math.PI / 2);
+        rib.translate(sign * (i / 3.5) * span, 0, 0);
+        rib.rotateZ(-sign * 0.11);
+        rib.translate(0, 1.6, 0);
+        parts.push(paint(rib, WOOD_PALE));
+      }
+    }
+
+    // The leading-edge spar: the one piece that has to be a whole branch, and
+    // the reason this costs fourteen of them.
+    const spar = new THREE.CylinderGeometry(0.075, 0.075, span * 2, 6);
+    spar.rotateZ(Math.PI / 2);
+    spar.translate(0, 1.58, -chord * 0.45);
+    parts.push(paint(spar, WOOD));
+
+    // Keel, running fore and aft, and the A-frame you hang from.
+    const keel = new THREE.CylinderGeometry(0.06, 0.06, chord * 1.6, 6);
+    keel.rotateX(Math.PI / 2);
+    keel.translate(0, 1.5, 0.1);
+    parts.push(paint(keel, WOOD));
+    for (const sign of [1, -1]) {
+      const strut = new THREE.CylinderGeometry(0.05, 0.05, 1.7, 5);
+      strut.rotateZ(sign * 0.42);
+      strut.translate(sign * 0.34, 0.78, 0.15);
+      parts.push(paint(strut, WOOD_PALE));
+    }
+    // A nose skid, so it is obviously resting on the ground rather than hovering.
+    const skid = new THREE.CylinderGeometry(0.045, 0.045, 1.1, 5);
+    skid.rotateX(Math.PI / 2.6);
+    skid.translate(0, 0.5, -0.85);
+    parts.push(paint(skid, WOOD_PALE));
+    cache.glider = parts;
+  }
+
   return cache;
 }
 
@@ -290,6 +370,9 @@ function buildPalisade(g) {
 }
 function buildHolt(g) {
   addParts(g, 'holt');
+}
+function buildGlider(g) {
+  addParts(g, 'glider');
 }
 
 function addParts(group, key) {

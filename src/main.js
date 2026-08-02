@@ -52,6 +52,8 @@ import { Companion } from './creatures/companion.js';
 import { COMPANIONS, COMPANION_IDS } from './creatures/companions.js';
 import { Fish } from './world/fish.js';
 import { buildBook } from './ui/book.js';
+import { launch, stepGlide, canLaunch, flightReport } from './world/glider.js';
+import { GLIDER } from './config.js';
 import { NetClient } from './net/client.js';
 import { Avatars } from './net/avatars.js';
 import { sampleEnvironment } from './world/environment.js';
@@ -655,6 +657,96 @@ function boot() {
     ctrl.wadeDepth = 0;
   }
 
+  // ── flying ────────────────────────────────────────────────────────────────
+  //
+  // Same shape as riding, and for the same reason: your intent drives the
+  // machine instead of your legs, and the machine goes where legs cannot. The
+  // difference is that a hippo forgives you and a wing does not.
+  //
+  // W/S is the stick — forward is nose down, the way a stick has worked since
+  // there were sticks — and A/D banks. There is no throttle to look for and no
+  // key that makes you go up, because there is no such key on a glider. The
+  // only altitude you will ever have is the altitude you carried up the hill.
+  let flight = null;
+  let wing = null;
+
+  function beginFlight(s) {
+    const ok = canLaunch(ctrl.position.x, ctrl.position.z, ctrl.yaw, heightAt);
+    if (!ok.ok) return ok.why;
+    if (riding) dismount('you slide off');
+
+    structures.remove(s); // it is not on the hill any more, it is under you
+    flight = launch({
+      x: ctrl.position.x, y: ctrl.position.y + 0.6, z: ctrl.position.z, heading: ctrl.yaw,
+    });
+    // The wing you are hanging from. Reusing the structure's own geometry means
+    // the thing you fly is visibly the thing you built, which matters more than
+    // it sounds — it is the difference between a vehicle and a state change.
+    wing = new THREE.Group();
+    BUILDABLE.glider.build(wing);
+    wing.position.y = -1.2; // the parts are modelled standing on the ground
+    const pivot = new THREE.Group();
+    pivot.add(wing);
+    scene.add(pivot);
+    wing.pivot = pivot;
+    hud.toast('you run, and the ground stops being there', 3);
+    return null;
+  }
+
+  function endFlight(crashed) {
+    if (!flight) return;
+    const s = flight;
+    flight = null;
+    if (wing?.pivot) scene.remove(wing.pivot);
+    wing = null;
+    hud.clearFlight();
+    ctrl.teleport({ x: s.x, y: heightAt(s.x, s.z), z: s.z }, ctrl.yaw);
+    if (crashed) {
+      vitals.damage(GLIDER.crashDamage, 'the ground');
+      hud.toast('you come down hard, and the wing does not get up again', 4);
+    } else {
+      // It survived, so it is still yours — put it back down where you landed.
+      // A glider you can only use once is a glider nobody builds twice.
+      const put = structures.canPlaceAt('glider', s.x, s.z);
+      if (put.ok) structures.place('glider', s.x, s.z, ctrl.yaw);
+      hud.toast(put.ok ? 'you set down, and the wing is still whole'
+        : 'you set down — nowhere flat to leave the wing, and it is lost', 3.4);
+    }
+  }
+
+  function updateFlight(dt, intent) {
+    if (!flight) return;
+    if (vitals.dead) return endFlight(true);
+
+    // W is nose down. The stick, not the aeroplane — see glider.js on why
+    // commanding the nose rather than the flight path is the whole subject.
+    // The same wind the deer have been smelling you on since Phase 2, now
+    // holding you up. Nothing new was added to the weather for this — the
+    // aircraft just reads what was already blowing.
+    stepGlide(flight, { pitch: -intent.forward, roll: intent.strafe }, dt, heightAt, {
+      angle: weather.windAngle,
+      speed: weather.wind * WEATHER.windSpeedScale,
+    });
+
+    ctrl.position.set(flight.x, flight.y, flight.z);
+    ctrl.velocity.set(0, 0, 0);
+    ctrl.grounded = false;
+    ctrl.horizontalSpeed = 0;
+    ctrl.wadeDepth = 0;
+    // The view turns with the aircraft. In first person with no cockpit around
+    // you, a bank you cannot see is a bank you cannot fly.
+    ctrl.yaw = flight.heading;
+
+    if (wing) {
+      wing.pivot.position.set(flight.x, flight.y, flight.z);
+      wing.pivot.rotation.set(0, flight.heading, 0);
+      wing.rotation.set(-flight.theta, 0, -flight.bank);
+    }
+
+    hud.setFlight(flightReport(flight), flight);
+    if (!flight.airborne) endFlight(!!flight.crashed);
+  }
+
   /**
    * Swap which animal came with you.
    *
@@ -1192,6 +1284,18 @@ function boot() {
           run: () => useStore(s, spec),
         };
       }
+      if (spec.flyable) {
+        // The prompt tells you whether this spot will fly BEFORE you commit,
+        // which is the same courtesy the fishing odds pay you. Finding out that
+        // a hilltop is not steep enough by running off it would be funny once.
+        const ok = canLaunch(ctrl.position.x, ctrl.position.z, ctrl.yaw, heightAt);
+        return {
+          label: ok.ok
+            ? `<b>E</b>  take the wing — ${(ok.drop * 100).toFixed(0)}% downhill ahead of you`
+            : `<b>E</b>  the wing — ${ok.why}`,
+          run: () => beginFlight(s),
+        };
+      }
       return { label: `<b>E</b>  ${spec.name.toLowerCase()} — ${spec.blurb}`, run: () => null };
     }
 
@@ -1654,6 +1758,9 @@ function boot() {
     // Riding overrides the walk rather than fighting it, so it runs straight
     // after the controller and before anything reads a position.
     updateRiding(dt, intent);
+    // And flying overrides both, for the same reason and more so — the wing
+    // does not care what your legs wanted.
+    updateFlight(dt, intent);
     feel.update(dt, ctrl, camera, weapons.fovOffset);
 
     // Weather first: the sky, the grass and the scent model all read from it.
@@ -1880,6 +1987,12 @@ function boot() {
     caves,
     structures,
     harvest,
+    // Flying, exposed so it can be flown from the console. The browser pane is
+    // frequently not displayed on this project, and the last thing that shipped
+    // broken shipped because it had only ever been driven by hand rather than
+    // flown in a live frame loop.
+    get flight() { return flight; },
+    fly: (s) => beginFlight(s ?? structures.nearest(ctrl.position, 60)?.structure),
     /** Build the best thing you can afford, as B does. */
     build: () => (placeStructure(), structures.stats),
     /** What you could put down right now, and what it would cost. */

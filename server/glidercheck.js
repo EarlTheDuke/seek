@@ -14,7 +14,7 @@
 // you cannot take off from a field.
 
 import {
-  launch, stepGlide, canLaunch, liftCoefficient, dragCoefficient, glideRatio, flightReport,
+  launch, stepGlide, canLaunch, liftCoefficient, dragCoefficient, glideRatio, flightReport, ridgeLift,
 } from '../src/world/glider.js';
 import { GLIDER } from '../src/config.js';
 
@@ -138,15 +138,56 @@ console.log('');
 const field = canLaunch(0, 0, 0, flat);
 check('you cannot launch off flat ground', !field.ok, `"${field.why}"`);
 
-// A ridge, dropping away to the north.
-const ridge = (x, z) => 200 - Math.max(0, z) * 0.5;
+// A ridge, dropping away to the north and KEEPING on dropping.
+const ridge = (x, z) => 200 - Math.max(0, z) * 0.9;
 check('a slope that falls away in front of you will do',
   canLaunch(0, 0, 0, ridge).ok, `${(canLaunch(0, 0, 0, ridge).drop * 100).toFixed(0)}% downhill ahead`);
+
+// A lip: steep for fifteen metres and then flat. Every "check the ground just
+// ahead" test passes here, and you would be on the deck in three seconds.
+const lip = (x, z) => 200 - Math.min(Math.max(0, z), 16) * 0.9;
+check('a lip that flattens out again will not',
+  !canLaunch(0, 0, 0, lip).ok, `"${canLaunch(0, 0, 0, lip).why}"`);
 // Facing back UP the same hill. The slope underfoot is identical — only the
 // direction changed — which is the whole reason this looks ahead rather than
 // down.
 check('the same slope facing uphill will not',
   !canLaunch(0, 0, Math.PI, ridge).ok, 'steep enough, wrong way — checked ahead, not underfoot');
+
+// ── soaring ──
+// The thing that makes it an aeroplane rather than a hop. A windward slope with
+// wind on it holds you up; the lee side of the same hill puts you down.
+console.log('');
+// A long hillside rising toward the south, so wind FROM the south (blowing
+// toward the north, angle 0) is blowing up it.
+const hill = (x, z) => 40 + Math.max(-40, Math.min(40, z)) * 0.9;
+const southerly = { angle: 0, speed: 12 };
+
+function soar(wind, y0 = 60) {
+  const s = launch({ x: 0, y: y0, z: 0, heading: Math.PI / 2 }); // fly along the ridge
+  let best = y0;
+  for (let i = 0; i < 60 * 120 && s.airborne; i++) {
+    stepGlide(s, { pitch: 0, roll: 0 }, DT, hill, wind);
+    best = Math.max(best, s.y);
+  }
+  return { s, best, minutes: 0 };
+}
+const nolift = soar(null);
+const lift = soar(southerly);
+check('wind on a windward slope holds you up',
+  lift.best > nolift.best + 15, `climbed to ${lift.best.toFixed(0)} m against ${nolift.best.toFixed(0)} m in still air`);
+// The number that decides whether this is a feature or a rounding error: does a
+// ridge keep you up longer than the same hill in still air?
+check('and it keeps you up, which is the whole point',
+  lift.s.x / 11.7 > nolift.s.x / 11.7 * 1.8,
+  `${(lift.s.x / 11.7 / 60).toFixed(1)} min soaring against ${(nolift.s.x / 11.7 / 60).toFixed(1)} min gliding`);
+check('and lift fades with height, so you cannot climb for ever',
+  lift.best < 60 + GLIDER.liftBandHeight, `topped out at ${lift.best.toFixed(0)} m, band is ${GLIDER.liftBandHeight} m`);
+check('the lee side of the same hill gives you nothing',
+  ridgeLift(-0.9, 12, 10) === 0, 'downwind of a ridge the air is going DOWN, not up');
+check('no wind, no lift', ridgeLift(0.9, 0, 10) === 0);
+check('and a flat plain gives you nothing however hard it blows',
+  ridgeLift(0, 30, 5) === 0, 'ridge lift needs a ridge');
 
 // ── arriving ──
 console.log('');

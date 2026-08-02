@@ -248,6 +248,17 @@ const CSS = `
   opacity: .32; text-align: center; padding-top: 10px;
   border-top: 1px solid rgba(220,210,190,.1); column-span: all; }
 
+/* Flying. Centre-low, where your eyes already are on the horizon, and only
+   while you are actually in the air — a permanent altimeter would make a valley
+   you cross once a season feel like a commute. */
+#hl-flight { position: absolute; left: 50%; bottom: 21%; transform: translateX(-50%);
+  text-align: center; opacity: 0; transition: opacity .3s ease; }
+#hl-flight.show { opacity: .9; }
+#hl-flight b { display: block; font-size: 15px; letter-spacing: .16em; font-weight: 400;
+  color: #ffd9a0; }
+#hl-flight.bad b { color: #e8734f; }
+#hl-flight span { display: block; font-size: 11px; letter-spacing: .2em; opacity: .5; margin-top: 4px; }
+
 /* The otter. Shown only once it is yours, and each need only once it is
    actually a need — the same rule the body's own gauges follow, for the same
    reason: a permanent row of bars turns a companion into a chore list. */
@@ -336,6 +347,7 @@ export class Hud {
       <div id="hl-pet"></div>
       <div id="hl-menu"><h3></h3><div class="rows"></div><div class="foot"></div></div>
       <div id="hl-book"></div>
+      <div id="hl-flight"></div>
       <div id="hl-survey"><h3></h3><div class="rows"></div></div>
       <div id="hl-health"><i></i></div>
       <div id="hl-fps"></div>
@@ -350,6 +362,7 @@ export class Hud {
     this.continueEl = this.root.querySelector('#hl-continue');
     this.keys = this.root.querySelector('#hl-keys');
     this.bookEl = this.root.querySelector('#hl-book');
+    this.flightEl = this.root.querySelector('#hl-flight');
     this.fps = this.root.querySelector('#hl-fps');
     this.toastEl = this.root.querySelector('#hl-toast');
     this.resume = this.root.querySelector('#hl-resume');
@@ -663,6 +676,26 @@ export class Hud {
       this.stanceEl.textContent = text;
     }
     this.stanceEl.classList.toggle('show', bits.length > 0);
+  }
+
+  /**
+   * Flying, said out loud.
+   *
+   * There are no instruments in this world and there is not going to be an
+   * artificial horizon floating in the corner of a bronze-age valley. So the
+   * aircraft talks: "slow — nose down", "stalled", "flying well". Which is
+   * genuinely how you fly a hang glider — by the noise and the pressure and
+   * what the wing is telling you — and it means the numbers underneath stay
+   * honest without ever being shown as numbers.
+   */
+  setFlight(text, s) {
+    this.flightEl.classList.add('show');
+    this.flightEl.classList.toggle('bad', /stall|fast|sinking/.test(text));
+    this.flightEl.innerHTML = `<b>${esc(text)}</b><span>${Math.round(s.y)} m up</span>`;
+  }
+
+  clearFlight() {
+    this.flightEl.classList.remove('show');
   }
 
   // ── the reference book ─────────────────────────────────────────────────────
