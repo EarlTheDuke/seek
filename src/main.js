@@ -41,6 +41,8 @@ import { Body } from './player/body.js';
 import { Fires } from './world/fires.js';
 import { Sites } from './world/sites.js';
 import { Caves } from './world/caves.js';
+import { NetClient } from './net/client.js';
+import { Avatars } from './net/avatars.js';
 import { sampleEnvironment } from './world/environment.js';
 import { insulationOf } from './items/registry.js';
 import { RECIPES, bestAvailable, craft } from './items/recipes.js';
@@ -176,6 +178,42 @@ function boot() {
   const fires = new Fires(scene, { audio });
   const sites = new Sites(scene, { audio });
   const caves = new Caves(scene);
+
+  // ── multiplayer ───────────────────────────────────────────────────────────
+  //
+  // Opt-in by URL, so single-player is byte-for-byte the game it was:
+  //
+  //   ?join=ws://192.168.1.20:8080&name=Ben
+  //
+  // When connected, the LOCAL player still simulates itself locally for a
+  // responsive feel, but everything else on screen — other people, creatures,
+  // arrows — is drawn from server snapshots, interpolated. The server remains
+  // the only authority; the local prediction is a courtesy to the eye, not a
+  // claim about the world.
+  const params = new URLSearchParams(location.search);
+  const joinUrl = params.get('join');
+  const avatars = new Avatars(scene);
+  let net = null;
+
+  if (joinUrl) {
+    net = new NetClient({
+      onWelcome: (data) => {
+        hud.toast(`joined — ${data.players.length + 1} here`, 3);
+        // The server's spawn is authoritative; take it rather than the one
+        // this client would have picked, or two people stand in different
+        // places and each thinks the other is wrong.
+        ctrl.teleport(
+          new THREE.Vector3(data.spawn.p[0], data.spawn.p[1], data.spawn.p[2]),
+          data.spawn.y
+        );
+        terrain.buildImmediate(ctrl.position.x, ctrl.position.z);
+      },
+      onChat: (m) => hud.toast(m.system ? m.m : `${m.n}: ${m.m}`, 4),
+      onError: (m) => hud.toast(`server: ${m}`, 5),
+      onStatus: (s) => hud.toast(`network: ${s}`, 2),
+    });
+    net.connect(joinUrl, params.get('name') ?? 'wanderer');
+  }
 
   const vitals = new Body({
     onWarning: (text) => hud.toast(text, 3),
@@ -823,6 +861,14 @@ function boot() {
       sunAltitude: atmosphere.elevation,
       weather,
     });
+
+    // ── the other people ──
+    // Intent up, interpolated world down. Nothing here writes to the local
+    // simulation: the avatars are pure presentation, exactly like the terrain.
+    if (net) {
+      net.sendIntent(intent, performance.now());
+      avatars.update(dt, net.interpolated(performance.now()), net.others);
+    }
     projectiles.update(dt);
 
     pickups.update(dt, ctrl.position);
@@ -934,6 +980,38 @@ function boot() {
       return `${hit.name}: ${Math.round(hit.distance)} m ${hit.bearing}`;
     },
     sites,
+    caves,
+    // ── multiplayer ──
+    get net() {
+      return net;
+    },
+    avatars,
+    /** Connect to a server without reloading. */
+    join: (url, name = 'wanderer') => {
+      if (net) net.close();
+      avatars.clear();
+      net = new NetClient({
+        onWelcome: (d) => hud.toast(`joined — ${d.players.length + 1} here`, 3),
+        onChat: (m) => hud.toast(m.system ? m.m : `${m.n}: ${m.m}`, 4),
+        onError: (m) => hud.toast(`server: ${m}`, 5),
+        onStatus: (s) => hud.toast(`network: ${s}`, 2),
+      });
+      net.connect(url, name);
+      return `connecting to ${url}`;
+    },
+    say: (text) => (net ? (net.say(text), 'sent') : 'not connected'),
+    netStatus: () =>
+      net
+        ? {
+            state: net.state,
+            id: net.id,
+            seed: net.seed,
+            others: [...net.others.values()].map((o) => o.name),
+            avatars: avatars.count,
+            pingMs: +net.ping.toFixed(1),
+            snapshotsBuffered: net.buffer.length,
+          }
+        : 'not connected — highlands.join("ws://host:8080", "name")',
     /** Every built site near you — the barrows and circles this seed made. */
     builtSites: () =>
       sites.active

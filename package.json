@@ -8,11 +8,15 @@
     "dev": "vite --port 5173 --strictPort",
     "build": "vite build",
     "preview": "vite preview --port 5175 --strictPort",
-    "sim": "node src/sim/cli.js"
+    "sim": "node src/sim/cli.js",
+    "serve": "node server/server.js",
+    "netcheck": "node server/smoketest.js",
+    "bot": "node server/bot.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",
-    "three": "0.170.0"
+    "three": "0.170.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "vite": "^5.4.11"

@@ -361,14 +361,36 @@ day and ~21 at night within the 320 m radius.
 
 ---
 
-### Phase 4 — Places worth finding · *large*
+### Phase 4 — Places worth finding · *large* — ✅ **shipped**
 **Goal:** the world gets insides.
-- Cave and warren geometry.
-- Bogs, gorges, snow line, hot springs.
-- Barrows and functional stone circles.
-- Procedural place names.
+- ✅ Caves (`world/caves.js`) — a heightfield bowl for collision plus a roof
+  shell for the overhang, which is how you get a cave without an overhang.
+  Doubles as the goblin warren.
+- ✅ Bogs, gorges, snow line, hot springs (`world/regions.js`).
+- ✅ Barrows and stone circles (`world/sites.js`) — a survey point and loot
+  with a consequence.
+- ✅ Procedural place names (`world/placenames.js`).
 
 **Done when:** you can tell another player where to go and they can find it.
+
+**Demonstrated:** told to meet at *Sunny Muir* → `findPlace` says "972 m north"
+→ walk there → the place is called Sunny Muir. The whole infinite world is named
+from the seed, so two players on a seed see identical names forever.
+
+**The rule the phase ran on: a place must change a decision.** Measured:
+
+| ground | air | exposure | speed | noise |
+|---|---|---|---|---|
+| open moor | 10.7 °C | 0.35 | 99% | 1.0× |
+| gorge | 9.5 °C | 0.05 | 86% | 1.0× |
+| bog | 8.9 °C | 0.23 | **52%** | **2.1×** |
+| snow line | 1.3 °C | 0.92 | 78% | 1.5× |
+| hot spring | 25.0 °C | 0.35 | 100% | 1.0× |
+| **inside a cave** | **+1.9 °C at 04:00** | **0.02** | — | — |
+
+Twenty-four degrees between the snow line and a hot spring; a bog is half speed
+and twice as loud, so going round is often faster than going through. That is
+the first time a *route* has been a decision in this game.
 
 ---
 

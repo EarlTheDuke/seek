@@ -445,6 +445,24 @@ export const WILDLIFE = {
   testBearAt: 86,
 };
 
+// ── Networking ──────────────────────────────────────────────────────────────
+//
+// See src/net/ and server/server.js. The world is generated from a seed on
+// every machine, so terrain, trees, caves, barrows and place names never cross
+// the wire — only what moved.
+export const NET = {
+  defaultPort: 8080,
+  // How often the client tells the server what it wants. The server holds the
+  // last intent it was given, so this only costs input latency, not fidelity —
+  // and sending at frame rate would be 144 packets a second to describe 60
+  // ticks, most of them identical.
+  intentHz: 30,
+  // How far in the past other players and creatures are drawn. Two snapshots
+  // at 20 Hz is 100 ms, so 110 leaves a little slack for a late packet before
+  // the interpolator runs out of future and has to hold still.
+  interpolationMs: 110,
+};
+
 // ── Caves ───────────────────────────────────────────────────────────────────
 //
 // A heightfield cannot express an overhang, so a cave here is a BOWL carved
