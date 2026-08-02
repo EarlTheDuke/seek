@@ -507,6 +507,60 @@ export const FISH = {
 // is TIMING: the wind-up is long enough that a charging animal reaches you
 // during it, so you either swing early and miss or swing late and get hit.
 // See weapons/axe.js.
+// ── the glider ──────────────────────────────────────────────────────────────
+//
+// Aerodynamics, and they are the real ones — see world/glider.js for why that
+// is cheaper than faking it rather than more expensive.
+//
+// These numbers are not tuned by feel, they are DERIVED, and they hang together
+// as one aircraft. Pick a glide ratio and the rest follows:
+//
+//   best L/D = ½·√(1 / (k·Cd0))          → 6.0 with the values below
+//   Cl at that glide = √(Cd0 / k)        → 0.72
+//   speed there, from L = W              → 11.8 m/s
+//
+// So: six metres forward per metre down at about 12 m/s, which is 26 mph and
+// exactly what a braced wooden wing under a hanging man does. Change Cd0 or k
+// and you have changed the aircraft — check what it does before you keep it,
+// because `npm run glidercheck` measures the glide rather than trusting it.
+export const GLIDER = {
+  // ── the air and the machine ──
+  rho: 1.225,      // kg/m³, sea-level air
+  wingArea: 16,    // m² of stretched hide
+  mass: 100,       // kg — the machine and the person hanging off it
+  gravity: 9.81,
+
+  // ── the wing ──
+  // clAlpha is 2π/(1+2/AR) for an aspect ratio near 3.2: a short, deep,
+  // heavily braced wing, because a long thin one made of branches snaps.
+  cl0: 0.05,
+  clAlpha: 3.88,     // per radian
+  alphaStall: 0.262, // 15°, where the flow lets go
+  clStall: 1.07,
+  cd0: 0.06,         // struts, bracing, and a person in the breeze
+  k: 0.1157,         // induced drag factor, 1/(π·e·AR)
+
+  // ── the pilot ──
+  // The stick commands an angle of attack and the airframe flies it, which is
+  // what being trimmed MEANS — see the long note in glider.js about the deep
+  // stall that happens when you leave this out.
+  alphaTrim: 0.173,      // 9.9°, where Cl = 0.72 and the glide is flattest
+  pitchAuthority: 0.19,  // full back reaches 21°, past the 15° stall, on purpose
+  pitchRate: 0.9,   // rad/s of nose authority — you shift your weight, slowly
+  rollRate: 2.2,    // how fast the bank follows your input
+  maxBank: 0.72,    // 41°, past which a wooden wing is a bad idea
+
+  // ── beginning and ending ──
+  launchSpeed: 9.5,      // m/s, the run off the edge
+  minLaunchSlope: 0.26,  // the ground ahead has to fall away this steeply
+  crashSpeed: 21,        // arriving this fast breaks it
+  crashSink: 6.5,        // so does arriving this hard
+  crashDamage: 34,
+  // What it costs to build, in the same units as everything else, and it is
+  // meant to be the most expensive thing in the game — a season's work.
+  cost: { wood: 14, hide: 10 },
+};
+
 export const AXE = {
   // Wind-up. Long on purpose — this is the window the fight happens in.
   windupFull: 0.62, // seconds to a full-power blow
