@@ -440,6 +440,24 @@ export const WILDLIFE = {
   testBearAt: 86,
 };
 
+// ── Place names ─────────────────────────────────────────────────────────────
+//
+// A world of coordinates is a world you cannot talk about. See
+// world/placenames.js for why this is Phase 4's done-when rather than polish.
+export const NAMES = {
+  // How big a named district is. Big enough that crossing one is a walk (about
+  // two and a half minutes at a jog), small enough that "I am in the Black
+  // Moss" actually narrows you down.
+  districtSize: 620,
+  // Features are anchored on a rounded grid this size, so the same spring keeps
+  // its name whichever system asks about it and from wherever.
+  featureAnchor: 40,
+  // How often a name takes a possessive or "X of Y" form instead of the plain
+  // "Adjective Noun". Rare on purpose — it is seasoning, and at high rates
+  // every place in the world sounds like a ballad.
+  ofFormChance: 0.22,
+};
+
 // ── Regions: what kind of ground this is ────────────────────────────────────
 //
 // Derived entirely from fields the world already has, so nothing is stored and

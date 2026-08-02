@@ -17,6 +17,12 @@ import { PlayerInput } from './player/input.js';
 import { checkInput } from './player/inputCheck.js';
 import { describeMorale } from './creatures/morale.js';
 import { strangenessAt, describeStrangeness, darkness } from './world/strangeness.js';
+import {
+  districtAt,
+  describePosition,
+  findDistrict,
+  nearbyDistricts,
+} from './world/placenames.js';
 import { sanitiseIntent, IDLE_INTENT } from './sim/intents.js';
 import { CameraFeel } from './player/cameraFeel.js';
 import { ViewModel } from './player/viewmodel.js';
@@ -324,12 +330,24 @@ function boot() {
   let placeBand = null;
   let placeCandidate = null;
   let placeHold = 0;
+  let districtName = null;
 
   function reportPlace(dt) {
     const s = strangenessAt(ctrl.position.x, ctrl.position.z, {
       sunAltitude: atmosphere.elevation,
       weather,
     });
+
+    // ── where you are ──
+    // Announced on entry and then left alone. A name you are told once is a
+    // place; a name pinned permanently to the screen is a minimap.
+    const d = districtAt(ctrl.position.x, ctrl.position.z);
+    if (d.name !== districtName) {
+      const first = districtName === null;
+      districtName = d.name;
+      if (!first) hud.toast(d.name, 3);
+    }
+
     const band = describeStrangeness(s);
     if (band !== placeCandidate) {
       placeCandidate = band;
@@ -813,6 +831,26 @@ function boot() {
       const { pass, results } = checkInput(input);
       return pass ? `input ok · ${results.length} checks` : results.filter((r) => !r.ok);
     },
+    // ── the gazetteer ──
+    // The half that makes names USEFUL rather than merely present. A player
+    // told to meet at the Black Moss needs to turn that back into a direction.
+    /** Where you are, in the form a person would say it out loud. */
+    whereAmI: () => {
+      const p = describePosition(ctrl.position.x, ctrl.position.z);
+      return `${p.phrase} — ${p.local}`;
+    },
+    /** Turn a place name back into a bearing and a distance. */
+    findPlace: (name) => {
+      if (!name) return 'give me a name — try highlands.nearby()';
+      const hit = findDistrict(name, ctrl.position.x, ctrl.position.z);
+      if (!hit) return `no ${name} within about ${Math.round((14 * 620) / 100) / 10} km`;
+      return `${hit.name}: ${Math.round(hit.distance)} m ${hit.bearing}`;
+    },
+    /** What is around you, nearest first. */
+    nearby: (rings = 2) =>
+      nearbyDistricts(ctrl.position.x, ctrl.position.z, rings).map(
+        (d) => `${d.name} — ${d.distance} m ${d.bearing} (${d.kind})`
+      ),
     /** What it is like where you are standing. */
     conditions: () => {
       const env = sampleEnvironment(ctrl.position, {

@@ -100,6 +100,27 @@ export function strangenessAt(x, z, ctx = {}) {
 }
 
 /**
+ * How strange this ground is IN ITSELF, ignoring the hour and the weather.
+ *
+ * The naming layer wants this rather than `strangenessAt`. A place does not
+ * become a different place at sunset, so its name must not change — but naming
+ * off the daylight value instead was worse: daylight scales the whole gradient
+ * by `dayScale`, which caps it around 0.41, so the two darker registers of
+ * place name could never be reached and the entire infinite world was named as
+ * if it were a meadow.
+ *
+ * This is the honest quantity for the question "what KIND of place is this",
+ * and it spans the full 0..1 the way the name registers expect.
+ */
+export function placeStrangeness(x, z) {
+  const S = STRANGENESS;
+  const t = terrainStrangeness(x, z);
+  let base = t.remote * S.weightRemote + t.high * S.weightHigh + t.blight * S.weightBlight;
+  if (t.height < WATER_LEVEL) base *= 0.35;
+  return clamp(base, 0, 1);
+}
+
+/**
  * How dark it is, 0..1, from the sun's altitude in degrees.
  *
  * Civil twilight (sun 6° below the horizon) is the point where a person stops
