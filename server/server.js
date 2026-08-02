@@ -17,6 +17,10 @@
 
 import { WebSocketServer } from 'ws';
 import { SimWorld } from '../src/sim/world.js';
+import { makeProvider } from '../src/minds/providers.js';
+import { addRivalHunter } from '../src/minds/hunter.js';
+import { makeRandom } from '../src/world/noise.js';
+import { solarPosition } from '../src/world/sky.js';
 import {
   PROTOCOL_VERSION,
   C_HELLO,
@@ -58,11 +62,33 @@ const world = new SimWorld({ headless: true });
 const clients = new Map(); // ws -> { id, name, lastSeen }
 let nextId = 1;
 
+// ── minds ───────────────────────────────────────────────────────────────────
+//
+// Server-side only, which VISION.md is explicit about: "Clients never hold keys
+// or call out." Scripted by default and scripted anyway if a key is missing, so
+// pulling this repository and running it never reaches the network and never
+// costs anybody anything.
+//
+//   npm run serve                                    scripted minds
+//   MINDS_PROVIDER=claude MINDS_API_KEY=... npm run serve
+//
+const HUNTERS = num(1, Number(process.env.MINDS_HUNTERS ?? 1));
+const provider = makeProvider(makeRandom('minds'), process.env);
+const rivals = [];
+const HUNTER_NAMES = ['Eachann', 'Morag', 'Tormod', 'Ailsa'];
+for (let i = 0; i < Math.min(HUNTERS, HUNTER_NAMES.length); i++) {
+  rivals.push(addRivalHunter(world, provider, { id: nextId++, name: HUNTER_NAMES[i] }));
+}
+
 const wss = new WebSocketServer({ port: PORT });
 
 console.log(`\n  Highlands server`);
 console.log(`  seed ${world.seed}  ·  tick ${TICK_HZ} Hz  ·  snapshots ${SEND_HZ} Hz`);
 console.log(`  listening on ws://0.0.0.0:${PORT}`);
+console.log(
+  `  ${rivals.length} rival hunter${rivals.length === 1 ? '' : 's'} (${provider.name} minds)` +
+    `${provider.name === 'scripted' ? ' — no key, no network' : ''}`
+);
 console.log(`  tell a friend on your network: ws://<this machine's IP>:${PORT}\n`);
 
 wss.on('connection', (ws, req) => {
@@ -185,6 +211,26 @@ function loop() {
   accumulator += elapsed;
 
   while (accumulator >= STEP) {
+    // Minds first, so a goal set this tick is acted on this tick. They never
+    // block: `update` starts a decision and returns, and the answer lands
+    // whenever it lands.
+    if (rivals.length) {
+      const mctx = {
+        hours: world.clock.hours,
+        sunAltitude: solarPosition(world.clock.hours).altitude,
+        weather: world.weather,
+        tick: world.tick,
+        fires: world.fires,
+        scentAt: (ax, az, bx, bz) => world.scentAt(ax, az, bx, bz),
+      };
+      for (const r of rivals) {
+        r.mind.update(STEP, world, mctx);
+        r.body.update(STEP, world, mctx);
+        const said = r.body.takeSpeech();
+        if (said) broadcast(S_CHAT, { id: r.player.id, n: r.mind.name, m: said });
+      }
+    }
+
     world.step(STEP);
     accumulator -= STEP;
     ticksThisSecond++;

@@ -24,6 +24,7 @@ import * as THREE from 'three';
 import { SEED, WATER_LEVEL, LOADOUT, TIME, SOCIAL } from '../config.js';
 import { placeStrangeness } from '../world/strangeness.js';
 import { describePosition } from '../world/placenames.js';
+import { findRegion } from '../world/regions.js';
 
 /**
  * What you keep when you die. The bow, because a player who loses it is
@@ -226,6 +227,61 @@ export class SimWorld {
       }
     }
     return best;
+  }
+
+  // ── what a mind may ask ───────────────────────────────────────────────────
+
+  /**
+   * Everything `self` could POSSIBLY perceive — the candidate list, not the
+   * answer. `perception.perceive` then decides what actually got through the
+   * eyes, ears and nose.
+   *
+   * Two steps rather than one because the honesty rule needs a chokepoint: if
+   * anything ever wants to know what a mind knows, it goes through here, and
+   * here is where "no, it cannot see that" lives.
+   */
+  perceivableBy(self) {
+    const out = [];
+    for (const p of this.players.values()) {
+      if (p.ctrl.position === self.position) continue; // itself
+      if (!p.connected || p.body.dead) continue;
+      out.push({
+        position: p.ctrl.position,
+        label: p.isMind ? 'a hunter' : 'someone',
+        noise: p.stealth.noise,
+        visibility: p.stealth.visibility,
+        healthFraction: p.body.health / 100,
+        doing: p.ctrl.crouching ? 'crouched' : p.ctrl.horizontalSpeed > 5 ? 'running' : 'walking',
+      });
+    }
+    for (const c of this.wildlife.creatures) {
+      if (c.state === 'dead') continue;
+      out.push({
+        position: c.position,
+        label: `a ${c.species.id}`,
+        // A creature's own noise is not modelled, so movement stands in for it
+        // — which is honest enough: a bolting deer IS the loud one.
+        noise: Math.min(1, c.speed / 8),
+        visibility: 1,
+        healthFraction: c.hp / c.maxHp,
+        doing: c.state,
+      });
+    }
+    return out;
+  }
+
+  /** The nearest place a body could shelter, if it can find one nearby. */
+  shelterNear(x, z, radius = 220) {
+    const gorge = findRegion('gorge', x, z, { radius, step: 26, minStrength: 0.55 });
+    const wood = findRegion('wood', x, z, { radius: radius * 0.6, step: 24, minStrength: 0.7 });
+    const best = gorge && (!wood || gorge.distance < wood.distance * 1.4) ? gorge : wood;
+    return best ? { x: best.x, z: best.z } : null;
+  }
+
+  /** How strongly a scent carries from one point to another, for perception. */
+  scentAt(fromX, fromZ, toX, toZ) {
+    const anchor = this.playersInOrder()[0];
+    return anchor ? anchor.stealth.scentAt(fromX, fromZ, toX, toZ) : 0;
   }
 
   /** How many living people are within `range` of a point. */

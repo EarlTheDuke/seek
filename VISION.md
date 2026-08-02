@@ -463,9 +463,36 @@ scenery, and why it is the only thing written out in full.
 
 ---
 
-### Phase 8 — Minds · *large, long-range*
+### Phase 8 — Minds · *architecture shipped; the model is opt-in*
 **Goal:** a few inhabitants who remember and decide. See §6b.
-- Deliberation layer on the intent bus, on a slow cadence.
+- ✅ Deliberation layer (`src/minds/`) on the intent bus, 6-second cadence.
+- ✅ The honesty rule enforced structurally — `perception.js` builds a brief
+  from what the body could perceive, and a mind gets a read-only view.
+- ✅ Constrained output — a closed table of verbs; anything else is discarded.
+- ✅ The rival hunter, which is a `Player` in `SimWorld` with a `Mind` instead
+  of a socket. **No special-casing** — the vision's own claim, literally true.
+- ✅ Every decision written to a replay log, so determinism survives a
+  non-reproducible model.
+- ⏸️ **The Claude provider is written but off.** It needs a key, costs money per
+  call and reaches the network, so it never starts by itself:
+  `MINDS_PROVIDER=claude MINDS_API_KEY=… npm run serve`. Every failure path —
+  no key, timeout, rubbish reply — falls through to the scripted mind.
+
+**Verify:** `npm run mindcheck` — 21/21, and it makes no network calls.
+
+What a hunter is actually told, and all it is told:
+
+```
+You are 297 m north-east of Rowan Moor, under trees. It is 09:00,
+daylight, clear, wind from the south-east.
+You are unhurt and under trees, and fed.
+You are carrying: 1 bow, 12 arrow.
+You are aware of:
+  - someone, seen, close to the west, walking (unhurt)
+Your current intention is: wander.
+```
+
+No coordinates. No inventory it has not seen. Nothing behind it.
 - Perception-grounded prompting — a mind sees what its creature sees.
 - Decisions logged as intents, so replays stay deterministic.
 - The rival hunter first: identical rules to a player, and a live test for

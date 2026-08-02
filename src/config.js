@@ -445,6 +445,36 @@ export const WILDLIFE = {
   testBearAt: 86,
 };
 
+// ── Minds ───────────────────────────────────────────────────────────────────
+//
+// The deliberation layer. See src/minds/ and VISION.md §6b. Two rules govern
+// every number here: the world must never wait for a mind, and the game must
+// be fully playable with no model at all.
+export const MINDS = {
+  // How often a mind reconsiders. Seconds, not ticks — deliberation is slow by
+  // design, and a hunter that re-plans sixty times a second is not thinking,
+  // it is twitching.
+  cadenceSeconds: 6,
+  // How often the reflex layer re-resolves a goal into a place on the ground.
+  retargetSeconds: 2.5,
+  arriveWithin: 6,
+  roamDistance: 55,
+  stalkWithin: 45, // start crouching this far from quarry
+  turnRate: 1.6, // radians a second — a body, not a turret
+  speakEveryHours: 0.4, // in-game hours between remarks
+
+  // Memory, in words rather than coordinates.
+  memorySize: 40, // kept
+  memoryRecall: 5, // handed to a decision
+  memoryHours: 24, // how long something still feels recent
+
+  // The decision log, which is what makes a run with a model in it replayable.
+  logSize: 500,
+
+  // A rival hunter perceives the world about as well as you do.
+  hunterSenses: { sightRange: 85, sightFov: 2.1, hearingRange: 70 },
+};
+
 // ── Building ────────────────────────────────────────────────────────────────
 //
 // See world/structures.js. The rule: a structure must change a DECISION. A

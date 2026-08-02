@@ -13,7 +13,8 @@
     "netcheck": "node server/smoketest.js",
     "bot": "node server/bot.js",
     "raidcheck": "node server/raidtest.js",
-    "campcheck": "node server/campcheck.js"
+    "campcheck": "node server/campcheck.js",
+    "mindcheck": "node server/mindcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",
