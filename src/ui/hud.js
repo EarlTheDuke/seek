@@ -165,6 +165,19 @@ const CSS = `
   letter-spacing: .22em; text-transform: uppercase; color: #9fc08a;
   opacity: 0; transition: opacity .25s ease; }
 #hl-stance.show { opacity: .75; }
+
+/* The survey: what you learn standing in a stone circle. Deliberately a thing
+   that appears, is read, and goes away again — not a map you can keep open.
+   You remember where the Black Moss was or you walk back and look again. */
+#hl-survey { position: absolute; left: 50%; top: 22%; transform: translateX(-50%);
+  min-width: 300px; padding: 18px 26px 20px; text-align: center;
+  background: rgba(12,14,11,.72); border: 1px solid rgba(220,210,190,.16);
+  opacity: 0; transition: opacity .5s ease; pointer-events: none; }
+#hl-survey.show { opacity: 1; }
+#hl-survey h3 { font-size: 13px; letter-spacing: .26em; text-transform: uppercase;
+  opacity: .62; margin-bottom: 14px; font-weight: 400; }
+#hl-survey .row { font-size: 13px; line-height: 1.85; letter-spacing: .06em; opacity: .9; }
+#hl-survey .row b { font-weight: 400; opacity: .55; }
 `;
 
 const KEYS = [
@@ -217,6 +230,7 @@ export class Hud {
       </div>
       <div id="hl-cond"></div>
       <div id="hl-stance">crouched</div>
+      <div id="hl-survey"><h3></h3><div class="rows"></div></div>
       <div id="hl-health"><i></i></div>
       <div id="hl-fps"></div>
       <div id="hl-toast"></div>
@@ -244,6 +258,10 @@ export class Hud {
     this.needsEl = this.root.querySelector('#hl-needs');
     this.condEl = this.root.querySelector('#hl-cond');
     this.stanceEl = this.root.querySelector('#hl-stance');
+    this.surveyEl = this.root.querySelector('#hl-survey');
+    this.surveyTitle = this.surveyEl.querySelector('h3');
+    this.surveyRows = this.surveyEl.querySelector('.rows');
+    this.surveyTimer = 0;
     this.needRows = {};
     for (const row of this.needsEl.querySelectorAll('.row')) {
       this.needRows[row.dataset.need] = {
@@ -487,6 +505,22 @@ export class Hud {
     this.stanceEl.classList.toggle('show', !!crouching);
   }
 
+  /**
+   * What you learn standing in a stone circle. Shown, read, and gone — the
+   * point is that you have to remember it, or walk back and look again.
+   */
+  showSurvey(title, lines, seconds = 11) {
+    this.surveyTitle.textContent = `from ${title}`;
+    this.surveyRows.innerHTML = lines
+      .map((l) => {
+        const [name, rest] = l.split(' · ');
+        return `<div class="row">${name} <b>${rest ?? ''}</b></div>`;
+      })
+      .join('');
+    this.surveyEl.classList.add('show');
+    this.surveyTimer = seconds;
+  }
+
   setPrompt(text) {
     if (text === this.promptText) return;
     this.promptText = text;
@@ -542,6 +576,10 @@ export class Hud {
     if (this.toastTimer > 0) {
       this.toastTimer -= dt;
       if (this.toastTimer <= 0) this.toastEl.classList.remove('show');
+    }
+    if (this.surveyTimer > 0) {
+      this.surveyTimer -= dt;
+      if (this.surveyTimer <= 0) this.surveyEl.classList.remove('show');
     }
 
     if (!SHOW_FPS) return;

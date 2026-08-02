@@ -440,6 +440,37 @@ export const WILDLIFE = {
   testBearAt: 86,
 };
 
+// ── Built sites: barrows and stone circles ──────────────────────────────────
+//
+// The only evidence anyone was ever here before you. Both must change a
+// decision — a circle is a survey point and a windbreak, a barrow is loot with
+// a consequence. See world/sites.js.
+export const SITES = {
+  cellSize: 340, // hash grid for placement
+  density: 0.2, // fraction of cells holding anything at all
+  visibleRange: 460,
+  maxSlope: 0.3,
+  useRange: 4.5, // how close you stand to use one
+
+  // Barrows want lonely ground: they are where people did NOT live.
+  barrowStrangeness: 0.4,
+  barrowRadius: 4.6,
+  barrowHeightScale: 0.52,
+  barrowGoodsMax: 4,
+  // Above this strangeness, something is still in there.
+  barrowGuardianAt: 0.55,
+
+  // Circles want a view, so they prefer high open ground.
+  circleMinHeight: 26,
+  circleRadius: 5.2,
+  circleStones: 9,
+  // How far the survey reaches, in district cells. Two rings is about 1.9 km —
+  // enough to plan a journey, not enough to hand you the whole map.
+  surveyRings: 2,
+  // The stones break the wind, like any ring of standing stones.
+  circleShelter: 0.55,
+};
+
 // ── Place names ─────────────────────────────────────────────────────────────
 //
 // A world of coordinates is a world you cannot talk about. See

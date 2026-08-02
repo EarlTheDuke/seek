@@ -83,6 +83,10 @@ export function captureSave(ctx) {
       // Fires are the first thing the player PUTS in the world, and the shape
       // Phase 7's buildings will follow.
       fires: ctx.fires ? ctx.fires.serialise() : [],
+      // Barrows are the opposite of a fire: the world puts them there, and the
+      // only thing worth storing is which ones you have broken open. Same
+      // trick as everything else here — the world is free, the diffs are not.
+      sites: ctx.sites ? ctx.sites.toJSON() : null,
     },
   };
 }
@@ -205,6 +209,7 @@ export function applySave(data, ctx) {
     pickups.restoreDrop(d.item, d.count, d.p);
   }
   ctx.fires?.restore(data.world.fires);
+  ctx.sites?.fromJSON(data.world.sites);
 
   return true;
 }

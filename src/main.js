@@ -39,6 +39,7 @@ import { makeRandom } from './world/noise.js';
 import { StealthProfile } from './player/stealth.js';
 import { Body } from './player/body.js';
 import { Fires } from './world/fires.js';
+import { Sites } from './world/sites.js';
 import { sampleEnvironment } from './world/environment.js';
 import { insulationOf } from './items/registry.js';
 import { RECIPES, bestAvailable, craft } from './items/recipes.js';
@@ -172,6 +173,7 @@ function boot() {
   const rain = new Rain(scene);
 
   const fires = new Fires(scene, { audio });
+  const sites = new Sites(scene, { audio });
 
   const vitals = new Body({
     onWarning: (text) => hud.toast(text, 3),
@@ -367,6 +369,62 @@ function boot() {
     hud.toast(PLACE_LINES[band] ?? band, 3.4);
   }
 
+  // ── what a stone circle is FOR ────────────────────────────────────────────
+  //
+  // The non-magical answer to "give the circles a function". You are standing
+  // on high open ground at a fixed, unmistakable reference point, so you can
+  // see the country and work out where things are relative to it. That is what
+  // a survey point IS, and it turns the naming layer from a console curiosity
+  // into the thing you actually navigate by.
+  //
+  // No map screen: it tells you, you remember it or you do not. Which is also
+  // how it worked for the people who put the stones up.
+  function surveyFrom(site) {
+    const found = nearbyDistricts(site.x, site.z, SITES.surveyRings)
+      .filter((d) => d.distance > 60)
+      .slice(0, SITES.surveyRings * 3);
+    for (const d of found) sites.known.add(d.name);
+    const lines = found.map((d) => `${d.name} · ${Math.round(d.distance)} m ${d.bearing}`);
+    hud.showSurvey(site.name, lines);
+    return null; // the panel is the feedback; a toast on top would be noise
+  }
+
+  // ── what a barrow costs ───────────────────────────────────────────────────
+  //
+  // The only items in the world you do not have to hunt for, and the deeper
+  // out the barrow is the better it pays — the strangeness gradient expressed
+  // as a reward instead of a threat. Past `barrowGuardianAt` something is
+  // still in there, and it is awake now.
+  function openBarrow(site) {
+    const result = sites.open(site);
+    if (!result) return null;
+    for (const item of result.goods) inventory.add(item, 1);
+    const counts = {};
+    for (const g of result.goods) counts[g] = (counts[g] ?? 0) + 1;
+    const list = Object.entries(counts)
+      .map(([k, n]) => `${n} ${itemName(k)}`)
+      .join(', ');
+
+    if (result.guardian && ruleset.current.survival !== false) {
+      // Something was put in there to stay. It comes out of the mouth you just
+      // unblocked, not out of thin air behind you.
+      const ang = site.yaw;
+      const gx = site.x + Math.sin(ang) * (SITES.barrowRadius + 1.4);
+      const gz = site.z + Math.cos(ang) * (SITES.barrowRadius + 1.4);
+      const born = wildlife.spawnHerd('goblin', gx, gz, 3, 3);
+      for (const c of born) {
+        c.packId = `barrow:${site.key}`;
+        c.awareness = 1;
+        c.lastKnownThreat.copy(ctrl.position);
+      }
+      audio.creatureAlarm?.({ x: gx, y: site.y + 1, z: gz });
+      hud.toast(`${list} — and you have woken something`, 4);
+    } else {
+      hud.toast(`${site.name}: ${list}`, 3);
+    }
+    return null;
+  }
+
   /**
    * What would E do, standing here?
    *
@@ -383,6 +441,26 @@ function boot() {
     const fireDist = fire
       ? Math.hypot(fire.position.x - ctrl.position.x, fire.position.z - ctrl.position.z)
       : Infinity;
+
+    // ── built sites ──
+    // Resolved before loot and fire only when they are genuinely the closest
+    // thing, by the same distance rule everything else obeys.
+    const built = sites.nearest(ctrl.position);
+    const builtDist = built ? built.distance : Infinity;
+    if (built && builtDist < Math.min(near?.distance ?? Infinity, fireDist)) {
+      const s = built.site;
+      if (s.kind === 'circle') {
+        return {
+          label: `<b>E</b>  take your bearings at ${s.name}`,
+          run: () => surveyFrom(s),
+        };
+      }
+      if (!sites.opened.has(s.key)) {
+        return { label: `<b>E</b>  open ${s.name}`, run: () => openBarrow(s) };
+      }
+      // Already open: say what it is, and do not pretend there is more in it.
+      return { label: `<b>E</b>  ${s.name} — already opened`, run: () => null };
+    }
 
     if (near && near.distance <= fireDist) {
       const label = `<b>E</b>  pick up ${itemName(near.item)}${near.count > 1 ? ` ×${near.count}` : ''}`;
@@ -442,12 +520,13 @@ function boot() {
   const saveContext = () => ({
     seed: SEED,
     mode: ruleset.id,
-    atmosphere, weather, ctrl, inventory, vitals, projectiles, pickups, wildlife, fires,
+    atmosphere, weather, ctrl, inventory, vitals, projectiles, pickups, wildlife, fires, sites,
     onPlayerMoved: (pos) => {
       // Stream the world in around wherever the save put us before the first
       // frame, so a loaded run never opens on empty ground.
       terrain.buildImmediate(pos.x, pos.z);
       scatter.update(pos, time);
+      sites.refresh(pos.x, pos.z);
     },
   });
 
@@ -687,11 +766,15 @@ function boot() {
     // Sampled once per frame at the player, then handed to the body. Creatures
     // and, later, shelter placement will read the same query.
     fires.update(dt, weather);
+    sites.update(dt, ctrl.position);
     const env = sampleEnvironment(ctrl.position, {
       hours: atmosphere.hours,
       sunAltitude: atmosphere.elevation,
       weather,
       fires,
+      // A ring of standing stones breaks the wind, which is the other half of
+      // why anyone would walk to one. No folklore required.
+      shelter: sites.circleAt(ctrl.position) ? SITES.circleShelter : 0,
     });
     const weaponState0 = weapons.getState();
     vitals.update(dt, {
@@ -846,6 +929,18 @@ function boot() {
       if (!hit) return `no ${name} within about ${Math.round((14 * 620) / 100) / 10} km`;
       return `${hit.name}: ${Math.round(hit.distance)} m ${hit.bearing}`;
     },
+    sites,
+    /** Every built site near you — the barrows and circles this seed made. */
+    builtSites: () =>
+      sites.active
+        .map((s) => ({
+          name: s.name,
+          kind: s.kind,
+          opened: sites.opened.has(s.key),
+          strangeness: +s.strangeness.toFixed(2),
+          distance: Math.round(Math.hypot(s.x - ctrl.position.x, s.z - ctrl.position.z)),
+        }))
+        .sort((a, b) => a.distance - b.distance),
     /** What is around you, nearest first. */
     nearby: (rings = 2) =>
       nearbyDistricts(ctrl.position.x, ctrl.position.z, rings).map(

@@ -44,6 +44,11 @@ const GENERIC = {
   [SPRING]: ['Well', 'Spring', 'Fuaran', 'Steam', 'Warmth', 'Kettle'],
   [WATER]: ['Loch', 'Water', 'Tarn', 'Mere', 'Pool'],
   [SHORE]: ['Strand', 'Shore', 'Bank', 'Margin'],
+  // Built things get their own words. Borrowing the terrain's produced a stone
+  // circle called "Kindly's Beinn" — a summit word for a ring of stones, which
+  // gives the player exactly the wrong picture of what they are walking to.
+  barrow: ['Barrow', 'Howe', 'Mound', 'Tomb', 'Cist', 'Restingplace'],
+  circle: ['Ring', 'Circle', 'Stanes', 'Watchstones', 'Council', 'Henge'],
 };
 
 // The qualifier. Split into three registers, and which one a place draws from

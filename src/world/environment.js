@@ -63,7 +63,7 @@ export function airTemperature(y, hours, sunAltitude, weather) {
  * @param {object} ctx { hours, sunAltitude, weather, fires }
  */
 export function sampleEnvironment(pos, ctx) {
-  const { hours, sunAltitude, weather, fires } = ctx;
+  const { hours, sunAltitude, weather, fires, shelter: extraShelter = 0 } = ctx;
 
   const ground = heightAt(pos.x, pos.z);
   let air = airTemperature(pos.y, hours, sunAltitude, weather);
@@ -80,11 +80,11 @@ export function sampleEnvironment(pos, ctx) {
   // standing in. This is the promised override: the comment used to say
   // "Phase 4's caves and shelters will do this properly", and gorges and
   // woodland are the first half of that.
-  const exposure = clamp(
-    (0.35 + smoothstep(10, 85, ground) * 0.65) * (1 - effects.shelter),
-    0,
-    1
-  );
+  // `extraShelter` is whatever is standing around you that the terrain does not
+  // know about — a stone circle now, walls in Phase 7. Combined rather than
+  // added, so shelter can approach but never reach total.
+  const shelter = clamp(1 - (1 - effects.shelter) * (1 - extraShelter), 0, 0.95);
+  const exposure = clamp((0.35 + smoothstep(10, 85, ground) * 0.65) * (1 - shelter), 0, 1);
 
   const windStrength = clamp((weather?.wind ?? 1) * exposure, 0, 2);
 
