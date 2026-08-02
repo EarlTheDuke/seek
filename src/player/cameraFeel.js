@@ -22,7 +22,8 @@ export class CameraFeel {
     this.fov = FEEL.fovBase;
   }
 
-  update(dt, ctrl, camera) {
+  /** `fovOffset` lets whatever is in your hands pull the view in while aiming. */
+  update(dt, ctrl, camera, fovOffset = 0) {
     // ── landing dip: spring back toward zero ──
     this.dipVel += ctrl.takeLandImpulse() * FEEL.landDipMax * FEEL.landDipSpring * dt;
     this.dipVel += (-this.dip * FEEL.landDipSpring - this.dipVel * FEEL.landDipDamp) * dt;
@@ -60,9 +61,9 @@ export class CameraFeel {
       0,
       1
     );
-    const fovTarget = ctrl.flying
-      ? FEEL.fovBase
-      : FEEL.fovBase + (FEEL.fovSprint - FEEL.fovBase) * speedRatio;
+    const fovTarget =
+      (ctrl.flying ? FEEL.fovBase : FEEL.fovBase + (FEEL.fovSprint - FEEL.fovBase) * speedRatio) +
+      fovOffset;
     const next = damp(this.fov, fovTarget, FEEL.fovLerp, dt);
     if (Math.abs(next - this.fov) > 0.002) {
       this.fov = next;

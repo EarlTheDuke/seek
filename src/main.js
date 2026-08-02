@@ -14,8 +14,17 @@ import { Composer } from './fx/composer.js';
 import { AmbientLife } from './fx/ambientLife.js';
 import { Controller } from './player/controller.js';
 import { CameraFeel } from './player/cameraFeel.js';
+import { ViewModel } from './player/viewmodel.js';
 import { Soundscape } from './audio/soundscape.js';
 import { Hud } from './ui/hud.js';
+import { LOADOUT } from './config.js';
+import { Inventory } from './items/inventory.js';
+import { getItem } from './items/registry.js';
+import { WeaponHost } from './weapons/index.js';
+import { Projectiles } from './world/projectiles.js';
+import { Pickups } from './world/pickups.js';
+import { ColliderField, addStaticGroup } from './world/colliders.js';
+import { makeRandom } from './world/noise.js';
 
 // ── renderer ────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({
@@ -40,6 +49,7 @@ const camera = new THREE.PerspectiveCamera(
 );
 
 const hud = new Hud();
+const _drop = new THREE.Vector3(); // scratch: which way a dropped item is tossed
 
 let booted = false;
 
@@ -114,6 +124,50 @@ function boot() {
   const composer = new Composer(renderer, scene, camera);
   const audio = new Soundscape();
 
+  // ── items, weapons, projectiles ─────────────────────────────────────────
+  // Two collider fields: the scatter's is rebuilt every 55 m as vegetation
+  // re-places, the landmarks' is built once and never changes.
+  const scatterColliders = new ColliderField(14);
+  const staticColliders = new ColliderField(24);
+  scatter.colliders = scatterColliders;
+  scatter.rebuildColliders();
+  addStaticGroup(staticColliders, landmarks.root, 'stone');
+
+  const inventory = new Inventory(LOADOUT.slots, LOADOUT.equipped);
+  const viewmodel = new ViewModel();
+  viewmodel.setSize(window.innerWidth, window.innerHeight);
+
+  const pickups = new Pickups(scene, { inventory, audio, projectiles: null });
+  const projectiles = new Projectiles(scene, {
+    colliders: [scatterColliders, staticColliders],
+    audio,
+    onLanded: (p) => pickups.registerRecoverable(p),
+    onRemoved: (p) => pickups.forgetProjectile(p),
+  });
+  pickups.deps.projectiles = projectiles;
+
+  const weapons = new WeaponHost({
+    camera,
+    controller: ctrl,
+    inventory,
+    projectiles,
+    audio,
+    rand: makeRandom('combat'),
+    onDryFire: () => {
+      audio.dryFire();
+      hud.toast('out of arrows — look for a quiver', 2);
+    },
+  });
+
+  const itemName = (id) => getItem(id)?.name ?? id;
+  function refreshItemUi() {
+    weapons.sync(inventory);
+    viewmodel.setItem(inventory.equippedSlot?.item ?? null);
+    hud.setHotbar(inventory, itemName);
+  }
+  inventory.onChange = refreshItemUi;
+  refreshItemUi();
+
   // If pointer lock is refused, say so once and switch to drag-look rather
   // than leaving the player unable to turn their head.
   ctrl.onLockUnavailable = () => hud.useDragLook();
@@ -156,10 +210,51 @@ function boot() {
       case 'KeyB':
         hud.toast(`bloom ${composer.toggle('bloom') ? 'on' : 'off'}`);
         break;
+      case 'KeyE': {
+        const msg = pickups.collect();
+        if (msg) hud.toast(msg, 1.4);
+        break;
+      }
+      case 'KeyQ': {
+        const taken = inventory.takeEquipped();
+        if (taken) {
+          camera.getWorldDirection(_drop).setY(0).normalize();
+          pickups.drop(taken.item, taken.count, ctrl.position, _drop);
+          hud.toast(`dropped ${taken.count} ${itemName(taken.item)}`, 1.4);
+        }
+        break;
+      }
+      case 'Digit1':
+      case 'Digit2':
+      case 'Digit3':
+      case 'Digit4':
+      case 'Digit5':
+        inventory.select(Number(e.code.slice(5)) - 1);
+        break;
       default:
         break;
     }
   });
+
+  // ── weapon input ──
+  // Left mouse only. Drag-look lives on the right button (see controller.js),
+  // so the trigger means the same thing with or without pointer lock.
+  renderer.domElement.addEventListener('mousedown', (e) => {
+    if (e.button === 0) weapons.beginPrimary();
+  });
+  window.addEventListener('mouseup', (e) => {
+    if (e.button === 0) weapons.endPrimary();
+  });
+  // Releasing the mouse outside the window must not leave the bow drawn.
+  window.addEventListener('blur', () => weapons.cancel());
+  renderer.domElement.addEventListener(
+    'wheel',
+    (e) => {
+      inventory.cycle(Math.sign(e.deltaY));
+      e.preventDefault();
+    },
+    { passive: false }
+  );
 
   document.addEventListener('pointerlockchange', () => {
     hud.setLocked(document.pointerLockElement === renderer.domElement);
@@ -185,6 +280,7 @@ function boot() {
     camera.updateProjectionMatrix();
     renderer.setSize(w, h);
     composer.setSize(w, h);
+    viewmodel.setSize(w, h);
   }
   window.addEventListener('resize', syncSize);
 
@@ -197,20 +293,41 @@ function boot() {
     syncSize();
     time += dt;
 
+    // Weapons run before movement so a drawn bow slows you this frame, not next.
+    weapons.update(dt);
+    ctrl.speedScale = weapons.moveScale;
+
     ctrl.update(dt);
-    feel.update(dt, ctrl, camera);
+    feel.update(dt, ctrl, camera, weapons.fovOffset);
 
     terrain.update(ctrl.position.x, ctrl.position.z);
     scatter.update(ctrl.position, time);
     atmosphere.update(camera.position, time);
     lake.update(dt, camera.position, atmosphere.sun);
     life.update(dt, time, camera.position);
+    projectiles.update(dt);
+
+    const near = pickups.update(dt, ctrl.position);
+    hud.setPrompt(near ? `<b>E</b>  pick up ${itemName(near.item)}${near.count > 1 ? ` ×${near.count}` : ''}` : null);
+
+    const weaponState = weapons.getState();
+    hud.setCrosshair(weaponState, weapons.spreadHint);
+    viewmodel.update(dt, ctrl, weaponState, atmosphere.sun, camera.quaternion);
+
     audio.update(dt, ctrl, ctrl.position.y);
 
     const c = scatter.counts;
-    hud.update(dt, `${terrain.chunkCount} chunks · ${(c.grass / 1000).toFixed(1)}k grass · ${c.trees} trees`);
+    const pr = projectiles.stats;
+    hud.update(
+      dt,
+      `${terrain.chunkCount} chunks · ${(c.grass / 1000).toFixed(1)}k grass · ${c.trees} trees · ` +
+        `${pr.flying} in flight · ${pr.landed} landed`
+    );
 
     composer.render(dt, time);
+    // The viewmodel draws last, onto a cleared depth buffer, so it can never
+    // clip into the world and never picks up the bloom or grain.
+    viewmodel.render(renderer);
     hud.captureIfPending(renderer);
   }
 
@@ -230,6 +347,8 @@ function boot() {
   window.highlands = {
     scene, camera, renderer, ctrl, feel, atmosphere, terrain, scatter, lake,
     composer, life, audio, hud, spawn, landmarks, stepWorld, heightAt,
+    inventory, weapons, projectiles, pickups, viewmodel,
+    colliders: { scatter: scatterColliders, static: staticColliders },
     get time() { return time; },
 
     /**

@@ -249,5 +249,71 @@ export const AUDIO = {
   birdCallChance: 0.0055, // per frame
 };
 
+// ── Combat / items ──────────────────────────────────────────────────────────
+
+export const BOW = {
+  drawTime: 0.92, // seconds from slack to full draw
+  minCharge: 0.16, // release below this and the arrow just flops out
+  // Launch speed at zero and full charge. Real hunting bows sit around
+  // 80–95 m/s; the low end here exists so a panicked half-draw is punished.
+  // These interact directly with ARROW.gravity — see the note there.
+  minSpeed: 26,
+  maxSpeed: 74,
+  // Spread in radians. Tightens as you draw, opens up if you are moving —
+  // which is what makes standing still and taking your time feel worthwhile.
+  spreadLoose: 0.055,
+  spreadFull: 0.0022,
+  spreadMovePenalty: 0.03, // added at full sprint
+  moveSlow: 0.42, // movement speed multiplier while drawing
+  fovPull: 4.5, // degrees of FOV narrowing at full draw — a subtle "focus"
+  cooldown: 0.22, // seconds after a shot before you can draw again
+  holdFatigue: 3.2, // seconds at full draw before your aim starts to shake
+};
+
+export const ARROW = {
+  // Arrows get their OWN gravity, separate from the player's stylised 26 m/s².
+  // The player's number exists to make jumping feel snappy; an arrow has to
+  // fall like an arrow.
+  //
+  // Tuned against BOW.maxSpeed, because drop is ½g(d/v)² — the two numbers only
+  // mean anything together. At 74 m/s this gives roughly:
+  //     20 m -> 0.5 m      40 m -> 1.8 m      60 m -> 4 m      80 m -> 7 m
+  // which is close range point-and-shoot, a little hold-over at mid range, and
+  // genuine judgement past 60 m. Slightly heavier than Earth's 9.81 so the drop
+  // is legible on screen rather than something you have to be told about.
+  gravity: 12.5,
+  drag: 0.0021, // quadratic: a = -drag * |v| * v. Steepens the arc as it slows.
+  substep: 1 / 240, // fine enough that a 62 m/s arrow cannot tunnel
+  maxFlightTime: 12,
+  embedDepth: 0.16, // how far the head buries itself on impact
+  length: 0.72,
+  maxInWorld: 64, // landed arrows beyond this despawn oldest-first
+  stickToWater: false, // arrows are lost in the lake
+};
+
+export const PICKUP = {
+  radius: 2.2, // how close you must be for the prompt to appear
+  autoCollect: false, // false = press E, true = walk over it
+  bobHeight: 0.12,
+  bobRate: 1.7,
+  spinRate: 0.9,
+  dropForward: 1.1, // where a dropped item lands relative to you
+  dropUp: 0.5,
+  // Deterministic loot scattered through the world, hash-placed like the trees.
+  lootCell: 95, // metres between candidate loot sites
+  lootChance: 0.3,
+  lootRadius: 420, // spawned within this range of the player
+  arrowsPerBundle: [3, 7], // inclusive range
+};
+
+export const LOADOUT = {
+  // What the explorer starts with. Slot order is hotbar order.
+  slots: [
+    { item: 'bow', count: 1 },
+    { item: 'arrow', count: 12 },
+  ],
+  equipped: 0,
+};
+
 /** Show the frame-rate readout. */
 export const SHOW_FPS = true;

@@ -281,7 +281,13 @@ function makeTree(rand, variant) {
   const merged = mergeGeometries(parts);
   merged.computeVertexNormals(); // non-indexed => flat, faceted, low-poly
   merged.computeBoundingSphere();
+  // Recorded so the collision layer can build a cheap proxy for this tree
+  // without re-deriving it from the mesh. See world/colliders.js.
   merged.userData.height = height;
+  merged.userData.trunkR = trunkR;
+  merged.userData.trunkH = height * 0.58;
+  merged.userData.crownY = crownY;
+  merged.userData.crownR = crownR * 1.15;
   for (const p of parts) p.dispose();
   return merged;
 }
@@ -394,14 +400,19 @@ export class Scatter {
         roughness: 0.95,
         metalness: 0,
       });
-      const mesh = new THREE.InstancedMesh(makeRock(rand, v), mat, Q.rockMax);
+      const geo = makeRock(rand, v);
+      const mesh = new THREE.InstancedMesh(geo, mat, Q.rockMax);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       mesh.frustumCulled = false;
       mesh.count = 0;
+      mesh.userData.radius = geo.boundingSphere ? geo.boundingSphere.radius : 1;
       scene.add(mesh);
       this.rocks.push(mesh);
     }
+
+    /** Filled in by placeLarge(); consumed by the projectile system. */
+    this.colliders = null;
 
     this.grassGrid = new HeightGrid(2, Q.grassRadius + 4);
     this.bigGrid = new HeightGrid(8, Q.scatterRadius + 16);
@@ -626,6 +637,46 @@ export class Scatter {
       m.count = rockCounts[v];
       m.instanceMatrix.needsUpdate = true;
     });
+
+    this.rebuildColliders();
+  }
+
+  /**
+   * Publish a cheap analytic proxy for every placed instance so projectiles can
+   * hit them: a cylinder for each trunk, a sphere for each crown and each rock.
+   * Rebuilt only when the scatter is re-placed, i.e. every 55 m of travel.
+   */
+  rebuildColliders() {
+    const field = this.colliders;
+    if (!field) return;
+    field.clear();
+
+    for (const t of this.trees) {
+      const geo = t.mesh.geometry.userData;
+      const arr = t.mesh.instanceMatrix.array;
+      for (let i = 0; i < t.mesh.count; i++) {
+        const o = i * 16;
+        const x = arr[o + 12];
+        const y = arr[o + 13];
+        const z = arr[o + 14];
+        // Uniform scale, so column 0's length is the scale factor.
+        const s = Math.hypot(arr[o], arr[o + 1], arr[o + 2]) || 1;
+        field.addCylinder(x, y, z, geo.trunkR * s * 1.5, geo.trunkH * s, 'tree');
+        field.addSphere(x, y + geo.crownY * s, z, geo.crownR * s, 'tree');
+      }
+    }
+
+    for (const m of this.rocks) {
+      const r0 = m.userData.radius ?? 1;
+      const arr = m.instanceMatrix.array;
+      for (let i = 0; i < m.count; i++) {
+        const o = i * 16;
+        const s = Math.hypot(arr[o], arr[o + 1], arr[o + 2]) || 1;
+        field.addSphere(arr[o + 12], arr[o + 13] + r0 * s * 0.45, arr[o + 14], r0 * s * 0.85, 'rock');
+      }
+    }
+
+    this.onCollidersRebuilt?.(field);
   }
 
   /** Re-centre the fields on the player if they have walked far enough. */

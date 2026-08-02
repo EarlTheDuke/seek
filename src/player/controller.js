@@ -45,6 +45,8 @@ export class Controller {
     this.crouching = false;
     this.eyeHeight = PLAYER.eyeHeight;
 
+    // Set by whatever is in your hands — a drawn bow should root you a little.
+    this.speedScale = 1;
     this.distanceTravelled = 0; // drives head bob and footsteps
     this.horizontalSpeed = 0;
     this.strafeInput = 0;
@@ -75,11 +77,18 @@ export class Controller {
       const limit = Math.PI / 2 - 0.02;
       this.targetPitch = clamp(this.targetPitch, -limit, limit);
     };
+    // Drag-look is on the RIGHT button, not the left. The left button is the
+    // trigger, and it has to mean the same thing whether or not pointer lock
+    // is available — otherwise the controls change under you depending on how
+    // the page happens to be embedded.
     this.onMouseDown = (e) => {
-      if (this.lockSupported || e.button !== 0) return;
+      if (this.lockSupported || e.button !== 2) return;
       this.dragging = true;
       this.dom.style.cursor = 'grabbing';
       e.preventDefault();
+    };
+    this.onContextMenu = (e) => {
+      if (!this.lockSupported) e.preventDefault(); // right-drag must not open a menu
     };
     this.onMouseUp = () => {
       if (!this.dragging) return;
@@ -104,6 +113,7 @@ export class Controller {
     document.addEventListener('pointerlockchange', this.onLockChange);
     document.addEventListener('pointerlockerror', this.onLockError);
     this.dom.addEventListener('mousedown', this.onMouseDown);
+    this.dom.addEventListener('contextmenu', this.onContextMenu);
     // On window, not the canvas: releasing outside the canvas must still stop.
     window.addEventListener('mouseup', this.onMouseUp);
   }
@@ -197,8 +207,9 @@ export class Controller {
       : sprinting
         ? PLAYER.sprintSpeed
         : PLAYER.walkSpeed;
-    // Wading is hard work.
+    // Wading is hard work, and so is holding a bow at full draw.
     speed *= lerp(1, PLAYER.wadeFactor, this.wadeDepth / PLAYER.maxWadeDepth);
+    speed *= this.speedScale;
 
     const wish = this.wish(_wish);
     const moving = wish.lengthSq() > 0;
@@ -307,5 +318,6 @@ export class Controller {
     document.removeEventListener('pointerlockchange', this.onLockChange);
     document.removeEventListener('pointerlockerror', this.onLockError);
     this.dom.removeEventListener('mousedown', this.onMouseDown);
+    this.dom.removeEventListener('contextmenu', this.onContextMenu);
   }
 }

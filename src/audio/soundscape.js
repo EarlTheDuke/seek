@@ -17,6 +17,8 @@ export class Soundscape {
     this.muted = false;
     this.rand = makeRandom('audio');
     this.callCooldown = 0;
+    this.draw = null; // the currently-sounding bow creak, if any
+    this.listener = null; // player position, for distance attenuation
   }
 
   /** Build the graph. Must be called from a user gesture. */
@@ -162,9 +164,171 @@ export class Soundscape {
     }
   }
 
+  // ── bow and impacts ──────────────────────────────────────────────────────
+
+  /** Attenuate a world sound by how far away it happened. */
+  distanceGain(pos) {
+    if (!pos || !this.listener) return 1;
+    const d = Math.hypot(pos.x - this.listener.x, pos.y - this.listener.y, pos.z - this.listener.z);
+    return 1 / (1 + (d / 11) ** 1.6);
+  }
+
+  /**
+   * The creak of a bow coming to full draw: noise through a band-pass whose
+   * centre climbs as the limbs load up. Held in `this.draw` so releasing or
+   * relaxing can cut it off cleanly.
+   */
+  bowDraw(duration) {
+    if (!this.running) return;
+    this.bowRelax();
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    src.playbackRate.value = 0.55;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 5.5;
+    filter.frequency.setValueAtTime(280, now);
+    filter.frequency.linearRampToValueAtTime(760, now + duration);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.09, now + duration * 0.75);
+
+    src.connect(filter).connect(gain).connect(this.master);
+    src.start(now);
+    this.draw = { src, gain };
+  }
+
+  bowRelax() {
+    if (!this.draw) return;
+    const { src, gain } = this.draw;
+    this.draw = null;
+    const now = this.ctx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(gain.gain.value, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+    src.stop(now + 0.16);
+  }
+
+  /** The twang: a pitched limb thump plus the hiss of the string letting go. */
+  bowRelease(charge) {
+    if (!this.running) return;
+    this.bowRelax();
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const level = lerp(0.1, 0.34, charge);
+
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    const f = lerp(120, 210, charge);
+    osc.frequency.setValueAtTime(f, now);
+    osc.frequency.exponentialRampToValueAtTime(f * 0.45, now + 0.16);
+    const og = ctx.createGain();
+    og.gain.setValueAtTime(level, now);
+    og.gain.exponentialRampToValueAtTime(0.0001, now + 0.19);
+    osc.connect(og).connect(this.master);
+    osc.start(now);
+    osc.stop(now + 0.22);
+
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.playbackRate.value = 1.5;
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 1400;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(level * 0.5, now);
+    ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+    src.connect(hp).connect(ng).connect(this.master);
+    src.start(now);
+    src.stop(now + 0.13);
+  }
+
+  /** Arrow landing. Timbre depends on what it hit. */
+  impact(surface, pos) {
+    if (!this.running) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const near = this.distanceGain(pos);
+    if (near < 0.02) return;
+
+    const kind =
+      surface === 'water'
+        ? { type: 'lowpass', freq: 700, q: 1.2, dur: 0.3, gain: 0.3, rate: 0.8 }
+        : surface === 'tree'
+          ? { type: 'bandpass', freq: 420, q: 3.2, dur: 0.16, gain: 0.42, rate: 1.1 }
+          : surface === 'rock' || surface === 'stone'
+            ? { type: 'bandpass', freq: 2100, q: 2.4, dur: 0.1, gain: 0.38, rate: 1.5 }
+            : { type: 'lowpass', freq: 900, q: 1, dur: 0.13, gain: 0.34, rate: 1 };
+
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.playbackRate.value = kind.rate * lerp(0.9, 1.15, this.rand());
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = kind.type;
+    filter.frequency.value = kind.freq;
+    filter.Q.value = kind.q;
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(kind.gain * near, now + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + kind.dur);
+
+    src.connect(filter).connect(gain).connect(this.master);
+    src.start(now);
+    src.stop(now + kind.dur + 0.03);
+  }
+
+  /** Two soft rising blips — unmistakably "you got the thing". */
+  pickup() {
+    if (!this.running) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    [660, 990].forEach((f, i) => {
+      const t = now + i * 0.07;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f, t);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.11, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+      osc.connect(g).connect(this.master);
+      osc.start(t);
+      osc.stop(t + 0.16);
+    });
+  }
+
+  /** Nothing to shoot: a dry, disappointing click. */
+  dryFire() {
+    if (!this.running) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.playbackRate.value = 2.1;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 1700;
+    filter.Q.value = 4;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.09, now);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+    src.connect(filter).connect(g).connect(this.master);
+    src.start(now);
+    src.stop(now + 0.07);
+  }
+
   /** Called every frame with the player's state. */
   update(dt, ctrl, altitude) {
     if (!this.ready) return;
+    this.listener = ctrl.position;
     const now = this.ctx.currentTime;
 
     // Wind rises with speed and with height — exposed ridges are loud places.

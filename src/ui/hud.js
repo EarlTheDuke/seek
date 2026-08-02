@@ -58,6 +58,35 @@ const CSS = `
 }
 #hl-resume.show { opacity: 1; visibility: visible; }
 #hl-ui.hidden > *:not(#hl-toast) { opacity: 0 !important; visibility: hidden !important; }
+
+/* Crosshair: four ticks that open up with spread and brighten as you draw.
+   No centre dot on purpose — the gap IS the accuracy readout. */
+#hl-cross { position: absolute; left: 50%; top: 50%; width: 0; height: 0;
+  opacity: 0; transition: opacity .18s ease; }
+#hl-cross.show { opacity: .9; }
+#hl-cross i { position: absolute; display: block; background: #fff;
+  box-shadow: 0 0 3px rgba(0,0,0,.95); }
+#hl-cross i.v { width: 2px; height: 7px; left: -1px; }
+#hl-cross i.h { height: 2px; width: 7px; top: -1px; }
+#hl-cross.full i { background: #ffe2ac; }
+
+#hl-hot { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%);
+  display: flex; gap: 8px; }
+#hl-hot .s { min-width: 76px; padding: 6px 12px; border-radius: 6px;
+  background: rgba(10,8,6,.38); border: 1px solid rgba(255,230,200,.1);
+  text-align: center; opacity: .55; transition: opacity .15s, border-color .15s; }
+#hl-hot .s.on { opacity: 1; border-color: rgba(255,214,150,.55); background: rgba(34,22,10,.55); }
+#hl-hot .n { display: block; font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; opacity: .65; }
+#hl-hot .c { display: block; font-size: 15px; color: #ffd9a0; }
+#hl-hot .k { position: absolute; margin: -4px 0 0 -6px; font-size: 9px; opacity: .4; }
+
+#hl-prompt { position: absolute; left: 50%; top: 57%; transform: translateX(-50%);
+  background: rgba(10,8,6,.5); border: 1px solid rgba(255,230,200,.15);
+  border-radius: 6px; padding: 6px 15px; opacity: 0;
+  transition: opacity .16s ease; white-space: nowrap; }
+#hl-prompt.show { opacity: 1; }
+#hl-prompt b { color: #ffd9a0; font-weight: 400; }
 `;
 
 const KEYS = [
@@ -65,6 +94,10 @@ const KEYS = [
   ['Shift', 'sprint'],
   ['Space', 'jump'],
   ['Ctrl', 'crouch'],
+  ['Mouse 1', 'draw the bow — hold to aim, release to loose'],
+  ['E', 'pick up'],
+  ['Q', 'drop what you are holding'],
+  ['1 2 / wheel', 'change item'],
   ['F', 'free-fly camera'],
   ['[ ]', 'move the sun'],
   ['P', 'save a screenshot'],
@@ -92,6 +125,9 @@ export class Hud {
       <div id="hl-keys"><h2>Controls</h2><table>${KEYS.map(
         ([k, d]) => `<tr><td class="k">${k}</td><td class="d">${d}</td></tr>`
       ).join('')}</table></div>
+      <div id="hl-cross"><i class="v"></i><i class="v"></i><i class="h"></i><i class="h"></i></div>
+      <div id="hl-prompt"></div>
+      <div id="hl-hot"></div>
       <div id="hl-fps"></div>
       <div id="hl-toast"></div>
       <div id="hl-resume">click to resume</div>`;
@@ -102,6 +138,11 @@ export class Hud {
     this.fps = this.root.querySelector('#hl-fps');
     this.toastEl = this.root.querySelector('#hl-toast');
     this.resume = this.root.querySelector('#hl-resume');
+    this.cross = this.root.querySelector('#hl-cross');
+    this.crossTicks = [...this.cross.querySelectorAll('i')];
+    this.prompt = this.root.querySelector('#hl-prompt');
+    this.hotbar = this.root.querySelector('#hl-hot');
+    this.promptText = null;
 
     this.started = false;
     this.dragLook = false;
@@ -186,6 +227,55 @@ export class Hud {
 
   requestScreenshot() {
     this.pendingShot = true;
+  }
+
+  // ── combat / items ───────────────────────────────────────────────────────
+
+  /**
+   * The crosshair gap IS the accuracy readout: wide when your shot would
+   * scatter, tight at full draw. Hidden entirely when you hold no weapon,
+   * so the clean view is the default state.
+   */
+  setCrosshair(state, spreadHint) {
+    const show = state !== null;
+    this.cross.classList.toggle('show', show);
+    if (!show) return;
+
+    const charge = state.charge ?? 0;
+    const gap = 5 + spreadHint * 26;
+    this.cross.classList.toggle('full', charge > 0.985);
+
+    // vertical ticks above/below, horizontal ticks left/right
+    this.crossTicks[0].style.transform = `translateY(${-gap - 7}px)`;
+    this.crossTicks[1].style.transform = `translateY(${gap}px)`;
+    this.crossTicks[2].style.transform = `translateX(${-gap - 7}px)`;
+    this.crossTicks[3].style.transform = `translateX(${gap}px)`;
+
+    const bright = 0.55 + 0.45 * charge;
+    for (const t of this.crossTicks) t.style.opacity = bright;
+  }
+
+  setPrompt(text) {
+    if (text === this.promptText) return;
+    this.promptText = text;
+    this.prompt.classList.toggle('show', !!text);
+    if (text) this.prompt.innerHTML = text;
+  }
+
+  /** Rebuild the hotbar. Called only when the inventory actually changes. */
+  setHotbar(inventory, itemName) {
+    this.hotbar.innerHTML = inventory.slots
+      .map((s, i) => {
+        const name = itemName(s.item);
+        const count = s.count > 1 ? s.count : '';
+        return (
+          `<div class="s${i === inventory.equipped ? ' on' : ''}">` +
+          `<span class="k">${i + 1}</span>` +
+          `<span class="n">${name}</span>` +
+          `<span class="c">${count || '&nbsp;'}</span></div>`
+        );
+      })
+      .join('');
   }
 
   /**
