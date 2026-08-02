@@ -222,6 +222,9 @@ export const SPECIES = {
     // Deer will wade the shallows but will not swim, so they steer around
     // anything deeper than this rather than running out into the lake.
     wadeMax: 0.7,
+    // Centre-to-centre distance the herd keeps between bodies. The torso is
+    // roughly 1.5 m long and 0.9 m wide, so this leaves daylight between them.
+    personalSpace: 2.1,
 
     speeds: { graze: 0.55, walk: 1.5, trot: 4.2, flee: 10.5 },
     turnRate: 3.2, // radians per second

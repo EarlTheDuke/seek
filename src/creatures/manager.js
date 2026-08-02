@@ -75,14 +75,10 @@ export class Wildlife {
         if (!this.suits(species, x, z)) continue;
 
         const n = Math.round(lerp(species.herd.min, species.herd.max, hash2i(ci, cj, 814)));
-        for (let i = 0; i < n && this.creatures.length < WILDLIFE.maxAlive; i++) {
-          const a = hash2i(ci, cj, 820 + i) * Math.PI * 2;
-          const r = hash2i(ci, cj, 840 + i) * species.herd.spread;
-          const cx = x + Math.cos(a) * r;
-          const cz = z + Math.sin(a) * r;
-          if (!this.suits(species, cx, cz)) continue;
-          this.spawn(species.id, cx, cz, key);
-        }
+        // Goes through the same placement as every other herd. This used to
+        // have its own loop picking `radius = hash * spread`, which happily
+        // returned near-zero for several members at once and stacked them.
+        this.spawnHerd(species.id, x, z, n, species.herd.spread, { siteKey: key, strict: true });
       }
     }
   }
@@ -105,25 +101,43 @@ export class Wildlife {
    * Each animal is nudged outward until it is on dry land, so a herd placed on
    * a shoreline does not end up standing in the lake.
    */
-  spawnHerd(speciesId, x, z, count = 4, spread = 12) {
+  spawnHerd(speciesId, x, z, count = 4, spread = 12, opts = {}) {
+    const { siteKey = null, strict = false } = opts;
     const out = [];
+    const placed = [];
+    const species = getSpecies(speciesId);
+    if (!species) return out;
+    const apart = (species.personalSpace ?? 2) * 1.6;
+
     for (let i = 0; i < count; i++) {
-      const a = (i / count) * Math.PI * 2 + this.rand() * 0.9;
-      let r = 2 + this.rand() * spread;
-      let cx = x;
-      let cz = z;
-      let ok = false;
-      for (let attempt = 0; attempt < 6; attempt++) {
-        cx = x + Math.cos(a) * r;
-        cz = z + Math.sin(a) * r;
-        if (heightAt(cx, cz) > WATER_LEVEL + 0.4) {
-          ok = true;
-          break;
+      if (this.creatures.length >= WILDLIFE.maxAlive) break;
+      // Walk the ring so members start spread around the site, and retry until
+      // the spot is both out of the water and clear of the ones already placed
+      // — the water nudge in particular used to pile several onto one point.
+      let cx = null;
+      let cz = null;
+      for (let attempt = 0; attempt < 14 && cx === null; attempt++) {
+        const a = (i / count) * Math.PI * 2 + (this.rand() - 0.5) * 1.1 + attempt * 0.7;
+        const r = 3 + this.rand() * spread + attempt * 2.5;
+        const tx = x + Math.cos(a) * r;
+        const tz = z + Math.sin(a) * r;
+        // Natural spawns obey the full habitat rules; a hand-placed test herd
+        // only has to be on dry land.
+        if (strict ? !this.suits(species, tx, tz) : heightAt(tx, tz) <= WATER_LEVEL + 0.4) continue;
+        let clear = true;
+        for (const p of placed) {
+          if (Math.hypot(tx - p.x, tz - p.z) < apart) {
+            clear = false;
+            break;
+          }
         }
-        r += 4; // that spot was in the water — step further out
+        if (!clear) continue;
+        cx = tx;
+        cz = tz;
       }
-      if (!ok) continue;
-      const c = this.spawn(speciesId, cx, cz);
+      if (cx === null) continue;
+      placed.push({ x: cx, z: cz });
+      const c = this.spawn(speciesId, cx, cz, siteKey);
       if (c) out.push(c);
     }
     return out;
@@ -176,6 +190,57 @@ export class Wildlife {
       if (c.alarmed) {
         c.alarmed = false;
         this.deps.audio?.creatureAlarm?.(c.position);
+      }
+    }
+
+    // After everyone has moved, push apart anything that ended up overlapping.
+    this.separate();
+  }
+
+  /**
+   * Keep bodies out of one another.
+   *
+   * A hard positional resolve rather than a steering force, because steering
+   * cannot recover once two animals already overlap — and they reliably do,
+   * since a whole herd fleeing a single threat all runs on near-parallel
+   * headings and converges. O(n^2) over a couple of dozen creatures is nothing.
+   *
+   * Only the overlap is corrected, and only a fraction of it per frame, so the
+   * herd settles smoothly instead of jittering apart.
+   */
+  separate() {
+    const list = this.creatures;
+    const RELAX = 0.5;
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      for (let j = i + 1; j < list.length; j++) {
+        const b = list[j];
+        const minD = (a.personalSpace + b.personalSpace) * 0.5;
+        let dx = b.position.x - a.position.x;
+        let dz = b.position.z - a.position.z;
+        let d = Math.hypot(dx, dz);
+        if (d >= minD) continue;
+
+        if (d < 1e-4) {
+          // Exactly coincident. Pick a stable direction from their ids so they
+          // do not shimmer against each other frame to frame.
+          const ang = (((a.id * 2654435761) >>> 0) % 1000) / 1000 * Math.PI * 2;
+          dx = Math.cos(ang);
+          dz = Math.sin(ang);
+          d = 1;
+        }
+
+        const ux = dx / d;
+        const uz = dz / d;
+        const overlap = (minD - d) * RELAX;
+        // A carcass is immovable; the living step around it.
+        const aDead = a.state === 'dead';
+        const bDead = b.state === 'dead';
+        if (aDead && bDead) continue;
+        const aShare = aDead ? 0 : bDead ? 1 : 0.5;
+        const bShare = bDead ? 0 : aDead ? 1 : 0.5;
+        if (aShare) a.nudge(-ux * overlap * aShare * 2, -uz * overlap * aShare * 2);
+        if (bShare) b.nudge(ux * overlap * bShare * 2, uz * overlap * bShare * 2);
       }
     }
   }

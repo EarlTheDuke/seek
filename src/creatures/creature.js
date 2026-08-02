@@ -261,6 +261,24 @@ export class Creature {
     return true;
   }
 
+  /** Centre-to-centre distance this animal wants from its neighbours. */
+  get personalSpace() {
+    return (this.species.personalSpace ?? 2) * this.scale;
+  }
+
+  /**
+   * Shove this animal sideways, refusing the move if it would put it in water
+   * it cannot stand in. Used by the herd separation pass in the manager.
+   */
+  nudge(dx, dz) {
+    const nx = this.position.x + dx;
+    const nz = this.position.z + dz;
+    if (!this.passable(nx, nz)) return;
+    this.position.x = nx;
+    this.position.z = nz;
+    this.position.y = Math.max(heightAt(nx, nz), WATER_LEVEL - this.wadeMax);
+  }
+
   move(dt) {
     this.speed = damp(this.speed, this.targetSpeed, 3.2, dt);
 
