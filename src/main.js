@@ -17,7 +17,7 @@ import { CameraFeel } from './player/cameraFeel.js';
 import { ViewModel } from './player/viewmodel.js';
 import { Soundscape } from './audio/soundscape.js';
 import { Hud } from './ui/hud.js';
-import { LOADOUT } from './config.js';
+import { LOADOUT, LAKE, WATER_LEVEL, WILDLIFE } from './config.js';
 import { Inventory } from './items/inventory.js';
 import { getItem } from './items/registry.js';
 import { WeaponHost } from './weapons/index.js';
@@ -180,6 +180,31 @@ function boot() {
       hud.toast('out of arrows — look for a quiver', 2);
     },
   });
+
+  /**
+   * Put a herd on the waterline in front of the spawn point.
+   *
+   * Walks outward from the lake centre toward the player until the ground rises
+   * clear of the water, then places the herd just inland of that — so they are
+   * standing at the water's edge, roughly 30 m ahead and in view on frame one.
+   */
+  function herdAtWater(count = WILDLIFE.testHerdAtLake) {
+    if (!count) return [];
+    const dx = spawn.position.x - LAKE.x;
+    const dz = spawn.position.z - LAKE.z;
+    const len = Math.hypot(dx, dz) || 1;
+    const ux = dx / len;
+    const uz = dz / len;
+    for (let r = LAKE.radius * 0.15; r < LAKE.radius * 1.3; r += 2) {
+      const x = LAKE.x + ux * r;
+      const z = LAKE.z + uz * r;
+      if (heightAt(x, z) > WATER_LEVEL + 0.5) {
+        return wildlife.spawnHerd('deer', LAKE.x + ux * (r + 7), LAKE.z + uz * (r + 7), count, 11);
+      }
+    }
+    return [];
+  }
+  herdAtWater();
 
   const itemName = (id) => getItem(id)?.name ?? id;
   function refreshItemUi() {
@@ -372,6 +397,8 @@ function boot() {
     scene, camera, renderer, ctrl, feel, atmosphere, terrain, scatter, lake,
     composer, life, audio, hud, spawn, landmarks, stepWorld, heightAt,
     inventory, weapons, projectiles, pickups, viewmodel, wildlife, stealth,
+    /** Re-stock the lake shore without reloading. `highlands.herdAtWater(6)` */
+    herdAtWater,
     colliders: { scatter: scatterColliders, static: staticColliders },
     get time() { return time; },
 

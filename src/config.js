@@ -333,6 +333,11 @@ export const WILDLIFE = {
   // Distance bands for update rate. Far creatures still move, just coarsely.
   lodNear: 90,
   lodFar: 220,
+
+  // Testing aid: put a herd on the lake shore in front of the spawn point, so
+  // there is always something to stalk without going looking for it. Set to 0
+  // to turn it off and rely purely on natural spawning.
+  testHerdAtLake: 5,
 };
 
 export const STEALTH = {

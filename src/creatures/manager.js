@@ -98,6 +98,37 @@ export class Wildlife {
     return c;
   }
 
+  /**
+   * Drop a herd at an exact spot, bypassing the usual spawn rules.
+   *
+   * A testing aid, and the hook any future "scripted encounter" would use.
+   * Each animal is nudged outward until it is on dry land, so a herd placed on
+   * a shoreline does not end up standing in the lake.
+   */
+  spawnHerd(speciesId, x, z, count = 4, spread = 12) {
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + this.rand() * 0.9;
+      let r = 2 + this.rand() * spread;
+      let cx = x;
+      let cz = z;
+      let ok = false;
+      for (let attempt = 0; attempt < 6; attempt++) {
+        cx = x + Math.cos(a) * r;
+        cz = z + Math.sin(a) * r;
+        if (heightAt(cx, cz) > WATER_LEVEL + 0.4) {
+          ok = true;
+          break;
+        }
+        r += 4; // that spot was in the water — step further out
+      }
+      if (!ok) continue;
+      const c = this.spawn(speciesId, cx, cz);
+      if (c) out.push(c);
+    }
+    return out;
+  }
+
   remove(c) {
     this.scene.remove(c.object);
     const i = this.creatures.indexOf(c);
