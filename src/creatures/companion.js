@@ -170,7 +170,18 @@ export class Companion {
 
     if (t.toggle) {
       this.toggles[trickId] = !this.toggles[trickId];
-      return { ok: true, trick: t, id: trickId, toggled: this.toggles[trickId], learned: this.learned.has(trickId) };
+      return {
+        ok: true,
+        trick: t,
+        id: trickId,
+        toggled: this.toggles[trickId],
+        learned: this.learned.has(trickId),
+        // A toggle can ALSO have a power — ferry is both, and the caller has
+        // to be told about it. Leaving `power` off this return is what made
+        // Ferry a no-op for a second time: the toggle branch reported the
+        // switch and swallowed the effect.
+        power: this.learned.has(trickId) ? t.power ?? null : null,
+      };
     }
 
     this.setState(PERFORM);

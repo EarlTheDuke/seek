@@ -139,6 +139,25 @@ const par = make('parrot');
 check('effort is per-species', hip.care_.powerTires > par.care_.powerTires * 2,
   `hippo ${hip.care_.powerTires} vs parrot ${par.care_.powerTires} per use`);
 
+// ── EVERY power comes back, not just the one we happened to test ──
+// This whole file passed 28/28 while the hippo's ferry was a dead no-op. The
+// checks above only ever exercised `track`, and track is a plain trick. Ferry
+// is a TOGGLE — a standing order AND a thing that has to happen — and the
+// toggle branch returned early without its power, so the caller had nothing to
+// dispatch. One species tested is one species tested; ask all six.
+const powerless = [];
+for (const id of COMPANION_IDS) {
+  const a = make(id);
+  a.trust = 1; a.fed = a.played = a.warmth = 1;
+  const trick = a.trickIds.find((t) => a.tricks[t].power);
+  for (let i = 0; i < a.tricks[trick].reps; i++) a.ask(trick);
+  a.hours += a.care_.powerCooldownHours + 0.01;
+  const r = a.ask(trick);
+  if (r.power !== a.tricks[trick].power) powerless.push(`${id}:${trick}${r.toggled !== undefined ? ' (toggle)' : ''}`);
+}
+check('every species hands back its power when asked', powerless.length === 0,
+  powerless.length ? `silent: ${powerless.join(' ')}` : `all ${COMPANION_IDS.length}, toggles included`);
+
 // ── neglect ──
 c = make('hippo');
 c.trust = 0.8;

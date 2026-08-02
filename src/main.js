@@ -37,6 +37,11 @@ import { Projectiles } from './world/projectiles.js';
 import { Pickups } from './world/pickups.js';
 import { ColliderField, addStaticGroup } from './world/colliders.js';
 import { makeRandom } from './world/noise.js';
+// `clamp` and `damp` are used by the riding code. main.js had never needed a
+// maths helper before, so there was no import here at all and mounting the
+// hippo threw ReferenceError inside the frame loop — every frame, with no
+// recovery, which is a dead game rather than a glitch.
+import { clamp, damp } from './util/math.js';
 import { StealthProfile } from './player/stealth.js';
 import { Body } from './player/body.js';
 import { Fires } from './world/fires.js';
@@ -788,6 +793,10 @@ function boot() {
     if (!res.ok) return hud.toast(res.why, 2.4), null;
 
     if (res.toggled !== undefined) {
+      // A toggle may carry a power too — ferry is both a standing order and a
+      // thing that has to actually happen. Dispatching before the toast so the
+      // power writes the message it wants.
+      if (res.power) return usePower(res.power), null;
       hud.toast(
         `${petName()} ${res.toggled ? 'will' : 'no longer will'} ${res.trick.name.toLowerCase()}`,
         2.6
