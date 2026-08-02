@@ -16,6 +16,7 @@
     "campcheck": "node server/campcheck.js",
     "mindcheck": "node server/mindcheck.js",
     "companioncheck": "node server/companioncheck.js",
+    "bookcheck": "node server/bookcheck.js",
     "audit": "node server/audit.js",
     "agents": "node server/agents.js",
     "agentcheck": "node server/agentcheck.js"

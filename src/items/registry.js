@@ -435,6 +435,37 @@ ITEMS.cloak = {
 // Raw venison is food too, just poor food — declared here so `kind` is right.
 ITEMS.venison.kind = 'food';
 
+// ── where a thing comes from ────────────────────────────────────────────────
+//
+// One line each, in the words a person would use. This is the only fact about
+// an item that the game knew and never said out loud: you could carry a stone
+// for an hour without being told that a second one and a branch make an axe,
+// and you could want a hide with no idea that hides are on deer.
+//
+// It lives HERE, next to the item, rather than in the panel that displays it,
+// for the same reason the cost lives in BUILDABLE: adding a crossbow should be
+// one row, and a row that cannot explain itself is a row someone has to
+// remember to document twice.
+const SOURCES = {
+  wood: 'fallen branches, on the ground under woodland',
+  stone: 'quarry a boulder — much faster with an axe',
+  hide: 'from a deer, once you have killed one',
+  venison: 'from a deer, once you have killed one',
+  fish: 'the loch and the rivers — stand in the shallows',
+  arrow: 'fletch them at a fire, or pull them out of what you shot',
+  quiver: 'left in barrows and old camps',
+  bow: 'you started with it',
+  axe: 'knap one at a fire',
+  cloak: 'stitch one at a fire',
+  fish_cooked: 'cook a trout at a fire',
+  venison_cooked: 'cook venison at a fire',
+};
+for (const [id, source] of Object.entries(SOURCES)) {
+  // Assign rather than merge, so a typo'd id here is a loud undefined rather
+  // than a silent new item with nothing in it.
+  if (ITEMS[id]) ITEMS[id].source = source;
+}
+
 export const getItem = (id) => ITEMS[id] ?? null;
 
 /**

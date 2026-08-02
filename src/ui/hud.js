@@ -7,6 +7,12 @@ import { SHOW_FPS } from '../config.js';
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
+// Everything this HUD prints comes from our own tables today, so nothing here
+// is hostile yet. It stops being true the moment a panel shows another
+// player's name — and in a game that already has other players on a socket,
+// that is a change away, not a redesign away.
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
 const CSS = `
 #hl-ui, #hl-ui * { box-sizing: border-box; }
 #hl-ui {
@@ -208,6 +214,40 @@ const CSS = `
   letter-spacing: .16em; text-transform: uppercase; opacity: .38; text-align: center;
   border-top: 1px solid rgba(220,210,190,.1); }
 
+/* The reference book. Two columns because it is a thing you SCAN — you open it
+   with a question ("can I afford a lean-to yet?"), find one line, and shut it.
+   A single tall column would put half the answers below the fold on a laptop.
+
+   Not a chooser: nothing here is selectable, and that is deliberate. Building
+   still happens where you are standing, at the thing you are standing at. A
+   reference that also builds would quietly become the way you play, and this
+   game is better when you are looking at the hill rather than at a list. */
+#hl-book { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  max-width: min(880px, 92vw); max-height: 84vh; overflow-y: auto;
+  padding: 22px 30px 16px; background: rgba(12,14,11,.9);
+  border: 1px solid rgba(220,210,190,.18); opacity: 0; pointer-events: none;
+  transition: opacity .18s ease;
+  column-count: 2; column-gap: 34px; column-rule: 1px solid rgba(220,210,190,.08); }
+#hl-book.show { opacity: 1; }
+#hl-book section { break-inside: avoid; margin-bottom: 18px; }
+#hl-book h4 { font-size: 10px; letter-spacing: .24em; text-transform: uppercase;
+  opacity: .5; font-weight: 400; margin: 0 0 2px;
+  border-bottom: 1px solid rgba(220,210,190,.12); padding-bottom: 5px; }
+#hl-book .hint { font-size: 10px; opacity: .34; letter-spacing: .1em; margin: 4px 0 6px; }
+#hl-book .row { display: flex; align-items: baseline; gap: 10px; padding: 4px 0;
+  font-size: 13px; letter-spacing: .03em; }
+#hl-book .row .n { min-width: 116px; }
+#hl-book .row .c { font-size: 11px; opacity: .5; flex: 1; }
+#hl-book .row .w { font-size: 11px; opacity: .62; text-align: right; max-width: 46%; }
+/* Affordable is lit, short is dimmed and the shortfall is the warm colour the
+   rest of the HUD already uses for "this is the bit that matters". */
+#hl-book .row.no { opacity: .45; }
+#hl-book .row.no .w { color: #e8a07f; opacity: .9; }
+#hl-book .row.yes .n { color: #ffd9a0; }
+#hl-book .foot { font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  opacity: .32; text-align: center; padding-top: 10px;
+  border-top: 1px solid rgba(220,210,190,.1); column-span: all; }
+
 /* The otter. Shown only once it is yours, and each need only once it is
    actually a need — the same rule the body's own gauges follow, for the same
    reason: a permanent row of bars turns a companion into a chore list. */
@@ -246,6 +286,7 @@ const KEYS = [
   ['E', 'pick up · cut · quarry · cook · use · take bearings'],
   ['G', 'light a fire (costs a branch)'],
   ['B', 'build — whatever your camp is still missing'],
+  ['Shift + B', 'what you can build and make, and what you are short of'],
   ['X', 'put on / take off your cloak'],
   ['Z', 'choose what to ask the otter (Shift+Z back)'],
   ['V', 'tell the otter'],
@@ -294,6 +335,7 @@ export class Hud {
       <div id="hl-stance">crouched</div>
       <div id="hl-pet"></div>
       <div id="hl-menu"><h3></h3><div class="rows"></div><div class="foot"></div></div>
+      <div id="hl-book"></div>
       <div id="hl-survey"><h3></h3><div class="rows"></div></div>
       <div id="hl-health"><i></i></div>
       <div id="hl-fps"></div>
@@ -307,6 +349,7 @@ export class Hud {
     this.modesEl = this.root.querySelector('#hl-modes');
     this.continueEl = this.root.querySelector('#hl-continue');
     this.keys = this.root.querySelector('#hl-keys');
+    this.bookEl = this.root.querySelector('#hl-book');
     this.fps = this.root.querySelector('#hl-fps');
     this.toastEl = this.root.querySelector('#hl-toast');
     this.resume = this.root.querySelector('#hl-resume');
@@ -330,6 +373,7 @@ export class Hud {
     this.menuRows = this.menuEl.querySelector('.rows');
     this.menuFoot = this.menuEl.querySelector('.foot');
     this.menu = null; // { items, index, onPick, onClose }
+    this.book = false;
     this.surveyEl = this.root.querySelector('#hl-survey');
     this.surveyTitle = this.surveyEl.querySelector('h3');
     this.surveyRows = this.surveyEl.querySelector('.rows');
@@ -619,6 +663,44 @@ export class Hud {
       this.stanceEl.textContent = text;
     }
     this.stanceEl.classList.toggle('show', bits.length > 0);
+  }
+
+  // ── the reference book ─────────────────────────────────────────────────────
+  //
+  // Read-only, and it does not pause anything. Standing still with a book open
+  // while the light goes and something walks up behind you is a real decision,
+  // and taking that decision away by pausing would make it free.
+
+  get bookOpen() {
+    return this.book;
+  }
+
+  /**
+   * Open, close, or — if it is already open — re-paint with fresh numbers.
+   *
+   * The refresh matters more than it looks. You open the book, see "need 2
+   * branches", and the whole point is that you can now go and pick up two
+   * branches; if the line still said "need 2" after you had them, the book
+   * would be telling you a small lie every time it was most useful.
+   */
+  showBook(sections) {
+    this.book = true;
+    this.bookEl.innerHTML = sections.map((s) => {
+      const rows = s.rows.map((r) => {
+        const cls = r.can === false ? 'row no' : r.can ? 'row yes' : 'row';
+        return `<div class="${cls}"><span class="n">${esc(r.name)}</span>` +
+          `<span class="c">${esc(r.cost ?? '')}</span>` +
+          `<span class="w">${esc(r.note ?? '')}</span></div>`;
+      }).join('');
+      return `<section><h4>${esc(s.title)}</h4>` +
+        (s.note ? `<div class="hint">${esc(s.note)}</div>` : '') + rows + '</section>';
+    }).join('') + '<div class="foot">B or Esc to close</div>';
+    this.bookEl.classList.add('show');
+  }
+
+  closeBook() {
+    this.book = false;
+    this.bookEl.classList.remove('show');
   }
 
   // ── a choosing menu ────────────────────────────────────────────────────────

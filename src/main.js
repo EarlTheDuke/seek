@@ -51,6 +51,7 @@ import { Structures, Harvest, BUILDABLE } from './world/structures.js';
 import { Companion } from './creatures/companion.js';
 import { COMPANIONS, COMPANION_IDS } from './creatures/companions.js';
 import { Fish } from './world/fish.js';
+import { buildBook } from './ui/book.js';
 import { NetClient } from './net/client.js';
 import { Avatars } from './net/avatars.js';
 import { sampleEnvironment } from './world/environment.js';
@@ -1275,10 +1276,25 @@ function boot() {
     return { label: '<b>E</b>  nothing to work with', run: () => null };
   }
   let interaction = null;
+
+  /**
+   * Paint the reference book from the tables and what you are actually holding.
+   *
+   * Called on open AND on every inventory change while it is open, which is the
+   * bit that makes it worth having: you read "need 2 branches", walk five
+   * metres, pick two up, and the line has already become "takes the wind off a
+   * ridge" by the time you look back at it.
+   */
+  function refreshBook() {
+    // `pet.species` is the species DEFINITION, not an id — see buildBook.
+    hud.showBook(buildBook({ inventory, companion: pet?.species ?? null }));
+  }
+
   function refreshItemUi() {
     weapons.sync(inventory);
     viewmodel.setItem(inventory.equippedSlot?.item ?? null);
     hud.setHotbar(inventory, itemName);
+    if (hud.bookOpen) refreshBook();
   }
   inventory.onChange = refreshItemUi;
   refreshItemUi();
@@ -1373,6 +1389,13 @@ function boot() {
       hud.toggleKeys();
       return;
     }
+    // Esc closes the book. Nothing else wants Escape while it is open, and a
+    // panel you can only shut with the key that opened it is a panel people
+    // press Escape at and then conclude is stuck.
+    if (e.code === 'Escape' && hud.bookOpen) {
+      hud.closeBook();
+      return;
+    }
     switch (e.code) {
       case 'KeyF':
         if (!ruleset.allows('allowFly')) {
@@ -1425,6 +1448,17 @@ function boot() {
         // Build. B took this key from the bloom toggle, which moved to N — a
         // core verb outranks a rendering nicety for the mnemonic letter, and
         // the toggle is still one press away.
+        //
+        // Shift+B is what you could build: the same mnemonic one modifier
+        // along, rather than a fresh letter to remember. And while the book is
+        // up, a bare B shuts it instead of building — you opened a panel about
+        // building, and having it answer by dropping a windbreak at your feet
+        // is the sort of thing that teaches people not to open panels.
+        if (e.shiftKey || hud.bookOpen) {
+          if (hud.bookOpen) hud.closeBook();
+          else refreshBook();
+          break;
+        }
         placeStructure();
         break;
       case 'KeyN':
