@@ -40,6 +40,8 @@ npm run dev      # http://localhost:5173
 | `Shift` | sprint |
 | `C` | crouch, as a toggle — quieter, lower, harder to see |
 | `Space` | jump (up, in free-fly) |
+| `G` | build a fire (costs a branch) |
+| `R` | eat |
 | **`Mouse 1`** | **draw the bow — hold to aim, release to loose** |
 | `E` | pick up |
 | `Q` | drop what you're holding |

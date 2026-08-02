@@ -180,8 +180,8 @@ wind and patience. Each new one should make a lesson you learned wrong.
 | **Hare** | meadow, moor | too fast to stalk — you must lead the shot |
 | **Boar** | woodland | does not flee, does not stalk: it *charges and leaves* |
 | **Corvids** | anywhere, near kills | they follow your kills and **give your position away** — an alarm chain you caused |
-| **Goblin** | warrens, woodland, **night only** | hunts *you*, in packs, by scent. Cowardly alone: break the pack and it breaks. First enemy with **morale**. |
-| **Troll** | gorges, caves | nearly blind, superb hearing — the exact reverse of the deer. You can watch it from open ground and it has no idea. Retreats at sunrise. |
+| **Goblin** ✅ | high country, **night only** | hunts *you*, in packs, by scent. Cowardly alone: break the pack and it breaks. First enemy with **morale**. |
+| **Troll** ✅ | gorges (`minSlope`), night | nearly blind, superb hearing — the exact reverse of the deer. You can watch it from open ground and it has no idea. Retreats at sunrise. |
 | **Wisp** | bog, night, mist | no combat at all. It leads you somewhere. Pure dread. |
 | **White Stag** | rare, dawn, mist | the thing the game is named for. Finding it is the reward; what you do then is a choice with weight. |
 | **The thing in the deep places** | the Blight | unnamed, unstatted here on purpose |
@@ -335,14 +335,29 @@ which three decisions would have saved you.
 
 ---
 
-### Phase 3 — The world turns strange · *medium*
+### Phase 3 — The world turns strange · *medium* — ✅ **shipped**
 **Goal:** the fantasy pivot, and the first night that genuinely frightens you.
-- Goblins with pack morale; trolls with inverted senses.
-- The strangeness gradient wired into spawning.
-- Herd/pack alarm propagation (still owed from the current build).
-- Rare and conditional encounters.
+- ✅ Goblins with pack morale (`creatures/morale.js`); trolls with inverted senses.
+- ✅ The strangeness gradient as a real field (`world/strangeness.js`), wired into spawning.
+- ✅ Herd/pack alarm propagation — chained, generation-decayed, spacing-sensitive.
+- ✅ Conditional encounters: `nightOnly`, `strangeness` bands, `minSlope` habitat,
+  sunrise retreat.
 
 **Done when:** a night in the high country is something you prepare for.
+
+**Measured, in encounters rather than bodies** (one troll and one warband of five
+are both "something you met"):
+
+| where / when | deer | bear | goblin | troll |
+|---|---|---|---|---|
+| near the lake, noon | 88% | 13% | — | — |
+| near the lake, midnight | 68% | 19% | 10% | 3% |
+| high country, noon | 74% | 26% | — | — |
+| **high country, midnight** | 27% | 16% | **41%** | **15%** |
+
+Over half of what you meet on the tops after dark is something that hunts you,
+and nothing strange exists anywhere in daylight. Population runs ~15 alive by
+day and ~21 at night within the 320 m radius.
 
 ---
 

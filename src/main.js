@@ -16,6 +16,7 @@ import { Controller } from './player/controller.js';
 import { PlayerInput } from './player/input.js';
 import { checkInput } from './player/inputCheck.js';
 import { describeMorale } from './creatures/morale.js';
+import { strangenessAt, describeStrangeness, darkness } from './world/strangeness.js';
 import { sanitiseIntent, IDLE_INTENT } from './sim/intents.js';
 import { CameraFeel } from './player/cameraFeel.js';
 import { ViewModel } from './player/viewmodel.js';
@@ -299,6 +300,54 @@ function boot() {
   bearNearSpawn();
 
   const itemName = (id) => getItem(id)?.name ?? id;
+
+  // ── a sense of place ──────────────────────────────────────────────────────
+  //
+  // The strangeness gradient decides what may exist around you, and until now
+  // it was entirely invisible: the world got more dangerous with no
+  // acknowledgement at all. This is the smallest honest fix — a line when the
+  // ground under you changes character, and nothing the rest of the time.
+  //
+  // Deliberately NOT a meter. A number in the corner would turn "somewhere I
+  // should not be" into "region difficulty 4/6", and reading a gauge is the
+  // opposite of noticing where you are. It also stays quiet unless the change
+  // holds for a few seconds, so walking along a boundary does not chatter.
+  const PLACE_LINES = {
+    settled: 'the ground is familiar here',
+    quiet: 'quiet country',
+    lonely: 'you are a long way from the water',
+    uneasy: 'the hill does not want you here',
+    wrong: 'something is wrong with this ground',
+    'the deep places': 'you should not be here',
+  };
+  const PLACE_ORDER = ['settled', 'quiet', 'lonely', 'uneasy', 'wrong', 'the deep places'];
+  let placeBand = null;
+  let placeCandidate = null;
+  let placeHold = 0;
+
+  function reportPlace(dt) {
+    const s = strangenessAt(ctrl.position.x, ctrl.position.z, {
+      sunAltitude: atmosphere.elevation,
+      weather,
+    });
+    const band = describeStrangeness(s);
+    if (band !== placeCandidate) {
+      placeCandidate = band;
+      placeHold = 0;
+      return;
+    }
+    placeHold += dt;
+    if (placeHold < 4 || band === placeBand) return;
+
+    const worse = PLACE_ORDER.indexOf(band) > PLACE_ORDER.indexOf(placeBand ?? 'settled');
+    const first = placeBand === null;
+    placeBand = band;
+    // Nothing on the way back down into safe ground, and nothing at all for
+    // the opening moments — the first thing the game says should not be a
+    // status report about a meadow.
+    if (first || !worse) return;
+    hud.toast(PLACE_LINES[band] ?? band, 3.4);
+  }
 
   /**
    * What would E do, standing here?
@@ -680,6 +729,7 @@ function boot() {
     hud.setVitals(vitals);
     hud.setNeeds(vitals, ruleset.current.survival);
     hud.setStance(ctrl.crouching && !vitals.dead);
+    reportPlace(dt);
     viewmodel.update(dt, ctrl, weaponState, atmosphere.sun, camera.quaternion);
 
     audio.update(dt, ctrl, ctrl.position.y);
@@ -771,8 +821,15 @@ function boot() {
         weather,
         fires,
       });
+      const s = strangenessAt(ctrl.position.x, ctrl.position.z, {
+        sunAltitude: atmosphere.elevation,
+        weather,
+      });
       return {
         where: env.describe(),
+        strangeness: +s.toFixed(2),
+        place: describeStrangeness(s),
+        darkness: +darkness(atmosphere.elevation).toFixed(2),
         airC: +env.airC.toFixed(1),
         feltC: +vitals.feltC.toFixed(1),
         effectiveC: +vitals.effectiveC.toFixed(1),

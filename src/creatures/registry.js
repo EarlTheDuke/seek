@@ -907,9 +907,17 @@ SPECIES.goblin = {
     minHeight: WATER_LEVEL + 1,
     maxHeight: 95,
     maxSlope: 0.55,
-    weight: 1.4, // common — where they are allowed at all
-    // Only where the world has already gone wrong, and only after dark.
-    strangeness: [0.42, 1],
+    // WEIGHT IS PER SITE, NOT PER CREATURE, and a goblin site holds three to
+    // six of them where a deer site holds one to four. At 1.4 they were 76% of
+    // everything that spawned after dark — in the lowlands as much as the
+    // tops — which flattened the whole gradient into "it is night, so goblins".
+    // Weighted against their pack size they now read as one warband among
+    // several things rather than the only thing in the world.
+    weight: 0.45,
+    // Only where the world has already gone wrong, and only after dark. The
+    // floor was 0.42, which a merely remote lowland clears easily once night
+    // multiplies it — so they were common on safe low ground.
+    strangeness: [0.55, 1],
     nightOnly: true,
   },
 
@@ -1027,9 +1035,12 @@ SPECIES.troll = {
     maxHeight: 95,
     // Gorges and crags: it wants BROKEN ground, which is the one habitat
     // nothing else in the table has ever asked for.
-    minSlope: 0.3,
+    minSlope: 0.26,
     maxSlope: 1.6,
-    weight: 0.5,
+    // High for the same reason the goblin's is low: a troll site holds exactly
+    // one troll. At 0.5 against the goblin's old 1.4 they were 1% of night
+    // spawns — the headline creature of the high country, effectively absent.
+    weight: 1.1,
     strangeness: [0.55, 1],
     nightOnly: true,
   },

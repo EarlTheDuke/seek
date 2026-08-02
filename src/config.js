@@ -406,6 +406,13 @@ export const WILDLIFE = {
   spawnRadius: 320, // creatures exist within this range of you
   despawnRadius: 400, // and are removed past this (hysteresis, so no flicker)
   spawnCell: 110, // hash grid for deterministic herd sites
+  // What fraction of cells are candidate sites at all. Raised from 0.42 once
+  // the spawner started leaving thin sites genuinely empty (weight as absolute
+  // rarity rather than a share): with more sites declining to produce anything,
+  // the same density gate left the world at ~9 creatures in a 320 m radius,
+  // which reads as a dead hillside. This restores ~14 without touching the
+  // rarity model — more places where something COULD be, same odds that it is.
+  siteDensity: 0.66,
   maxAlive: 26,
   minSpawnDistance: 55, // never pop into existence in your face
   // Distance bands for update rate. Far creatures still move, just coarsely.

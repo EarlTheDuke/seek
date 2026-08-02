@@ -25,12 +25,24 @@ const _player = new THREE.Vector3();
  * Pick one species from a list by `spawn.weight`, driven by a value in [0,1)
  * that the caller derives from the cell hash — so the same site always holds
  * the same thing, in Node and in the browser, forever.
+ *
+ * Weight is ABSOLUTE rarity, not a share. That distinction matters and I got it
+ * wrong once already: with a purely relative pick, a bear weighted 0.16 became
+ * 42-64% of all encounters, because on the many sites where its habitat rules
+ * admitted it and the deer's did not, it won by being the only candidate. A
+ * "rare" animal was the commonest thing in the world.
+ *
+ * So the total eligible weight is compared against 1 first, and a site whose
+ * candidates do not add up to a whole animal is often simply EMPTY. An empty
+ * hillside is a perfectly good outcome — the world is mostly empty.
  */
 function pickWeighted(list, roll) {
   let total = 0;
   for (const s of list) total += s.spawn.weight ?? 1;
   if (total <= 0) return null;
-  let r = roll * total;
+  // Thin candidates leave the site empty in proportion to how thin they are.
+  if (roll * Math.max(1, total) > total) return null;
+  let r = roll * Math.max(1, total);
   for (const s of list) {
     r -= s.spawn.weight ?? 1;
     if (r <= 0) return s;
@@ -121,7 +133,7 @@ export class Wildlife {
         if (this.creatures.length >= WILDLIFE.maxAlive) return;
 
         // Not every cell holds a herd.
-        if (hash2i(ci, cj, 811) > 0.42) {
+        if (hash2i(ci, cj, 811) > WILDLIFE.siteDensity) {
           this.spawnedSites.add(key);
           continue;
         }
@@ -326,28 +338,82 @@ export class Wildlife {
         this.deps.onAttack?.(c);
       }
 
-      // Vocalising. A bear you can hear coming is far worse than one you can't.
-      if (c.species.behaviour === 'aggressive' && c.state !== 'dead') {
-        if (c.hurt) {
-          c.hurt = false;
-          this.deps.audio?.growl?.(c.position, 1); // a roar, not a whimper
-          c.voiceTimer = 1.2;
-        }
-        c.voiceTimer = (c.voiceTimer ?? 0) - dt;
-        if (c.voiceTimer <= 0) {
-          if (c.state === 'charge' || c.state === 'attack') {
-            this.deps.audio?.growl?.(c.position, 1);
-            c.voiceTimer = 1.9;
-          } else if (c.state === 'alert') {
-            this.deps.audio?.growl?.(c.position, 0.3);
-            c.voiceTimer = 5.5;
-          }
-        }
-      }
+      // Vocalising. Something you can hear coming is far worse than something
+      // you cannot — and for a pack it is load-bearing rather than decorative:
+      // several voices from different bearings is how you learn you are
+      // surrounded, without a single line of UI.
+      if (c.state !== 'dead') this.vocalise(c, dt);
     }
 
     // After everyone has moved, push apart anything that ended up overlapping.
     this.separate();
+  }
+
+  /**
+   * What this creature is saying, if anything.
+   *
+   * One place rather than a branch per species, and driven off the same state
+   * the brain uses — so a thing that sounds like it is coming for you is in
+   * fact coming for you. The intervals are staggered by id so a pack does not
+   * bark in unison, which is the difference between a group of animals and a
+   * metronome.
+   */
+  vocalise(c, dt) {
+    const audio = this.deps.audio;
+    if (!audio) return;
+
+    c.voiceTimer = (c.voiceTimer ?? 0) - dt;
+    const stagger = ((c.id * 2654435761) >>> 0) / 4294967296;
+
+    if (c.species.behaviour === 'pack') {
+      if (c.hurt) {
+        c.hurt = false;
+        audio.goblinCall?.(c.position, 1);
+        c.voiceTimer = 0.9;
+        return;
+      }
+      if (c.voiceTimer > 0) return;
+      if (c.broken) {
+        audio.goblinCall?.(c.position, 0.15); // a yelp on the way out
+        c.voiceTimer = 2.2 + stagger * 2;
+      } else if (c.state === 'charge' || c.state === 'attack') {
+        audio.goblinCall?.(c.position, 1);
+        c.voiceTimer = 1.1 + stagger * 0.9;
+      } else if (c.state === 'alert') {
+        // The chatter of a pack that has not made its mind up. Mood follows
+        // morale, so a wavering ring genuinely sounds less certain.
+        audio.goblinCall?.(c.position, 0.15 + c.morale * 0.45);
+        c.voiceTimer = 2.4 + stagger * 2.6;
+      }
+      return;
+    }
+
+    if (c.species.behaviour !== 'aggressive') return;
+
+    const troll = !!c.species.sunlight;
+    const voice = troll
+      ? (p, i) => audio.trollVoice?.(p, i)
+      : (p, i) => audio.growl?.(p, i);
+
+    if (c.hurt) {
+      c.hurt = false;
+      voice(c.position, 1); // a roar, not a whimper
+      c.voiceTimer = troll ? 2.4 : 1.2;
+      return;
+    }
+    if (c.voiceTimer > 0) return;
+
+    if (c.retreating) {
+      // Driven off by the light. It complains about it the whole way.
+      voice(c.position, 0.2);
+      c.voiceTimer = 5 + stagger * 4;
+    } else if (c.state === 'charge' || c.state === 'attack') {
+      voice(c.position, 1);
+      c.voiceTimer = (troll ? 3.2 : 1.9) + stagger;
+    } else if (c.state === 'alert') {
+      voice(c.position, 0.3);
+      c.voiceTimer = (troll ? 7 : 5.5) + stagger * 3;
+    }
   }
 
   /**

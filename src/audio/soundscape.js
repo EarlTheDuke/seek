@@ -544,6 +544,121 @@ export class Soundscape {
     src.stop(now + dur + 0.05);
   }
 
+  /**
+   * A goblin. Deliberately NOT a small bear — a bear's growl is a warning and
+   * this is a conversation. Short, dry, clipped barks with a formant rasp, at a
+   * pitch that carries; several of them overlapping from different bearings is
+   * the sound of being surrounded, and that is the whole point of the species.
+   *
+   * `mood` 0 is the chatter of a pack that has not decided, 1 is the shriek of
+   * one committing. It also drives the pitch DOWN and the count UP, so a
+   * confident pack sounds bigger than a wavering one without anything having to
+   * count them.
+   */
+  goblinCall(pos, mood = 0.5) {
+    if (!this.running) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    if (this.distanceGain(pos) < 0.02) return;
+
+    const out = this.spatial(pos, 1);
+    const barks = 1 + Math.round(mood * 2);
+    const level = lerp(0.16, 0.34, mood);
+
+    for (let i = 0; i < barks; i++) {
+      const t = now + i * lerp(0.15, 0.09, mood) * (0.8 + this.rand() * 0.5);
+      const dur = lerp(0.13, 0.09, mood);
+      const base = lerp(340, 250, mood) * (0.85 + this.rand() * 0.35);
+
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(level * (i ? 0.7 : 1), t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+      // A bandpass sweeping downward is what turns a buzz into a throat.
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(base * 4.2, t);
+      bp.frequency.exponentialRampToValueAtTime(base * 1.6, t + dur);
+      bp.Q.value = 4.5;
+      bp.connect(g).connect(out);
+
+      const osc = ctx.createOscillator();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(base, t);
+      osc.frequency.exponentialRampToValueAtTime(base * 0.72, t + dur);
+      osc.connect(bp);
+      osc.start(t);
+      osc.stop(t + dur + 0.02);
+
+      // Noise burst on the attack — the consonant at the front of the bark.
+      const src = ctx.createBufferSource();
+      src.buffer = this.noise;
+      src.playbackRate.value = 2.6;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(level * 0.8, t);
+      ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.035);
+      src.connect(ng).connect(out);
+      src.start(t);
+      src.stop(t + 0.06);
+    }
+  }
+
+  /**
+   * A troll. The lowest thing in the game by a long way: a slow sine stack
+   * under 55 Hz that you feel more than hear, with a long rise and a longer
+   * fall.
+   *
+   * It is deliberately almost sub-audible and very slow, because a troll's
+   * whole encounter is knowing something is out there before you can locate it.
+   * A sound you cannot quite place is worth more here than a good roar.
+   */
+  trollVoice(pos, intent = 0) {
+    if (!this.running) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    if (this.distanceGain(pos) < 0.015) return;
+
+    const spatial = this.spatial(pos, 1);
+    const dur = lerp(2.6, 1.7, intent);
+    const level = lerp(0.3, 0.55, intent);
+    const base = lerp(38, 52, intent);
+
+    const out = ctx.createGain();
+    out.gain.setValueAtTime(0, now);
+    out.gain.linearRampToValueAtTime(level, now + dur * 0.35);
+    out.gain.setValueAtTime(level, now + dur * 0.55);
+    out.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(lerp(190, 340, intent), now);
+    lp.frequency.exponentialRampToValueAtTime(110, now + dur);
+    lp.Q.value = 1.4;
+    lp.connect(out).connect(spatial);
+
+    for (const mul of [1, 2, 3.02, 4.97]) {
+      const osc = ctx.createOscillator();
+      osc.type = mul === 1 ? 'sine' : 'triangle';
+      osc.frequency.setValueAtTime(base * mul, now);
+      osc.frequency.linearRampToValueAtTime(base * mul * 0.88, now + dur);
+      const g = ctx.createGain();
+      g.gain.value = 0.7 / mul;
+      osc.connect(g).connect(lp);
+      osc.start(now);
+      osc.stop(now + dur + 0.06);
+    }
+
+    // A very slow wobble. Faster than this and it reads as a machine.
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = lerp(2.6, 5.2, intent);
+    const lfoAmt = ctx.createGain();
+    lfoAmt.gain.value = 34;
+    lfo.connect(lfoAmt).connect(lp.frequency);
+    lfo.start(now);
+    lfo.stop(now + dur + 0.06);
+  }
+
   /** Taking a hit: a dull thud and a short breath knocked out of you. */
   playerHurt(severity = 1) {
     if (!this.running) return;
