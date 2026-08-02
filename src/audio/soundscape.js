@@ -106,7 +106,46 @@ export class Soundscape {
     waterSrc.connect(waterFilter);
     waterSrc.start();
 
+    // ── rain: a broadband hiss over a low roar ──
+    // Two layers because rain is not one sound. The hiss is drops landing near
+    // you; the roar is the whole valley of them, and without it heavy rain
+    // sounds like frying rather than weather.
+    this.rainGain = ctx.createGain();
+    this.rainGain.gain.value = 0;
+    this.rainGain.connect(this.master);
+    this.rainGain.connect(this.reverbSend);
+
+    const hiss = ctx.createBufferSource();
+    hiss.buffer = this.noise;
+    hiss.loop = true;
+    hiss.playbackRate.value = 1.6;
+    const hissFilter = ctx.createBiquadFilter();
+    hissFilter.type = 'highpass';
+    hissFilter.frequency.value = 1100;
+    const hissGain = ctx.createGain();
+    hissGain.gain.value = 0.75;
+    hiss.connect(hissFilter).connect(hissGain).connect(this.rainGain);
+    hiss.start();
+
+    const roar = ctx.createBufferSource();
+    roar.buffer = this.noise;
+    roar.loop = true;
+    roar.playbackRate.value = 0.5;
+    const roarFilter = ctx.createBiquadFilter();
+    roarFilter.type = 'lowpass';
+    roarFilter.frequency.value = 620;
+    const roarGain = ctx.createGain();
+    roarGain.gain.value = 0.55;
+    roar.connect(roarFilter).connect(roarGain).connect(this.rainGain);
+    roar.start();
+
     this.ready = true;
+  }
+
+  /** Rain level, 0..1, from the weather system. */
+  setWeather(weather) {
+    this.rainLevel = weather.rain;
+    this.windGust = weather.wind;
   }
 
   get running() {
@@ -587,8 +626,12 @@ export class Soundscape {
     const speedTerm = clamp(ctrl.horizontalSpeed / PLAYER.sprintSpeed, 0, 1);
     const altTerm = smoothstep(20, 95, altitude);
     const wind =
-      AUDIO.windBase + AUDIO.windSpeedGain * speedTerm + AUDIO.windAltitudeGain * altTerm;
+      (AUDIO.windBase + AUDIO.windSpeedGain * speedTerm + AUDIO.windAltitudeGain * altTerm) *
+      (this.windGust ?? 1);
     this.windGain.gain.setTargetAtTime(wind, now, 0.35);
+
+    // Rain. Slow ramp so a front arrives rather than switches on.
+    this.rainGain.gain.setTargetAtTime(AUDIO.rainGain * (this.rainLevel ?? 0), now, 1.4);
 
     // Lake wash, keyed off the distance to the actual water's edge.
     this.waterProbe -= dt;

@@ -432,6 +432,7 @@ function boot() {
     weather.update(dt);
     atmosphere.setWeather(weather);
     stealth.setWeather(weather);
+    audio.setWeather(weather);
     scatter.setWind(weather.windDir.x, weather.windDir.y, weather.wind);
 
     terrain.update(ctrl.position.x, ctrl.position.z);

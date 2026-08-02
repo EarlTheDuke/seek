@@ -1,9 +1,11 @@
 # Highlands
 
-A walkable golden-hour world in the browser. Rolling noise-carved hills, wind-rippled grass, a
-mirror lake with the sun raking across it, and stone landmarks on the far ridges to walk toward.
+A walkable world in the browser. Rolling noise-carved hills, wind-rippled grass, a mirror lake, and
+stone landmarks on the far ridges to walk toward — under a sun that crosses the sky on a real solar
+path, weather that comes and goes, deer you have to stalk downwind, and bears that hunt you back.
 
-No objectives. It's a place, not a game.
+**Everything you see and hear is generated in code.** No models, no textures, no HDRIs, no audio
+files anywhere in this repository.
 
 ![The view from the spawn point](docs/spawn.jpg)
 
@@ -33,10 +35,15 @@ npm run dev      # http://localhost:5173
 |---|---|
 | `W` `A` `S` `D` | walk |
 | `Shift` | sprint |
+| `Ctrl` | crouch — quieter, lower, harder to see |
 | `Space` | jump (up, in free-fly) |
-| `Ctrl` | crouch (down, in free-fly) |
+| **`Mouse 1`** | **draw the bow — hold to aim, release to loose** |
+| `E` | pick up |
+| `Q` | drop what you're holding |
+| `1` `2` / wheel | change item |
 | `F` | free-fly camera — no gravity, no collision |
-| `[` `]` | move the sun; the whole atmosphere follows |
+| `[` `]` | scrub the clock |
+| `T` | pause / resume time |
 | `P` | save a screenshot |
 | `H` | hide the interface |
 | `M` | mute |
@@ -139,6 +146,61 @@ fire on exactly the same phase.
 Vertical bob runs at twice the lateral rate: one dip per footfall, one sway per full stride. That
 2:1 relationship is what reads as walking.
 
+### Day and night
+
+The sun's position comes from real solar geometry — declination from the date, hour angle from the
+clock, altitude and azimuth for a latitude — so it rises in the east, arcs south and sets in the
+west, and **latitude and season genuinely change the path**. At the default 57°N in mid-July you get
+sunrise at 03:31, sunset at 20:30 and a solar noon altitude of 54.5°, which are the real figures.
+A full cycle takes 26 real minutes.
+
+Preetham is a daylight model and has no idea what night is; held below the horizon it renders a
+muddy grey dome. Three things fix that: a `uSkyDim` uniform patched into the sky shader scales the
+dome's own output (which decouples *how bright the sky is* from *how bright the land is* — crushing
+exposure would take the moonlit ground down with it), turbidity and rayleigh wind down toward dusk,
+and exposure opens 2.15× once the sun is gone. A moon rides opposite the sun and takes over shadow
+casting, so only ever one key light is enabled.
+
+### Weather
+
+A weighted state machine over clear, fair, overcast, drizzle, rain and mist. The states are pure
+target values — nothing reads the state name — so adding "storm" is a row in the config table.
+
+It isn't decoration. **Cloud kills the direct sun while *lifting* the ambient**, because an overcast
+day is flat and shadowless rather than dark. Wind strength drives every grass and canopy shader at
+once, so the whole landscape leans together when it gusts. And wind *direction* drifts continuously,
+which matters because the scent model reads it — a stalk can go wrong halfway through.
+
+Rain is drawn as one `LineSegments` call, because a drop at speed **is** a streak. More importantly
+it masks you: at full downpour your noise carries 30% as far and your scent 25% as far. Hunting in
+bad weather is a real tactic.
+
+### Hunting
+
+Arrows carry their own gravity (12.5, not the player's stylised 26) tuned against a 74 m/s launch,
+with quadratic drag — so the arc flattens on the way out and steepens coming down instead of being a
+symmetric parabola. The arrow is rotated onto its own velocity each frame, so it visibly noses over.
+Drop is ~0.5 m at 20 m, 1.9 m at 40 m, 8.2 m at 80 m.
+
+Creatures run a single **awareness meter** fed by four independent senses — sight, hearing, scent
+and proximity — which decays when nothing feeds it. Sneaking falls out of that model rather than
+being special-cased: freezing when a head comes up genuinely works, because the meter is falling.
+Approaching a grazing deer from 80 m:
+
+| | Bolts at |
+|---|---|
+| Sprinting, downwind | 25 m |
+| Walking, downwind | 8 m |
+| Crouch-walking, downwind | 2 m |
+| Crouch-walking, **upwind** | 60 m |
+
+Check the wind before you check your feet.
+
+Bears use the same senses with a different brain. A bear charges at 11.5 m/s against your 8.6 m/s
+sprint — but only for seven seconds, after which it drops below your pace. Running is the wrong
+answer to the first rush and the right answer to the second. Shooting one makes it press *harder*,
+not scatter.
+
 ---
 
 ## Tuning it
@@ -167,15 +229,18 @@ playing with:
 
 Measured with `EXT_disjoint_timer_query_webgl2` on an RTX 4090, `QUALITY: 'high'`:
 
-| Resolution | GPU | |
+| Scene at 1920×1080 | GPU | |
 |---|---|---|
-| 1280×720 | 1.4 ms | ~718 fps |
-| 1920×1080 | 3.6 ms | ~279 fps |
-| 2560×1440 | 4.7 ms | ~215 fps |
+| Clear noon | 1.9 ms | ~533 fps |
+| Heavy rain (2,600 drops) | 1.7 ms | ~601 fps |
+| Night, stars, moonlight | 1.7 ms | ~605 fps |
 
-CPU-side simulation is ~1.2 ms/frame. That is a top-end GPU; the 1080p figure leaves roughly a 4×
-margin, so a mid-range discrete card should hold 60 fps comfortably. Drop `QUALITY` to `'medium'`
-on integrated graphics.
+Weather and night cost essentially nothing — cloud dims the sun, which cancels out the extra
+geometry. That is a top-end GPU; the margin is wide enough that a mid-range discrete card should
+hold 60 fps comfortably. Drop `QUALITY` to `'medium'` on integrated graphics.
+
+A 1.4 in-world-day soak with weather cycling through all six states produced no NaN, no invalid
+fog or exposure values, and both a sunrise and a sunset.
 
 Guardrails: pixel ratio capped at 1.5; instancing everywhere; no allocation in the update loop;
 placement re-run on a travel threshold rather than per frame; the reflective water — the single
@@ -196,17 +261,35 @@ src/
     water.js           the lake
     scatter.js         instanced grass / reeds / trees / rocks + shader wind
     landmarks.js       terrain search, the five landmarks, spawn composition
-    sky.js             sun, sky dome, fog, skylight fill, valley mist
+    sky.js             solar path, sky dome, moon, stars, fog, mist
+    weather.js         state machine driving cloud, wind, fog and rain
+    colliders.js       spatial hash of analytic proxies for trees/rocks/stone
+    projectiles.js     generic ballistics, one instanced draw call
+    pickups.js         recovered arrows, dropped items, deterministic loot
+  creatures/
+    registry.js        species as data — hp, senses, drops, body builders
+    creature.js        awareness meter, state machines, procedural gait
+    manager.js         hash-placed herds, despawn, distance-LOD, separation
+  items/
+    registry.js        every item as data; procedural geometry
+    inventory.js       slots and stacks, weapon-agnostic
+  weapons/
+    weapon.js          the contract every weapon implements
+    bow.js             draw-charge-release, spread, fatigue
   fx/
     composer.js        bloom -> ACES -> SMAA -> grain/vignette
     ambientLife.js     birds, butterflies, dust motes
+    rain.js            streak rain in one LineSegments call
   player/
     controller.js      input, movement, collision against heightAt()
-    cameraFeel.js      head bob, FOV kick, strafe lean, landing dip
+    cameraFeel.js      head bob, FOV kick, strafe lean, landing dip, shake
+    stealth.js         your noise / visibility / scent profile
+    vitals.js          health, damage, death, respawn
+    viewmodel.js       held item in its own scene on a cleared depth buffer
   audio/
-    soundscape.js      synthesized wind, water, footsteps, birdsong
+    soundscape.js      synthesized wind, water, rain, bow, growls, footsteps
   ui/
-    hud.js             start screen, keybinds, screenshots
+    hud.js             start screen, crosshair, hotbar, health, screenshots
   util/
     math.js            clamp / lerp / smoothstep / frame-rate independent damp
     textures.js        procedurally baked water normals, mist, sprites

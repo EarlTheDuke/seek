@@ -298,6 +298,7 @@ export const AUDIO = {
   waterGain: 0.11,
   // Metres from the SHORELINE (not the lake centre) over which it fades in.
   waterRange: 40,
+  rainGain: 0.26, // level at full downpour
   footstepGain: 0.3,
   birdCallGain: 0.1,
   birdCallChance: 0.0055, // per frame
