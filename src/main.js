@@ -705,12 +705,29 @@ function boot() {
       vitals.damage(GLIDER.crashDamage, 'the ground');
       hud.toast('you come down hard, and the wing does not get up again', 4);
     } else {
-      // It survived, so it is still yours — put it back down where you landed.
-      // A glider you can only use once is a glider nobody builds twice.
-      const put = structures.canPlaceAt('glider', s.x, s.z);
-      if (put.ok) structures.place('glider', s.x, s.z, ctrl.yaw);
-      hud.toast(put.ok ? 'you set down, and the wing is still whole'
-        : 'you set down — nowhere flat to leave the wing, and it is lost', 3.4);
+      // It survived, so it is still yours — put it back down. A glider you can
+      // only use once is a glider nobody builds twice.
+      //
+      // And LOOK for somewhere to put it, out to twenty-odd metres, rather than
+      // demanding the exact patch you stopped on. The first version tried only
+      // the landing spot, and since the good landing spots are at the bottom of
+      // steep ground it routinely announced the wing was lost — including on
+      // the autosave that fires when you tab away mid-flight, which destroyed
+      // the most expensive thing in the game for switching windows. A person
+      // carrying a wing walks twenty metres to find somewhere to lean it.
+      let put = null;
+      for (let r = 0; r <= 24 && !put; r += 4) {
+        for (let i = 0; i < (r ? 8 : 1); i++) {
+          const a = (i / 8) * Math.PI * 2;
+          const x = s.x + Math.sin(a) * r;
+          const z = s.z + Math.cos(a) * r;
+          if (structures.canPlaceAt('glider', x, z).ok) { put = { x, z, r }; break; }
+        }
+      }
+      if (put) structures.place('glider', put.x, put.z, ctrl.yaw);
+      hud.toast(put ? (put.r > 4 ? `you set down, and carry the wing ${put.r} m to level ground`
+        : 'you set down, and the wing is still whole')
+        : 'you set down in country too broken to leave a wing in, and it is lost', 3.4);
     }
   }
 
@@ -1434,6 +1451,13 @@ function boot() {
   let saveTimer = 0;
   function saveNow(reason = 'auto') {
     if (!ruleset.current.persist) return false;
+    // Land before saving. Launching takes the wing OUT of the structure list —
+    // it is under you, not on the hill — and flight state is not persisted, so
+    // a save taken in the air would write a world with no glider anywhere in
+    // it and quietly destroy the most expensive thing in the game. Tabbing away
+    // mid-flight autosaves, so this is not a rare path, it is the obvious one.
+    // Setting down where you are is a fair outcome: you keep the wing.
+    if (flight) endFlight(false);
     const ok = writeSave(captureSave(saveContext()));
     if (ok && reason === 'manual') hud.toast('saved', 1.2);
     return ok;
