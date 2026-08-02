@@ -42,6 +42,14 @@ const CSS = `
 #hl-keys h2 { margin: 0 0 8px; font-size: 10px; letter-spacing: .22em;
   text-transform: uppercase; opacity: .5; font-weight: 400; }
 
+/* A permanent breadcrumb where the panel sits, shown whenever it is closed.
+   Without it the controls vanish after the opening peek and there is nothing
+   left on screen telling you how to get them back. */
+#hl-hint { position: absolute; left: 24px; bottom: 22px; font-size: 11px;
+  letter-spacing: .14em; opacity: 0; transition: opacity .6s ease; }
+#hl-hint.show { opacity: .3; }
+#hl-hint b { color: #ffd9a0; font-weight: 400; }
+
 #hl-fps { position: absolute; right: 18px; top: 14px; opacity: .5; font-size: 12px; text-align: right; }
 #hl-toast {
   position: absolute; left: 50%; bottom: 13%; transform: translateX(-50%);
@@ -145,6 +153,7 @@ export class Hud {
       <div id="hl-keys"><h2>Controls</h2><table>${KEYS.map(
         ([k, d]) => `<tr><td class="k">${k}</td><td class="d">${d}</td></tr>`
       ).join('')}</table></div>
+      <div id="hl-hint"><b>Tab</b> &nbsp;controls</div>
       <div id="hl-cross"><i class="v"></i><i class="v"></i><i class="h"></i><i class="h"></i></div>
       <div id="hl-prompt"></div>
       <div id="hl-hot"></div>
@@ -161,6 +170,7 @@ export class Hud {
     this.fps = this.root.querySelector('#hl-fps');
     this.toastEl = this.root.querySelector('#hl-toast');
     this.resume = this.root.querySelector('#hl-resume');
+    this.hint = this.root.querySelector('#hl-hint');
     this.cross = this.root.querySelector('#hl-cross');
     this.crossTicks = [...this.cross.querySelectorAll('i')];
     this.prompt = this.root.querySelector('#hl-prompt');
@@ -353,6 +363,9 @@ export class Hud {
       this.keysTimer -= dt;
       if (this.keysTimer <= 0) this.keys.classList.remove('show');
     }
+    // The breadcrumb is the panel's complement — exactly one of them is up, so
+    // there is always something on screen saying how to get the controls back.
+    this.hint.classList.toggle('show', this.started && !this.keys.classList.contains('show'));
     if (this.toastTimer > 0) {
       this.toastTimer -= dt;
       if (this.toastTimer <= 0) this.toastEl.classList.remove('show');
