@@ -111,12 +111,28 @@ export const LAKE = {
 /** Sea level. Everything below this is underwater. */
 export const WATER_LEVEL = 7.0;
 
+// ── Time of day ─────────────────────────────────────────────────────────────
+export const TIME = {
+  startHour: 7.2, // where a fresh world begins — early morning light
+  dayMinutes: 26, // real minutes for one full 24-hour cycle
+  running: true, // false freezes the clock where it stands
+  scrubStep: 0.35, // hours moved per press of [ or ]
+
+  // The sun's path is real solar geometry rather than a tilted circle, so
+  // latitude and date genuinely change the arc — a high latitude gives long
+  // raking light and short nights, which is exactly the look this world wants.
+  latitude: 57, // degrees north; roughly the Scottish highlands
+  dayOfYear: 196, // mid-July: long days, low golden sun morning and evening
+
+  // Below this altitude the sun is treated as set and the moon takes over.
+  civilTwilight: -6,
+};
+
 // ── Sun, sky, atmosphere ────────────────────────────────────────────────────
 export const SKY = {
-  // 6.5 degrees is as low as this can go. It is the warmest, richest light in
-  // the range — but shadow length is object height x cot(elevation), so a 12 m
-  // tree already throws a 105 m shadow, and `shadowExtent` is 115. Drop the sun
-  // further and shadows start clipping against the edge of the shadow camera.
+  // Elevation and azimuth are now COMPUTED from the time of day (see TIME and
+  // solarPosition() in world/sky.js). These remain only as the fallback used
+  // before the first update and by anything that wants a nominal reference.
   elevation: 6.5,
   azimuth: 152, // degrees
   elevationMin: -2,

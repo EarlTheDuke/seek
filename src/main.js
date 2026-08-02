@@ -316,11 +316,14 @@ function boot() {
         break;
       case 'BracketLeft':
         atmosphere.nudge(-1);
-        hud.toast(`sun ${atmosphere.elevation.toFixed(1)}°`, 1);
+        hud.toast(`${atmosphere.clockText} · sun ${atmosphere.elevation.toFixed(0)}°`, 1);
         break;
       case 'BracketRight':
         atmosphere.nudge(1);
-        hud.toast(`sun ${atmosphere.elevation.toFixed(1)}°`, 1);
+        hud.toast(`${atmosphere.clockText} · sun ${atmosphere.elevation.toFixed(0)}°`, 1);
+        break;
+      case 'KeyT':
+        hud.toast(atmosphere.toggleClock() ? 'time running' : `time frozen at ${atmosphere.clockText}`, 2);
         break;
       case 'Slash':
         if (e.shiftKey) hud.toggleKeys();
@@ -423,6 +426,7 @@ function boot() {
 
     terrain.update(ctrl.position.x, ctrl.position.z);
     scatter.update(ctrl.position, time);
+    atmosphere.tick(dt);
     atmosphere.update(camera.position, time);
     lake.update(dt, camera.position, atmosphere.sun);
     life.update(dt, time, camera.position);
