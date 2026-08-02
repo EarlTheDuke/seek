@@ -659,7 +659,13 @@ function boot() {
     lake.update(dt, camera.position, atmosphere.sun);
     life.update(dt, time, camera.position);
     stealth.update(dt, ctrl);
-    wildlife.update(dt, ctrl.position, stealth);
+    // The sun is handed to the wildlife because it is no longer scenery — it
+    // decides which species are allowed to exist here at all.
+    wildlife.update(dt, ctrl.position, stealth, {
+      hours: atmosphere.hours,
+      sunAltitude: atmosphere.elevation,
+      weather,
+    });
     projectiles.update(dt);
 
     pickups.update(dt, ctrl.position);

@@ -412,6 +412,11 @@ export const WILDLIFE = {
   lodNear: 90,
   lodFar: 220,
 
+  // Darkness (0..1, from the sun's altitude) at which the night shift starts.
+  // 0.6 lands shortly after sunset rather than at it — dusk is the hour things
+  // start moving, not the moment they do.
+  nightThreshold: 0.6,
+
   // Testing aid: put a herd on the lake shore in front of the spawn point, so
   // there is always something to stalk without going looking for it. Set to 0
   // to turn it off and rely purely on natural spawning.
@@ -421,6 +426,67 @@ export const WILDLIFE = {
   // opening view. Far enough outside its 72 m aggro range that you get to see
   // it before it sees you, and decide whether to take it on. 0 turns it off.
   testBearAt: 86,
+};
+
+// ── The Strangeness Gradient ────────────────────────────────────────────────
+//
+// The spine of the fantasy pivot. The lowlands are mundane, the high country is
+// dangerous, the deep places barely obey physics — and it rises with distance,
+// altitude and darkness. See world/strangeness.js for the shape, and VISION.md
+// for why this one idea is load-bearing.
+//
+// In plain terms: the "how far from town are you" dial every folk tale runs on.
+export const STRANGENESS = {
+  // Distance from the lake, which is the settled centre of the world.
+  //
+  // `remoteFar` is deliberately much further than you are likely to walk. Set
+  // to 1100 it saturated at 1 across most of the sampled world (mean 0.81), so
+  // remoteness stopped discriminating between "a fair way out" and "genuinely
+  // lost" — and nearly half the map ended up sharing one strangeness value.
+  // A slow ramp keeps every extra kilometre worth something.
+  remoteNear: 260, // still within sight of the water — ordinary
+  remoteFar: 2200, // genuinely out on your own
+
+  // Altitude, in metres. Measured relief runs -14 m (lake bed) to 78 m on the
+  // highest crests, with a mean of 37, so this covers the shoulder to the tops
+  // and leaves most of the world firmly in the low half.
+  lowGround: 24,
+  highGround: 78,
+
+  // The blight: slow noise, so some ground is simply wrong regardless of how
+  // far or high it is. At a 0.38 threshold it fired essentially nowhere (mean
+  // 0.02 across 5,000 samples) and contributed nothing at all; this puts it on
+  // a real minority of the map, which is what makes it legible as an exception.
+  blightFreq: 0.00042,
+  blightThreshold: 0.12,
+
+  // How the three terrain terms combine. They SUM and deliberately total more
+  // than 1, so no single term can reach the top of the scale but a combination
+  // can: the deep places are high AND remote AND blighted, all at once, at
+  // night. At a total of 1.08 nothing in the world ever exceeded 0.8, which
+  // left the top band — the one the whole gradient exists to point at — empty.
+  //
+  // Altitude carries the most weight because it is the term you can SEE from
+  // the valley floor. That is what makes the difficulty curve readable without
+  // a single number on screen: the dangerous ground is the ground that looks
+  // dangerous.
+  weightRemote: 0.34,
+  weightHigh: 0.58,
+  weightBlight: 0.3,
+
+  // Darkness is a MULTIPLIER, not a fourth term: night does not create
+  // strangeness, it lets what is already there come out. Daylight keeps this
+  // much of it, so a bad place is still a bad place at noon — just survivable.
+  dayScale: 0.45,
+  // Sun altitude in degrees. Civil twilight (-6) is full dark, because that is
+  // where a person can no longer work outdoors without a light.
+  nightBelow: -6,
+  dayAbove: 8,
+
+  // Weather, applied only at night — mist at noon is atmosphere, mist at
+  // midnight is a summoner.
+  mistBonus: 0.16,
+  rainBonus: 0.05,
 };
 
 // ── Alarm ───────────────────────────────────────────────────────────────────

@@ -384,6 +384,11 @@ export const SPECIES = {
       // Deer like the edges of woodland, not deep forest or bare hilltop.
       preferClump: [0.15, 0.8],
       weight: 1,
+      // Ordinary animals live in the ordinary world. They thin out as things
+      // get strange and are simply absent from the worst ground — which is a
+      // warning in itself: a hillside with no deer on it is telling you
+      // something before anything has come out of the dark.
+      strangeness: [0, 0.62],
     },
 
     drops: [
@@ -463,6 +468,9 @@ SPECIES.bear = {
     maxSlope: 0.46,
     preferClump: [0.35, 1.0], // likes the deeper woodland
     weight: 0.16, // rare
+    // A bear is a real animal, not a strange one — but it is the top of the
+    // ordinary world, so it holds ground the deer will not.
+    strangeness: [0.05, 0.72],
   },
 
   drops: [

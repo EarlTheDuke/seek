@@ -141,7 +141,13 @@ export function createSimWorld({ seed = SEED, hours = TIME.startHour } = {}) {
 
     scatter.update(ctrl.position, 0);
     stealth.update(dt, ctrl);
-    wildlife.update(dt, ctrl.position, stealth);
+    // Identical context to the browser's, or the two would populate the world
+    // with different species and the whole determinism proof would be void.
+    wildlife.update(dt, ctrl.position, stealth, {
+      hours: clock.hours,
+      sunAltitude: solarPosition(clock.hours).altitude,
+      weather,
+    });
     projectiles.update(dt);
     pickups.update(dt, ctrl.position);
     vitals.update(dt);

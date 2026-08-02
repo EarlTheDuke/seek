@@ -16,8 +16,26 @@ import { heightAt, slopeAt, clumpAt, makeRandom } from '../world/noise.js';
 import { hash2i, lerp } from '../util/math.js';
 import { SPECIES, getSpecies } from './registry.js';
 import { Creature } from './creature.js';
+import { strangenessAt, darkness, inBand } from '../world/strangeness.js';
 
 const _player = new THREE.Vector3();
+
+/**
+ * Pick one species from a list by `spawn.weight`, driven by a value in [0,1)
+ * that the caller derives from the cell hash — so the same site always holds
+ * the same thing, in Node and in the browser, forever.
+ */
+function pickWeighted(list, roll) {
+  let total = 0;
+  for (const s of list) total += s.spawn.weight ?? 1;
+  if (total <= 0) return null;
+  let r = roll * total;
+  for (const s of list) {
+    r -= s.spawn.weight ?? 1;
+    if (r <= 0) return s;
+  }
+  return list[list.length - 1];
+}
 
 export class Wildlife {
   constructor(scene, deps) {
@@ -29,6 +47,11 @@ export class Wildlife {
     this.clearedSites = new Set(); // sites whose herd is gone for good
     this.anchor = new THREE.Vector3(Infinity, 0, Infinity);
     this.accum = new Map(); // creature id -> time owed, for LOD ticking
+    // What the world is doing. The sun in particular is no longer scenery: it
+    // decides who is allowed to exist. Defaults to broad daylight so anything
+    // that forgets to pass it gets the mundane world rather than a crash.
+    this.ctx = { hours: 12, sunAltitude: 90, weather: null };
+    this.wasNight = false;
   }
 
   // ── spawning ──────────────────────────────────────────────────────────────
@@ -47,9 +70,43 @@ export class Wildlife {
     return true;
   }
 
+  /**
+   * Everything that could plausibly live at this site, right now.
+   *
+   * Three filters, and the difference between them matters for bookkeeping:
+   *
+   *   * TERRAIN (`suits`) is permanent. A site in the middle of the lake will
+   *     never hold a deer, so once we know that we can stop asking.
+   *   * The STRANGENESS BAND is semi-permanent — it moves with the sun, since
+   *     darkness is a multiplier on the gradient.
+   *   * The TIME GATE is openly conditional. A goblin site is empty all day and
+   *     occupied all night, at the same coordinates.
+   *
+   * So this reports both lists: what could live here ever, and what could live
+   * here now. A site that fails only the conditional tests is left unmarked and
+   * asked again later, which is what makes "night only" a real thing rather
+   * than a dice roll at world start.
+   */
+  candidatesFor(x, z, strangeness, night) {
+    const everPossible = [];
+    const now = [];
+    for (const species of Object.values(SPECIES)) {
+      const s = species.spawn;
+      if (!this.suits(species, x, z)) continue;
+      everPossible.push(species);
+      if (!inBand(s.strangeness, strangeness)) continue;
+      if (s.nightOnly && night < WILDLIFE.nightThreshold) continue;
+      if (s.dayOnly && night >= WILDLIFE.nightThreshold) continue;
+      now.push(species);
+    }
+    return { everPossible, now };
+  }
+
   refresh(px, pz) {
     const cell = WILDLIFE.spawnCell;
     const R = WILDLIFE.spawnRadius;
+    const sunAltitude = this.ctx.sunAltitude ?? 90;
+    const night = darkness(sunAltitude);
 
     for (let cj = Math.floor((pz - R) / cell); cj <= Math.ceil((pz + R) / cell); cj++) {
       for (let ci = Math.floor((px - R) / cell); ci <= Math.ceil((px + R) / cell); ci++) {
@@ -70,20 +127,50 @@ export class Wildlife {
         // Never appear in front of you at conversational distance.
         if (d < WILDLIFE.minSpawnDistance) continue;
 
+        // ── the strangeness gradient decides WHO ──
+        // Not a difficulty multiplier and not a dice roll: an eligibility band
+        // per species. Deer live in the settled lowlands, goblins only where
+        // the world has already gone wrong. Walking uphill in the dark changes
+        // the cast, which is the entire point of the gradient.
+        const s = strangenessAt(x, z, { sunAltitude, weather: this.ctx.weather });
+        const { everPossible, now } = this.candidatesFor(x, z, s, night);
+
+        if (!everPossible.length) {
+          // Nothing could ever live here. Stop asking.
+          this.spawnedSites.add(key);
+          continue;
+        }
+        if (!now.length) continue; // conditions wrong — ask again later
+
         this.spawnedSites.add(key);
-        // Weighted species pick. Bears are rare and solitary, so most sites are
-        // deer and the occasional one is something that hunts back.
-        const species =
-          hash2i(ci, cj, 815) < (SPECIES.bear.spawn.weight ?? 0) ? SPECIES.bear : SPECIES.deer;
-        if (!this.suits(species, x, z)) continue;
+        const species = pickWeighted(now, hash2i(ci, cj, 815));
+        if (!species) continue;
 
         const n = Math.round(lerp(species.herd.min, species.herd.max, hash2i(ci, cj, 814)));
         // Goes through the same placement as every other herd. This used to
         // have its own loop picking `radius = hash * spread`, which happily
         // returned near-zero for several members at once and stacked them.
-        this.spawnHerd(species.id, x, z, n, species.herd.spread, { siteKey: key, strict: true });
+        const born = this.spawnHerd(species.id, x, z, n, species.herd.spread, {
+          siteKey: key,
+          strict: true,
+        });
+        // Everything born together fights together. One pack, one morale.
+        if (born.length) {
+          const packId = `${key}:${species.id}`;
+          for (const c of born) c.packId = packId;
+        }
       }
     }
+  }
+
+  /**
+   * Sites are marked as used the moment they spawn, so a site skipped because
+   * it was the wrong time of day stays available — but only if something comes
+   * back to ask. Refresh normally runs when you have walked 40 m, which means
+   * standing still through sunset would never populate the night.
+   */
+  reconsiderSites() {
+    this.anchor.set(Infinity, 0, Infinity);
   }
 
   spawn(speciesId, x, z, siteKey = null) {
@@ -155,8 +242,18 @@ export class Wildlife {
 
   // ── per frame ─────────────────────────────────────────────────────────────
 
-  update(dt, playerPos, stealth) {
+  update(dt, playerPos, stealth, ctx = null) {
     _player.copy(playerPos);
+    if (ctx) this.ctx = ctx;
+
+    // Nightfall and daybreak are events, not gradual states, as far as spawning
+    // is concerned: the cast changes and every site deserves a fresh look. This
+    // is what lets you sit by a fire and watch the hillside fill up.
+    const night = darkness(this.ctx.sunAltitude ?? 90) >= WILDLIFE.nightThreshold;
+    if (night !== this.wasNight) {
+      this.wasNight = night;
+      this.reconsiderSites();
+    }
 
     if (Math.hypot(playerPos.x - this.anchor.x, playerPos.z - this.anchor.z) > 40) {
       this.anchor.copy(playerPos);
