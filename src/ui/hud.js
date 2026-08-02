@@ -5,6 +5,8 @@
 
 import { SHOW_FPS } from '../config.js';
 
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+
 const CSS = `
 #hl-ui, #hl-ui * { box-sizing: border-box; }
 #hl-ui {
@@ -134,6 +136,27 @@ const CSS = `
 #hl-dead h2 { margin: 0; font-size: 28px; font-weight: 300; letter-spacing: .34em;
   text-indent: .34em; color: #e8bfb0; }
 #hl-dead p { margin: 0; opacity: .5; font-size: 12px; letter-spacing: .12em; }
+
+/* Survival gauges. Deliberately thin, low-contrast and bottom-left, and each
+   one hidden until it has something to say — a screen full of bars would work
+   directly against a game about looking at the light. */
+#hl-needs { position: absolute; left: 24px; bottom: 62px; display: flex;
+  flex-direction: column; gap: 5px; opacity: 0; transition: opacity .5s ease; }
+#hl-needs.show { opacity: .92; }
+#hl-needs .row { display: flex; align-items: center; gap: 8px; }
+#hl-needs .lbl { width: 52px; font-size: 9.5px; letter-spacing: .14em;
+  text-transform: uppercase; opacity: .5; text-align: right; }
+#hl-needs .bar { width: 116px; height: 3px; border-radius: 2px;
+  background: rgba(255,240,220,.13); overflow: hidden; }
+#hl-needs .bar i { display: block; height: 100%; transition: width .3s ease, background .5s ease; }
+#hl-needs .val { font-size: 10px; opacity: .55; min-width: 46px; }
+#hl-needs .row.hide { display: none; }
+
+#hl-cond { position: absolute; left: 24px; bottom: 44px; font-size: 11px;
+  letter-spacing: .1em; opacity: 0; transition: opacity .4s ease; }
+#hl-cond.show { opacity: .9; }
+#hl-cond .bad { color: #e8836f; }
+#hl-cond .mid { color: #e8c07f; }
 `;
 
 const KEYS = [
@@ -142,7 +165,9 @@ const KEYS = [
   ['Space', 'jump'],
   ['Ctrl', 'crouch'],
   ['Mouse 1', 'draw the bow — hold to aim, release to loose'],
-  ['E', 'pick up'],
+  ['E', 'pick up · feed the fire · cook'],
+  ['G', 'build a fire (costs a branch)'],
+  ['R', 'eat'],
   ['Q', 'drop what you are holding'],
   ['1 2 / wheel', 'change item'],
   ['F', 'free-fly camera'],
@@ -177,6 +202,12 @@ export class Hud {
       <div id="hl-cross"><i class="v"></i><i class="v"></i><i class="h"></i><i class="h"></i></div>
       <div id="hl-prompt"></div>
       <div id="hl-hot"></div>
+      <div id="hl-needs">
+        <div class="row" data-need="warmth"><span class="lbl">warmth</span><span class="bar"><i></i></span><span class="val"></span></div>
+        <div class="row" data-need="food"><span class="lbl">food</span><span class="bar"><i></i></span><span class="val"></span></div>
+        <div class="row" data-need="wind"><span class="lbl">breath</span><span class="bar"><i></i></span><span class="val"></span></div>
+      </div>
+      <div id="hl-cond"></div>
       <div id="hl-health"><i></i></div>
       <div id="hl-fps"></div>
       <div id="hl-toast"></div>
@@ -201,6 +232,16 @@ export class Hud {
     this.healthBar = this.root.querySelector('#hl-health');
     this.healthFill = this.healthBar.querySelector('i');
     this.deadScreen = this.root.querySelector('#hl-dead');
+    this.needsEl = this.root.querySelector('#hl-needs');
+    this.condEl = this.root.querySelector('#hl-cond');
+    this.needRows = {};
+    for (const row of this.needsEl.querySelectorAll('.row')) {
+      this.needRows[row.dataset.need] = {
+        row,
+        fill: row.querySelector('.bar i'),
+        val: row.querySelector('.val'),
+      };
+    }
     this.promptText = null;
 
     this.started = false;
@@ -366,6 +407,69 @@ export class Hud {
   /** Remember which mode we are in, so the fps line can say so. */
   setMode(ruleset) {
     this.modeName = ruleset.name;
+  }
+
+  /**
+   * Survival gauges.
+   *
+   * Each row appears only once it matters — warmth when you are outside the
+   * comfortable band, food below three quarters, breath when you have spent
+   * some. An untroubled player sees nothing at all, which is the point.
+   */
+  setNeeds(body, enabled) {
+    if (!enabled) {
+      this.needsEl.classList.remove('show');
+      this.condEl.classList.remove('show');
+      return;
+    }
+
+    const rows = [
+      {
+        key: 'warmth',
+        show: body.coreC < 36.6 || body.coreC > 37.6,
+        // Centre 37 C in the bar so both directions read as "off comfortable".
+        frac: clamp01((body.coreC - 33) / 8),
+        colour: body.coreC < 35 ? '#6fa8e8' : body.coreC > 38.6 ? '#e8836f' : '#8fc6c0',
+        text: `${body.coreC.toFixed(1)}°`,
+      },
+      {
+        key: 'food',
+        show: body.hunger < 75,
+        frac: body.hungerFraction,
+        colour: body.hunger < 25 ? '#e8836f' : '#c9b070',
+        text: `${Math.round(body.hunger)}%`,
+      },
+      {
+        key: 'wind',
+        show: body.stamina < 92,
+        frac: body.staminaFraction,
+        colour: body.stamina < 15 ? '#e8836f' : '#9fc08a',
+        text: `${Math.round(body.stamina)}%`,
+      },
+    ];
+
+    let any = false;
+    for (const r of rows) {
+      const el = this.needRows[r.key];
+      el.row.classList.toggle('hide', !r.show);
+      if (!r.show) continue;
+      any = true;
+      el.fill.style.width = `${(r.frac * 100).toFixed(1)}%`;
+      el.fill.style.background = r.colour;
+      el.val.textContent = r.text;
+    }
+    this.needsEl.classList.toggle('show', any);
+
+    const conds = body.conditions;
+    if (conds.length) {
+      this.condEl.innerHTML = conds
+        .slice(0, 2)
+        .map((c) => `<span class="${c.bad ? 'bad' : 'mid'}">${c.text}</span>`)
+        .join(' &middot; ');
+      this.condEl.classList.add('show');
+    } else {
+      this.condEl.classList.remove('show');
+    }
   }
 
   setPrompt(text) {

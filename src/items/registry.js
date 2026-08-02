@@ -251,4 +251,83 @@ ITEMS.hide = {
   makeObject: () => new THREE.Mesh(ITEMS.hide.geometry(), itemMaterial),
 };
 
+// ── survival items ──────────────────────────────────────────────────────────
+// Fuel, food and clothing. `kind` is what the rest of the game switches on:
+// 'fuel' can feed a fire, 'food' can be eaten, 'clothing' insulates while it is
+// in your pack. Adding a warmer cloak is a row here, not a code change.
+
+let woodGeo = null;
+let cookedGeo = null;
+let cloakGeo = null;
+
+ITEMS.wood = {
+  id: 'wood',
+  name: 'Branch',
+  kind: 'fuel',
+  stack: 20,
+  fuel: 1, // one branch of burn time — see SURVIVAL.fireFuelPerWood
+  geometry: () => {
+    if (woodGeo) return woodGeo;
+    const parts = [];
+    const main = new THREE.CylinderGeometry(0.035, 0.045, 0.62, 6);
+    main.rotateZ(Math.PI / 2 - 0.25);
+    parts.push(paint(main, new THREE.Color(0x574026), 0.2));
+    const stub = new THREE.CylinderGeometry(0.02, 0.026, 0.2, 5);
+    stub.rotateZ(0.7);
+    stub.translate(0.08, 0.07, 0.02);
+    parts.push(paint(stub, new THREE.Color(0x4a3520), 0.2));
+    return (woodGeo = finish(parts));
+  },
+  makeObject: () => new THREE.Mesh(ITEMS.wood.geometry(), itemMaterial),
+};
+
+ITEMS.venison_cooked = {
+  id: 'venison_cooked',
+  name: 'Cooked Venison',
+  kind: 'food',
+  stack: 20,
+  geometry: () => {
+    if (cookedGeo) return cookedGeo;
+    const g = new THREE.IcosahedronGeometry(0.11, 1);
+    g.scale(1.25, 0.7, 1);
+    return (cookedGeo = finish([paint(g, new THREE.Color(0x5e3320), 0.24)]));
+  },
+  makeObject: () => new THREE.Mesh(ITEMS.venison_cooked.geometry(), itemMaterial),
+};
+
+ITEMS.cloak = {
+  id: 'cloak',
+  name: 'Hide Cloak',
+  kind: 'clothing',
+  stack: 1,
+  // Degrees of effective ambient added while carried. Halved when soaked —
+  // see SURVIVAL.wetInsulationLoss.
+  insulation: 9,
+  geometry: () => {
+    if (cloakGeo) return cloakGeo;
+    const parts = [];
+    const body = new THREE.CylinderGeometry(0.16, 0.26, 0.42, 9, 1, true);
+    parts.push(paint(body, new THREE.Color(0x6b4d31), 0.16));
+    const collar = new THREE.TorusGeometry(0.15, 0.045, 6, 10);
+    collar.rotateX(Math.PI / 2);
+    collar.translate(0, 0.2, 0);
+    parts.push(paint(collar, new THREE.Color(0x4f3925), 0.14));
+    return (cloakGeo = finish(parts));
+  },
+  makeObject: () => new THREE.Mesh(ITEMS.cloak.geometry(), itemMaterial),
+};
+
+// Raw venison is food too, just poor food — declared here so `kind` is right.
+ITEMS.venison.kind = 'food';
+
 export const getItem = (id) => ITEMS[id] ?? null;
+
+/** Total insulation from everything worn (i.e. carried) right now. */
+export function insulationOf(inventory) {
+  let total = 0;
+  for (const slot of inventory.slots) {
+    const def = ITEMS[slot.item];
+    if (def?.kind === 'clothing' && def.insulation) total += def.insulation * slot.count;
+  }
+  return total;
+}

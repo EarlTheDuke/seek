@@ -26,9 +26,8 @@ export const RULESETS = {
     persist: true,
     autosaveSeconds: 25,
 
-    // Placeholders for Phase 2, declared now so the shape is settled.
-    hunger: false,
-    temperature: false,
+    // The body: hunger, core temperature, stamina, wetness.
+    survival: true,
   },
 
   sandbox: {
@@ -47,8 +46,9 @@ export const RULESETS = {
     persist: false,
     autosaveSeconds: 0,
 
-    hunger: false,
-    temperature: false,
+    // No needs in the sandbox — you are here to look at the world, not to
+    // manage a body while doing it.
+    survival: false,
   },
 };
 

@@ -14,7 +14,7 @@
 
 import * as THREE from 'three';
 import { PICKUP, PLAYER, WATER_LEVEL } from '../config.js';
-import { heightAt, slopeAt } from './noise.js';
+import { heightAt, slopeAt, clumpAt } from './noise.js';
 import { getItem } from '../items/registry.js';
 import { hash2i, lerp } from '../util/math.js';
 
@@ -95,6 +95,60 @@ export class Pickups {
 
   // ── deterministic world loot ─────────────────────────────────────────────
 
+  /**
+   * Deadfall branches, found where trees are.
+   *
+   * Uses the same tree-clump mask that decides where woodland grows, so fuel is
+   * where you would expect it: plentiful in the woods, absent on a bare ridge.
+   * That turns "where do I camp" into a real question — the warm low ground has
+   * wood, and the exposed tops, where you most need a fire, do not.
+   */
+  refreshDeadfall(px, pz) {
+    const cell = PICKUP.woodCell;
+    const R = PICKUP.woodRadius;
+    const want = new Set();
+
+    for (let cj = Math.floor((pz - R) / cell); cj <= Math.ceil((pz + R) / cell); cj++) {
+      for (let ci = Math.floor((px - R) / cell); ci <= Math.ceil((px + R) / cell); ci++) {
+        const key = `w${ci},${cj}`;
+        if (this.taken.has(key)) continue;
+
+        const x = ci * cell + hash2i(ci, cj, 511) * cell;
+        const z = cj * cell + hash2i(ci, cj, 512) * cell;
+        if ((x - px) ** 2 + (z - pz) ** 2 > R * R) continue;
+
+        // Only under woodland, and only sometimes.
+        const clump = clumpAt(x, z);
+        if (clump < 0.25) continue;
+        if (hash2i(ci, cj, 513) > PICKUP.woodChance * clump) continue;
+
+        const y = heightAt(x, z);
+        if (y < WATER_LEVEL + 0.5) continue;
+        if (slopeAt(x, z) > 0.45) continue;
+
+        want.add(key);
+        if (this.loot.has(key)) continue;
+
+        const def = getItem('wood');
+        const obj = def.makeObject();
+        obj.castShadow = true;
+        obj.rotation.y = hash2i(ci, cj, 514) * Math.PI * 2;
+        obj.rotation.z = (hash2i(ci, cj, 515) - 0.5) * 0.4;
+        obj.position.set(x, y + 0.06, z);
+        this.scene.add(obj);
+        // Deadfall lies still — flagged so the bob/spin pass skips it.
+        this.loot.set(key, { obj, item: 'wood', count: 1 + (hash2i(ci, cj, 516) < 0.35 ? 1 : 0), x, z, baseY: y + 0.06, key, still: true });
+      }
+    }
+
+    for (const [key, entry] of this.loot) {
+      if (!key.startsWith('w')) continue;
+      if (want.has(key)) continue;
+      this.scene.remove(entry.obj);
+      this.loot.delete(key);
+    }
+  }
+
   refreshLoot(px, pz) {
     const cell = PICKUP.lootCell;
     const R = PICKUP.lootRadius;
@@ -132,6 +186,7 @@ export class Pickups {
     }
 
     for (const [key, entry] of this.loot) {
+      if (key.startsWith('w')) continue; // deadfall has its own pass
       if (want.has(key)) continue;
       this.scene.remove(entry.obj);
       this.loot.delete(key);
@@ -146,6 +201,7 @@ export class Pickups {
     if (Math.hypot(playerPos.x - this.anchor.x, playerPos.z - this.anchor.z) > 45) {
       this.anchor.set(playerPos.x, 0, playerPos.z);
       this.refreshLoot(playerPos.x, playerPos.z);
+      this.refreshDeadfall(playerPos.x, playerPos.z);
     }
 
     // Dropped items fall and settle.
@@ -168,6 +224,9 @@ export class Pickups {
     // Loot bobs so it catches the eye against the grass.
     const bob = Math.sin(this.time * PICKUP.bobRate) * PICKUP.bobHeight;
     for (const entry of this.loot.values()) {
+      // Deadfall is scenery that happens to be collectable; a branch bobbing
+      // and spinning in mid-air would read as a video game power-up.
+      if (entry.still) continue;
       entry.obj.position.y = entry.baseY + bob;
       entry.obj.rotation.y += dt * PICKUP.spinRate;
     }

@@ -28,7 +28,12 @@ import { Pickups } from './world/pickups.js';
 import { ColliderField, addStaticGroup } from './world/colliders.js';
 import { makeRandom } from './world/noise.js';
 import { StealthProfile } from './player/stealth.js';
-import { Vitals } from './player/vitals.js';
+import { Body } from './player/body.js';
+import { Fires } from './world/fires.js';
+import { sampleEnvironment } from './world/environment.js';
+import { insulationOf } from './items/registry.js';
+import { RECIPES, bestAvailable, craft } from './items/recipes.js';
+import { SURVIVAL } from './config.js';
 import { Wildlife } from './creatures/manager.js';
 import { Weather } from './world/weather.js';
 import { Rain } from './fx/rain.js';
@@ -155,7 +160,10 @@ function boot() {
   const weather = new Weather();
   const rain = new Rain(scene);
 
-  const vitals = new Vitals({
+  const fires = new Fires(scene, { audio });
+
+  const vitals = new Body({
+    onWarning: (text) => hud.toast(text, 3),
     onDamage: (amount) => {
       audio.playerHurt(Math.min(1, amount / 40));
       feel.shake(0.75);
@@ -287,6 +295,64 @@ function boot() {
   bearNearSpawn();
 
   const itemName = (id) => getItem(id)?.name ?? id;
+
+  /**
+   * What would E do, standing here?
+   *
+   * One resolver, used for BOTH the prompt and the action, so the two can never
+   * disagree — which they did when picking up was hardcoded to win: with
+   * deadfall scattered everywhere there was almost always something in range,
+   * and the fire beside you was unreachable.
+   *
+   * Resolution is by distance, so whatever you are closest to is what you get.
+   */
+  function resolveInteraction() {
+    const near = pickups.nearest; // set by pickups.update, carries .distance
+    const fire = fires.nearest(ctrl.position, 3.4);
+    const fireDist = fire
+      ? Math.hypot(fire.position.x - ctrl.position.x, fire.position.z - ctrl.position.z)
+      : Infinity;
+
+    if (near && near.distance <= fireDist) {
+      const label = `<b>E</b>  pick up ${itemName(near.item)}${near.count > 1 ? ` ×${near.count}` : ''}`;
+      return { label, run: () => pickups.collect() };
+    }
+    if (!fire) return null;
+
+    // A fire burning down is the urgent thing; otherwise it is a workbench.
+    if (inventory.countOf('wood') > 0 && fire.fuel < fire.maxFuel * 0.35) {
+      return {
+        label: '<b>E</b>  feed the fire',
+        run: () => {
+          inventory.remove('wood', 1);
+          fires.addFuel(fire);
+          return 'fed the fire';
+        },
+      };
+    }
+    const recipe = bestAvailable('fire', inventory);
+    if (recipe) {
+      return {
+        label: `<b>E</b>  ${recipe.verb} · ${recipe.name.toLowerCase()}`,
+        run: () => {
+          const made = craft(recipe, inventory);
+          return made ? `${recipe.verb} — ${made}` : null;
+        },
+      };
+    }
+    if (inventory.countOf('wood') > 0) {
+      return {
+        label: '<b>E</b>  feed the fire',
+        run: () => {
+          inventory.remove('wood', 1);
+          fires.addFuel(fire);
+          return 'fed the fire';
+        },
+      };
+    }
+    return { label: '<b>E</b>  nothing to work with', run: () => null };
+  }
+  let interaction = null;
   function refreshItemUi() {
     weapons.sync(inventory);
     viewmodel.setItem(inventory.equippedSlot?.item ?? null);
@@ -305,7 +371,7 @@ function boot() {
   const saveContext = () => ({
     seed: SEED,
     mode: ruleset.id,
-    atmosphere, weather, ctrl, inventory, vitals, projectiles, pickups, wildlife,
+    atmosphere, weather, ctrl, inventory, vitals, projectiles, pickups, wildlife, fires,
     onPlayerMoved: (pos) => {
       // Stream the world in around wherever the save put us before the first
       // frame, so a loaded run never opens on empty ground.
@@ -498,9 +564,44 @@ function boot() {
     }
 
     if (intent.selectSlot >= 0) inventory.select(intent.selectSlot);
-    if (intent.interact) {
-      const msg = pickups.collect();
-      if (msg) hud.toast(msg, 1.4);
+
+    if (intent.interact && interaction) {
+      const msg = interaction.run();
+      if (msg) hud.toast(msg, 1.6);
+    }
+
+    // ── light a fire ──
+    if (intent.place) {
+      if (inventory.countOf('wood') < 1) {
+        hud.toast('you need a branch to build a fire', 2);
+      } else {
+        camera.getWorldDirection(_drop).setY(0).normalize();
+        const fx = ctrl.position.x + _drop.x * 1.6;
+        const fz = ctrl.position.z + _drop.z * 1.6;
+        const result = fires.light(fx, fz);
+        if (result.ok) {
+          inventory.remove('wood', 1);
+          hud.toast('a fire', 1.6);
+        } else {
+          hud.toast(result.why, 2);
+        }
+      }
+    }
+
+    // ── eat ──
+    if (intent.eat) {
+      // Cooked first: it fills you more, and eating the good food last is a
+      // mistake the interface should not let you make by accident.
+      const order = ['venison_cooked', 'venison', 'berries'];
+      const found = order.find((id) => inventory.countOf(id) > 0);
+      if (!found) hud.toast('nothing to eat', 1.4);
+      else {
+        const filled = vitals.eat(found);
+        if (filled > 0) {
+          inventory.remove(found, 1);
+          hud.toast(`ate ${itemName(found)}`, 1.4);
+        } else hud.toast('you are full', 1.2);
+      }
     }
     if (intent.drop) {
       const taken = inventory.takeEquipped();
@@ -511,11 +612,33 @@ function boot() {
       }
     }
 
+    // ── the elements ──
+    // Sampled once per frame at the player, then handed to the body. Creatures
+    // and, later, shelter placement will read the same query.
+    fires.update(dt, weather);
+    const env = sampleEnvironment(ctrl.position, {
+      hours: atmosphere.hours,
+      sunAltitude: atmosphere.elevation,
+      weather,
+      fires,
+    });
+    const weaponState0 = weapons.getState();
+    vitals.update(dt, {
+      ctrl,
+      env,
+      insulationC: insulationOf(inventory),
+      drawing: !!weaponState0?.drawing,
+      enabled: ruleset.current.survival,
+    });
+
     // Weapons run before movement so a drawn bow slows you this frame, not next.
     weapons.update(dt);
-    vitals.update(dt);
-    // Dead men do not walk.
-    ctrl.speedScale = vitals.dead ? 0 : weapons.moveScale;
+    // Dead men do not walk. Cold, hunger and exhaustion slow the living.
+    ctrl.speedScale = vitals.dead
+      ? 0
+      : weapons.moveScale * (ruleset.current.survival ? vitals.speedScale : 1);
+    // Out of breath means no sprinting until you have some back.
+    if (ruleset.current.survival && vitals.sprintBlocked) intent.sprint = false;
 
     ctrl.update(dt, intent);
     feel.update(dt, ctrl, camera, weapons.fovOffset);
@@ -538,12 +661,14 @@ function boot() {
     wildlife.update(dt, ctrl.position, stealth);
     projectiles.update(dt);
 
-    const near = pickups.update(dt, ctrl.position);
-    hud.setPrompt(near ? `<b>E</b>  pick up ${itemName(near.item)}${near.count > 1 ? ` ×${near.count}` : ''}` : null);
+    pickups.update(dt, ctrl.position);
+    interaction = resolveInteraction();
+    hud.setPrompt(interaction ? interaction.label : null);
 
     const weaponState = weapons.getState();
     hud.setCrosshair(vitals.dead ? null : weaponState, weapons.spreadHint);
     hud.setVitals(vitals);
+    hud.setNeeds(vitals, ruleset.current.survival);
     viewmodel.update(dt, ctrl, weaponState, atmosphere.sun, camera.quaternion);
 
     audio.update(dt, ctrl, ctrl.position.y);
@@ -618,7 +743,30 @@ function boot() {
       weather.rain = cfg.rain;
       return `weather pinned to ${name}`;
     },
-    vitals, ruleset,
+    vitals, body: vitals, ruleset, fires,
+    /** What it is like where you are standing. */
+    conditions: () => {
+      const env = sampleEnvironment(ctrl.position, {
+        hours: atmosphere.hours,
+        sunAltitude: atmosphere.elevation,
+        weather,
+        fires,
+      });
+      return {
+        where: env.describe(),
+        airC: +env.airC.toFixed(1),
+        feltC: +vitals.feltC.toFixed(1),
+        effectiveC: +vitals.effectiveC.toFixed(1),
+        coreC: +vitals.coreC.toFixed(2),
+        hunger: +vitals.hunger.toFixed(1),
+        stamina: +vitals.stamina.toFixed(1),
+        wetness: +vitals.wetness.toFixed(2),
+        insulation: +vitals.insulationC.toFixed(1),
+        exposure: +env.exposure.toFixed(2),
+        wind: +env.windStrength.toFixed(2),
+        fires: fires.stats,
+      };
+    },
 
     // ── persistence ──
     save: () => (saveNow('manual') ? 'saved' : 'saving is off in this mode'),

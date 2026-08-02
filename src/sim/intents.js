@@ -27,8 +27,10 @@ export function createIntent() {
 
     // ── actions ──
     primary: false, // trigger held (drawing / shooting)
-    interact: false, // edge-triggered: pick up
+    interact: false, // edge-triggered: pick up / cook / feed the fire
     drop: false, // edge-triggered: drop equipped
+    place: false, // edge-triggered: light a fire (later: build)
+    eat: false, // edge-triggered: eat the best food you carry
     selectSlot: -1, // -1 = no change
   };
 }
@@ -45,6 +47,8 @@ export function clearIntent(i) {
   i.primary = false;
   i.interact = false;
   i.drop = false;
+  i.place = false;
+  i.eat = false;
   i.selectSlot = -1;
   return i;
 }
@@ -61,6 +65,8 @@ export function copyIntent(to, from) {
   to.primary = from.primary;
   to.interact = from.interact;
   to.drop = from.drop;
+  to.place = from.place;
+  to.eat = from.eat;
   to.selectSlot = from.selectSlot;
   return to;
 }
@@ -88,6 +94,8 @@ export function sanitiseIntent(i, maxLookPerTick = 0.35) {
   i.primary = !!i.primary;
   i.interact = !!i.interact;
   i.drop = !!i.drop;
+  i.place = !!i.place;
+  i.eat = !!i.eat;
   i.selectSlot = Number.isInteger(i.selectSlot) ? i.selectSlot : -1;
   return i;
 }

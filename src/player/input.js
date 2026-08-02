@@ -24,6 +24,8 @@ export class PlayerInput {
     // Edge-triggered, consumed by the next poll.
     this.pressedInteract = false;
     this.pressedDrop = false;
+    this.pressedPlace = false;
+    this.pressedEat = false;
     this.pendingSlot = -1;
 
     this.locked = false;
@@ -47,6 +49,8 @@ export class PlayerInput {
       if (e.repeat) return;
       if (e.code === 'KeyE') this.pressedInteract = true;
       if (e.code === 'KeyQ') this.pressedDrop = true;
+      if (e.code === 'KeyG') this.pressedPlace = true;
+      if (e.code === 'KeyR') this.pressedEat = true;
       if (/^Digit[1-5]$/.test(e.code)) this.pendingSlot = Number(e.code.slice(5)) - 1;
     };
     this.onKeyUp = (e) => this.keys.delete(e.code);
@@ -142,9 +146,13 @@ export class PlayerInput {
 
     i.interact = this.pressedInteract;
     i.drop = this.pressedDrop;
+    i.place = this.pressedPlace;
+    i.eat = this.pressedEat;
     i.selectSlot = this.pendingSlot;
     this.pressedInteract = false;
     this.pressedDrop = false;
+    this.pressedPlace = false;
+    this.pressedEat = false;
     this.pendingSlot = -1;
 
     return i;

@@ -44,6 +44,12 @@ export function captureSave(ctx) {
       yaw: r3(ctrl.yaw),
       pitch: r3(ctrl.pitch),
       health: r3(vitals.health),
+      // The body. Written flat rather than nested so a new need is one more
+      // key with a sensible default on load, never a migration.
+      coreC: r3(vitals.coreC ?? 37),
+      hunger: r3(vitals.hunger ?? 100),
+      stamina: r3(vitals.stamina ?? 100),
+      wetness: r3(vitals.wetness ?? 0),
       distanceTravelled: r3(ctrl.distanceTravelled),
       inventory: {
         slots: inventory.slots.map((s) => ({ item: s.item, count: s.count })),
@@ -74,6 +80,9 @@ export function captureSave(ctx) {
       // are "this seed would put something here, but it is not here any more".
       lootTaken: [...pickups.taken],
       creatureSitesCleared: [...wildlife.clearedSites],
+      // Fires are the first thing the player PUTS in the world, and the shape
+      // Phase 7's buildings will follow.
+      fires: ctx.fires ? ctx.fires.serialise() : [],
     },
   };
 }
@@ -170,6 +179,12 @@ export function applySave(data, ctx) {
   ctrl.grounded = true;
   vitals.health = p.health;
   vitals.dead = false;
+  if (vitals.coreC !== undefined) {
+    vitals.coreC = p.coreC ?? 37;
+    vitals.hunger = p.hunger ?? 100;
+    vitals.stamina = p.stamina ?? 100;
+    vitals.wetness = p.wetness ?? 0;
+  }
 
   inventory.slots = p.inventory.slots.map((s) => ({ item: s.item, count: s.count }));
   inventory.equipped = Math.min(p.inventory.equipped, Math.max(0, inventory.slots.length - 1));
@@ -189,6 +204,7 @@ export function applySave(data, ctx) {
   for (const d of data.world.dropped) {
     pickups.restoreDrop(d.item, d.count, d.p);
   }
+  ctx.fires?.restore(data.world.fires);
 
   return true;
 }

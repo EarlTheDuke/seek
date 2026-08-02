@@ -25,7 +25,10 @@ import { Projectiles } from '../world/projectiles.js';
 import { Pickups } from '../world/pickups.js';
 import { Controller } from '../player/controller.js';
 import { StealthProfile } from '../player/stealth.js';
-import { Vitals } from '../player/vitals.js';
+import { Body } from '../player/body.js';
+import { Fires } from '../world/fires.js';
+import { sampleEnvironment } from '../world/environment.js';
+import { insulationOf } from '../items/registry.js';
 import { Inventory } from '../items/inventory.js';
 import { WeaponHost } from '../weapons/index.js';
 import { pickSpawn, buildLandmarks } from '../world/landmarks.js';
@@ -55,7 +58,8 @@ export function createSimWorld({ seed = SEED, hours = TIME.startHour } = {}) {
   const inventory = new Inventory(LOADOUT.slots, LOADOUT.equipped);
   const ctrl = new Controller();
   const stealth = new StealthProfile();
-  const vitals = new Vitals({});
+  const vitals = new Body({});
+  const fires = new Fires(scene, {});
 
   const wildlife = new Wildlife(scene, {
     stealth,
@@ -114,8 +118,25 @@ export function createSimWorld({ seed = SEED, hours = TIME.startHour } = {}) {
     weather.update(dt);
     stealth.setWeather(weather);
 
+    // The elements, exactly as the browser runs them.
+    fires.update(dt, weather);
+    const env = sampleEnvironment(ctrl.position, {
+      hours: clock.hours,
+      sunAltitude: solarPosition(clock.hours).altitude,
+      weather,
+      fires,
+    });
+    vitals.update(dt, {
+      ctrl,
+      env,
+      insulationC: insulationOf(inventory),
+      drawing: !!weapons.getState()?.drawing,
+      enabled: true,
+    });
+
     weapons.update(dt);
-    ctrl.speedScale = weapons.moveScale;
+    ctrl.speedScale = weapons.moveScale * vitals.speedScale;
+    if (vitals.sprintBlocked) intent.sprint = false;
     ctrl.update(dt, intent);
 
     scatter.update(ctrl.position, 0);
@@ -126,7 +147,7 @@ export function createSimWorld({ seed = SEED, hours = TIME.startHour } = {}) {
     vitals.update(dt);
   }
 
-  return { scene, clock, weather, ctrl, stealth, vitals, inventory, weapons, wildlife, projectiles, pickups, scatter, spawn, step };
+  return { scene, clock, weather, ctrl, stealth, vitals, fires, inventory, weapons, wildlife, projectiles, pickups, scatter, spawn, step };
 }
 
 /**
@@ -172,6 +193,10 @@ export function fingerprint(w) {
     projHash: r(projHash),
     noise: r(w.stealth.noise),
     arrows: w.inventory.countOf('arrow'),
+    coreC: r(w.vitals.coreC),
+    hunger: r(w.vitals.hunger),
+    stamina: r(w.vitals.stamina),
+    wetness: r(w.vitals.wetness),
   };
 }
 

@@ -382,6 +382,13 @@ export const PICKUP = {
   lootChance: 0.3,
   lootRadius: 420, // spawned within this range of the player
   arrowsPerBundle: [3, 7], // inclusive range
+
+  // Deadfall firewood. Denser than quivers because you need a lot of it, and
+  // placed by the woodland mask — so the sheltered valleys have fuel and the
+  // cold, exposed tops do not.
+  woodCell: 17,
+  woodRadius: 130,
+  woodChance: 0.55,
 };
 
 export const LOADOUT = {
@@ -439,6 +446,130 @@ export const STEALTH = {
   // What heavy rain does for you. Multipliers applied at rain = 1.
   rainNoiseMask: 0.3, // your footsteps carry 30% as far
   rainScentMask: 0.25, // and your scent barely reaches at all
+};
+
+// ── Survival: the body and the elements ─────────────────────────────────────
+//
+// Temperature is modelled in real degrees rather than an abstract "warmth" bar,
+// because "34.1 C — shivering" tells you something a half-empty blue bar never
+// will, and because it makes every input (altitude, wind, rain, fire, clothing)
+// combine in a way you can reason about instead of tune blindly.
+export const SURVIVAL = {
+  // ── ambient temperature ──
+  seaLevelC: 15, // air temperature at the waterline at solar noon, clear sky
+  // Real lapse rate is 6.5 C per 1000 m, which across this world's 110 m of
+  // relief would be under a degree — invisible. Exaggerated hard on purpose so
+  // that going up genuinely means going cold.
+  lapsePerMetre: 0.105,
+  diurnalSwingC: 9, // how much colder night is than afternoon
+  // The ground holds heat, so the coldest hour trails sunrise and the warmest
+  // trails noon. Without this lag, dawn is wrongly the warmest part of night.
+  thermalLagHours: 2.4,
+
+  cloudDaySuppressC: 4.5, // cloud caps the afternoon high
+  cloudNightBlanketC: 3.0, // ...and stops the night falling as far
+  rainChillC: 3.5,
+  mistChillC: 1.5,
+
+  // ── wind chill ──
+  windChillMax: 7.5, // degrees stolen at full gale, dry
+  windChillWetBonus: 6.0, // ...and again on top of that when soaked
+
+  // ── sun on your back ──
+  sunWarmthMax: 6.0, // direct sun at a high angle, clear sky
+
+  // ── wetness, 0..1 ──
+  wetRainRate: 0.055, // per second in full downpour
+  wetWadeRate: 0.5, // per second standing in water
+  // Drying is SLOW. At 0.012 a soaking dried out in under ninety seconds, which
+  // meant rain never actually cost you anything. Four minutes standing in the
+  // wind, or under one beside a fire, is the difference between weather as
+  // decoration and weather as a decision.
+  wetDryRate: 0.0035,
+  wetDryFireBonus: 0.008,
+  wetDrySunBonus: 0.008,
+  wetDryWindBonus: 0.007,
+  wetChillC: 8.0, // degrees stolen when fully soaked
+
+  // ── the body ──
+  neutralC: 19, // effective ambient below which a body starts losing heat
+  // ...and how far ABOVE neutral it can go before it starts gaining. Real
+  // thermoregulation is lopsided: you sweat off a surplus far more effectively
+  // than you generate a deficit. Without this band, sitting by a fire in a
+  // cloak slowly cooks you to 41 C, which is absurd.
+  comfortBandC: 14,
+  // How fast a comfortable body climbs back to 37. About four minutes to thaw
+  // out from properly hypothermic, so getting cold costs you real time.
+  rewarmRate: 0.0075,
+  coreStartC: 37,
+  coreMinC: 28,
+  coreMaxC: 42.5,
+  // Degrees of core change per second, per degree of imbalance against
+  // `neutralC`. Small, and it has to be: an exposed ridge at night sits around
+  // 20 degrees of imbalance, so this puts you at the shivering threshold in
+  // about five real minutes and in danger in ten. An earlier value of 0.0125
+  // meant 0.24 C per SECOND — hypothermia in under twenty seconds, which is not
+  // weather, it is a trap.
+  thermalRate: 0.00023,
+  exertionWarmthC: 5.5, // moving hard warms you — a real survival tactic
+  shiverWarmthC: 2.2, // involuntary, and it costs you food
+
+  coldShiverC: 35.6, // below this you shiver: aim sways, hunger burns faster
+  coldSlowC: 34.5, // below this you slow down
+  coldDamageC: 33.0, // below this it starts killing you
+  coldDamagePerSec: 1.6,
+
+  hotSweatC: 38.4, // above this stamina drains faster and aim sways
+  hotDamageC: 40.0,
+  hotDamagePerSec: 1.4,
+
+  // ── hunger, 0..100 ──
+  hungerStart: 85,
+  // Roughly two in-world days from full to empty at rest. Deliberately slow:
+  // a survival meter that interrupts you every few minutes is a chore, and
+  // this game is about standing still and watching the light.
+  hungerPerHour: 2.1,
+  hungerExertionMul: 2.4, // at a full sprint
+  hungerColdMul: 1.9, // shivering burns fuel fast
+  hungerWeakBelow: 25, // stamina ceiling starts dropping
+  hungerDamageBelow: 0, // and then it kills you
+  hungerDamagePerSec: 0.55,
+
+  // ── stamina, 0..100 ──
+  staminaStart: 100,
+  staminaSprintDrain: 11, // per second sprinting
+  staminaDrawDrain: 4.5, // per second at full draw — holding a bow is work
+  staminaRecover: 9.5, // per second at rest
+  staminaWalkRecover: 4.0,
+  staminaSprintFloor: 12, // below this you cannot start a sprint
+  staminaHotMul: 1.5,
+
+  // ── fire ──
+  // Enough to lift you clear of `neutralC` on a cold, windy ridge — at 16 it
+  // fell just short, so a fire slowed you freezing but could never actually
+  // warm you back up, which defeats the entire point of building one.
+  fireWarmthC: 22,
+  fireWarmRadius: 6.5, // and the range over which that falls off
+  fireLightRange: 26,
+  fireBurnPerSec: 0.34, // fuel units consumed
+  fireFuelPerWood: 45, // seconds of burn per branch
+  fireMaxFuel: 240,
+  cookSeconds: 22, // per item, standing beside it
+
+  // ── nutrition ──
+  // Keys are ITEM IDS. They have to match items/registry.js exactly or eating
+  // silently does nothing.
+  food: {
+    venison: { fills: 16, spoils: true }, // raw: edible, but poor
+    venison_cooked: { fills: 34, spoils: false },
+  },
+  spoilHours: 30, // raw food goes off after this long in the pack
+
+  // ── clothing ──
+  // Insulation is expressed in degrees of effective ambient added. Wet clothing
+  // keeps far less, which is what makes rain genuinely dangerous rather than
+  // merely atmospheric.
+  wetInsulationLoss: 0.65,
 };
 
 export const VITALS = {
