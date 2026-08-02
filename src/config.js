@@ -620,6 +620,40 @@ export const OTTER = {
   anim: { strideRate: 3.4, legSwing: 0.34, bodyBob: 0.035 },
 };
 
+// ── Agents: players that are not people ─────────────────────────────────────
+//
+// See src/net/agent.js. An agent holds a real socket and sends real intents;
+// the server cannot tell it from a person, which is the architecture arriving
+// where Phase 1 pointed it.
+//
+// COST IS THE CONSTRAINT that shapes every number here. A model call is money,
+// so the cadence is slow, the brief is small, and the reflex layer is good
+// enough that a slow or absent model costs nothing but initiative.
+export const AGENTS = {
+  cadenceSeconds: 8, // how often an agent reconsiders
+  retargetSeconds: 2.5,
+  arriveWithin: 6,
+  roamDistance: 60,
+  stalkWithin: 45,
+  turnRate: 1.7,
+  speakEveryHours: 0.5,
+
+  // What goes in a brief. Small on purpose: a decision needs the nearest few
+  // things, not an inventory of the county.
+  noticeRange: 140,
+  maxContacts: 6,
+
+  logSize: 400,
+
+  // ── the ceiling ──
+  // A hard cap on how much a session may spend, checked before every call.
+  // Not a suggestion: the harness stops asking and every agent falls back to
+  // its scripted brain, which is a fully playable outcome rather than a
+  // failure. Nothing here should ever be able to run up a bill unattended.
+  maxCallsPerAgent: 400,
+  maxCallsTotal: 4000,
+};
+
 // ── Minds ───────────────────────────────────────────────────────────────────
 //
 // The deliberation layer. See src/minds/ and VISION.md §6b. Two rules govern

@@ -116,7 +116,15 @@ const pick = (list, r) => list[Math.min(list.length - 1, Math.floor(r * list.len
  *     the world.
  */
 export class LlmProvider {
-  constructor({ apiKey, model = 'claude-sonnet-4-5', fallback, fetchImpl, timeoutMs = 4000 } = {}) {
+  constructor({
+    apiKey,
+    model = 'claude-sonnet-4-5',
+    fallback,
+    fetchImpl,
+    timeoutMs = 4000,
+    maxCalls = Infinity,
+    budget = null, // a shared Budget, when several agents draw on one purse
+  } = {}) {
     this.apiKey = apiKey;
     this.model = model;
     this.fallback = fallback ?? new ScriptedProvider(() => 0.5);
@@ -125,6 +133,10 @@ export class LlmProvider {
     this.name = 'llm';
     this.calls = 0;
     this.failures = 0;
+    this.maxCalls = maxCalls;
+    this.budget = budget;
+    this.lastTokensIn = 0;
+    this.lastTokensOut = 0;
   }
 
   get available() {
@@ -152,6 +164,13 @@ export class LlmProvider {
   async decide(brief) {
     if (!this.available) return this.fallback.decide(brief);
 
+    // ── the ceiling ──
+    // Checked BEFORE the call, never after. Running out of budget is not an
+    // error: every agent falls back to its scripted brain and the game carries
+    // on being fully playable, which is the whole point of the floor existing.
+    if (this.calls >= this.maxCalls) return this.fallback.decide(brief);
+    if (this.budget && !this.budget.take()) return this.fallback.decide(brief);
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
@@ -173,6 +192,11 @@ export class LlmProvider {
       });
       if (!res.ok) throw new Error(`http ${res.status}`);
       const data = await res.json();
+      // Recorded so a run can report what it actually cost, rather than
+      // leaving you to find out from a bill.
+      this.lastTokensIn = data?.usage?.input_tokens ?? 0;
+      this.lastTokensOut = data?.usage?.output_tokens ?? 0;
+      this.budget?.spend(this.lastTokensIn, this.lastTokensOut);
       const text = data?.content?.[0]?.text ?? '';
       const match = text.match(/\{[\s\S]*\}/);
       if (!match) throw new Error('no json in reply');
@@ -193,10 +217,55 @@ export class LlmProvider {
 }
 
 /**
+ * A shared purse.
+ *
+ * Several agents drawing on one budget, so "twelve players" cannot cost twelve
+ * times what one does without anybody noticing. Deliberately a hard stop rather
+ * than a warning: an unattended process that can keep spending is the failure
+ * mode worth engineering against, and the consequence of running out here is
+ * only that the world goes back to scripted brains.
+ */
+export class Budget {
+  constructor({ maxCalls = Infinity, label = 'session' } = {}) {
+    this.maxCalls = maxCalls;
+    this.label = label;
+    this.calls = 0;
+    this.tokensIn = 0;
+    this.tokensOut = 0;
+    this.exhaustedAt = null;
+  }
+
+  /** Reserve one call. False once the purse is empty. */
+  take() {
+    if (this.calls >= this.maxCalls) {
+      this.exhaustedAt ??= this.calls;
+      return false;
+    }
+    this.calls++;
+    return true;
+  }
+
+  spend(inTokens, outTokens) {
+    this.tokensIn += inTokens;
+    this.tokensOut += outTokens;
+  }
+
+  get spent() {
+    return {
+      calls: this.calls,
+      of: this.maxCalls,
+      tokensIn: this.tokensIn,
+      tokensOut: this.tokensOut,
+      exhausted: this.calls >= this.maxCalls,
+    };
+  }
+}
+
+/**
  * Build whatever the environment asks for. Scripted unless told otherwise, and
  * scripted anyway if the key is missing.
  */
-export function makeProvider(rand, env = {}) {
+export function makeProvider(rand, env = {}, { budget = null, maxCalls } = {}) {
   const scripted = new ScriptedProvider(rand);
   if ((env.MINDS_PROVIDER ?? 'scripted') !== 'claude') return scripted;
   if (!env.MINDS_API_KEY) {
@@ -207,5 +276,7 @@ export function makeProvider(rand, env = {}) {
     apiKey: env.MINDS_API_KEY,
     model: env.MINDS_MODEL,
     fallback: scripted,
+    budget,
+    maxCalls,
   });
 }

@@ -154,14 +154,31 @@ function bearingFromAngle(radians) {
   return `from the ${dirs[Math.round(deg / 45) % 8]}`;
 }
 
-/** How a brief reads as text. Used by the LLM provider and by the debug view. */
+/**
+ * How a brief reads as text. Used by the LLM provider and by the debug view.
+ *
+ * TOLERANT OF A PARTIAL BRIEF, and that is not politeness. A creature's brief
+ * is built from the world; an AGENT's is built from a network snapshot and
+ * genuinely has less in it. The strict version read `b.carrying.length` and
+ * threw on the agent's brief — inside the provider's try block, so it landed
+ * in the catch and fell back to the scripted brain. Every model-driven agent
+ * would have silently never called the model, and it would have looked like
+ * the model being stupid rather than a missing field.
+ */
 export function briefToText(b) {
-  const lines = [
-    `You are ${b.place}, ${b.ground}. It is ${b.hour}, ${b.light}, ${b.weather}, wind ${b.wind}.`,
-    `You are ${b.health} and ${b.condition}${b.hunger ? `, and ${b.hunger}` : ''}.`,
-  ];
-  if (b.carrying.length) lines.push(`You are carrying: ${b.carrying.join(', ')}.`);
-  if (b.contacts.length) {
+  const lines = [];
+  const where = [b.place, b.ground].filter(Boolean).join(', ');
+  const when = [b.hour, b.light, b.weather, b.wind && `wind ${b.wind}`].filter(Boolean).join(', ');
+  if (where) lines.push(`You are ${where}. It is ${when}.`);
+  else lines.push(`It is ${when}.`);
+  const body = [b.health, b.condition, b.hunger].filter(Boolean).join(', ');
+  if (body) lines.push(`You are ${body}.`);
+  if (b.carrying?.length) lines.push(`You are carrying: ${b.carrying.join(', ')}.`);
+  if (b.heard?.length) {
+    lines.push('You have heard:');
+    for (const h of b.heard) lines.push(`  - ${h}`);
+  }
+  if (b.contacts?.length) {
     lines.push('You are aware of:');
     for (const c of b.contacts) {
       const bits = [`  - ${c.what}, ${c.how}, ${c.distance} to the ${c.where}`];
@@ -172,10 +189,10 @@ export function briefToText(b) {
   } else {
     lines.push('You are aware of nothing but the weather.');
   }
-  if (b.memory.length) {
+  if (b.memory?.length) {
     lines.push('You remember:');
     for (const m of b.memory) lines.push(`  - ${m}`);
   }
-  lines.push(`Your current intention is: ${b.goal}.`);
+  lines.push(`Your current intention is: ${b.goal ?? 'nothing in particular'}.`);
   return lines.join('\n');
 }
