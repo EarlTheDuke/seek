@@ -166,6 +166,29 @@ const CSS = `
   opacity: 0; transition: opacity .25s ease; }
 #hl-stance.show { opacity: .75; }
 
+/* The otter's menu. A real list you pick from, rather than cycling blind
+   through a toast at a time — with six tricks that stopped being a keybind and
+   started being a guessing game. Shows what it knows, what it is still
+   learning, and what it will not do yet and why. */
+#hl-menu { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  min-width: 340px; padding: 20px 0 14px; background: rgba(12,14,11,.86);
+  border: 1px solid rgba(220,210,190,.18); opacity: 0; pointer-events: none;
+  transition: opacity .18s ease; }
+#hl-menu.show { opacity: 1; }
+#hl-menu h3 { font-size: 12px; letter-spacing: .26em; text-transform: uppercase;
+  opacity: .55; text-align: center; margin-bottom: 14px; font-weight: 400; }
+#hl-menu .row { display: flex; align-items: baseline; gap: 12px;
+  padding: 7px 26px; font-size: 14px; letter-spacing: .04em; }
+#hl-menu .row.sel { background: rgba(230,220,200,.11); }
+#hl-menu .row .k { opacity: .4; font-size: 12px; min-width: 14px; }
+#hl-menu .row .n { flex: 1; }
+#hl-menu .row .d { font-size: 11px; opacity: .45; text-align: right; }
+#hl-menu .row.off { opacity: .38; }
+#hl-menu .row.off .d { color: #e8a07f; }
+#hl-menu .foot { margin-top: 12px; padding: 9px 26px 0; font-size: 10px;
+  letter-spacing: .16em; text-transform: uppercase; opacity: .38; text-align: center;
+  border-top: 1px solid rgba(220,210,190,.1); }
+
 /* The otter. Shown only once it is yours, and each need only once it is
    actually a need — the same rule the body's own gauges follow, for the same
    reason: a permanent row of bars turns a companion into a chore list. */
@@ -250,6 +273,7 @@ export class Hud {
       <div id="hl-cond"></div>
       <div id="hl-stance">crouched</div>
       <div id="hl-pet"></div>
+      <div id="hl-menu"><h3></h3><div class="rows"></div><div class="foot"></div></div>
       <div id="hl-survey"><h3></h3><div class="rows"></div></div>
       <div id="hl-health"><i></i></div>
       <div id="hl-fps"></div>
@@ -280,6 +304,12 @@ export class Hud {
     this.stanceEl = this.root.querySelector('#hl-stance');
     this.petEl = this.root.querySelector('#hl-pet');
     this.petKey = '';
+
+    this.menuEl = this.root.querySelector('#hl-menu');
+    this.menuTitle = this.menuEl.querySelector('h3');
+    this.menuRows = this.menuEl.querySelector('.rows');
+    this.menuFoot = this.menuEl.querySelector('.foot');
+    this.menu = null; // { items, index, onPick, onClose }
     this.surveyEl = this.root.querySelector('#hl-survey');
     this.surveyTitle = this.surveyEl.querySelector('h3');
     this.surveyRows = this.surveyEl.querySelector('.rows');
@@ -539,6 +569,110 @@ export class Hud {
       this.stanceEl.textContent = text;
     }
     this.stanceEl.classList.toggle('show', bits.length > 0);
+  }
+
+  // ── a choosing menu ────────────────────────────────────────────────────────
+  //
+  // Generic on purpose. It is the otter's today; a fire's recipes or a store's
+  // contents would want exactly the same thing, and the alternative is a
+  // bespoke overlay per interaction, which is how UI code rots.
+  //
+  // Keyboard only, and the number keys work directly — a list you have to
+  // arrow down through is slower than the cycling it replaced, which would
+  // rather defeat the point.
+
+  get menuOpen() {
+    return !!this.menu;
+  }
+
+  /**
+   * @param {string} title
+   * @param {{label:string, detail?:string, disabled?:boolean, why?:string, value:any}[]} items
+   * @param {(value:any)=>void} onPick
+   */
+  openMenu(title, items, onPick, onClose = null) {
+    // Start on the first thing you can actually choose, so Enter is never a
+    // dead press.
+    const first = items.findIndex((i) => !i.disabled);
+    this.menu = { title, items, index: first < 0 ? 0 : first, onPick, onClose };
+    this.menuTitle.textContent = title;
+    this.menuFoot.textContent = '1–9 or ↑↓ · Enter to choose · Esc to close';
+    this.renderMenu();
+    this.menuEl.classList.add('show');
+  }
+
+  renderMenu() {
+    const { items, index } = this.menu;
+    this.menuRows.innerHTML = items
+      .map((it, i) => {
+        const cls = `row${i === index ? ' sel' : ''}${it.disabled ? ' off' : ''}`;
+        const right = it.disabled ? it.why ?? 'not yet' : it.detail ?? '';
+        return `<div class="${cls}"><span class="k">${i + 1}</span>` +
+          `<span class="n">${it.label}</span><span class="d">${right}</span></div>`;
+      })
+      .join('');
+  }
+
+  closeMenu() {
+    if (!this.menu) return;
+    const { onClose } = this.menu;
+    this.menu = null;
+    this.menuEl.classList.remove('show');
+    onClose?.();
+  }
+
+  /**
+   * Feed a keydown to the menu. Returns true if it was consumed, so the caller
+   * knows not to also walk, shoot or open the controls with it.
+   */
+  menuKey(e) {
+    if (!this.menu) return false;
+    const m = this.menu;
+    const step = (d) => {
+      // Skip past anything it will not do, in the direction of travel.
+      for (let n = 1; n <= m.items.length; n++) {
+        const i = (m.index + d * n + m.items.length * n) % m.items.length;
+        if (!m.items[i].disabled) {
+          m.index = i;
+          break;
+        }
+      }
+      this.renderMenu();
+    };
+
+    switch (e.code) {
+      case 'Escape':
+        this.closeMenu();
+        return true;
+      case 'ArrowDown':
+      case 'KeyS':
+        step(1);
+        return true;
+      case 'ArrowUp':
+      case 'KeyW':
+        step(-1);
+        return true;
+      case 'Enter':
+      case 'Space':
+      case 'KeyE': {
+        const it = m.items[m.index];
+        const pick = m.onPick;
+        this.closeMenu();
+        if (it && !it.disabled) pick?.(it.value);
+        return true;
+      }
+      default: {
+        const digit = /^Digit([1-9])$/.exec(e.code);
+        if (!digit) return true; // swallow everything while the menu is up
+        const it = m.items[Number(digit[1]) - 1];
+        if (!it) return true;
+        if (it.disabled) return true;
+        const pick = m.onPick;
+        this.closeMenu();
+        pick?.(it.value);
+        return true;
+      }
+    }
   }
 
   /**

@@ -136,6 +136,7 @@ export const SIT = 'sit';
 export const LIE = 'lie';
 export const SPEAK = 'speak';
 export const POINT = 'point'; // frozen, nose out, showing you something
+export const SPIN = 'spin'; // an actual turn on the spot, not a roll
 export const FETCH = 'fetch';
 export const ATTACK = 'attack';
 export const SLEEP = 'sleep';
@@ -187,7 +188,7 @@ export const TRICKS = {
     id: 'spin',
     name: 'Spin',
     cue: 'spin',
-    state: PLAY,
+    state: SPIN,
     reps: 5,
     needs: 0.45,
     holds: 2.2,
@@ -565,8 +566,33 @@ export class Otter {
     // ── a held command ──
     if (this.commandTime > 0 && this.state !== FOLLOW) {
       this.targetSpeed = this.state === PLAY ? OTTER.playSpeed : 0;
+
       if (this.state === POINT && this.pointingAt) {
+        // Pointing is a direction, and holding it steady is the whole trick.
         this.faceToward(this.pointingAt.x, this.pointingAt.z, dt, 3);
+      }
+
+      if (this.state === SPIN) {
+        // An actual rotation, counted, so it does one clean turn rather than
+        // spinning for however long the timer happens to be. Two full circles
+        // over the hold, then it stops facing you again.
+        this.spun = (this.spun ?? 0) + OTTER.spinRate * dt;
+        this.yaw += OTTER.spinRate * dt;
+        if (this.spun >= Math.PI * 2 * OTTER.spinTurns) {
+          this.spun = 0;
+          this.commandTime = 0;
+          this.setState(FOLLOW);
+        }
+      }
+
+      if (this.state === SPEAK) {
+        // Chirp on the beat, so what you hear matches the head bobbing rather
+        // than being one noise at the start.
+        this.chirpAt = (this.chirpAt ?? 0) - dt;
+        if (this.chirpAt <= 0) {
+          this.chirpAt = OTTER.chirpEvery;
+          this.says = 'chirp';
+        }
       }
       return;
     }
@@ -685,30 +711,85 @@ export class Otter {
       p.legs[i].rotation.x = Math.sin(this.legPhase + off) * A.legSwing * swing;
     }
 
-    const posed = { sit: 0, lie: 0, alert: 0 };
-    if (this.state === SIT) posed.sit = 1;
-    if (this.state === LIE) posed.lie = 1;
-    if (this.state === POINT || this.state === ATTACK) posed.alert = 1;
-    this.pose = this.pose ?? { sit: 0, lie: 0, alert: 0 };
-    for (const k of Object.keys(posed)) this.pose[k] = damp(this.pose[k], posed[k], 7, dt);
+    // ── the tricks, actually performed ────────────────────────────────────
+    //
+    // Each pose is a 0..1 weight that eases in and out, so nothing ever snaps
+    // between states and two overlapping poses blend instead of fighting. It
+    // costs one damp() per trick and it is the entire difference between an
+    // otter that DOES the trick and a line of text saying that it did.
+    const want = { sit: 0, lie: 0, alert: 0, speak: 0, sleep: 0 };
+    if (this.state === SIT) want.sit = 1;
+    if (this.state === LIE) want.lie = 1;
+    if (this.state === SLEEP) want.lie = want.sleep = 1;
+    if (this.state === POINT || this.state === ATTACK) want.alert = 1;
+    // Speaking is done sitting up — an otter chirruping is up on its haunches,
+    // and doing it flat on the ground would read as a bug.
+    if (this.state === SPEAK) {
+      want.speak = 1;
+      want.sit = 1;
+    }
+    this.pose = this.pose ?? { sit: 0, lie: 0, alert: 0, speak: 0, sleep: 0 };
+    for (const k of Object.keys(want)) this.pose[k] = damp(this.pose[k], want[k], 8, dt);
 
-    // Sitting up on the haunches: the front of the body lifts and the tail
-    // becomes a prop, which is exactly what a real otter does.
     const rear = this.pose.sit;
-    this.object.rotation.x = -rear * 0.55 + this.pose.lie * 0.05;
-    p.body.position.y = 0.19 + Math.sin(this.legPhase * 2) * A.bodyBob * swing - this.pose.lie * 0.07;
+    const flat = this.pose.lie;
 
-    // Head: up and forward when pointing, down when lying.
-    p.neckPivot.rotation.x = lerp(0.1, -0.35, this.pose.alert) + this.pose.lie * 0.5 - rear * 0.3;
-    p.headPivot.rotation.x = this.pose.lie * 0.25;
+    // ── SIT ──
+    // Up on the haunches: the whole body pitches back, the front legs come off
+    // the ground and tuck, and the tail goes down behind as a prop. That last
+    // one is what makes it read as a real otter rather than a rearing dog.
+    // ── LIE ──
+    // The opposite: pitch forward a little, sink, and splay the legs out
+    // sideways so it is obviously lying rather than standing very low.
+    this.object.rotation.x = -rear * 0.62 + flat * 0.08;
 
-    // The tail does the emoting. Fast when happy, still when pointing.
+    let bodyY = 0.19 + Math.sin(this.legPhase * 2) * A.bodyBob * swing;
+    bodyY -= flat * 0.1;
+    p.body.position.y = bodyY;
+
+    for (let i = 0; i < 4; i++) {
+      const front = i < 2;
+      const side = i % 2 === 0 ? 1 : -1;
+      // Sitting: front paws lift and curl in; back legs fold under.
+      if (front) p.legs[i].rotation.x -= rear * 1.15;
+      else p.legs[i].rotation.x += rear * 0.35;
+      // Lying: everything splays outward and flattens.
+      p.legs[i].rotation.z = flat * 0.75 * side;
+      p.legs[i].rotation.x = lerp(p.legs[i].rotation.x, front ? 0.55 : -0.5, flat);
+    }
+
+    // ── SPEAK ──
+    // Head thrown up and back, then a rhythmic chirrup — three quick bobs a
+    // second, which is about right for an otter and reads unmistakably as
+    // "making noise" without a single sound playing.
+    const chirp = this.pose.speak * Math.sin(this.stateTime * 19) * 0.22;
+
+    // Head: up and forward when pointing, down when lying or asleep, thrown
+    // back when speaking.
+    p.neckPivot.rotation.x =
+      lerp(0.1, -0.35, this.pose.alert) + flat * 0.55 - rear * 0.45 - this.pose.speak * 0.3 + chirp;
+    p.headPivot.rotation.x = flat * 0.3 + this.pose.speak * -0.25 + chirp * 0.6;
+    // Asleep, the head tucks round onto the body.
+    p.headPivot.rotation.y = this.pose.sleep * 0.7;
+
+    // ── the tail ──
+    // It does the emoting. Rigid when pointing, propped when sitting, curled
+    // round when asleep, and otherwise wagging at a rate set by how much it
+    // likes you.
     const happy = this.trust * (this.state === PLAY ? 3 : 1);
-    const wag = this.state === POINT ? 0 : Math.sin(this.legPhase * 1.4 + this.stateTime * 6) * (0.12 + happy * 0.3);
-    p.tailPivot.rotation.y = wag;
-    p.tailPivot.rotation.x = -0.1 + rear * 0.9 + this.pose.alert * 0.2;
+    const still = this.pose.alert + this.pose.sleep;
+    const wag = (1 - clamp(still, 0, 1)) *
+      Math.sin(this.legPhase * 1.4 + this.stateTime * 6) * (0.12 + happy * 0.3);
+    p.tailPivot.rotation.y = wag + this.pose.sleep * 1.5;
+    p.tailPivot.rotation.x = -0.1 + rear * 1.0 + this.pose.alert * 0.25 - flat * 0.15;
 
-    if (this.state === PLAY) {
+    // ── SPIN ──
+    // A real turn on the spot, driven in move(); here it just leans into it the
+    // way anything turning fast does. Reusing PLAY's roll for this was wrong —
+    // a spin that looks like a barrel roll is not a spin.
+    if (this.state === SPIN) {
+      this.object.rotation.z = damp(this.object.rotation.z, -0.28, 8, dt);
+    } else if (this.state === PLAY) {
       // Rolling about. Cheap, and it reads instantly as delight.
       this.object.rotation.z = Math.sin(this.stateTime * 7) * 0.6;
     } else {

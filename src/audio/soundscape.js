@@ -659,6 +659,61 @@ export class Soundscape {
     lfo.stop(now + dur + 0.06);
   }
 
+  /**
+   * The otter.
+   *
+   * High, short and warbling — a rising whistle with a fast vibrato on it,
+   * which is close to the real thing and, more importantly, sounds like
+   * nothing else in this world. Everything else out here is low: wind, water,
+   * growls, the troll. A chirrup cuts straight through all of it, so you
+   * always know where your otter is without looking.
+   *
+   * `kind` picks the register: a contented chirr, a sharp chirp when it has
+   * found something, an angry chatter when it is fighting.
+   */
+  otterCall(pos, kind = 'chirr') {
+    if (!this.running) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    if (this.distanceGain(pos) < 0.02) return;
+    const out = this.spatial(pos, 1);
+
+    const spec = {
+      chirr: { notes: 2, base: 900, rise: 1.35, dur: 0.13, level: 0.15, vib: 26 },
+      chirp: { notes: 3, base: 1250, rise: 1.7, dur: 0.09, level: 0.2, vib: 34 },
+      chatter: { notes: 5, base: 780, rise: 0.82, dur: 0.06, level: 0.22, vib: 46 },
+      growl: { notes: 4, base: 420, rise: 0.7, dur: 0.1, level: 0.24, vib: 52 },
+    }[kind] ?? { notes: 2, base: 900, rise: 1.35, dur: 0.13, level: 0.15, vib: 26 };
+
+    for (let i = 0; i < spec.notes; i++) {
+      const t = now + i * spec.dur * 1.35;
+      const f0 = spec.base * (0.92 + this.rand() * 0.16);
+
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(spec.level, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + spec.dur);
+      g.connect(out);
+
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(f0, t);
+      osc.frequency.exponentialRampToValueAtTime(f0 * spec.rise, t + spec.dur);
+      osc.connect(g);
+      osc.start(t);
+      osc.stop(t + spec.dur + 0.02);
+
+      // The vibrato is what turns a beep into an animal.
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = spec.vib;
+      const amt = ctx.createGain();
+      amt.gain.value = f0 * 0.06;
+      lfo.connect(amt).connect(osc.frequency);
+      lfo.start(t);
+      lfo.stop(t + spec.dur + 0.02);
+    }
+  }
+
   /** Taking a hit: a dull thud and a short breath knocked out of you. */
   playerHurt(severity = 1) {
     if (!this.running) return;

@@ -43,6 +43,19 @@ export const RECIPES = {
     maxHeld: 1,
   },
 
+  // Above venison because a trout cooks in a fraction of the time and you will
+  // usually have several — if venison came first you could never cook a fish
+  // while carrying meat, which is the same trap the cloak comment describes.
+  cook_fish: {
+    id: 'cook_fish',
+    name: 'Cook Trout',
+    inputs: { fish: 1 },
+    outputs: { fish_cooked: 1 },
+    requires: 'fire',
+    seconds: 9,
+    verb: 'cook',
+  },
+
   cook_venison: {
     id: 'cook_venison',
     name: 'Cook Venison',

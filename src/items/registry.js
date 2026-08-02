@@ -344,6 +344,58 @@ ITEMS.axe = {
   makeObject: () => new THREE.Mesh(ITEMS.axe.geometry(), itemMaterial),
 };
 
+// Out of the lake. Less filling than venison and far easier to come by, which
+// is exactly the trade a river should offer: a reliable small meal against an
+// occasional large one.
+let trout = null;
+let troutCooked = null;
+ITEMS.fish = {
+  id: 'fish',
+  name: 'Trout',
+  kind: 'food',
+  stack: 12,
+  geometry: () => {
+    if (trout) return trout;
+    const parts = [];
+    const body = new THREE.CapsuleGeometry(0.05, 0.17, 3, 7);
+    body.rotateZ(Math.PI / 2);
+    body.scale(1, 0.72, 1);
+    parts.push(paint(body, new THREE.Color(0x53656c), 0.32));
+    const belly = new THREE.CapsuleGeometry(0.034, 0.14, 3, 6);
+    belly.rotateZ(Math.PI / 2);
+    belly.translate(0, -0.022, 0);
+    parts.push(paint(belly, new THREE.Color(0xb2b9a8), 0.32));
+    const tail = new THREE.ConeGeometry(0.055, 0.09, 3);
+    tail.rotateZ(Math.PI / 2);
+    tail.scale(1, 1, 0.35);
+    tail.translate(-0.16, 0, 0);
+    parts.push(paint(tail, new THREE.Color(0x8fa2a0), 0.32));
+    return (trout = finish(parts));
+  },
+  makeObject: () => new THREE.Mesh(ITEMS.fish.geometry(), itemMaterial),
+};
+
+ITEMS.fish_cooked = {
+  id: 'fish_cooked',
+  name: 'Cooked Trout',
+  kind: 'food',
+  stack: 12,
+  geometry: () => {
+    if (troutCooked) return troutCooked;
+    const parts = [];
+    const body = new THREE.CapsuleGeometry(0.05, 0.17, 3, 7);
+    body.rotateZ(Math.PI / 2);
+    body.scale(1, 0.7, 1);
+    parts.push(paint(body, new THREE.Color(0xb07a4a), 0.4));
+    const char = new THREE.CapsuleGeometry(0.036, 0.12, 3, 6);
+    char.rotateZ(Math.PI / 2);
+    char.translate(0.01, 0.03, 0);
+    parts.push(paint(char, new THREE.Color(0x6d4426), 0.4));
+    return (troutCooked = finish(parts));
+  },
+  makeObject: () => new THREE.Mesh(ITEMS.fish_cooked.geometry(), itemMaterial),
+};
+
 ITEMS.venison_cooked = {
   id: 'venison_cooked',
   name: 'Cooked Venison',

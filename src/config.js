@@ -445,6 +445,55 @@ export const WILDLIFE = {
   testBearAt: 86,
 };
 
+// ── Fish ────────────────────────────────────────────────────────────────────
+//
+// The lake has been the best-looking thing here and the least useful. See
+// world/fish.js. The rule: you can SEE the shoals, stillness is the skill, and
+// the otter is better at it than you are.
+export const FISH = {
+  cellSize: 24, // shoals are close together — a lake is full of them
+  density: 0.42,
+  visibleRange: 90,
+  maxDrawn: 320,
+
+  // Anywhere there is water over them.
+  //
+  // The first version confined shoals to a wadeable 0.7–3.4 m band, on the
+  // reasoning that a fish you cannot reach is no use. Measured, that is 8.5%
+  // of the lake — a thin ring at the rim, because the basin drops to 21 m —
+  // and it produced ONE shoal in 420 cells.
+  //
+  // It was also the wrong idea. Fish should be everywhere and REACH should be
+  // what limits you, which it already does: you can only stand where you can
+  // wade. So now you can see shoals out in the deep water, want them, and not
+  // be able to have them. That is texture rather than a shortage.
+  minDepth: 0.6,
+  maxDepth: 16,
+
+  shoalMin: 4,
+  shoalMax: 11,
+  shoalRadius: 1.5,
+
+  // Disturbance. Fed from the player's own stealth noise, so the model that
+  // has governed every stalk since the deer governs this too.
+  spookRange: 9,
+  calmRate: 0.22, // per second
+  spookedSpeed: 2.6,
+
+  reach: 2.6, // how close you stand to try
+
+  // The odds. Bare-handed and careless is close to hopeless; crouched, still,
+  // with a well-kept otter beside you is close to certain.
+  baseChance: 0.16,
+  crouchBonus: 0.22,
+  noisePenalty: 0.35,
+  spookedPenalty: 0.4,
+  shoalBonus: 0.14,
+  otterBonusMin: 0.18,
+  otterBonusMax: 0.42,
+  maxChance: 0.92, // never a certainty
+};
+
 // ── The axe ─────────────────────────────────────────────────────────────────
 //
 // The first melee weapon, and deliberately not a worse bow. Its whole decision
@@ -489,7 +538,9 @@ export const OTTER = {
   // What it will eat, and how much good it does. Fish would be better and
   // there are no fish yet, so it is venison — raw for preference, because it
   // is an otter.
-  foods: { venison: 0.42, venison_cooked: 0.3, hide: 0.05 },
+  // Fish first, and by a long way. It is an otter. Feeding it a trout it
+  // helped you catch is the best moment this animal has to offer.
+  foods: { fish: 0.55, fish_cooked: 0.4, venison: 0.42, venison_cooked: 0.3, hide: 0.05 },
   playValue: 0.34,
   playSeconds: 4,
 
@@ -543,6 +594,13 @@ export const OTTER = {
   // worse than no hint.
   seekRangeMin: 45,
   seekRangeMax: 130,
+
+  // Performing. A spin is a counted rotation rather than "spin until the timer
+  // runs out", so it finishes cleanly facing you instead of stopping wherever
+  // it happened to be.
+  spinRate: 6.2, // radians a second
+  spinTurns: 2,
+  chirpEvery: 0.34, // seconds between chirrups while speaking
 
   anim: { strideRate: 3.4, legSwing: 0.34, bodyBob: 0.035 },
 };
@@ -1052,6 +1110,11 @@ export const SURVIVAL = {
   food: {
     venison: { fills: 16, spoils: true }, // raw: edible, but poor
     venison_cooked: { fills: 34, spoils: false },
+    // A trout is a smaller meal than a deer and a much easier one to get.
+    // That trade — reliable and small against occasional and large — is the
+    // whole reason to put fish in the lake rather than more deer on the hill.
+    fish: { fills: 9, spoils: true },
+    fish_cooked: { fills: 19, spoils: false },
   },
   spoilHours: 30, // raw food goes off after this long in the pack
 

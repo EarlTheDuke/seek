@@ -28,7 +28,7 @@ import { CameraFeel } from './player/cameraFeel.js';
 import { ViewModel } from './player/viewmodel.js';
 import { Soundscape } from './audio/soundscape.js';
 import { Hud } from './ui/hud.js';
-import { LOADOUT, LAKE, PLAYER, WATER_LEVEL, WEATHER, WILDLIFE, SITES, STRUCTURES, TIME, OTTER, AXE } from './config.js';
+import { LOADOUT, LAKE, PLAYER, WATER_LEVEL, WEATHER, WILDLIFE, SITES, STRUCTURES, TIME, OTTER, AXE, FISH } from './config.js';
 import { Inventory } from './items/inventory.js';
 import { getItem } from './items/registry.js';
 import { WeaponHost } from './weapons/index.js';
@@ -43,6 +43,7 @@ import { Sites } from './world/sites.js';
 import { Caves } from './world/caves.js';
 import { Structures, Harvest, BUILDABLE } from './world/structures.js';
 import { Otter, TRICKS, TRICK_IDS } from './creatures/otter.js';
+import { Fish } from './world/fish.js';
 import { NetClient } from './net/client.js';
 import { Avatars } from './net/avatars.js';
 import { sampleEnvironment } from './world/environment.js';
@@ -204,6 +205,7 @@ function boot() {
   // It becomes yours by being looked after, not by being found.
   const otter = new Otter(new THREE.Vector3(0, 0, 0), makeRandom('otter'));
   scene.add(otter.object);
+  const fish = new Fish(scene);
   let otterTrick = 0; // which command Z has selected
 
   /** Somewhere on the shore, in front of where you wake up. */
@@ -512,11 +514,21 @@ function boot() {
     return best;
   }
 
-  /** Feed it, or play with it — whichever it needs more. */
-  function tendOtter() {
-    // Something to eat beats a game, if it is hungry and you have any.
+  /**
+   * Feed it, or play with it.
+   *
+   * `want` is set from the menu; with no menu (a wild otter, which has no
+   * menu) it picks whichever it needs more.
+   */
+  function tendOtter(want = null) {
     const food = Object.keys(OTTER.foods).find((id) => inventory.countOf(id) > 0);
-    if (otter.fed < 0.85 && food) {
+    if (want === 'play') {
+      const res = otter.play();
+      hud.toast(res.ok ? `${otterName()} rolls about` : res.why, 2.2);
+      return null;
+    }
+    // Something to eat beats a game, if it is hungry and you have any.
+    if ((want === 'feed' || otter.fed < 0.85) && food) {
       const res = otter.feed(food);
       if (!res.ok) return hud.toast(res.why, 2), null;
       inventory.remove(food, 1);
@@ -535,6 +547,113 @@ function boot() {
   }
 
   const otterName = () => otter.name ?? 'the otter';
+  const otterNear = () =>
+    Math.hypot(otter.position.x - ctrl.position.x, otter.position.z - ctrl.position.z) < 8;
+
+  // ── fishing ──────────────────────────────────────────────────────────────
+  //
+  // The odds are shown BEFORE you commit, which is the whole design. A hidden
+  // dice roll teaches nothing; a visible percentage that climbs when you crouch
+  // and collapses when you thrash about teaches the mechanic in one attempt.
+  // It is the same lesson the deer have been teaching since the first hour,
+  // and now the lake teaches it too.
+  function fishOdds(shoal) {
+    const helping = otter.tame && otterNear();
+    let c = FISH.baseChance;
+    c += ctrl.crouching ? FISH.crouchBonus : 0;
+    c -= stealth.noise * FISH.noisePenalty;
+    c -= shoal.spooked * FISH.spookedPenalty;
+    c += Math.max(0, Math.min(1, (shoal.size - FISH.shoalMin) / (FISH.shoalMax - FISH.shoalMin))) * FISH.shoalBonus;
+    if (helping) c += FISH.otterBonusMin + (FISH.otterBonusMax - FISH.otterBonusMin) * otter.trust;
+    return Math.max(0, Math.min(FISH.maxChance, c));
+  }
+
+  function goFishing(shoal) {
+    const res = fish.tryCatch(shoal, {
+      noise: stealth.noise,
+      crouched: ctrl.crouching,
+      otter: otter.tame && otterNear() ? otter : null,
+    });
+    audio.impact?.('water', ctrl.position);
+
+    if (!res.ok) {
+      hud.toast(`${res.why} — wait for them to settle`, 2.4);
+      return null;
+    }
+    inventory.add('fish', res.count);
+    // The otter got one too. Feeding it back to her is the point of all this.
+    if (res.count > 1) {
+      hud.toast(`two trout — ${otterName()} caught one as well`, 3.2);
+      otter.says = 'chatter';
+    } else {
+      hud.toast(res.helped ? `a trout, with ${otterName()}'s help` : 'a trout', 2.4);
+    }
+    return null;
+  }
+
+  /**
+   * Everything you can ask of it, in one list.
+   *
+   * Six tricks plus feeding plus playing is far too much for a cycling
+   * keybind — you end up pressing Z five times reading toasts to find the one
+   * you wanted, which is worse than no shortcut at all. A list shows what it
+   * knows, what it is part-way through, and what it will not do yet AND WHY,
+   * which is the part that makes the trust model legible instead of mysterious.
+   */
+  function openOtterMenu() {
+    const items = [];
+
+    const food = Object.keys(OTTER.foods).find((id) => inventory.countOf(id) > 0);
+    items.push({
+      label: 'Feed',
+      value: { do: 'feed' },
+      detail: food ? itemName(food) : '',
+      disabled: !food || otter.fed > 0.96,
+      why: !food ? 'nothing it wants' : 'it has eaten',
+    });
+    items.push({
+      label: 'Play',
+      value: { do: 'play' },
+      detail: '',
+      disabled: otter.played > 0.95,
+      why: 'it has had enough',
+    });
+
+    for (const id of TRICK_IDS) {
+      const t = TRICKS[id];
+      const known = otter.learned.has(id);
+      const prog = otter.progress[id] ?? 0;
+      const lockedByTrust = !known && otter.trust < t.needs;
+      const lockedByCare = !known && otter.care < OTTER.willWorkAbove;
+      items.push({
+        label: t.name,
+        value: { do: 'trick', id },
+        detail: known
+          ? id === 'guard'
+            ? otter.guarding ? 'on' : 'off'
+            : t.blurb
+          : `learning ${prog}/${t.reps}`,
+        disabled: lockedByTrust || lockedByCare,
+        why: lockedByTrust ? 'needs more trust' : `it is ${otter.mood}`,
+      });
+    }
+
+    // Pointer lock has to go, or the mouse keeps turning you while you read.
+    input.enabled = false;
+    hud.openMenu(
+      `${otterName()} · ${otter.mood}`,
+      items,
+      (v) => {
+        if (v.do === 'feed' || v.do === 'play') return tendOtter(v.do);
+        otterTrick = TRICK_IDS.indexOf(v.id);
+        tellOtter();
+      },
+      () => {
+        input.enabled = true;
+      }
+    );
+    return null;
+  }
 
   /** Z picks a command; V gives it. */
   function cycleTrick(dir = 1) {
@@ -770,15 +889,29 @@ function boot() {
     // ── the otter ──
     // Care is a world interaction like any other, on the same distance rule,
     // so tending it never fights with picking something up.
+    // ── fishing ──
+    // Only when you are actually in the water. Standing on the bank pointing
+    // at a shoal is not fishing, and the prompt should not pretend otherwise.
+    const shoal = ctrl.wadeDepth > 0.25 ? fish.nearest(ctrl.position) : null;
+    if (shoal && shoal.distance < Math.min(near?.distance ?? Infinity, fireDist)) {
+      const odds = fishOdds(shoal.shoal);
+      return {
+        label:
+          `<b>E</b>  reach for the trout — ${Math.round(odds * 100)}%` +
+          (otter.tame && otterNear() ? ` <b>(${otterName()})</b>` : ''),
+        run: () => goFishing(shoal.shoal),
+      };
+    }
+
     const otterDist = Math.hypot(otter.position.x - ctrl.position.x, otter.position.z - ctrl.position.z);
     if (otterDist < OTTER.followRange * 0.8) {
-      const label = !otter.tame
-        ? `<b>E</b>  offer the otter something`
-        : otter.fed < 0.85 && Object.keys(OTTER.foods).some((id) => inventory.countOf(id) > 0)
-          ? `<b>E</b>  feed ${otterName()}`
-          : `<b>E</b>  play with ${otterName()}`;
+      // A wild otter has one thing you can do to it. A tame one has a dozen,
+      // which is a menu rather than a keybind.
+      const label = otter.tame
+        ? `<b>E</b>  ${otterName()}`
+        : `<b>E</b>  offer the otter something`;
       if (otterDist < Math.min(near?.distance ?? Infinity, fireDist)) {
-        return { label, run: () => tendOtter() };
+        return { label, run: () => (otter.tame ? openOtterMenu() : tendOtter()) };
       }
     }
 
@@ -959,6 +1092,13 @@ function boot() {
   // ── action keys ──
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    // A menu owns the keyboard while it is up. It reports whether it consumed
+    // the key, so nothing below fires as well — pressing E to choose must not
+    // also re-open the thing you are choosing from.
+    if (hud.menuKey(e)) {
+      e.preventDefault();
+      return;
+    }
     // Match the CHARACTER as well as the physical key. On a non-US layout the
     // key at the `Slash` position is not `?` at all, so testing the code alone
     // leaves those keyboards with no way to open the controls.
@@ -1230,6 +1370,11 @@ function boot() {
       weather,
     });
 
+    // ── the lake ──
+    // Fish read the same stealth noise the deer do, so wading in loudly
+    // scatters them and crouching still does not — one model, everywhere.
+    fish.update(dt, ctrl.position, stealth.noise);
+
     // ── the otter ──
     // Updated after the wildlife, so a creature that swung this frame has
     // already registered and the otter can answer it in the same tick.
@@ -1246,7 +1391,7 @@ function boot() {
       const zone = victim.species?.hitZones?.find((z) => z.name === 'body');
       victim.applyDamage?.(OTTER.biteDamage, zone, otter.position);
     }
-    if (otter.says) audio.creatureAlarm?.(otter.position);
+    if (otter.says) audio.otterCall?.(otter.position, otter.says);
     if (otter.forgot) {
       hud.toast(`${otterName()} has forgotten how to ${TRICKS[otter.forgot].cue}`, 3.5);
       otter.forgot = null;
@@ -1364,6 +1509,26 @@ function boot() {
     vitals, body: vitals, ruleset, fires,
     // ── the otter ──
     otter,
+    fish,
+    /** The odds on the nearest shoal, and why they are what they are. */
+    fishing: () => {
+      const s = fish.nearest(ctrl.position, 40);
+      if (!s) return 'no shoal within 40 m';
+      return {
+        shoal: `${s.shoal.size} trout, ${s.distance.toFixed(1)} m away`,
+        depthHere: +ctrl.wadeDepth.toFixed(2),
+        inTheWater: ctrl.wadeDepth > 0.25,
+        crouched: ctrl.crouching,
+        yourNoise: +stealth.noise.toFixed(2),
+        spooked: +s.shoal.spooked.toFixed(2),
+        otterHelping: otter.tame && otterNear(),
+        chance: `${Math.round(fishOdds(s.shoal) * 100)}%`,
+      };
+    },
+    /** Open the otter's menu, as standing next to it and pressing E does. */
+    otterMenu: () => (openOtterMenu(), 'open'),
+    /** What E would do right now. Exposed so the prompt can be tested. */
+    whatWouldEDo: () => resolveInteraction()?.label ?? 'nothing in reach',
     /** Where the nearest thing worth eating is — what "seek" actually asks. */
     nearestFood,
     /** Ask it for something by name, without cycling to it. */
