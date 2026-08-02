@@ -102,7 +102,9 @@ Concretely, three properties get established early and then never broken:
    packet budget for a very large world, and it is a genuine advantage this
    codebase has that most do not.
 
-This bet is the single most important thing in this document.
+This bet is the single most important thing in this document. It pays for
+multiplayer **and** for LLM-driven minds (§6b), because both are, structurally,
+just another source of intents on the same bus.
 
 ---
 
@@ -195,6 +197,75 @@ wind and patience. Each new one should make a lesson you learned wrong.
 - **Weather as a summoner.** Certain things only walk in mist. A storm brings
   something down from the tops. The weather system already picks states — this
   is one hook away.
+
+---
+
+## 6b. Minds — LLM brains for some of the world
+
+*Long-range. Depends on Phase 1, and wants Phase 5. Written down now because it
+changes what Phase 1 should look like.*
+
+The goal is **not** chatty NPCs. It is a handful of inhabitants who **remember,
+decide and pursue** — and whose reasoning is grounded in what they can actually
+perceive.
+
+### The split that makes it work
+
+An LLM call takes hundreds of milliseconds to seconds. That is fatal for
+anything running at tick rate. So a mind is two layers, and they never mix:
+
+| Layer | Runs at | Owns | Implementation |
+|---|---|---|---|
+| **Reflex** | every tick | seeing, hearing, smelling, fleeing, aiming, footwork | the awareness meter and state machines that already exist |
+| **Deliberation** | every few seconds, or on a trigger | goals, disposition, memory, speech, grudges | the model |
+
+> **The model never drives a body.** It sets intent — *hunt the ridge*, *follow
+> that human*, *fall back to the warren*, *say this*. The existing state machine
+> executes it. If the model is slow, absent or wrong, the creature still behaves
+> like a competent animal.
+
+### Why this is nearly free after Phase 1
+
+Phase 1 turns all player action into **intents on a fixed tick**. An LLM agent
+is then just *another intent producer*. Same bus, same validation, same tick.
+Nothing about the game has to learn that a mind is involved.
+
+That is the strongest argument for doing Phase 1 properly and early — it is the
+substrate for both multiplayer and this.
+
+### The honesty rule
+
+> **A mind is given its creature's senses, not the world's state.**
+
+The prompt is built from what that creature could actually perceive: what it can
+see given its FOV and the light, what it heard, what the wind carried, what it
+remembers. Never the player's coordinates, never inventory it has not seen.
+
+This is the difference between an opponent that feels alive and one that feels
+like it is cheating — and it is cheap here, because the sense model that
+produces exactly this already exists.
+
+### Where minds go
+
+| Candidate | Why it earns the cost |
+|---|---|
+| **The rival hunter** | Another hunter working the same valley, under identical rules — same bow, same hunger, same wind. Competes for your deer, leaves tracks you can read, may help, trade, follow or rob you. The single best fit: no special-casing, and it doubles as a live multiplayer test harness. |
+| **The goblin chief** | One mind per warband. The chief deliberates; the rest are cheap state machines carrying out orders. Remembers that you burned their warren, and acts on it a week later. |
+| **The troll** | Slow, ancient, talks. One creature, rarely encountered, high value per call. Might be bargained with. |
+| **The chronicler** | Not embodied. Names places, records what happened, and turns your run into a story you can read afterwards. |
+
+### Constraints to hold
+
+- **Fully playable with no model at all.** No key, no network, no problem — the
+  scripted brains are the floor, not a fallback.
+- **Bounded cost.** A handful of minds, on a slow cadence, with tight context.
+  Never one per goblin.
+- **Determinism survives.** Model output is not reproducible, so decisions are
+  **written into the world's event log as intents**. A replay reads the log
+  rather than re-asking the model, and stays exact.
+- **Server-side only** in multiplayer. Clients never hold keys or call out.
+- **Constrained output.** The model chooses among world-legal intents. It can
+  want anything; it can only *do* what the rules permit.
 
 ---
 
@@ -317,6 +388,21 @@ which three decisions would have saved you.
 
 **Done when:** you can build a camp, log off, and find it still standing next
 week — with your friend's additions to it.
+
+---
+
+---
+
+### Phase 8 — Minds · *large, long-range*
+**Goal:** a few inhabitants who remember and decide. See §6b.
+- Deliberation layer on the intent bus, on a slow cadence.
+- Perception-grounded prompting — a mind sees what its creature sees.
+- Decisions logged as intents, so replays stay deterministic.
+- The rival hunter first: identical rules to a player, and a live test for
+  everything multiplayer will need.
+
+**Done when:** you can track another hunter through the valley by their prints,
+and they are not following a script.
 
 ---
 

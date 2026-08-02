@@ -13,6 +13,8 @@ import { heightAt } from './world/noise.js';
 import { Composer } from './fx/composer.js';
 import { AmbientLife } from './fx/ambientLife.js';
 import { Controller } from './player/controller.js';
+import { PlayerInput } from './player/input.js';
+import { sanitiseIntent, IDLE_INTENT } from './sim/intents.js';
 import { CameraFeel } from './player/cameraFeel.js';
 import { ViewModel } from './player/viewmodel.js';
 import { Soundscape } from './audio/soundscape.js';
@@ -117,7 +119,8 @@ function boot() {
   const sunH = atmosphere.sunHorizontal(new THREE.Vector3());
   const spawn = pickSpawn(sunH);
 
-  const ctrl = new Controller(renderer.domElement);
+  const ctrl = new Controller();
+  const input = new PlayerInput(renderer.domElement);
   ctrl.teleport(spawn.position, spawn.yaw);
   const feel = new CameraFeel();
 
@@ -294,7 +297,7 @@ function boot() {
 
   // If pointer lock is refused, say so once and switch to drag-look rather
   // than leaving the player unable to turn their head.
-  ctrl.onLockUnavailable = () => hud.useDragLook();
+  input.onLockUnavailable = () => hud.useDragLook();
 
   // ── game mode and persistence ───────────────────────────────────────────
   const ruleset = new ActiveRuleset(DEFAULT_MODE);
@@ -338,9 +341,9 @@ function boot() {
       }
 
       hud.setMode(ruleset.current);
-      ctrl.requestLock();
+      input.requestLock();
     },
-    () => ctrl.requestLock()
+    () => input.requestLock()
   );
 
   // Last-ditch save when the tab goes away. `pagehide` fires in cases
@@ -411,43 +414,29 @@ function boot() {
       case 'KeyB':
         hud.toast(`bloom ${composer.toggle('bloom') ? 'on' : 'off'}`);
         break;
-      case 'KeyE': {
-        const msg = pickups.collect();
-        if (msg) hud.toast(msg, 1.4);
-        break;
-      }
-      case 'KeyQ': {
-        const taken = inventory.takeEquipped();
-        if (taken) {
-          camera.getWorldDirection(_drop).setY(0).normalize();
-          pickups.drop(taken.item, taken.count, ctrl.position, _drop);
-          hud.toast(`dropped ${taken.count} ${itemName(taken.item)}`, 1.4);
-        }
-        break;
-      }
-      case 'Digit1':
-      case 'Digit2':
-      case 'Digit3':
-      case 'Digit4':
-      case 'Digit5':
-        inventory.select(Number(e.code.slice(5)) - 1);
-        break;
+      // E, Q and the number row are handled as intents now — see the tick.
       default:
         break;
     }
   });
 
-  // ── weapon input ──
-  // Left mouse only. Drag-look lives on the right button (see controller.js),
-  // so the trigger means the same thing with or without pointer lock.
+  // ── weapon trigger ──
+  // Left mouse only. Drag-look lives on the right button (see player/input.js),
+  // so the trigger means the same thing with or without pointer lock. The held
+  // state is stored on the input object and read into the intent each tick.
+  let primaryWasHeld = false;
   renderer.domElement.addEventListener('mousedown', (e) => {
-    if (e.button === 0) weapons.beginPrimary();
+    if (e.button === 0) input.primaryHeld = true;
   });
   window.addEventListener('mouseup', (e) => {
-    if (e.button === 0) weapons.endPrimary();
+    if (e.button === 0) input.primaryHeld = false;
   });
   // Releasing the mouse outside the window must not leave the bow drawn.
-  window.addEventListener('blur', () => weapons.cancel());
+  window.addEventListener('blur', () => {
+    input.primaryHeld = false;
+    primaryWasHeld = false;
+    weapons.cancel();
+  });
   renderer.domElement.addEventListener(
     'wheel',
     (e) => {
@@ -494,14 +483,41 @@ function boot() {
     syncSize();
     time += dt;
 
+    // ── gather this tick's intent ──
+    // The single place player will becomes simulation input. A network packet
+    // or an LLM agent would substitute here and nothing below would notice.
+    const intent = vitals.dead ? IDLE_INTENT : sanitiseIntent(input.poll());
+
+    // The trigger is edge-detected from the INTENT rather than straight off the
+    // mouse event, so this is the same code path the headless sim and (later) a
+    // server take. The mouse only sets a flag; the tick decides what it means.
+    if (intent.primary !== primaryWasHeld) {
+      primaryWasHeld = intent.primary;
+      if (intent.primary) weapons.beginPrimary();
+      else weapons.endPrimary();
+    }
+
+    if (intent.selectSlot >= 0) inventory.select(intent.selectSlot);
+    if (intent.interact) {
+      const msg = pickups.collect();
+      if (msg) hud.toast(msg, 1.4);
+    }
+    if (intent.drop) {
+      const taken = inventory.takeEquipped();
+      if (taken) {
+        camera.getWorldDirection(_drop).setY(0).normalize();
+        pickups.drop(taken.item, taken.count, ctrl.position, _drop);
+        hud.toast(`dropped ${taken.count} ${itemName(taken.item)}`, 1.4);
+      }
+    }
+
     // Weapons run before movement so a drawn bow slows you this frame, not next.
     weapons.update(dt);
     vitals.update(dt);
     // Dead men do not walk.
     ctrl.speedScale = vitals.dead ? 0 : weapons.moveScale;
-    if (vitals.dead) ctrl.keys.clear();
 
-    ctrl.update(dt);
+    ctrl.update(dt, intent);
     feel.update(dt, ctrl, camera, weapons.fovOffset);
 
     // Weather first: the sky, the grass and the scent model all read from it.
@@ -576,7 +592,7 @@ function boot() {
   // exposed because rAF is suspended in a hidden tab, and being able to advance
   // and render one frame by hand makes the thing testable from a script.
   window.highlands = {
-    scene, camera, renderer, ctrl, feel, atmosphere, terrain, scatter, lake,
+    scene, camera, renderer, ctrl, input, feel, atmosphere, terrain, scatter, lake,
     composer, life, audio, hud, spawn, landmarks, stepWorld, heightAt,
     inventory, weapons, projectiles, pickups, viewmodel, wildlife, stealth, weather, rain,
     /**
