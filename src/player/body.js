@@ -126,6 +126,10 @@ export class Body extends Vitals {
     let wetRate = 0;
     if (env.rain > 0.02) wetRate += env.rain * SURVIVAL.wetRainRate * env.exposure;
     if (env.inWater || ctrl.wadeDepth > 0.2) wetRate += SURVIVAL.wetWadeRate;
+    // And the ground itself. A bog soaks you slower than the lake does but far
+    // faster than rain — which is what makes crossing one on a cold night a
+    // genuinely bad idea rather than a slow one.
+    wetRate += env.effects?.wetRate ?? 0;
     let dryRate = SURVIVAL.wetDryRate;
     dryRate += (env.fireWarmth / SURVIVAL.fireWarmthC) * SURVIVAL.wetDryFireBonus;
     dryRate += (env.sunWarmth / SURVIVAL.sunWarmthMax) * SURVIVAL.wetDrySunBonus;

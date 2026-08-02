@@ -13,6 +13,7 @@
 
 import { SURVIVAL, WATER_LEVEL } from '../config.js';
 import { heightAt } from './noise.js';
+import { regionAt, regionEffects, describeRegion } from './regions.js';
 import { clamp, lerp, smoothstep } from '../util/math.js';
 
 /**
@@ -65,12 +66,25 @@ export function sampleEnvironment(pos, ctx) {
   const { hours, sunAltitude, weather, fires } = ctx;
 
   const ground = heightAt(pos.x, pos.z);
-  const air = airTemperature(pos.y, hours, sunAltitude, weather);
+  let air = airTemperature(pos.y, hours, sunAltitude, weather);
+
+  // What KIND of ground this is. Snow steals degrees, a hot spring gives them
+  // back, and a gorge or a wood takes the wind off you — so where you stand is
+  // now a survival decision and not only a view.
+  const region = regionAt(pos.x, pos.z);
+  const effects = regionEffects(region);
+  air += effects.warmthC;
 
   // Exposure: how much of the sky can reach you. Approximated from altitude —
-  // a ridge is windier than a hollow — which is cheap and reads correctly.
-  // Phase 4's caves and Phase 7's shelters will override this properly.
-  const exposure = clamp(0.35 + smoothstep(10, 85, ground) * 0.65, 0, 1);
+  // a ridge is windier than a hollow — then reduced by whatever you are
+  // standing in. This is the promised override: the comment used to say
+  // "Phase 4's caves and shelters will do this properly", and gorges and
+  // woodland are the first half of that.
+  const exposure = clamp(
+    (0.35 + smoothstep(10, 85, ground) * 0.65) * (1 - effects.shelter),
+    0,
+    1
+  );
 
   const windStrength = clamp((weather?.wind ?? 1) * exposure, 0, 2);
 
@@ -105,10 +119,12 @@ export function sampleEnvironment(pos, ctx) {
     nearFire,
     inWater,
     rain: weather?.rain ?? 0,
+    region,
+    effects,
     // A short phrase, for the HUD and — later — for describing a place to a
     // language model.
     describe() {
-      const bits = [];
+      const bits = [describeRegion(region)];
       if (air < 2) bits.push('freezing');
       else if (air < 8) bits.push('cold');
       else if (air > 24) bits.push('hot');
@@ -116,7 +132,7 @@ export function sampleEnvironment(pos, ctx) {
       if (this.windStrength > 1.3) bits.push('windy');
       if (this.exposure > 0.8) bits.push('exposed');
       if (fireWarmth > 2) bits.push('by the fire');
-      return bits.length ? bits.join(', ') : 'mild';
+      return bits.join(', ');
     },
   };
 }

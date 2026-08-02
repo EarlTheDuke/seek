@@ -12,6 +12,7 @@
 import * as THREE from 'three';
 import { TERRAIN, Q, WATER_LEVEL } from '../config.js';
 import { heightAt, normalAt, tintAt } from './noise.js';
+import { regionAt } from './regions.js';
 import { clamp, smoothstep } from '../util/math.js';
 
 // Ground palette. Declared as sRGB hex; three converts to linear working space
@@ -26,6 +27,13 @@ const C_ROCK = new THREE.Color(0x62594d); // exposed stone on steep faces
 const C_SCREE = new THREE.Color(0x9d9384); // pale shattered rock near the peaks
 const C_SHORE = new THREE.Color(0x8a7952); // wet sand and mud at the waterline
 const C_BED = new THREE.Color(0x2e3526); // lake bed
+// Region colours. The point of these is that the ground you can SEE is the
+// ground that behaves differently: a bog you cannot pick out at fifty metres
+// is a trap rather than a decision, and snow that does not read as snow is a
+// temperature penalty with no warning attached.
+const C_BOG = new THREE.Color(0x4a4a33); // dark, sodden, olive
+const C_SNOW = new THREE.Color(0xdfe4e8); // cold blue-white
+const C_SPRING = new THREE.Color(0xa8b58e); // mineral pale green, wet and warm
 
 const _n = new THREE.Vector3();
 const _c = new THREE.Color();
@@ -50,6 +58,18 @@ function terrainColor(x, z, h, slope, out) {
 
   // Pale scree approaching the tops.
   out.lerp(C_SCREE, smoothstep(76, 108, h) * 0.85);
+
+  // ── regions ──
+  // Applied over the altitude ramp rather than instead of it, so a bog still
+  // looks like it belongs to the valley it sits in. This is the only place the
+  // renderer reads regions, and it only reads — the region field is the same
+  // pure function the body and the controller use, so what you see and what
+  // you walk through cannot disagree.
+  const r = regionAt(x, z);
+  out.lerp(C_BOG, r.bog * 0.8);
+  out.lerp(C_SPRING, r.spring * 0.7);
+  // Snow last of the three and strongest: it covers everything, including rock.
+  out.lerp(C_SNOW, r.snow * 0.92);
 
   // Darkened wet margin, then the lake bed below it.
   out.lerp(C_SHORE, smoothstep(WATER_LEVEL + 2.0, WATER_LEVEL - 0.5, h) * 0.75);

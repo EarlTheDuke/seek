@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { PLAYER, FEEL, WATER_LEVEL } from '../config.js';
 import { heightAt } from '../world/noise.js';
+import { regionAt, regionEffects } from '../world/regions.js';
 import { clamp, damp, lerp } from '../util/math.js';
 import { IDLE_INTENT } from '../sim/intents.js';
 
@@ -131,6 +132,15 @@ export class Controller {
     // Wading is hard work, and so is holding a bow at full draw.
     speed *= lerp(1, PLAYER.wadeFactor, this.wadeDepth / PLAYER.maxWadeDepth);
     speed *= this.speedScale;
+
+    // And so is the ground itself. A bog at 0.52 is the first thing in the
+    // world that makes a ROUTE a decision — going round is often faster than
+    // going through, which is the whole reason the region system exists.
+    // Cached: regionAt is cheap but this runs at the fixed step, and the
+    // ground under you does not change in the centimetres between ticks.
+    this.region = regionAt(this.position.x, this.position.z);
+    this.regionEffects = regionEffects(this.region);
+    speed *= this.regionEffects.speed;
 
     const wish = this.wish(_wish, intent);
     const moving = wish.lengthSq() > 0;

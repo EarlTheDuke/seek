@@ -50,23 +50,38 @@ export class StealthProfile {
     // Landing from a jump is a thump.
     if (ctrl.steppedThisFrame && !ctrl.grounded) target = Math.max(target, 0.7);
 
+    // What you are walking ON. Bog squelches, snow crunches — so on that
+    // ground the quiet approach has to be a SLOW one, and the region system
+    // gives the stealth model the terrain tradeoff it never had. Applied
+    // before the rain mask, because rain covers ground noise like any other.
+    if (speed > 0.35) target *= ctrl.regionEffects?.noise ?? 1;
+
     // Rain covers you. Not because you are quieter, but because everything else
     // is louder — which is the single best reason to hunt in bad weather.
     target *= lerp(1, STEALTH.rainNoiseMask, this.rainMask);
 
-    this.noise = damp(this.noise, target, STEALTH.noiseSmoothing, dt);
+    this.noise = damp(this.noise, clamp(target, 0, 1.6), STEALTH.noiseSmoothing, dt);
 
     // ── cover ──
     // Grass only hides you if you are down in it. Standing in knee-high grass
-    // does nothing; crouching in it does a lot.
+    // does nothing; crouching in it does a lot. Above the snow line there is no
+    // grass to hide in and you are a dark shape on a white field, so cover
+    // fails and you are MORE visible — the tops are exposed in every sense.
     const ground = heightAt(ctrl.position.x, ctrl.position.z);
     const overWater = ground < WATER_LEVEL;
+    const region = ctrl.region;
+    const snow = region?.snow ?? 0;
     const grassy = !overWater && ground < 92;
-    this.inCover = grassy && ctrl.crouching ? STEALTH.coverCrouchBonus : 0;
+    this.inCover =
+      grassy && ctrl.crouching ? STEALTH.coverCrouchBonus * (1 - snow) : 0;
+    // Woodland breaks your outline whether or not you are crouched.
+    this.inCover += (region?.wood ?? 0) * STEALTH.coverWoodBonus;
 
     // ── visibility ──
     let vis = ctrl.crouching ? STEALTH.visCrouch : STEALTH.visStand;
     if (speed > 0.4) vis += STEALTH.visMovingBonus * clamp(speed / PLAYER.sprintSpeed, 0, 1);
+    // A dark shape on a white field. There is nowhere to hide up there.
+    vis += snow * STEALTH.visSnowPenalty;
     vis -= this.inCover;
     this.visibility = clamp(vis, 0.05, 1.4);
   }

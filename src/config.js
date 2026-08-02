@@ -440,6 +440,85 @@ export const WILDLIFE = {
   testBearAt: 86,
 };
 
+// ── Regions: what kind of ground this is ────────────────────────────────────
+//
+// Derived entirely from fields the world already has, so nothing is stored and
+// it works at any coordinate. See world/regions.js.
+//
+// The rule: every region must change a DECISION. A bog is slower, wetter,
+// colder and louder to cross; snow is cold and crunches; a gorge is out of the
+// wind but hems you in; a spring is the only warm place on the tops. A region
+// that does not change what you would do has no business existing.
+export const REGIONS = {
+  // Shore: how far above the waterline still counts as beach.
+  shoreBand: 2.2,
+
+  // Gorge: pure slope. `minSlope` on the troll already uses 0.26, so the
+  // visible gorge starts a little below that — the habitat should be inside
+  // the thing you can see, not the other way round.
+  // Measured: 16.8% of the world is steeper than 0.22 and only 0.9% steeper
+  // than 0.5, so a "full" gorge at 0.62 existed essentially nowhere.
+  gorgeSlope: 0.24,
+  gorgeSlopeFull: 0.45,
+
+  // Snow line, in metres. The land runs to 78 m, so this puts snow on the top
+  // quarter of the relief — visible from the valley, and a real destination.
+  snowLine: 58,
+  snowLineFull: 70,
+  snowWobble: 7, // so it is not a perfect contour ring around every hill
+
+  // Bog: needs all three of low, flat, and the right place. Without the mask
+  // every hollow in the world is marsh and none of them is memorable.
+  // Both masks run smoothstep(threshold -> thresholdFull) over simplex noise.
+  // Ramping all the way to 1 was the mistake: simplex almost never reaches its
+  // extremes, so "full strength" happened essentially nowhere and bogs covered
+  // 0.5% of the world. The FULL value is what actually sets how much ground a
+  // feature claims; the threshold only sets where it starts.
+  bogFreq: 0.0011,
+  bogThreshold: 0.02,
+  bogThresholdFull: 0.42,
+  bogHighest: 34, // fades out above this
+  bogLowest: 11, // full strength at and below this
+  bogFlat: 0.11, // full strength up to here...
+  bogFlatMax: 0.28, // ...gone by here
+
+  // Hot springs: rare and small. Finding one should be an event — but at a
+  // threshold of 0.72->1 the nearest one to the lake was 1.26 km away, which
+  // means most players would never see one at all. Rare has to stay findable.
+  springFreq: 0.0026,
+  // 0.58->0.82 overshot the other way: 4.4% of the world and one within 146 m
+  // of the lake, which makes it scenery rather than an oasis. This lands ~1.5%
+  // with the nearest a few hundred metres out — worth the walk, and findable.
+  springThreshold: 0.68,
+  springThresholdFull: 0.9,
+
+  // Woodland, from the existing clump field. THE CLUMP FIELD SATURATES HIGH —
+  // measured, 86% of the world is above 0.34 and 44% sits in the top decile,
+  // so the obvious-looking [0.34, 0.72] made 71% of the world "woodland" and
+  // buried every other region underneath it. These thresholds are set against
+  // the actual distribution rather than against what 0..1 looks like it means.
+  woodStart: 0.88,
+  woodFull: 0.97,
+
+  // ── what the ground does to you ──
+  bogSpeed: 0.52, // wading through it, and it is the point of a bog
+  snowSpeed: 0.78,
+  gorgeSpeed: 0.86,
+
+  bogNoise: 2.1, // squelch — a quiet crossing has to be a SLOW crossing
+  snowNoise: 1.5, // crunch
+
+  gorgeShelter: 0.75, // the only place on a high ridge you survive a gale
+  woodShelter: 0.35,
+
+  springWarmthC: 15, // enough to reverse hypothermia, which is the whole idea
+  snowChillC: 3.2,
+  bogChillC: 2.0,
+
+  bogWetRate: 0.16, // per second, standing in it
+  springWetRate: 0.1, // warm, but you still get wet
+};
+
 // ── The Strangeness Gradient ────────────────────────────────────────────────
 //
 // The spine of the fantasy pivot. The lowlands are mundane, the high country is
@@ -540,6 +619,12 @@ export const STEALTH = {
   visMovingBonus: 0.35, // added when moving — motion catches the eye
   // Tall grass breaks up your outline, but only if you are low in it.
   coverCrouchBonus: 0.35,
+  // Trees break your outline whether or not you are crouched — which is why
+  // woodland is the good approach and open moor is not.
+  coverWoodBonus: 0.22,
+  // Above the snow line you are a dark shape on a white field, and there is no
+  // grass to get down into. The tops are exposed in every sense of the word.
+  visSnowPenalty: 0.4,
 
   hearingRange: 42, // metres at noise 1.0; scales linearly with noise
   scentRange: 70, // metres directly downwind
