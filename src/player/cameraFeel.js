@@ -20,6 +20,13 @@ export class CameraFeel {
     this.dip = 0; // landing dip, a damped spring
     this.dipVel = 0;
     this.fov = FEEL.fovBase;
+    this.shakeAmt = 0; // decaying impulse, driven by taking hits
+    this.shakeT = 0;
+  }
+
+  /** Jolt the view. `amount` is roughly 0..1. */
+  shake(amount) {
+    this.shakeAmt = Math.min(1.2, this.shakeAmt + amount);
   }
 
   /** `fovOffset` lets whatever is in your hands pull the view in while aiming. */
@@ -45,9 +52,19 @@ export class CameraFeel {
     // ── lean into a strafe ──
     this.roll = damp(this.roll, -ctrl.strafeInput * FEEL.strafeRoll, FEEL.rollLerp, dt);
 
+    // ── impact shake ──
+    // Two incommensurate frequencies per axis so it never settles into a
+    // visible rhythm, decaying fast enough to punctuate rather than nauseate.
+    this.shakeT += dt;
+    this.shakeAmt = Math.max(0, this.shakeAmt - dt * 2.6);
+    const s = this.shakeAmt * this.shakeAmt; // ease out hard
+    const shakePitch = s * 0.055 * (Math.sin(this.shakeT * 47) + 0.6 * Math.sin(this.shakeT * 29));
+    const shakeYaw = s * 0.05 * (Math.sin(this.shakeT * 38 + 1.7) + 0.6 * Math.sin(this.shakeT * 61));
+    const shakeRoll = s * 0.09 * Math.sin(this.shakeT * 33 + 0.4);
+
     // Rotation first, because the lateral bob is applied along camera-right.
     camera.rotation.order = 'YXZ';
-    camera.rotation.set(ctrl.pitch, ctrl.yaw, this.roll);
+    camera.rotation.set(ctrl.pitch + shakePitch, ctrl.yaw + shakeYaw, this.roll + shakeRoll);
 
     camera.position.copy(ctrl.position);
     camera.position.y += ctrl.eyeHeight + bobY - this.dip;

@@ -33,6 +33,8 @@ export const GRAZE = 'graze';
 export const WANDER = 'wander';
 export const ALERT = 'alert';
 export const FLEE = 'flee';
+export const CHARGE = 'charge';
+export const ATTACK = 'attack';
 export const DEAD = 'dead';
 
 const _fwd = new THREE.Vector3();
@@ -68,7 +70,18 @@ export class Creature {
     this.home = position.clone();
     this.dead = false;
     this.deathTime = 0;
-    this.lastKnownThreat = new THREE.Vector3();
+    // Where the body sits when alive, so the death pose can settle back to it.
+    this.restBodyY = this.parts.body.position.y;
+    // Death pose, rolled at the moment of death so a carcass is never a mirror
+    // of the one beside it. Defaults keep animate() safe before then.
+    this.fallSide = 1;
+    this.fallTilt = 0;
+    this.deadLegs = [0, 0, 0, 0];
+    this.deadLegSplay = [0, 0, 0, 0];
+    // Seeded to its own position, not the world origin. An animal whose
+    // awareness gets raised before it has actually detected anything would
+    // otherwise charge at (0, 0, 0) from wherever it happens to be standing.
+    this.lastKnownThreat = position.clone();
     this.alarmed = false; // set for one frame when it first panics
   }
 
@@ -108,8 +121,10 @@ export class Creature {
       }
     }
 
-    // ── hearing ── omnidirectional, scales with how much noise you make
-    const hearRange = STEALTH.hearingRange * stealth.noise;
+    // ── hearing ── omnidirectional, scales with how much noise you make.
+    // Species may override the base range; a bear hears a running man a long
+    // way further off than a deer does.
+    const hearRange = (S.hearingRange ?? STEALTH.hearingRange) * stealth.noise;
     if (stealth.noise > 0.01 && dist < hearRange) {
       signal = Math.max(signal, (1 - dist / hearRange) * S.hearingAcuity);
     }
@@ -134,10 +149,22 @@ export class Creature {
 
   // ── decisions ─────────────────────────────────────────────────────────────
 
+  /**
+   * Dispatch to the species' brain. Adding a third temperament — a territorial
+   * animal that warns before committing, say — is a new method and one entry
+   * in this switch, with nothing else in the file touched.
+   */
   think(dt) {
+    this.stateTime += dt;
+    if (this.species.behaviour === 'aggressive') this.thinkAggressive(dt);
+    else this.thinkSkittish(dt);
+  }
+
+  // ── prey: notice, freeze, bolt ─────────────────────────────────────────────
+
+  thinkSkittish(dt) {
     const S = this.species.senses;
     const sp = this.species.speeds;
-    this.stateTime += dt;
 
     if (this.awareness >= S.panicAt && this.state !== FLEE) {
       this.setState(FLEE);
@@ -209,11 +236,116 @@ export class Creature {
         break;
       }
 
-      case DEAD:
-        this.targetSpeed = 0;
-        this.deathTime += dt;
-        break;
+      // No DEAD case: think() is never reached once the animal is down.
     }
+  }
+
+  // ── predator: investigate, close, charge, maul ─────────────────────────────
+
+  /**
+   * The bear.
+   *
+   * The whole design rests on one number: its charge is faster than your
+   * sprint, but only until its stamina runs out, after which it is slower than
+   * you. So running is the wrong answer to the first rush and the right answer
+   * to the second — you have to stand and shoot, then you get an exit.
+   *
+   * It also does not spook. Low `calmRate` means it keeps coming once it has
+   * you, and being shot makes it press harder rather than scatter — right up
+   * until it is badly hurt, when it finally breaks off.
+   */
+  thinkAggressive(dt) {
+    const S = this.species.senses;
+    const sp = this.species.speeds;
+    const A = this.species.aggression;
+
+    this.attackCooldown = Math.max(0, (this.attackCooldown ?? 0) - dt);
+    this.headDown = damp(this.headDown, this.state === WANDER ? 0.6 : 0, 3, dt);
+
+    // Badly wounded, it gives up and runs — so a fight is winnable, not just
+    // survivable.
+    if (this.hp < this.maxHp * A.fleeBelow && this.state !== FLEE) {
+      this.setState(FLEE);
+      this.stamina = this.species.stamina;
+    }
+
+    if (this.state === FLEE) {
+      this.stamina -= dt;
+      this.targetSpeed = this.stamina > 0 ? sp.flee : sp.trot;
+      const ax = this.position.x - this.lastKnownThreat.x;
+      const az = this.position.z - this.lastKnownThreat.z;
+      this.steerTo(this.position.x + ax, this.position.z + az, dt, 3.5);
+      return;
+    }
+
+    const dist = this.distanceToPlayer ?? Infinity;
+
+    // Commitment is STICKY. Once it has decided you are worth chasing it does
+    // not drop the idea the moment you jog out of earshot — it runs to where it
+    // last had you, which is what makes it feel like being hunted rather than
+    // like tripping a proximity trigger. It only breaks off if it genuinely
+    // loses you for a good while, or you get a very long way clear.
+    if (!this.charging && this.awareness >= A.chargeAt && dist < A.aggroRange) {
+      this.charging = true;
+      this.chargeTime = 0;
+      this.giveUp = 0;
+    }
+    if (this.charging) {
+      this.giveUp = this.awareness < 0.12 ? (this.giveUp ?? 0) + dt : 0;
+      if (this.giveUp > A.loseInterest || dist > A.leash) {
+        this.charging = false;
+        this.chargeTime = 0;
+      }
+    }
+
+    if (this.charging) {
+      this.chargeTime = (this.chargeTime ?? 0) + dt;
+      this.faceToward(this.lastKnownThreat.x, this.lastKnownThreat.z, dt, this.species.turnRate);
+
+      if (dist <= A.attackRange) {
+        this.setState(ATTACK);
+        this.targetSpeed = 0;
+        if (this.attackCooldown === 0) {
+          this.attackCooldown = A.attackInterval;
+          this.pendingAttack = true; // consumed by the manager
+        }
+      } else {
+        this.setState(CHARGE);
+        // Flat out, until the lungs give. Then it can no longer catch you.
+        this.chargeSpent = this.chargeTime > A.chargeStamina;
+        this.targetSpeed = this.chargeSpent ? A.chasePace : sp.charge;
+      }
+      return;
+    }
+
+    if (this.awareness >= S.alertAt) {
+      // Heard or smelt something and is coming to look. At a trot, not a walk —
+      // investigating at 1.9 m/s meant a running player simply left it behind
+      // before it could ever make up its mind.
+      this.setState(ALERT);
+      this.targetSpeed = sp.trot;
+      this.steerTo(this.lastKnownThreat.x, this.lastKnownThreat.z, dt);
+      return;
+    }
+
+    // Foraging.
+    if (this.state !== WANDER && this.state !== GRAZE) this.setState(WANDER);
+    this.targetSpeed = sp.walk * 0.7;
+    if (!this.wanderTarget || this.stateTime > 14) {
+      this.wanderTarget = null;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const a = this.rand() * Math.PI * 2;
+        const r = 10 + this.rand() * 26;
+        const tx = this.home.x + Math.cos(a) * r;
+        const tz = this.home.z + Math.sin(a) * r;
+        if (this.passable(tx, tz)) {
+          this.wanderTarget = new THREE.Vector3(tx, 0, tz);
+          break;
+        }
+      }
+      this.stateTime = 0;
+    }
+    if (this.wanderTarget) this.steerTo(this.wanderTarget.x, this.wanderTarget.z, dt);
   }
 
   setState(s) {
@@ -331,14 +463,35 @@ export class Creature {
   animate(dt) {
     const p = this.parts;
     if (this.state === DEAD) {
-      // Topple over and stay down.
-      const t = smoothstep(0, 0.7, this.deathTime);
-      this.object.rotation.z = lerp(0, Math.PI / 2.1, t);
-      // Same floor as the living case: a carcass in the shallows must not sink.
+      // Topple onto its side and lie there.
+      //
+      // The object's origin is at the feet, so rolling it 90 degrees swings the
+      // whole body down through the ground plane. It has to be RAISED by
+      // roughly the torso's half-width afterwards, or half the animal ends up
+      // buried with its legs sticking out horizontally. (It used to be lowered,
+      // which is exactly the wrong direction.)
+      const fall = smoothstep(0, 0.8, this.deathTime);
+      const settle = smoothstep(0.6, 2.2, this.deathTime);
+
+      this.object.rotation.z = this.fallSide * lerp(0, Math.PI / 2, fall);
+      this.object.rotation.x = lerp(0, this.fallTilt, fall);
+
       const ground = Math.max(heightAt(this.position.x, this.position.z), WATER_LEVEL - this.wadeMax);
-      this.object.position.y = ground - lerp(0, 0.25, t);
-      for (const leg of p.legs) leg.rotation.x = lerp(leg.rotation.x, 0.2, dt * 3);
-      p.neckPivot.rotation.x = lerp(p.neckPivot.rotation.x, 0.9, dt * 3);
+      const lie = this.species.radius * this.scale * 0.72;
+      // Rise as it rolls, then sink a few centimetres into the grass.
+      this.object.position.y = ground + lie * fall - 0.07 * settle;
+
+      // Legs collapse loosely rather than staying planted like table legs.
+      for (let i = 0; i < p.legs.length; i++) {
+        p.legs[i].rotation.x = damp(p.legs[i].rotation.x, this.deadLegs[i], 3.5, dt);
+        p.legs[i].rotation.z = damp(p.legs[i].rotation.z, this.deadLegSplay[i], 3, dt);
+      }
+      // Head and neck go limp, thrown back the way a dropped animal's does.
+      p.neckPivot.rotation.x = damp(p.neckPivot.rotation.x, -0.55, 2.6, dt);
+      p.headPivot.rotation.x = damp(p.headPivot.rotation.x, 0.75, 2.6, dt);
+      p.tailPivot.rotation.x = damp(p.tailPivot.rotation.x, 0, 3, dt);
+      p.body.rotation.x = damp(p.body.rotation.x, 0, 4, dt);
+      p.body.position.y = damp(p.body.position.y, this.restBodyY, 4, dt);
       return;
     }
 
@@ -365,10 +518,27 @@ export class Creature {
     // Tail flicks — faster when nervous.
     const nerves = 1 + this.awareness * 4;
     p.tailPivot.rotation.x = Math.sin(this.legPhase * 1.5 + this.id) * 0.25 * nerves * 0.4;
+
+    // A predator rears as it swings. This is the tell that a blow is landing,
+    // and it is the only reason you get a chance to back off.
+    if (this.species.behaviour === 'aggressive') {
+      const want = this.state === ATTACK ? 1 : 0;
+      this.rear = damp(this.rear ?? 0, want, 6, dt);
+      this.object.rotation.x = -this.rear * 0.5;
+      if (this.rear > 0.01) {
+        // Front paws come up with the chest.
+        p.legs[0].rotation.x -= this.rear * 0.9;
+        p.legs[1].rotation.x -= this.rear * 0.9;
+      }
+    }
   }
 
   update(dt, player, stealth) {
-    if (this.state !== DEAD) {
+    if (this.state === DEAD) {
+      // Advanced here, not in think() — think() is skipped for the dead, which
+      // is why the death animation never used to play at all.
+      this.deathTime += dt;
+    } else {
       this.sense(dt, player, stealth);
       this.think(dt);
       this.move(dt);
@@ -389,6 +559,24 @@ export class Creature {
     return zones[zones.length - 1];
   }
 
+  /** Roll the death pose and drop. */
+  die() {
+    if (this.state === DEAD) return;
+    this.setState(DEAD);
+    this.dead = true;
+    this.speed = 0;
+    this.targetSpeed = 0;
+    this.deathTime = 0;
+    this.fallSide = this.rand() < 0.5 ? -1 : 1;
+    this.fallTilt = (this.rand() - 0.5) * 0.4;
+    // Front and back legs fold differently, and each one a little differently
+    // again, so a carcass never looks like a toppled toy.
+    this.deadLegs = this.parts.legs.map((_, i) =>
+      (i < 2 ? 0.55 : -0.45) + (this.rand() - 0.5) * 0.5
+    );
+    this.deadLegSplay = this.parts.legs.map(() => (this.rand() - 0.5) * 0.55);
+  }
+
   applyDamage(amount, zone) {
     if (this.state === DEAD) return { killed: false, damage: 0 };
     const dealt = amount * (zone?.multiplier ?? 1);
@@ -396,8 +584,7 @@ export class Creature {
     // Being hit is instantly and maximally alarming.
     this.awareness = 1;
     if (this.hp <= 0) {
-      this.setState(DEAD);
-      this.dead = true;
+      this.die();
       return { killed: true, damage: dealt, zone: zone?.name };
     }
     this.setState(FLEE);

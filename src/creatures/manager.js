@@ -71,7 +71,10 @@ export class Wildlife {
         if (d < WILDLIFE.minSpawnDistance) continue;
 
         this.spawnedSites.add(key);
-        const species = SPECIES.deer;
+        // Weighted species pick. Bears are rare and solitary, so most sites are
+        // deer and the occasional one is something that hunts back.
+        const species =
+          hash2i(ci, cj, 815) < (SPECIES.bear.spawn.weight ?? 0) ? SPECIES.bear : SPECIES.deer;
         if (!this.suits(species, x, z)) continue;
 
         const n = Math.round(lerp(species.herd.min, species.herd.max, hash2i(ci, cj, 814)));
@@ -190,6 +193,28 @@ export class Wildlife {
       if (c.alarmed) {
         c.alarmed = false;
         this.deps.audio?.creatureAlarm?.(c.position);
+      }
+
+      // A predator that has closed to contact swings. The creature only raises
+      // the flag; landing the blow is the manager's job, because the creature
+      // has no business knowing what a player is.
+      if (c.pendingAttack) {
+        c.pendingAttack = false;
+        this.deps.onAttack?.(c);
+      }
+
+      // Vocalising. A bear you can hear coming is far worse than one you can't.
+      if (c.species.behaviour === 'aggressive' && c.state !== 'dead') {
+        c.voiceTimer = (c.voiceTimer ?? 0) - dt;
+        if (c.voiceTimer <= 0) {
+          if (c.state === 'charge' || c.state === 'attack') {
+            this.deps.audio?.growl?.(c.position, 1);
+            c.voiceTimer = 1.9;
+          } else if (c.state === 'alert') {
+            this.deps.audio?.growl?.(c.position, 0.3);
+            c.voiceTimer = 5.5;
+          }
+        }
       }
     }
 

@@ -317,6 +317,104 @@ export class Soundscape {
     src.stop(now + kind.dur + 0.03);
   }
 
+  /**
+   * A bear. Low sawtooth stack with a slow wobble, pushed through a lowpass —
+   * the wobble is what makes it read as an animal rather than an engine.
+   * `intent` 0 is a warning grunt, 1 is a committed roar.
+   */
+  growl(pos, intent = 0) {
+    if (!this.running) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const near = this.distanceGain(pos);
+    if (near < 0.02) return;
+
+    const dur = lerp(0.5, 1.15, intent);
+    const level = lerp(0.16, 0.42, intent) * near;
+    const base = lerp(62, 88, intent);
+
+    const out = ctx.createGain();
+    out.gain.setValueAtTime(0, now);
+    out.gain.linearRampToValueAtTime(level, now + 0.09);
+    out.gain.setValueAtTime(level, now + dur * 0.6);
+    out.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(lerp(420, 900, intent), now);
+    lp.frequency.exponentialRampToValueAtTime(260, now + dur);
+    lp.Q.value = 3;
+    lp.connect(out).connect(this.master);
+
+    for (const mul of [1, 1.5, 2.51]) {
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(base * mul, now);
+      osc.frequency.linearRampToValueAtTime(base * mul * lerp(0.82, 0.68, intent), now + dur);
+      const g = ctx.createGain();
+      g.gain.value = 1 / mul;
+      osc.connect(g).connect(lp);
+      osc.start(now);
+      osc.stop(now + dur + 0.05);
+    }
+
+    // Slow wobble on the pitch — the growl "grain".
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = lerp(11, 19, intent);
+    const lfoAmt = ctx.createGain();
+    lfoAmt.gain.value = lerp(60, 190, intent);
+    lfo.connect(lfoAmt).connect(lp.frequency);
+    lfo.start(now);
+    lfo.stop(now + dur + 0.05);
+
+    // Breath noise underneath.
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.playbackRate.value = 0.45;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 700;
+    bp.Q.value = 0.8;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(0, now);
+    ng.gain.linearRampToValueAtTime(level * 0.5, now + 0.1);
+    ng.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    src.connect(bp).connect(ng).connect(this.master);
+    src.start(now);
+    src.stop(now + dur + 0.05);
+  }
+
+  /** Taking a hit: a dull thud and a short breath knocked out of you. */
+  playerHurt(severity = 1) {
+    if (!this.running) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.exponentialRampToValueAtTime(48, now + 0.24);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.4 * severity, now);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+    osc.connect(g).connect(this.master);
+    osc.start(now);
+    osc.stop(now + 0.32);
+
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.playbackRate.value = 0.8;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1100;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.3 * severity, now);
+    ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+    src.connect(lp).connect(ng).connect(this.master);
+    src.start(now);
+    src.stop(now + 0.24);
+  }
+
   /** Two soft rising blips — unmistakably "you got the thing". */
   pickup() {
     if (!this.running) return;

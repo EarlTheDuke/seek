@@ -26,6 +26,7 @@ import { Pickups } from './world/pickups.js';
 import { ColliderField, addStaticGroup } from './world/colliders.js';
 import { makeRandom } from './world/noise.js';
 import { StealthProfile } from './player/stealth.js';
+import { Vitals } from './player/vitals.js';
 import { Wildlife } from './creatures/manager.js';
 
 // ── renderer ────────────────────────────────────────────────────────────────
@@ -145,7 +146,36 @@ function boot() {
   const pickups = new Pickups(scene, { inventory, audio, projectiles: null });
   const stealth = new StealthProfile();
 
-  const wildlife = new Wildlife(scene, { stealth, audio });
+  const vitals = new Vitals({
+    onDamage: (amount) => {
+      audio.playerHurt(Math.min(1, amount / 40));
+      feel.shake(0.75);
+      weapons.cancel(); // a mauling makes you lose the draw
+    },
+    onDeath: () => {
+      weapons.cancel();
+      hud.setPrompt(null);
+    },
+    onRespawn: () => {
+      ctrl.teleport(spawn.position, spawn.yaw);
+      // Wake up unhunted — otherwise the bear is simply waiting for you.
+      for (const c of wildlife.creatures) {
+        c.awareness = 0;
+        c.charging = false;
+        c.chargeTime = 0;
+      }
+      hud.toast('you wake at the lake, shaken', 3);
+    },
+  });
+
+  const wildlife = new Wildlife(scene, {
+    stealth,
+    audio,
+    onAttack: (creature) => {
+      const dmg = creature.species.aggression?.damage ?? 0;
+      vitals.damage(dmg, creature);
+    },
+  });
 
   const projectiles = new Projectiles(scene, {
     colliders: [scatterColliders, staticColliders],
@@ -342,7 +372,10 @@ function boot() {
 
     // Weapons run before movement so a drawn bow slows you this frame, not next.
     weapons.update(dt);
-    ctrl.speedScale = weapons.moveScale;
+    vitals.update(dt);
+    // Dead men do not walk.
+    ctrl.speedScale = vitals.dead ? 0 : weapons.moveScale;
+    if (vitals.dead) ctrl.keys.clear();
 
     ctrl.update(dt);
     feel.update(dt, ctrl, camera, weapons.fovOffset);
@@ -360,7 +393,8 @@ function boot() {
     hud.setPrompt(near ? `<b>E</b>  pick up ${itemName(near.item)}${near.count > 1 ? ` ×${near.count}` : ''}` : null);
 
     const weaponState = weapons.getState();
-    hud.setCrosshair(weaponState, weapons.spreadHint);
+    hud.setCrosshair(vitals.dead ? null : weaponState, weapons.spreadHint);
+    hud.setVitals(vitals);
     viewmodel.update(dt, ctrl, weaponState, atmosphere.sun, camera.quaternion);
 
     audio.update(dt, ctrl, ctrl.position.y);
@@ -397,8 +431,16 @@ function boot() {
     scene, camera, renderer, ctrl, feel, atmosphere, terrain, scatter, lake,
     composer, life, audio, hud, spawn, landmarks, stepWorld, heightAt,
     inventory, weapons, projectiles, pickups, viewmodel, wildlife, stealth,
+    vitals,
     /** Re-stock the lake shore without reloading. `highlands.herdAtWater(6)` */
     herdAtWater,
+    /** Put a bear behind you, for testing. `highlands.spawnBear(45)` */
+    spawnBear(distance = 45) {
+      const a = Math.random() * Math.PI * 2;
+      const x = ctrl.position.x + Math.cos(a) * distance;
+      const z = ctrl.position.z + Math.sin(a) * distance;
+      return wildlife.spawn('bear', x, z);
+    },
     colliders: { scatter: scatterColliders, static: staticColliders },
     get time() { return time; },
 

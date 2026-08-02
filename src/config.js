@@ -364,5 +364,13 @@ export const STEALTH = {
   scentCone: 0.55, // how tightly scent follows the wind direction
 };
 
+export const VITALS = {
+  maxHealth: 100, // a bear swipe is 38, so three of them kill you
+  regenDelay: 9, // seconds unhurt before you start recovering
+  regenRate: 4.5, // health per second after that
+  respawnDelay: 3.4, // seconds on the ground before you wake at the spawn point
+  flashFade: 1.8, // how fast the red hit flash falls away
+};
+
 /** Show the frame-rate readout. */
 export const SHOW_FPS = true;

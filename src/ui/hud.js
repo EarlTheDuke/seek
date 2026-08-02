@@ -87,6 +87,26 @@ const CSS = `
   transition: opacity .16s ease; white-space: nowrap; }
 #hl-prompt.show { opacity: 1; }
 #hl-prompt b { color: #ffd9a0; font-weight: 400; }
+
+/* Full-screen red wash on a hit. Pointer-events off so it never blocks input. */
+#hl-hurt { position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background: radial-gradient(ellipse at 50% 50%, rgba(150,0,0,0) 35%, rgba(150,10,10,.92) 100%); }
+
+#hl-health { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%);
+  width: 180px; height: 4px; background: rgba(10,8,6,.55); border-radius: 3px;
+  overflow: hidden; opacity: 0; transition: opacity .35s ease;
+  border: 1px solid rgba(255,230,200,.12); }
+#hl-health.show { opacity: .9; }
+#hl-health i { display: block; height: 100%; width: 100%;
+  background: linear-gradient(90deg, #c2453a, #e08a5a); transition: width .18s ease; }
+
+#hl-dead { position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px; background: rgba(6,3,3,.86);
+  opacity: 0; visibility: hidden; transition: opacity .7s ease; }
+#hl-dead.show { opacity: 1; visibility: visible; }
+#hl-dead h2 { margin: 0; font-size: 28px; font-weight: 300; letter-spacing: .34em;
+  text-indent: .34em; color: #e8bfb0; }
+#hl-dead p { margin: 0; opacity: .5; font-size: 12px; letter-spacing: .12em; }
 `;
 
 const KEYS = [
@@ -128,8 +148,11 @@ export class Hud {
       <div id="hl-cross"><i class="v"></i><i class="v"></i><i class="h"></i><i class="h"></i></div>
       <div id="hl-prompt"></div>
       <div id="hl-hot"></div>
+      <div id="hl-health"><i></i></div>
       <div id="hl-fps"></div>
       <div id="hl-toast"></div>
+      <div id="hl-hurt"></div>
+      <div id="hl-dead"><h2>KILLED</h2><p>the highlands are not empty</p></div>
       <div id="hl-resume">click to resume</div>`;
     document.body.appendChild(this.root);
 
@@ -142,6 +165,10 @@ export class Hud {
     this.crossTicks = [...this.cross.querySelectorAll('i')];
     this.prompt = this.root.querySelector('#hl-prompt');
     this.hotbar = this.root.querySelector('#hl-hot');
+    this.hurt = this.root.querySelector('#hl-hurt');
+    this.healthBar = this.root.querySelector('#hl-health');
+    this.healthFill = this.healthBar.querySelector('i');
+    this.deadScreen = this.root.querySelector('#hl-dead');
     this.promptText = null;
 
     this.started = false;
@@ -253,6 +280,21 @@ export class Hud {
 
     const bright = 0.55 + 0.45 * charge;
     for (const t of this.crossTicks) t.style.opacity = bright;
+  }
+
+  /**
+   * Health, the red hit wash, and the death screen.
+   *
+   * The bar only appears once you are actually hurt — an untouched player sees
+   * nothing, which keeps the clean view that the rest of this interface is
+   * built around.
+   */
+  setVitals(vitals) {
+    this.hurt.style.opacity = (vitals.hurtFlash * 0.85).toFixed(3);
+    const show = vitals.wounded || vitals.dead;
+    this.healthBar.classList.toggle('show', show);
+    if (show) this.healthFill.style.width = `${(vitals.fraction * 100).toFixed(1)}%`;
+    this.deadScreen.classList.toggle('show', vitals.dead);
   }
 
   setPrompt(text) {
