@@ -305,6 +305,13 @@ function boot() {
   // ── action keys ──
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    // Match the CHARACTER as well as the physical key. On a non-US layout the
+    // key at the `Slash` position is not `?` at all, so testing the code alone
+    // leaves those keyboards with no way to open the controls.
+    if (e.key === '?') {
+      hud.toggleKeys();
+      return;
+    }
     switch (e.code) {
       case 'KeyF':
         hud.toast(ctrl.toggleFly() ? 'free-fly on — Space / Ctrl for up and down' : 'free-fly off');
@@ -328,6 +335,11 @@ function boot() {
         break;
       case 'KeyT':
         hud.toast(atmosphere.toggleClock() ? 'time running' : `time frozen at ${atmosphere.clockText}`, 2);
+        break;
+      case 'Tab':
+        // The discoverable one. Prevented, or it walks browser focus instead.
+        e.preventDefault();
+        hud.toggleKeys();
         break;
       case 'Slash':
         if (e.shiftKey) hud.toggleKeys();

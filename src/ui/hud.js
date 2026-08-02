@@ -123,7 +123,7 @@ const KEYS = [
   ['P', 'save a screenshot'],
   ['H', 'hide this interface'],
   ['M', 'mute'],
-  ['?', 'show these again'],
+  ['Tab or ?', 'show / hide this list'],
   ['Esc', 'release the mouse'],
 ];
 
@@ -140,7 +140,7 @@ export class Hud {
         <h1>HIGHLANDS</h1>
         <div class="sub">a golden hour, somewhere high up</div>
         <div class="go">click to explore</div>
-        <div class="note">mouse to look &middot; W A S D to walk</div>
+        <div class="note">mouse to look &middot; W A S D to walk &middot; <b>Tab</b> for controls</div>
       </div>
       <div id="hl-keys"><h2>Controls</h2><table>${KEYS.map(
         ([k, d]) => `<tr><td class="k">${k}</td><td class="d">${d}</td></tr>`
@@ -229,12 +229,19 @@ export class Hud {
     this.keysTimer = seconds;
   }
 
+  /**
+   * Opened by hand, the panel STAYS open until dismissed.
+   *
+   * The timed version is only for the automatic peek at the start of a session.
+   * Someone who deliberately asked to see the controls is reading them, and
+   * having the list evaporate mid-read is precisely the wrong behaviour.
+   */
   toggleKeys() {
     if (this.keys.classList.contains('show')) {
       this.keys.classList.remove('show');
       this.keysTimer = 0;
     } else {
-      this.showKeys(12);
+      this.showKeys(Infinity);
     }
   }
 
