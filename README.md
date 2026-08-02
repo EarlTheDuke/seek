@@ -7,6 +7,9 @@ path, weather that comes and goes, deer you have to stalk downwind, and bears th
 **Everything you see and hear is generated in code.** No models, no textures, no HDRIs, no audio
 files anywhere in this repository.
 
+> Where this is going: **[VISION.md](VISION.md)** — the folkloric pivot, survival, self-hosted
+> multiplayer and building, in sequence. This README describes what exists *today*.
+
 ![The view from the spawn point](docs/spawn.jpg)
 
 <p align="center"><em>The opening view. The spawn point is chosen by searching the terrain — see

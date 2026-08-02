@@ -1,0 +1,360 @@
+# Seek — high-level plan
+
+> A hunter in a land where the old things are waking.
+>
+> You start in green lowlands with a bow and a day's light. The further you go
+> from the water, the less the world obeys ordinary rules.
+
+This is the destination document. [README.md](README.md) describes what exists
+today; this describes where it goes and in what order. Every phase below ends
+with something a person can *play*, not just something that compiles.
+
+---
+
+## 1. What the game is
+
+**A survival hunting game in a folkloric world, playable alone or with a few
+friends on a machine one of you owns.**
+
+Three sentences of pitch:
+
+- You hunt to eat, and the hunt is a stalk — wind, cover, patience, one good
+  arrow. That already works and it is the best thing here.
+- The land is not empty and not safe. Bears now; goblins, trolls and stranger
+  things later, concentrated in the places that are hardest to reach.
+- You will be cold, you will be hungry, and eventually you will build somewhere
+  to be neither.
+
+### The setting, and why it isn't generic fantasy
+
+The world already looks Scottish-mythic: standing stones on a ridge, a cairn on
+the summit, an arch over a gully, long golden light. The natural pivot is not
+swords-and-sorcery — it is **folklore**. Things that were always in these hills
+and have started coming back down. Trolls in the gorges. Goblins in warrens
+under the roots. Barrows that should have stayed shut.
+
+That gives us a spine no amount of content can muddle:
+
+> **The Strangeness Gradient.** The lowlands are mundane — deer, weather,
+> hunger. The high country is dangerous. The deep places barely obey physics.
+> Strangeness rises with distance, altitude and darkness.
+
+Everything hangs off that one idea. It is a difficulty curve you can *see*, a
+reason to explore, a way to add fantasy without throwing away the quiet beauty
+of the opening hour, and it maps directly onto systems that already exist
+(altitude, biome mask, time of day, weather).
+
+---
+
+## 2. Design pillars
+
+The lines we do not cross. These exist to settle arguments later.
+
+| Pillar | Meaning |
+|---|---|
+| **Patience is rewarded** | The stalk is the game. Anything that makes rushing optimal is wrong. |
+| **The world is worth looking at** | No mechanic may make players stop noticing the light. Survival meters serve the mood, not the other way round. |
+| **Everything is generated** | No asset pipeline, ever. Procedural geometry, procedural audio, seeded randomness. Tiny download, infinite variety, instant iteration. |
+| **Systems over scripts** | Behaviour emerges from senses, weather and need. No quest markers, no cutscenes, no invisible walls. |
+| **The world is honest** | If it looks like you could walk there, you can. If an animal seems to have noticed you, it has. |
+| **Determinism is sacred** | Same seed, same world, forever. This is not a nicety — it is what makes multiplayer cheap (see below). |
+
+### Explicit non-goals
+
+Naming these now saves months later.
+
+- **No asset store, no imported models.** The constraint is the aesthetic.
+- **No MMO.** Target is 2–8 friends on a self-hosted box, not a persistent
+  shard for hundreds.
+- **No skill trees or XP bars.** Progress is knowledge, equipment and territory.
+- **No quest log.** The monoliths on the ridge already tell you where to go.
+- **No anti-cheat arms race.** Friends' servers. Authority prevents accidents,
+  not adversaries.
+
+---
+
+## 3. The one big architectural bet
+
+**Multiplayer must be prepared for early and shipped late.**
+
+Retrofitting network authority onto a game built single-player is the classic
+way these projects die. But building the netcode before there is a game is how
+they stall. The resolution:
+
+> Do the *architecture* for multiplayer in Phase 1, while there is almost
+> nothing to migrate. Ship the *network layer* in Phase 5, when there is a game
+> worth sharing.
+
+Concretely, three properties get established early and then never broken:
+
+1. **Simulation is separate from presentation.** One authoritative `World`
+   object holds all state. Rendering only ever reads. (Already half-true — the
+   codebase has a "rendering only reads" habit — but `main.js` currently wires
+   everything together as globals.)
+2. **All player action is an intent.** Nothing mutates world state directly.
+   You submit "draw bow", "release", "pick up item 7" and the sim resolves it
+   on a fixed tick. Single-player becomes *a server running in the same
+   process*, and networking becomes a transport swap.
+3. **The world is generated from a seed on every machine.** Terrain, trees,
+   rocks, landmarks and loot sites are all pure functions of the seed already.
+   **Clients never download terrain.** Only entities and events cross the wire
+   — creatures, players, projectiles, built structures. That is a very small
+   packet budget for a very large world, and it is a genuine advantage this
+   codebase has that most do not.
+
+This bet is the single most important thing in this document.
+
+---
+
+## 4. Two modes, defined as data
+
+A `Ruleset` object, not a scatter of `if` statements. Modes become config rows,
+exactly like creatures and items already are.
+
+| | **Sandbox** (what exists today) | **Survival** (the real game) |
+|---|---|---|
+| Free-fly camera | yes | **no** |
+| Spawn / teleport / weather commands | yes | no |
+| Time scrubbing | yes | no — the sun moves at its own pace |
+| Hunger, cold, wetness | off | **on** |
+| Death | respawn, no cost | drop your pack where you fell |
+| World persistence | none | saved, and it keeps running |
+| Purpose | testing, screenshots, tuning | the game |
+
+Sandbox stays forever. It is how the world gets built and tuned, and it is a
+genuinely lovely thing to walk around in.
+
+---
+
+## 5. The survival web
+
+The reason to add hunger and temperature is not realism — it is that they make
+every system already built *load-bearing*.
+
+```
+        COLD  ←  altitude · night · wind · rain · wet clothing · immobility
+          ↓
+      countered by  →  fire · shelter · hide clothing · movement · hot springs
+
+       HUNGER  ←  time · exertion · cold (you burn more when freezing)
+          ↓
+      countered by  →  hunting · cooking · foraging · preserved food
+```
+
+Look at what that makes matter, all of which already exists:
+
+- **Altitude** — the terrain has it; now it has a snow line and a reason to fear
+  the tops.
+- **Wind** — drives scent for stalking; now it also drives wind chill.
+- **Rain** — masks your noise and scent (a gift); now it also soaks you and
+  kills you slowly.
+- **Night** — beautiful; now it is also the coldest and most dangerous time.
+- **Hides and venison** — currently loot with no purpose; now they are clothing
+  and dinner.
+
+One mechanic, five systems promoted from decoration to consequence. That is the
+test every new survival mechanic must pass.
+
+**Guard rail:** meters must be *slow*. Hunger measured in in-game days, not
+minutes. The failure mode of survival games is a chore loop that interrupts the
+thing you came for. If a player cannot stand still for two minutes and watch the
+light change, the numbers are wrong.
+
+---
+
+## 6. The bestiary
+
+The creature registry already treats species as data — hit points, senses,
+speeds, behaviour, drop table, spawn rules. Everything below is a table row plus
+occasionally one new behaviour class.
+
+The design rule: **every creature must invert something.** The deer taught you
+wind and patience. Each new one should make a lesson you learned wrong.
+
+| Creature | Where | What it inverts |
+|---|---|---|
+| **Deer** ✅ | lowland, woodland edge | the baseline — wind and patience |
+| **Bear** ✅ | deep woodland | you cannot outrun the first charge; stand and shoot |
+| **Hare** | meadow, moor | too fast to stalk — you must lead the shot |
+| **Boar** | woodland | does not flee, does not stalk: it *charges and leaves* |
+| **Corvids** | anywhere, near kills | they follow your kills and **give your position away** — an alarm chain you caused |
+| **Goblin** | warrens, woodland, **night only** | hunts *you*, in packs, by scent. Cowardly alone: break the pack and it breaks. First enemy with **morale**. |
+| **Troll** | gorges, caves | nearly blind, superb hearing — the exact reverse of the deer. You can watch it from open ground and it has no idea. Retreats at sunrise. |
+| **Wisp** | bog, night, mist | no combat at all. It leads you somewhere. Pure dread. |
+| **White Stag** | rare, dawn, mist | the thing the game is named for. Finding it is the reward; what you do then is a choice with weight. |
+| **The thing in the deep places** | the Blight | unnamed, unstatted here on purpose |
+
+### Systemic ideas worth building
+
+- **Regional pressure.** Track how much you have hunted each area. Hunt it out
+  and something *notices* — predators move in, prey thins, goblins investigate
+  the carcasses. The world responds to you without a single scripted trigger.
+- **Sunlight as a weapon.** Trolls retreat at dawn. Surviving until sunrise
+  becomes a real tactic, and it makes the day/night cycle mechanical rather
+  than scenic.
+- **Weather as a summoner.** Certain things only walk in mist. A storm brings
+  something down from the tops. The weather system already picks states — this
+  is one hook away.
+
+---
+
+## 7. Places worth finding
+
+The terrain is currently a pure heightfield: beautiful, but it has no *insides*.
+This phase is the biggest engine work in the plan.
+
+| Feature | Notes |
+|---|---|
+| **Caves & goblin warrens** | Needs overlay geometry — a heightfield cannot express an overhang. Likely approach: hand-authored-ish procedural modules stitched into carved terrain mouths. |
+| **Gorges & ravines** | The domain-warped noise can carve these already; they need traversal (rope bridges, fords) to be interesting. |
+| **Barrows** | Burial mounds you can open. Consequences for doing so. |
+| **Stone circles** | Already exist as landmarks. Give them a *function* at certain hours or weathers. |
+| **Bogs & marsh** | Slow movement, hide things, wisps, a distinct palette. Cheap: a biome mask plus a movement modifier. |
+| **Snow line** | Falls straight out of altitude + temperature. Free, and it makes the tops feel like the tops. |
+| **Hot springs** | Warmth in the cold country. A survival oasis worth walking to. |
+| **Waterfalls & rivers** | Flowing water down the terrain gradient. Also masks sound — another stealth interaction. |
+| **The Blight** | A region where the palette, the sky and the rules shift. The far end of the strangeness gradient. |
+
+**Named places.** Every seed should generate places with generated names, so
+players can say "I found the Hollow at Rannoch" and mean something specific.
+Cheap to build, enormous for how a shared world feels.
+
+---
+
+## 8. The phases
+
+Sequential. Each ends with something playable. Rough sizes are relative, not
+calendar promises.
+
+### Phase 0 — Modes and persistence · *small*
+**Goal:** a Survival run you can leave and come back to.
+- `Ruleset` as data; Sandbox vs Survival.
+- Survival disables fly, spawn commands, time scrubbing.
+- Save/load. Cheap, because the world is seed-derived — a save is your state
+  plus the *diffs* (what you killed, took, and later built).
+
+**Done when:** you can start a Survival run, quit, reopen the tab, and the arrow
+you left in a tree is still there.
+
+---
+
+### Phase 1 — The simulation core · *large, invisible*
+**Goal:** the architecture bet, paid while it is still cheap.
+- One authoritative `World`; presentation reads only.
+- Player action becomes intents resolved on a fixed tick.
+- The sim runs **headless in Node**, producing identical results to the browser.
+
+**Done when:** `npm run sim -- --seed X --ticks 10000` runs with no renderer and
+matches an in-browser run exactly.
+
+> This phase has no player-visible payoff. Doing it anyway is the difference
+> between multiplayer taking a month and taking a year.
+
+---
+
+### Phase 2 — The body · *medium*
+**Goal:** hunger, cold, and the reasons to build a fire.
+- Hunger, warmth, wetness, exhaustion — all slow.
+- Fire (light, warmth, cooking, visible for miles at night — and to goblins).
+- Clothing from hides. Cooking venison. Food spoilage.
+- Temperature from altitude, time, wind chill, wetness.
+
+**Done when:** you can die of exposure on a ridge at night, and know exactly
+which three decisions would have saved you.
+
+---
+
+### Phase 3 — The world turns strange · *medium*
+**Goal:** the fantasy pivot, and the first night that genuinely frightens you.
+- Goblins with pack morale; trolls with inverted senses.
+- The strangeness gradient wired into spawning.
+- Herd/pack alarm propagation (still owed from the current build).
+- Rare and conditional encounters.
+
+**Done when:** a night in the high country is something you prepare for.
+
+---
+
+### Phase 4 — Places worth finding · *large*
+**Goal:** the world gets insides.
+- Cave and warren geometry.
+- Bogs, gorges, snow line, hot springs.
+- Barrows and functional stone circles.
+- Procedural place names.
+
+**Done when:** you can tell another player where to go and they can find it.
+
+---
+
+### Phase 5 — Two players · *large*
+**Goal:** a friend on your LAN, in your world.
+- Node server, WebSocket, authoritative tick.
+- Clients generate terrain from the seed; only entities and events sync.
+- Join, leave, reconnect. Interest management by distance.
+
+**Done when:** two people stalk the same deer and only one of them gets it.
+
+---
+
+### Phase 6 — Together and against · *medium*
+**Goal:** rules for company.
+- Parties and factions.
+- **PvE:** shared threats. A goblin warband is a *group* problem.
+- **PvP:** opt-in, or zoned to the strange country — danger from other people
+  belongs where danger already lives.
+- Death and loss rules that work socially, not just mechanically.
+
+**Done when:** four players survive a warband raid, or fail to.
+
+---
+
+### Phase 7 — Leaving a mark · *large*
+**Goal:** somewhere to come back to.
+- Gather (wood from trees, stone from rocks — both already exist as objects).
+- Craft and place. Shelter that genuinely changes temperature.
+- Storage, fire pits, drying racks, defences.
+- Ownership and permissions in multiplayer; persistence across restarts.
+
+**Done when:** you can build a camp, log off, and find it still standing next
+week — with your friend's additions to it.
+
+---
+
+### Later, deliberately deferred
+
+Written down so they stop being distractions: mounts, farming, seasons, magic
+systems, NPC settlements and trade, dedicated server hosting for strangers,
+mod support, a soundtrack.
+
+---
+
+## 9. Open questions
+
+Things I have a recommendation on but should not decide alone.
+
+| Question | My recommendation |
+|---|---|
+| **How harsh is death in Survival?** | Drop your pack where you fell, keep what you wore. Recoverable, but a real walk of shame. Full loss is too cruel for a game about patience. |
+| **Is PvP always on?** | No. Opt-in via a flag, or zoned to the strange country. Friends' servers should not default to betrayal. |
+| **How large is the world?** | Effectively infinite already (terrain streams from noise). Recommend *bounding it* — a knowable region beats endless sameness, and it makes named places meaningful. |
+| **Does magic exist for the player?** | Prefer not. Keep the player mundane; let the *world* be strange. That contrast is the whole feeling. |
+| **First-person only?** | Yes. Third-person would mean character models, animation and a whole aesthetic this project has deliberately avoided. |
+| **How many players?** | Design for 4. Make sure 8 works. Do not care about 30. |
+
+---
+
+## 10. What we do next
+
+The honest recommendation for the immediate next step:
+
+**Phase 0, then Phase 1.** They are unglamorous, and they are the two that
+determine whether everything after them is possible. Phase 0 is small and
+gives an immediate win (a Survival mode that persists). Phase 1 is the
+architecture bet, and it gets cheaper the sooner it happens — every system
+added before it is one more thing to migrate.
+
+If that feels too dry to start with, an acceptable compromise is to do **Phase 0,
+then a slice of Phase 3** (goblins, so the pivot feels real), **then Phase 1**.
+The migration cost of one extra creature is small, and morale matters.
+
+What should *not* happen is Phases 2, 3 and 4 all landing before Phase 1.
