@@ -6,8 +6,8 @@
 // before audio can start) and then only has its gains nudged, so it costs
 // essentially nothing per frame.
 
-import { AUDIO, LAKE, PLAYER } from '../config.js';
-import { makeRandom } from '../world/noise.js';
+import { AUDIO, LAKE, PLAYER, WATER_LEVEL } from '../config.js';
+import { heightAt, makeRandom } from '../world/noise.js';
 import { clamp, lerp, smoothstep } from '../util/math.js';
 
 export class Soundscape {
@@ -19,6 +19,8 @@ export class Soundscape {
     this.callCooldown = 0;
     this.draw = null; // the currently-sounding bow creak, if any
     this.listener = null; // player position, for distance attenuation
+    this.waterDist = Infinity; // metres to the water's edge
+    this.waterProbe = 0; // countdown to the next shoreline lookup
   }
 
   /** Build the graph. Must be called from a user gesture. */
@@ -165,6 +167,36 @@ export class Soundscape {
   }
 
   // ── bow and impacts ──────────────────────────────────────────────────────
+
+  /**
+   * Distance from a point to the water's edge, in metres.
+   *
+   * March from the player toward the lake centre until the ground drops below
+   * the waterline. The shoreline is NOT a circle — the basin is carved into
+   * real terrain, so the edge sits anywhere from about 130 m to 180 m from the
+   * centre depending on which way you approach. Keying the sound off a fixed
+   * fraction of `LAKE.radius`, as this used to, meant the wash played at full
+   * volume while you were still 60 m inland.
+   *
+   * Sampled every quarter second rather than every frame; it is a handful of
+   * height lookups and the answer barely changes as you walk.
+   */
+  distanceToWater(pos) {
+    const dx = LAKE.x - pos.x;
+    const dz = LAKE.z - pos.z;
+    const toCentre = Math.hypot(dx, dz);
+    if (toCentre < 1) return 0;
+    if (heightAt(pos.x, pos.z) < WATER_LEVEL) return 0; // standing in it
+
+    const reach = Math.min(toCentre, AUDIO.waterRange + 25);
+    const step = 4;
+    const ux = dx / toCentre;
+    const uz = dz / toCentre;
+    for (let t = step; t <= reach; t += step) {
+      if (heightAt(pos.x + ux * t, pos.z + uz * t) < WATER_LEVEL) return t - step * 0.5;
+    }
+    return Infinity;
+  }
 
   /** Attenuate a world sound by how far away it happened. */
   distanceGain(pos) {
@@ -338,11 +370,14 @@ export class Soundscape {
       AUDIO.windBase + AUDIO.windSpeedGain * speedTerm + AUDIO.windAltitudeGain * altTerm;
     this.windGain.gain.setTargetAtTime(wind, now, 0.35);
 
-    // Lake wash fades in as you approach the shore.
-    const d = Math.hypot(ctrl.position.x - LAKE.x, ctrl.position.z - LAKE.z);
-    const edge = Math.max(0, d - LAKE.radius * 0.85);
-    const water = AUDIO.waterGain * (1 - smoothstep(0, AUDIO.waterRange, edge));
-    this.waterGain.gain.setTargetAtTime(water, now, 0.4);
+    // Lake wash, keyed off the distance to the actual water's edge.
+    this.waterProbe -= dt;
+    if (this.waterProbe <= 0) {
+      this.waterProbe = 0.25;
+      this.waterDist = this.distanceToWater(ctrl.position);
+    }
+    const water = AUDIO.waterGain * (1 - smoothstep(0, AUDIO.waterRange, this.waterDist));
+    this.waterGain.gain.setTargetAtTime(water, now, 0.5);
 
     if (ctrl.steppedThisFrame) {
       const surface =

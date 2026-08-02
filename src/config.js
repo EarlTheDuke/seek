@@ -242,8 +242,11 @@ export const AUDIO = {
   windBase: 0.1,
   windSpeedGain: 0.16,
   windAltitudeGain: 0.1,
-  waterGain: 0.34,
-  waterRange: 120, // metres over which lake sound fades in
+  // Level at the water's edge. Was 0.34, which is three times the resting wind
+  // and dominated everything — a lake is a quiet thing to stand next to.
+  waterGain: 0.11,
+  // Metres from the SHORELINE (not the lake centre) over which it fades in.
+  waterRange: 40,
   footstepGain: 0.3,
   birdCallGain: 0.1,
   birdCallChance: 0.0055, // per frame
