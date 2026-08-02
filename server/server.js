@@ -23,6 +23,7 @@ import {
   C_INTENT,
   C_PING,
   C_CHAT,
+  C_PARTY,
   S_WELCOME,
   S_SNAPSHOT,
   S_JOIN,
@@ -115,6 +116,24 @@ wss.on('connection', (ws, req) => {
         broadcast(S_CHAT, { id: client.id, n: client.name, m: text });
         break;
       }
+
+      case C_PARTY: {
+        if (client.id === null) return;
+        if (msg.data.leave) {
+          world.leaveParty(client.id);
+          broadcast(S_CHAT, { id: 0, n: 'the hills', m: `${client.name} is alone again` });
+          return;
+        }
+        const withId = Number(msg.data.with);
+        const other = world.players.get(withId);
+        if (!other) return;
+        // Deliberately not an invite-and-accept handshake. On a LAN, with
+        // people you can hear, ceremony is friction — and the only cost of
+        // being wrong is that someone cannot shoot you.
+        world.setParty(client.id, withId);
+        broadcast(S_CHAT, { id: 0, n: 'the hills', m: `${client.name} and ${other.name} travel together` });
+        break;
+      }
     }
   });
 
@@ -175,6 +194,10 @@ function loop() {
         if (client.id === null || ws.readyState !== ws.OPEN) continue;
         ws.send(encode(S_SNAPSHOT, world.snapshot(client.id)));
       }
+      // Cleared here rather than inside snapshot(), which is called once per
+      // client — clearing in there would deliver each death to exactly one
+      // person, chosen by iteration order.
+      world.clearEvents();
     }
   }
 

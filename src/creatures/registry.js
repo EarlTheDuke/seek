@@ -840,6 +840,12 @@ SPECIES.goblin = {
   morale: {
     // How many of them, standing and nearby, counts as good odds.
     confidentAt: 4,
+    // How hard the pack counts YOUR numbers against its own. 1 would be a
+    // straight head count, which makes two players trivially safe from any
+    // pack; 0.6 means numbers help a great deal without being an off switch.
+    // Four players facing five goblins should be a fight they expect to win,
+    // not one the goblins refuse to have.
+    oddsWeight: 0.6,
     // Beyond this a pack-mate is no comfort at all. Must exceed the DIAMETER
     // of the hesitation ring (2 x 13 m), or two goblins circling opposite
     // sides of you fall out of each other's cohesion and break up purely from

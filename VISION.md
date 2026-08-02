@@ -404,15 +404,35 @@ the first time a *route* has been a decision in this game.
 
 ---
 
-### Phase 6 — Together and against · *medium*
+### Phase 6 — Together and against · *medium* — ✅ **shipped**
 **Goal:** rules for company.
-- Parties and factions.
-- **PvE:** shared threats. A goblin warband is a *group* problem.
-- **PvP:** opt-in, or zoned to the strange country — danger from other people
-  belongs where danger already lives.
-- Death and loss rules that work socially, not just mechanically.
+- ✅ Parties — no ceremony, no invite handshake; on a LAN that is friction.
+- ✅ **PvE:** a pack counts *your* numbers as well as its own (`oddsWeight`).
+- ✅ **PvP:** zoned by the **strangeness gradient**, not a toggle.
+- ✅ Death drops what you carried where you fell — a problem with a location.
 
-**Done when:** four players survive a warband raid, or fail to.
+**Done when:** four players survive a warband raid, or fail to. — `npm run raidcheck`
+
+Five goblins, deep night, against a party that grows:
+
+| players | opposition | morale | nerve | committed | mean dist | health |
+|---|---|---|---|---|---|---|
+| 1 | 1 | 1.00 | emboldened | 5 | 1.2 m | 45 |
+| 2 | 2 | 0.86 | emboldened | 5 | 1.3 m | 78, 34 |
+| 3 | 1\* | 0.68 | confident | 5 | 1.2 m | 0, 100, 0 |
+| **4** | 4 | 0.34 | **wavering** | 0 | 13.4 m | untouched |
+| 6 | 6 | 0.15 | **routed** | 0 | 29.9 m | untouched |
+
+\* *opposition falls to 1 because two of the three are already dead — the odds
+swung back when the pack won. That is the mechanic reading the fight, not a bug.*
+
+And the fight scales — the content knob is warband size, not creature stats:
+
+| players | warband | nerve | health after 9 s |
+|---|---|---|---|
+| 4 | 5 | wavering | untouched |
+| 4 | 8 | emboldened | 100, 45, 89, 100 |
+| 4 | 16 | emboldened | 78, **0**, 89, 67 |
 
 ---
 

@@ -462,13 +462,32 @@ export class Wildlife {
       }
       const centre = n ? { x: cx / n, z: cz / n } : null;
 
+      // How many of THEM are near enough to matter. Counted from the pack's
+      // centre rather than per-goblin, so every member reads the same odds —
+      // the same reason morale is computed centrally at all.
+      const opposition = centre ? this.countOpposition(centre, list[0]) : 1;
+
       for (const c of list) {
         c.pack = list;
         c.packCentre = centre;
         if (c.state === 'dead') continue;
-        updateMorale(c, list, night, dt);
+        updateMorale(c, list, night, dt, opposition);
       }
     }
+  }
+
+  /**
+   * How many people are standing close enough to a point to count as a group.
+   *
+   * `deps.opposition` is supplied by whoever owns the players — SimWorld in
+   * multiplayer, and nothing at all in single-player, where the answer is
+   * always one. Keeping it a dependency rather than a lookup means the
+   * creature manager still knows nothing about what a player IS, which is the
+   * property that let this file survive the multiplayer refactor untouched.
+   */
+  countOpposition(pos, near) {
+    const range = near?.species?.morale?.cohesionRange ?? 30;
+    return this.deps.opposition ? Math.max(1, this.deps.opposition(pos, range)) : 1;
   }
 
   /**

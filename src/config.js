@@ -445,6 +445,30 @@ export const WILDLIFE = {
   testBearAt: 86,
 };
 
+// ── Company: parties, PvP and what dying costs ──────────────────────────────
+//
+// The rules for being in a world with other people. See src/sim/world.js.
+//
+// The design idea worth keeping: PvP is not a toggle or a coloured zone map,
+// it is THE STRANGENESS GRADIENT. Danger from other people belongs where danger
+// already lives. The same walk that gets more dangerous because of what lives
+// out there gets more dangerous because of who does — and the place names
+// already tell you how far out you are.
+export const SOCIAL = {
+  defaults: {
+    pvp: true,
+    // Below this strangeness, strangers cannot hurt each other at all. 0.45 is
+    // "lonely" — past the settled country and the quiet country, out where the
+    // deer are already thinning out.
+    pvpAboveStrangeness: 0.45,
+    // For a server that wants a straight brawl.
+    pvpEverywhere: false,
+  },
+  // How close two people have to be to count as standing together, for the
+  // purpose of a pack sizing you up.
+  groupRange: 26,
+};
+
 // ── Networking ──────────────────────────────────────────────────────────────
 //
 // See src/net/ and server/server.js. The world is generated from a seed on

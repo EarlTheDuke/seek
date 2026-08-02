@@ -21,7 +21,15 @@
 // which is a handful of kilobytes a second for a world of unbounded size.
 
 import * as THREE from 'three';
-import { SEED, WATER_LEVEL, LOADOUT, TIME } from '../config.js';
+import { SEED, WATER_LEVEL, LOADOUT, TIME, SOCIAL } from '../config.js';
+import { placeStrangeness } from '../world/strangeness.js';
+import { describePosition } from '../world/placenames.js';
+
+/**
+ * What you keep when you die. The bow, because a player who loses it is
+ * stranded rather than set back, and there is no shop to buy another.
+ */
+const KEEP_ON_DEATH = new Set(['bow']);
 import { heightAt } from '../world/noise.js';
 import { Scatter } from '../world/scatter.js';
 import { ColliderField } from '../world/colliders.js';
@@ -61,6 +69,7 @@ class Player {
     this.intent = createIntent();
     this.primaryWasHeld = false;
     this.connected = true;
+    this.party = null;
     // Rising every time anything about this player changes in a way another
     // client needs to know. Lets the server skip players who did nothing.
     this.dirty = true;
@@ -95,6 +104,10 @@ class Player {
       d: this.weapons.getState()?.drawing ? 1 : 0,
       h: Math.round(this.body.health),
       x: this.body.dead ? 1 : 0,
+      // Party tag, so a client can draw its own people differently. Sent as
+      // the tag rather than a boolean because whether someone is "yours"
+      // depends on who is asking.
+      g: this.party ?? null,
     };
   }
 }
@@ -121,6 +134,11 @@ export class SimWorld {
 
     this.fires = new Fires(this.scene, {});
     this.players = new Map();
+    // Things that HAPPENED, drained by the server each snapshot. Deaths and
+    // kills are social facts — "Morag was killed by a goblin, 300 m north of
+    // the Black Moss" is what turns a shared world into a shared story.
+    this.events = [];
+    this.rules = { ...SOCIAL.defaults };
 
     // Creatures attack whoever is nearest; the manager reports the creature and
     // the world decides who wore it. Single-player had exactly one candidate,
@@ -128,6 +146,11 @@ export class SimWorld {
     this.wildlife = new Wildlife(this.scene, {
       stealth: null,
       onAttack: (creature) => this.resolveAttack(creature),
+      // How many people are standing together near a point. A pack reads this
+      // as the odds against it, which is what makes a warband a GROUP problem
+      // rather than N separate ones. The creature manager never learns what a
+      // player is; it just asks.
+      opposition: (pos, range) => this.countPlayersNear(pos, range),
     });
 
     this.pickups = new Pickups(this.scene, { inventory: null, projectiles: null });
@@ -205,11 +228,135 @@ export class SimWorld {
     return best;
   }
 
+  /** How many living people are within `range` of a point. */
+  countPlayersNear(pos, range) {
+    let n = 0;
+    for (const p of this.players.values()) {
+      if (p.body.dead || !p.connected) continue;
+      if (Math.hypot(p.ctrl.position.x - pos.x, p.ctrl.position.z - pos.z) <= range) n++;
+    }
+    return n;
+  }
+
+  /**
+   * A creature swings. Who wears it?
+   *
+   * Nearest, but only among the people actually in reach — and a creature that
+   * has been hitting the same person keeps at it for a moment rather than
+   * re-choosing every swing. Without that stickiness a pack surrounded by four
+   * players spreads its damage perfectly evenly, which sounds fair and plays
+   * as mush: nobody is ever in trouble, so nobody is ever worth saving.
+   */
   resolveAttack(creature) {
-    const victim = this.nearestPlayer(creature.position, 6);
+    const reach = (creature.species.aggression?.attackRange ?? 3) + 1;
+    let victim = null;
+
+    const held = creature.targetId != null ? this.players.get(creature.targetId) : null;
+    if (held && !held.body.dead && held.connected) {
+      const d = Math.hypot(
+        held.ctrl.position.x - creature.position.x,
+        held.ctrl.position.z - creature.position.z
+      );
+      if (d <= reach) victim = held;
+    }
+    if (!victim) victim = this.nearestPlayer(creature.position, reach);
     if (!victim) return;
+
+    creature.targetId = victim.id;
     victim.body.damage(creature.species.aggression?.damage ?? 0, creature);
     victim.dirty = true;
+    if (victim.body.dead) this.onPlayerDied(victim, creature);
+  }
+
+  // ── company ───────────────────────────────────────────────────────────────
+
+  /**
+   * Can `a` hurt `b` right now?
+   *
+   * Two rules, and the second is the interesting one.
+   *
+   *   1. Party members never hurt each other. Obvious, and it makes a party a
+   *      real commitment rather than a label.
+   *   2. Otherwise it depends on WHERE YOU ARE STANDING. Friendly fire between
+   *      strangers is off in the settled country and on out in the strange
+   *      country — "danger from other people belongs where danger already
+   *      lives", which is the vision's own phrasing and reuses a gradient the
+   *      world already has rather than inventing a flag-coloured zone map.
+   *
+   * The consequence is that the same walk that gets more dangerous because of
+   * what lives out there also gets more dangerous because of who does. You do
+   * not need a PvP toggle; you need to know how far from the lake you are, and
+   * the place names already tell you that.
+   */
+  canHarm(a, b) {
+    if (!a || !b || a === b) return false;
+    if (a.party && a.party === b.party) return false;
+    if (!this.rules.pvp) return false;
+    if (this.rules.pvpEverywhere) return true;
+    const s = placeStrangeness(b.ctrl.position.x, b.ctrl.position.z);
+    return s >= this.rules.pvpAboveStrangeness;
+  }
+
+  /** Put two players in a party together. Symmetric, and it merges groups. */
+  setParty(idA, idB) {
+    const a = this.players.get(idA);
+    const b = this.players.get(idB);
+    if (!a || !b) return false;
+    const tag = a.party ?? b.party ?? `party:${idA}`;
+    // Everyone already with either of them comes too, so joining a friend
+    // joins their whole group rather than splitting it in half.
+    for (const p of this.players.values()) {
+      if (p === a || p === b || (p.party && (p.party === a.party || p.party === b.party))) {
+        p.party = tag;
+        p.dirty = true;
+      }
+    }
+    return tag;
+  }
+
+  leaveParty(id) {
+    const p = this.players.get(id);
+    if (!p) return false;
+    p.party = null;
+    p.dirty = true;
+    return true;
+  }
+
+  /**
+   * What dying costs, socially.
+   *
+   * You drop what you were carrying where you fell. Not a punishment — a
+   * PROBLEM WITH A LOCATION, which is the only kind of loss that makes a group
+   * do anything interesting. Someone has to go and get it, and the place it is
+   * lying is exactly the place that just killed you. A party that abandons the
+   * spot loses the gear; a party that goes back has to fight for it.
+   *
+   * Nothing is destroyed, so this costs a solo player time rather than
+   * progress, and the world's total wealth is unchanged.
+   */
+  onPlayerDied(player, killer) {
+    const dropped = [];
+    for (let i = 0; i < player.inventory.slots.length; i++) {
+      const slot = player.inventory.slots[i];
+      if (!slot?.item || !slot.count) continue;
+      if (KEEP_ON_DEATH.has(slot.item)) continue;
+      dropped.push({ item: slot.item, count: slot.count });
+    }
+    for (const d of dropped) player.inventory.remove(d.item, d.count);
+
+    const at = player.ctrl.position.clone();
+    for (const d of dropped) this.pickups.restoreDrop?.(d.item, d.count, [at.x, at.y + 0.3, at.z]);
+
+    this.events.push({
+      k: 'death',
+      id: player.id,
+      n: player.name,
+      by: killer?.species?.name ?? 'the cold',
+      at: [round2(at.x), round2(at.y), round2(at.z)],
+      lost: dropped.length,
+      where: describePosition(at.x, at.z).phrase,
+    });
+    return dropped;
   }
 
   // ── the tick ──────────────────────────────────────────────────────────────
@@ -351,7 +498,15 @@ export class SimWorld {
       pl: players,
       cr: creatures,
       pr: projectiles,
+      // Drained by the caller, not here — snapshot() is called once per client
+      // and clearing inside it would deliver each event to exactly one person.
+      ev: this.events,
     };
+  }
+
+  /** Called once per broadcast, after every client has had the snapshot. */
+  clearEvents() {
+    if (this.events.length) this.events = [];
   }
 
   /** Everything a client needs exactly once, on joining. */

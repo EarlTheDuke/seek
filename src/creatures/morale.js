@@ -35,7 +35,7 @@ import { clamp, lerp, smoothstep } from '../util/math.js';
  * @param {number} night    darkness 0..1
  * @param {number} dt
  */
-export function updateMorale(c, pack, night, dt) {
+export function updateMorale(c, pack, night, dt, opposition = 1) {
   const M = c.species.morale;
   if (!M) return;
 
@@ -56,7 +56,21 @@ export function updateMorale(c, pack, night, dt) {
     if (d <= M.cohesionRange) standing++;
   }
   c.packStanding = standing;
-  const strength = smoothstep(1, M.confidentAt, standing);
+
+  // ── the odds, which now cut both ways ──
+  //
+  // A pack counts YOUR numbers as well as its own. That single term is what
+  // makes a warband a group problem rather than N separate problems: five
+  // goblins are terrifying to one person and merely dangerous to four, and
+  // they know it before you do. It also means the most useful thing you can do
+  // for a friend who is surrounded is to walk over and be visible.
+  //
+  // Expressed as an effective pack size rather than as a penalty, so the same
+  // confidentAt threshold governs both sides and there is only one curve to
+  // reason about.
+  c.opposition = opposition;
+  const effective = standing / Math.max(1, opposition ** M.oddsWeight);
+  const strength = smoothstep(1, M.confidentAt, effective);
 
   // ── its own skin ── a wounded individual is a worse individual, but this is
   // deliberately a small term. Wounds make cowards; only deaths break packs.
