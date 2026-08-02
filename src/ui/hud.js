@@ -24,9 +24,28 @@ const CSS = `
   letter-spacing: .42em; text-indent: .42em; color: #ffe9c9;
 }
 #hl-start .sub { opacity: .62; letter-spacing: .2em; text-transform: uppercase; font-size: 11px; }
-#hl-start .go { margin-top: 26px; opacity: .9; letter-spacing: .1em; animation: hl-pulse 2.4s ease-in-out infinite; }
-#hl-start .note { margin-top: 6px; opacity: .38; font-size: 11px; }
+#hl-start .note { margin-top: 14px; opacity: .38; font-size: 11px; }
 @keyframes hl-pulse { 0%,100% { opacity: .45 } 50% { opacity: 1 } }
+
+#hl-modes { display: flex; gap: 14px; margin-top: 30px; }
+#hl-modes button {
+  font: inherit; color: #f3e6d4; cursor: pointer; text-align: left;
+  background: rgba(20,14,9,.5); border: 1px solid rgba(255,220,180,.22);
+  border-radius: 7px; padding: 13px 20px; min-width: 210px;
+  transition: border-color .18s, background .18s, transform .18s;
+}
+#hl-modes button:hover { border-color: rgba(255,214,150,.75); background: rgba(44,28,14,.66); transform: translateY(-2px); }
+#hl-modes .t { display: block; font-size: 15px; letter-spacing: .16em; color: #ffe0b0; }
+#hl-modes .d { display: block; font-size: 10.5px; opacity: .55; margin-top: 5px; line-height: 1.45; }
+
+#hl-continue {
+  margin-top: 20px; cursor: pointer; font-size: 12px; letter-spacing: .1em;
+  color: #ffd9a0; opacity: .85; border-bottom: 1px dashed rgba(255,217,160,.4);
+  padding-bottom: 3px; transition: opacity .18s;
+}
+#hl-continue:hover { opacity: 1; }
+#hl-continue .when { display: block; font-size: 10px; opacity: .5; letter-spacing: .06em;
+  color: #f3e6d4; border: 0; margin-top: 4px; }
 
 #hl-keys {
   position: absolute; left: 22px; bottom: 20px;
@@ -147,7 +166,8 @@ export class Hud {
       <div id="hl-start">
         <h1>HIGHLANDS</h1>
         <div class="sub">a golden hour, somewhere high up</div>
-        <div class="go">click to explore</div>
+        <div id="hl-modes"></div>
+        <div id="hl-continue" style="display:none"></div>
         <div class="note">mouse to look &middot; W A S D to walk &middot; <b>Tab</b> for controls</div>
       </div>
       <div id="hl-keys"><h2>Controls</h2><table>${KEYS.map(
@@ -166,6 +186,8 @@ export class Hud {
     document.body.appendChild(this.root);
 
     this.start = this.root.querySelector('#hl-start');
+    this.modesEl = this.root.querySelector('#hl-modes');
+    this.continueEl = this.root.querySelector('#hl-continue');
     this.keys = this.root.querySelector('#hl-keys');
     this.fps = this.root.querySelector('#hl-fps');
     this.toastEl = this.root.querySelector('#hl-toast');
@@ -195,15 +217,42 @@ export class Hud {
     if (!SHOW_FPS) this.fps.style.display = 'none';
   }
 
-  /** `onBegin` fires on the first click; `onResume` on every later one. */
-  wire(onBegin, onResume) {
-    this.start.addEventListener('click', () => {
+  /**
+   * Build the start screen.
+   *
+   * @param {object[]} modes    [{ id, name, tagline }]
+   * @param {string|null} resumeText  summary of a save, or null if there isn't one
+   * @param {(mode, continuing) => void} onBegin
+   * @param {() => void} onResume  re-acquire pointer lock after Esc
+   */
+  wire(modes, resumeText, onBegin, onResume) {
+    const begin = (mode, continuing) => {
       this.start.style.opacity = '0';
       setTimeout(() => (this.start.style.display = 'none'), 520);
       this.started = true;
       this.showKeys(10);
-      onBegin();
-    });
+      onBegin(mode, continuing);
+    };
+
+    this.modesEl.innerHTML = modes
+      .map((m) => `<button data-mode="${m.id}"><span class="t">${m.name}</span><span class="d">${m.tagline}</span></button>`)
+      .join('');
+    for (const btn of this.modesEl.querySelectorAll('button')) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        begin(btn.dataset.mode, false);
+      });
+    }
+
+    if (resumeText) {
+      this.continueEl.style.display = '';
+      this.continueEl.innerHTML = `continue your run<span class="when">${resumeText}</span>`;
+      this.continueEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        begin('survival', true);
+      });
+    }
+
     this.resume.addEventListener('click', () => onResume());
   }
 
@@ -314,6 +363,11 @@ export class Hud {
     this.deadScreen.classList.toggle('show', vitals.dead);
   }
 
+  /** Remember which mode we are in, so the fps line can say so. */
+  setMode(ruleset) {
+    this.modeName = ruleset.name;
+  }
+
   setPrompt(text) {
     if (text === this.promptText) return;
     this.promptText = text;
@@ -378,7 +432,8 @@ export class Hud {
       this.fpsValue = Math.round(this.frames / this.fpsAccum);
       this.frames = 0;
       this.fpsAccum = 0;
-      this.fps.textContent = `${this.fpsValue} fps · ${info}`;
+      const mode = this.modeName ? `${this.modeName} · ` : '';
+      this.fps.textContent = `${mode}${this.fpsValue} fps · ${info}`;
     }
   }
 }

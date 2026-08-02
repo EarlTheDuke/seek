@@ -112,6 +112,33 @@ export class Projectiles {
     }
   }
 
+  /**
+   * Put a previously-landed projectile back exactly where it was. Used when
+   * loading a save; skips all flight and collision and registers it as
+   * recoverable so it can be picked up again.
+   */
+  restoreLanded(typeId, pos, quat, surface = 'ground') {
+    const type = TYPES[typeId];
+    if (!type) return null;
+    const p = {
+      id: nextId++,
+      typeId,
+      type,
+      pos: new THREE.Vector3(pos[0], pos[1], pos[2]),
+      vel: new THREE.Vector3(),
+      quat: new THREE.Quaternion(quat[0], quat[1], quat[2], quat[3]),
+      flight: 0,
+      landed: true,
+      landedAt: 0,
+      surface,
+      normal: null,
+    };
+    this.items.push(p);
+    if (type.recover) this.deps.onLanded?.(p);
+    this.enforceLimit(type);
+    return p;
+  }
+
   removeById(id) {
     const i = this.items.findIndex((p) => p.id === id);
     if (i >= 0) this.items.splice(i, 1);

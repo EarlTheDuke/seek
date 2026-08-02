@@ -30,6 +30,8 @@ import { Vitals } from './player/vitals.js';
 import { Wildlife } from './creatures/manager.js';
 import { Weather } from './world/weather.js';
 import { Rain } from './fx/rain.js';
+import { ActiveRuleset, RULESETS, DEFAULT_MODE } from './modes/ruleset.js';
+import { captureSave, applySave, writeSave, readSave, describeSave, clearSave } from './persistence/save.js';
 
 // ── renderer ────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({
@@ -294,13 +296,59 @@ function boot() {
   // than leaving the player unable to turn their head.
   ctrl.onLockUnavailable = () => hud.useDragLook();
 
+  // ── game mode and persistence ───────────────────────────────────────────
+  const ruleset = new ActiveRuleset(DEFAULT_MODE);
+
+  const saveContext = () => ({
+    seed: SEED,
+    mode: ruleset.id,
+    atmosphere, weather, ctrl, inventory, vitals, projectiles, pickups, wildlife,
+    onPlayerMoved: (pos) => {
+      // Stream the world in around wherever the save put us before the first
+      // frame, so a loaded run never opens on empty ground.
+      terrain.buildImmediate(pos.x, pos.z);
+      scatter.update(pos, time);
+    },
+  });
+
+  let saveTimer = 0;
+  function saveNow(reason = 'auto') {
+    if (!ruleset.current.persist) return false;
+    const ok = writeSave(captureSave(saveContext()));
+    if (ok && reason === 'manual') hud.toast('saved', 1.2);
+    return ok;
+  }
+
   hud.wire(
-    () => {
+    Object.values(RULESETS).map((r) => ({ id: r.id, name: r.name, tagline: r.tagline })),
+    describeSave('survival', SEED),
+    (mode, continuing) => {
+      ruleset.set(mode);
       audio.start();
+
+      if (continuing) {
+        const data = readSave('survival');
+        if (data) {
+          applySave(data, saveContext());
+          hud.toast(`resumed · ${atmosphere.clockText}`, 2.5);
+        }
+      } else if (ruleset.current.persist) {
+        // A fresh run replaces whatever was saved for this mode.
+        clearSave(mode);
+      }
+
+      hud.setMode(ruleset.current);
       ctrl.requestLock();
     },
     () => ctrl.requestLock()
   );
+
+  // Last-ditch save when the tab goes away. `pagehide` fires in cases
+  // `beforeunload` does not, notably on mobile and on tab discard.
+  window.addEventListener('pagehide', () => saveNow('exit'));
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') saveNow('exit');
+  });
 
   // ── action keys ──
   window.addEventListener('keydown', (e) => {
@@ -314,6 +362,10 @@ function boot() {
     }
     switch (e.code) {
       case 'KeyF':
+        if (!ruleset.allows('allowFly')) {
+          hud.toast('you have only your legs here', 1.6);
+          break;
+        }
         hud.toast(ctrl.toggleFly() ? 'free-fly on — Space / Ctrl for up and down' : 'free-fly off');
         break;
       case 'KeyH':
@@ -326,15 +378,27 @@ function boot() {
         hud.toast(audio.toggleMute() ? 'muted' : 'sound on');
         break;
       case 'BracketLeft':
-        atmosphere.nudge(-1);
-        hud.toast(`${atmosphere.clockText} · sun ${atmosphere.elevation.toFixed(0)}°`, 1);
-        break;
       case 'BracketRight':
-        atmosphere.nudge(1);
+        if (!ruleset.allows('allowTimeControl')) {
+          hud.toast('the sun keeps its own hours', 1.6);
+          break;
+        }
+        atmosphere.nudge(e.code === 'BracketLeft' ? -1 : 1);
         hud.toast(`${atmosphere.clockText} · sun ${atmosphere.elevation.toFixed(0)}°`, 1);
         break;
       case 'KeyT':
+        if (!ruleset.allows('allowTimeControl')) {
+          hud.toast('the sun keeps its own hours', 1.6);
+          break;
+        }
         hud.toast(atmosphere.toggleClock() ? 'time running' : `time frozen at ${atmosphere.clockText}`, 2);
+        break;
+      case 'F5':
+        // Manual save, for when you are about to do something ill-advised.
+        if (ruleset.current.persist) {
+          e.preventDefault();
+          saveNow('manual');
+        }
         break;
       case 'Tab':
         // The discoverable one. Prevented, or it walks browser focus instead.
@@ -468,6 +532,15 @@ function boot() {
 
     audio.update(dt, ctrl, ctrl.position.y);
 
+    // Autosave on a timer. Cheap — a save is a few kilobytes of diffs.
+    if (ruleset.current.persist && ruleset.current.autosaveSeconds > 0) {
+      saveTimer += dt;
+      if (saveTimer >= ruleset.current.autosaveSeconds) {
+        saveTimer = 0;
+        saveNow('auto');
+      }
+    }
+
     const wl = wildlife.stats;
     const pr = projectiles.stats;
     hud.update(
@@ -490,6 +563,12 @@ function boot() {
     stepWorld(dt);
     requestAnimationFrame(frame);
   }
+  /** Wrap a debug helper so it refuses in modes that disallow it. */
+  function gate(capability, fn, what) {
+    return (...args) =>
+      ruleset.allows(capability) ? fn(...args) : `${what} is disabled in ${ruleset.current.name}`;
+  }
+
   requestAnimationFrame(frame);
   booted = true;
 
@@ -505,6 +584,7 @@ function boot() {
      * hand control back to the state machine.
      */
     setWeather(name) {
+      if (!ruleset.allows('allowWeatherControl')) return 'the weather does as it likes in Survival';
       const names = Object.keys(WEATHER.states);
       if (name === undefined) {
         weather.hold = 1;
@@ -522,18 +602,34 @@ function boot() {
       weather.rain = cfg.rain;
       return `weather pinned to ${name}`;
     },
-    vitals,
-    /** Re-stock the lake shore without reloading. `highlands.herdAtWater(6)` */
-    herdAtWater,
-    /** Re-place the spawn-side bear. `highlands.bearNearSpawn(90)` */
-    bearNearSpawn,
-    /** Put a bear at a random bearing around you. `highlands.spawnBear(45)` */
-    spawnBear(distance = 45) {
-      const a = Math.random() * Math.PI * 2;
-      const x = ctrl.position.x + Math.cos(a) * distance;
-      const z = ctrl.position.z + Math.sin(a) * distance;
-      return wildlife.spawn('bear', x, z);
+    vitals, ruleset,
+
+    // ── persistence ──
+    save: () => (saveNow('manual') ? 'saved' : 'saving is off in this mode'),
+    loadSave: () => {
+      const data = readSave(ruleset.id);
+      if (!data) return 'no save for this mode';
+      applySave(data, saveContext());
+      return `loaded · ${atmosphere.clockText}`;
     },
+    wipeSave: () => (clearSave(ruleset.id), `cleared the ${ruleset.current.name} save`),
+    peekSave: () => readSave(ruleset.id),
+
+    // ── sandbox tools ──
+    // Gated rather than hidden: in Survival these say no, which is far less
+    // confusing than a function that appears to work and does nothing.
+    herdAtWater: gate('allowSpawning', herdAtWater, 'spawning'),
+    bearNearSpawn: gate('allowSpawning', bearNearSpawn, 'spawning'),
+    spawnBear: gate(
+      'allowSpawning',
+      (distance = 45) => {
+        const a = Math.random() * Math.PI * 2;
+        const x = ctrl.position.x + Math.cos(a) * distance;
+        const z = ctrl.position.z + Math.sin(a) * distance;
+        return wildlife.spawn('bear', x, z);
+      },
+      'spawning'
+    ),
     colliders: { scatter: scatterColliders, static: staticColliders },
     get time() { return time; },
 
@@ -554,6 +650,7 @@ function boot() {
 
     /** Jump somewhere and have the world fully present, for tests and photos. */
     warp(x, z, yaw, pitch = 0, y = null) {
+      if (!ruleset.allows('allowWarp')) return 'teleporting is disabled in Survival';
       ctrl.flying = y !== null;
       ctrl.position.set(x, y ?? heightAt(x, z), z);
       ctrl.velocity.set(0, 0, 0);

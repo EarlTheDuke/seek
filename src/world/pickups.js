@@ -70,6 +70,29 @@ export class Pickups {
     return entry;
   }
 
+  /**
+   * Put a dropped item back where a save says it was, already at rest — no
+   * toss arc, no settling. Used only when loading.
+   */
+  restoreDrop(itemId, count, pos) {
+    const def = getItem(itemId);
+    if (!def) return null;
+    const obj = def.makeObject();
+    obj.castShadow = true;
+    obj.position.set(pos[0], pos[1], pos[2]);
+    this.scene.add(obj);
+    const entry = {
+      obj,
+      item: itemId,
+      count,
+      vel: new THREE.Vector3(),
+      resting: true,
+      spin: (hash2i(Math.round(pos[0]), Math.round(pos[2]), 7) - 0.5) * 2,
+    };
+    this.dropped.push(entry);
+    return entry;
+  }
+
   // ── deterministic world loot ─────────────────────────────────────────────
 
   refreshLoot(px, pz) {
