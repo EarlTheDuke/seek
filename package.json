@@ -14,7 +14,8 @@
     "bot": "node server/bot.js",
     "raidcheck": "node server/raidtest.js",
     "campcheck": "node server/campcheck.js",
-    "mindcheck": "node server/mindcheck.js"
+    "mindcheck": "node server/mindcheck.js",
+    "ottercheck": "node server/ottercheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",
@@ -25,3 +26,4 @@
     "vite": "^5.4.11"
   }
 }
+

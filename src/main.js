@@ -28,7 +28,7 @@ import { CameraFeel } from './player/cameraFeel.js';
 import { ViewModel } from './player/viewmodel.js';
 import { Soundscape } from './audio/soundscape.js';
 import { Hud } from './ui/hud.js';
-import { LOADOUT, LAKE, PLAYER, WATER_LEVEL, WEATHER, WILDLIFE, SITES, STRUCTURES, TIME } from './config.js';
+import { LOADOUT, LAKE, PLAYER, WATER_LEVEL, WEATHER, WILDLIFE, SITES, STRUCTURES, TIME, OTTER } from './config.js';
 import { Inventory } from './items/inventory.js';
 import { getItem } from './items/registry.js';
 import { WeaponHost } from './weapons/index.js';
@@ -42,6 +42,7 @@ import { Fires } from './world/fires.js';
 import { Sites } from './world/sites.js';
 import { Caves } from './world/caves.js';
 import { Structures, Harvest, BUILDABLE } from './world/structures.js';
+import { Otter, TRICKS, TRICK_IDS } from './creatures/otter.js';
 import { NetClient } from './net/client.js';
 import { Avatars } from './net/avatars.js';
 import { sampleEnvironment } from './world/environment.js';
@@ -181,6 +182,33 @@ function boot() {
   const caves = new Caves(scene);
   const structures = new Structures(scene, { audio, colliders: staticColliders });
   const harvest = new Harvest();
+
+  // ── the otter ─────────────────────────────────────────────────────────────
+  //
+  // Placed near the water, because that is where otters are, and left wild.
+  // It becomes yours by being looked after, not by being found.
+  const otter = new Otter(new THREE.Vector3(0, 0, 0), makeRandom('otter'));
+  scene.add(otter.object);
+  let otterTrick = 0; // which command Z has selected
+
+  /** Somewhere on the shore, in front of where you wake up. */
+  function placeOtter() {
+    const dx = spawn.position.x - LAKE.x;
+    const dz = spawn.position.z - LAKE.z;
+    const len = Math.hypot(dx, dz) || 1;
+    for (let r = 6; r < 40; r += 2) {
+      const x = spawn.position.x - (dx / len) * r + 3;
+      const z = spawn.position.z - (dz / len) * r + 3;
+      const y = heightAt(x, z);
+      if (y > WATER_LEVEL - 0.2 && y < WATER_LEVEL + 2.5) {
+        otter.position.set(x, y, z);
+        return;
+      }
+    }
+    otter.position.copy(spawn.position);
+    otter.position.x += 6;
+  }
+  placeOtter();
   // A monotonically rising in-game hour count. The clock itself wraps at 24,
   // which is useless for "this tree regrows in thirty hours" — the expiry
   // would be in the past every morning.
@@ -251,6 +279,14 @@ function boot() {
     onAttack: (creature) => {
       const dmg = creature.species.aggression?.damage ?? 0;
       vitals.damage(dmg, creature);
+      // ── the otter answers ──
+      // Whatever hurt you is what it goes for, with no regard at all for how
+      // big the thing is. That is correct for an otter and it is the reason
+      // this is a DISTRACTION rather than a damage source: a goblin with an
+      // otter attached to it is a goblin that is not swinging at you.
+      if (otter.defend(creature)) {
+        hud.toast(`${otter.name ?? 'the otter'} goes for it`, 2);
+      }
     },
   });
 
@@ -416,6 +452,104 @@ function boot() {
     hud.toast(PLACE_LINES[band] ?? band, 3.4);
   }
 
+  // ── the otter ─────────────────────────────────────────────────────────────
+
+  /**
+   * Where the nearest thing worth eating is.
+   *
+   * RELIABILITY IS THE POINT. The otter never rolls dice about whether it finds
+   * something — it asks this, and this tells the truth. What varies with its
+   * training and its condition is how far it can cast, which is a much better
+   * knob than accuracy because it never makes the animal look stupid.
+   */
+  function nearestFood(x, z, range) {
+    let best = null;
+    const consider = (px, pz, what) => {
+      const d = Math.hypot(px - x, pz - z);
+      if (d > range || (best && d >= best.distance)) return;
+      best = { x: px, z: pz, what, distance: d };
+    };
+    for (const c of wildlife.creatures) {
+      if (c.species.faction !== 'prey') continue;
+      consider(c.position.x, c.position.z, c.state === 'dead' ? `a dead ${c.species.id}` : `a ${c.species.id}`);
+    }
+    for (const p of pickups.items ?? []) {
+      const def = getItem(p.item);
+      if (def?.kind !== 'food') continue;
+      consider(p.position.x, p.position.z, itemName(p.item).toLowerCase());
+    }
+    return best;
+  }
+
+  /** Feed it, or play with it — whichever it needs more. */
+  function tendOtter() {
+    // Something to eat beats a game, if it is hungry and you have any.
+    const food = Object.keys(OTTER.foods).find((id) => inventory.countOf(id) > 0);
+    if (otter.fed < 0.85 && food) {
+      const res = otter.feed(food);
+      if (!res.ok) return hud.toast(res.why, 2), null;
+      inventory.remove(food, 1);
+      audio.pickup?.();
+      if (res.named) hud.toast(`it takes the ${itemName(food).toLowerCase()} — you call it ${res.name}`, 4);
+      else hud.toast(`${otterName()} eats`, 2);
+      return null;
+    }
+    const res = otter.play();
+    if (!res.ok) {
+      hud.toast(otter.fed < 0.85 ? 'it is hungry — you have nothing it wants' : res.why, 2.4);
+      return null;
+    }
+    hud.toast(`${otterName()} rolls about`, 2);
+    return null;
+  }
+
+  const otterName = () => otter.name ?? 'the otter';
+
+  /** Z picks a command; V gives it. */
+  function cycleTrick(dir = 1) {
+    otterTrick = (otterTrick + dir + TRICK_IDS.length) % TRICK_IDS.length;
+    const t = TRICKS[TRICK_IDS[otterTrick]];
+    const known = otter.learned.has(t.id);
+    const prog = otter.progress[t.id] ?? 0;
+    hud.toast(
+      `${t.name}${known ? '' : ` — learning ${prog}/${t.reps}`}: ${t.blurb}`,
+      2.2
+    );
+  }
+
+  function tellOtter() {
+    const id = TRICK_IDS[otterTrick];
+    if (id === 'seek') {
+      const res = otter.seek({ nearestFood });
+      if (!res.ok) return hud.toast(res.why, 2.4), null;
+      if (!res.found) {
+        hud.toast(`${otterName()} casts about and finds nothing within ${Math.round(res.range)} m`, 3);
+        return null;
+      }
+      const dir = bearingName(ctrl.position.x, ctrl.position.z, res.found.x, res.found.z);
+      hud.toast(
+        `${otterName()} points — ${res.found.what}, ${Math.round(res.found.distance)} m ${dir}`,
+        4.5
+      );
+      return null;
+    }
+
+    const res = otter.command_(id);
+    if (!res.ok) return hud.toast(res.why, 2.4), null;
+    if (res.toggled !== undefined) {
+      hud.toast(res.toggled ? `${otterName()} will guard you` : `${otterName()} stands down`, 2.6);
+      return null;
+    }
+    if (res.justLearned) hud.toast(`${otterName()} has it — ${res.trick.name.toLowerCase()}!`, 3.4);
+    else if (res.learned) hud.toast(`${otterName()} ${res.trick.blurb}`, 2.2);
+    else
+      hud.toast(
+        `${otterName()} half-understands — ${Math.round(res.progress * 100)}% of the way there`,
+        2.6
+      );
+    return null;
+  }
+
   // ── wearing ───────────────────────────────────────────────────────────────
   //
   // X puts on or takes off the warmest thing you are carrying and not already
@@ -478,6 +612,18 @@ function boot() {
       return null;
     }
     Structures.pay(spec.id, inventory);
+    // A holt is not a building, it is a gift. Telling the otter where it is is
+    // the whole point of having dug it.
+    if (spec.holt) {
+      otter.setHome(x, z);
+      hud.toast(
+        otter.tame
+          ? `a holt for ${otterName()} — it will sleep here and stay warm`
+          : 'a holt — now find something to put in it',
+        4
+      );
+      return null;
+    }
     hud.toast(`${spec.verb} a ${spec.name.toLowerCase()} — ${spec.blurb}`, 3);
     return null;
   }
@@ -590,6 +736,21 @@ function boot() {
     // Everything competes on the same distance rule, so whatever you are
     // nearest to is what E does. That single rule is why the prompt and the
     // action can never disagree.
+    // ── the otter ──
+    // Care is a world interaction like any other, on the same distance rule,
+    // so tending it never fights with picking something up.
+    const otterDist = Math.hypot(otter.position.x - ctrl.position.x, otter.position.z - ctrl.position.z);
+    if (otterDist < OTTER.followRange * 0.8) {
+      const label = !otter.tame
+        ? `<b>E</b>  offer the otter something`
+        : otter.fed < 0.85 && Object.keys(OTTER.foods).some((id) => inventory.countOf(id) > 0)
+          ? `<b>E</b>  feed ${otterName()}`
+          : `<b>E</b>  play with ${otterName()}`;
+      if (otterDist < Math.min(near?.distance ?? Infinity, fireDist)) {
+        return { label, run: () => tendOtter() };
+      }
+    }
+
     const mine = structures.nearest(ctrl.position);
     const source = harvest.nearestSource(scatterColliders, ctrl.position, STRUCTURES.useRange, totalHours);
     const mineDist = mine ? mine.distance : Infinity;
@@ -701,7 +862,7 @@ function boot() {
     seed: SEED,
     mode: ruleset.id,
     atmosphere, weather, ctrl, inventory, vitals, projectiles, pickups, wildlife, fires, sites,
-    structures, harvest,
+    structures, harvest, otter,
     get totalHours() {
       return totalHours;
     },
@@ -826,6 +987,12 @@ function boot() {
         break;
       case 'KeyX':
         wearSomething();
+        break;
+      case 'KeyZ':
+        cycleTrick(e.shiftKey ? -1 : 1);
+        break;
+      case 'KeyV':
+        tellOtter();
         break;
       // E, Q and the number row are handled as intents now — see the tick.
       default:
@@ -1025,6 +1192,28 @@ function boot() {
       weather,
     });
 
+    // ── the otter ──
+    // Updated after the wildlife, so a creature that swung this frame has
+    // already registered and the otter can answer it in the same tick.
+    otter.update(dt, ctrl, { nearestFood }, {
+      airC: env.airC,
+      nearFire: !!env.nearFire,
+      shelter: structures.shelterAt(otter.position.x, otter.position.z),
+      night: darkness(atmosphere.elevation),
+      dayMinutes: TIME.dayMinutes,
+    });
+    if (otter.pendingBite) {
+      const victim = otter.pendingBite;
+      otter.pendingBite = null;
+      const zone = victim.species?.hitZones?.find((z) => z.name === 'body');
+      victim.applyDamage?.(OTTER.biteDamage, zone, otter.position);
+    }
+    if (otter.says) audio.creatureAlarm?.(otter.position);
+    if (otter.forgot) {
+      hud.toast(`${otterName()} has forgotten how to ${TRICKS[otter.forgot].cue}`, 3.5);
+      otter.forgot = null;
+    }
+
     // ── the other people ──
     // Intent up, interpolated world down. Nothing here writes to the local
     // simulation: the avatars are pure presentation, exactly like the terrain.
@@ -1043,6 +1232,22 @@ function boot() {
     hud.setVitals(vitals);
     hud.setNeeds(vitals, ruleset.current.survival);
     hud.setStance(ctrl.crouching && !vitals.dead, inventory.wornItems.map((id) => itemName(id)));
+    // The otter's needs, but only once it is yours and only when something is
+    // actually wrong — the same rule the body's own gauges follow.
+    hud.setPet(
+      otter.tame
+        ? {
+            name: otterName(),
+            mood: otter.mood,
+            fed: otter.fed,
+            played: otter.played,
+            warmth: otter.warmth,
+            trust: otter.trust,
+            trick: TRICKS[TRICK_IDS[otterTrick]].name,
+            known: otter.learned.has(TRICK_IDS[otterTrick]),
+          }
+        : null
+    );
     reportPlace(dt);
     viewmodel.update(dt, ctrl, weaponState, atmosphere.sun, camera.quaternion);
 
@@ -1119,6 +1324,18 @@ function boot() {
       return `weather pinned to ${name}`;
     },
     vitals, body: vitals, ruleset, fires,
+    // ── the otter ──
+    otter,
+    /** Where the nearest thing worth eating is — what "seek" actually asks. */
+    nearestFood,
+    /** Ask it for something by name, without cycling to it. */
+    tell: (trick) => {
+      const i = TRICK_IDS.indexOf(trick);
+      if (i < 0) return `it knows: ${TRICK_IDS.join(', ')}`;
+      otterTrick = i;
+      tellOtter();
+      return otter.status;
+    },
     /**
      * Assert the keyboard→intent path with events shaped like a real keyboard's.
      * Returns failures only, or 'input ok · N checks'.

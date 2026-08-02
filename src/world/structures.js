@@ -108,6 +108,21 @@ export const BUILDABLE = {
     blurb: 'somewhere to leave things',
   },
 
+  holt: {
+    id: 'holt',
+    name: 'Holt',
+    verb: 'dig',
+    cost: { wood: 3, hide: 1 },
+    radius: 1.3,
+    maxSlope: 0.3,
+    // Somewhere for the otter to sleep dry and warm. It is not shelter for
+    // YOU — it is a metre-high heap of sticks — which is why it has no
+    // `shelter` and why building one is an act of care rather than of comfort.
+    holt: true,
+    build: buildHolt,
+    blurb: 'somewhere for the otter to sleep',
+  },
+
   palisade: {
     id: 'palisade',
     name: 'Palisade',
@@ -207,6 +222,31 @@ function geometries() {
     cache.store = parts;
   }
 
+  // Holt: a low heap of sticks and turf over a burrow mouth. Small, scruffy,
+  // and obviously made by someone who cared rather than by a builder.
+  {
+    const parts = [];
+    for (let i = 0; i < 11; i++) {
+      const a = rand() * Math.PI * 2;
+      const len = 0.6 + rand() * 0.5;
+      const s = new THREE.CylinderGeometry(0.035, 0.045, len, 5);
+      s.rotateZ(Math.PI / 2 - (0.5 + rand() * 0.6));
+      s.rotateY(a);
+      s.translate(Math.cos(a) * 0.22, 0.16 + rand() * 0.18, Math.sin(a) * 0.22);
+      parts.push(paint(s, rand() < 0.4 ? WOOD_PALE : WOOD));
+    }
+    const turf = new THREE.IcosahedronGeometry(0.52, 1);
+    turf.scale(1, 0.42, 1);
+    turf.translate(0, 0.1, 0);
+    parts.push(paint(turf, new THREE.Color(0x4c5636)));
+    // The mouth: a dark hole, which is the only bit that has to read clearly.
+    const mouth = new THREE.CylinderGeometry(0.17, 0.19, 0.3, 8);
+    mouth.rotateX(Math.PI / 2);
+    mouth.translate(0, 0.16, 0.42);
+    parts.push(paint(mouth, new THREE.Color(0x120f0c)));
+    cache.holt = parts;
+  }
+
   // Palisade: three heavy stakes, sharpened, driven in a short arc.
   {
     const parts = [];
@@ -247,6 +287,9 @@ function buildStore(g) {
 }
 function buildPalisade(g) {
   addParts(g, 'palisade');
+}
+function buildHolt(g) {
+  addParts(g, 'holt');
 }
 
 function addParts(group, key) {

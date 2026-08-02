@@ -98,6 +98,10 @@ export function captureSave(ctx) {
       structures: ctx.structures ? ctx.structures.serialise() : [],
       harvested: ctx.harvest ? ctx.harvest.serialise() : [],
       totalHours: ctx.totalHours ?? 0,
+      // The otter is the second thing here not derivable from the seed, and
+      // the one it would hurt most to lose: a tamed, named, trained animal is
+      // hours of care, and no part of it can be regenerated.
+      otter: ctx.otter ? ctx.otter.toJSON() : null,
     },
   };
 }
@@ -223,6 +227,7 @@ export function applySave(data, ctx) {
   ctx.fires?.restore(data.world.fires);
   ctx.sites?.fromJSON(data.world.sites);
   ctx.structures?.restore(data.world.structures);
+  ctx.otter?.fromJSON(data.world.otter);
   ctx.harvest?.restore(data.world.harvested);
   ctx.onHoursRestored?.(data.world.totalHours ?? 0);
 

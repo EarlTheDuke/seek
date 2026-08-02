@@ -445,6 +445,76 @@ export const WILDLIFE = {
   testBearAt: 86,
 };
 
+// ── The otter ───────────────────────────────────────────────────────────────
+//
+// Every other creature here is a problem to be solved. This one is a
+// relationship, and TRUST is the only thing that buys obedience — you cannot
+// command an otter that does not know you. See creatures/otter.js.
+export const OTTER = {
+  tameAt: 0.3, // trust at which it will take a command
+  namesAt: 0.18, // ...and at which it feels like yours enough to have a name
+
+  // What it will eat, and how much good it does. Fish would be better and
+  // there are no fish yet, so it is venison — raw for preference, because it
+  // is an otter.
+  foods: { venison: 0.42, venison_cooked: 0.3, hide: 0.05 },
+  playValue: 0.34,
+  playSeconds: 4,
+
+  // Trust is bought with care, in small amounts, repeatedly. No single act
+  // should tame it — that is the difference between a pet and a pickup.
+  trustPerFeed: 0.1,
+  trustPerPlay: 0.07,
+  trustPerHome: 0.12,
+  trustPerTrick: 0.05,
+
+  // Needs fall over in-game days, not minutes. The guard rail from NORTH-STAR
+  // applies to a pet as much as to hunger: if you cannot stand still for two
+  // minutes and watch the light, the numbers are wrong.
+  hungerPerHour: 0.028,
+  borednessPerHour: 0.038,
+
+  // Trust rises slowly when it is well kept and falls FASTER when it is not.
+  // An animal forgives, but not instantly, and undoing a week of neglect with
+  // one fish would make the whole thing decorative.
+  contentAbove: 0.55,
+  trustGain: 0.004, // per second at full care
+  trustLoss: 0.011, // per second when neglected
+  willWorkAbove: 0.35, // below this it is too miserable to learn anything new
+  forgetBelow: 0.22,
+  forgetSeconds: 90, // of sustained neglect before a trick goes
+
+  // Warmth. An otter is small and it gets wet, so it loses heat fast.
+  warmthRate: 0.35,
+  homeWarmth: 0.85,
+  fireWarmth: 0.7,
+  wetChill: 0.3,
+  homeRadius: 3.2,
+
+  // Movement. It is quick over short distances and cannot keep it up.
+  walkSpeed: 2.2,
+  runSpeed: 5.4,
+  playSpeed: 1.2,
+  followRange: 4.5,
+  runRange: 13,
+  shyRange: 9, // how close a WILD one lets you get
+
+  // Fighting. Not a damage source — a distraction, which is what a 9 kg animal
+  // actually is. A goblin with an otter attached is a goblin not swinging.
+  biteDamage: 6,
+  biteRange: 1.9,
+  attackSeconds: 14,
+  giveUpRange: 34,
+
+  // Seeking. RELIABILITY IS THE POINT: it never rolls dice about whether it
+  // finds the food, only about how far it can cast. A hint you cannot trust is
+  // worse than no hint.
+  seekRangeMin: 45,
+  seekRangeMax: 130,
+
+  anim: { strideRate: 3.4, legSwing: 0.34, bodyBob: 0.035 },
+};
+
 // ── Minds ───────────────────────────────────────────────────────────────────
 //
 // The deliberation layer. See src/minds/ and VISION.md §6b. Two rules govern

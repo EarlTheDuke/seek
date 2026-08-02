@@ -166,6 +166,21 @@ const CSS = `
   opacity: 0; transition: opacity .25s ease; }
 #hl-stance.show { opacity: .75; }
 
+/* The otter. Shown only once it is yours, and each need only once it is
+   actually a need — the same rule the body's own gauges follow, for the same
+   reason: a permanent row of bars turns a companion into a chore list. */
+#hl-pet { position: absolute; right: 24px; bottom: 96px; text-align: right;
+  font-size: 11px; letter-spacing: .1em; opacity: 0; transition: opacity .4s ease; }
+#hl-pet.show { opacity: .88; }
+#hl-pet .who { font-size: 12px; letter-spacing: .18em; text-transform: uppercase; opacity: .6; }
+#hl-pet .need { margin-top: 5px; display: flex; align-items: center; gap: 8px;
+  justify-content: flex-end; }
+#hl-pet .need span { opacity: .55; min-width: 44px; text-align: right; }
+#hl-pet .need i { display: block; height: 3px; width: 54px; background: rgba(255,240,220,.13); }
+#hl-pet .need i b { display: block; height: 100%; }
+#hl-pet .cue { margin-top: 7px; font-size: 10px; opacity: .5; letter-spacing: .16em;
+  text-transform: uppercase; }
+
 /* The survey: what you learn standing in a stone circle. Deliberately a thing
    that appears, is read, and goes away again — not a map you can keep open.
    You remember where the Black Moss was or you walk back and look again. */
@@ -190,6 +205,8 @@ const KEYS = [
   ['G', 'light a fire (costs a branch)'],
   ['B', 'build — whatever your camp is still missing'],
   ['X', 'put on / take off your cloak'],
+  ['Z', 'choose what to ask the otter (Shift+Z back)'],
+  ['V', 'tell the otter'],
   ['R', 'eat'],
   ['Q', 'drop what you are holding'],
   ['1 2 / wheel', 'change item'],
@@ -232,6 +249,7 @@ export class Hud {
       </div>
       <div id="hl-cond"></div>
       <div id="hl-stance">crouched</div>
+      <div id="hl-pet"></div>
       <div id="hl-survey"><h3></h3><div class="rows"></div></div>
       <div id="hl-health"><i></i></div>
       <div id="hl-fps"></div>
@@ -260,6 +278,8 @@ export class Hud {
     this.needsEl = this.root.querySelector('#hl-needs');
     this.condEl = this.root.querySelector('#hl-cond');
     this.stanceEl = this.root.querySelector('#hl-stance');
+    this.petEl = this.root.querySelector('#hl-pet');
+    this.petKey = '';
     this.surveyEl = this.root.querySelector('#hl-survey');
     this.surveyTitle = this.surveyEl.querySelector('h3');
     this.surveyRows = this.surveyEl.querySelector('.rows');
@@ -519,6 +539,46 @@ export class Hud {
       this.stanceEl.textContent = text;
     }
     this.stanceEl.classList.toggle('show', bits.length > 0);
+  }
+
+  /**
+   * The otter: who it is, what it wants, and what Z has selected.
+   *
+   * A need only appears once it IS a need. An otter that is fed, played with
+   * and warm shows its name and nothing else, because a permanent row of bars
+   * turns a companion into a chore list.
+   */
+  setPet(pet) {
+    if (!pet) {
+      this.petEl.classList.remove('show');
+      this.petKey = '';
+      return;
+    }
+    const rows = [
+      ['fed', pet.fed, '#c9b070'],
+      ['play', pet.played, '#9fc08a'],
+      ['warm', pet.warmth, '#8fc6c0'],
+    ].filter(([, v]) => v < 0.72);
+
+    // Rebuild only when something visibly changed — this runs every frame.
+    const key = `${pet.name}|${pet.mood}|${pet.trick}|${pet.known}|${rows
+      .map(([k, v]) => `${k}${Math.round(v * 12)}`)
+      .join()}`;
+    if (key === this.petKey) return;
+    this.petKey = key;
+
+    const bars = rows
+      .map(
+        ([label, v, colour]) =>
+          `<div class="need"><span>${label}</span><i><b style="width:${Math.round(
+            v * 100
+          )}%;background:${v < 0.3 ? '#e8836f' : colour}"></b></i></div>`
+      )
+      .join('');
+    this.petEl.innerHTML =
+      `<div class="who">${pet.name} · ${pet.mood}</div>${bars}` +
+      `<div class="cue">Z ${pet.trick}${pet.known ? '' : ' (learning)'} · V tell</div>`;
+    this.petEl.classList.add('show');
   }
 
   /**
