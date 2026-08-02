@@ -19,6 +19,16 @@ import { STEALTH, WATER_LEVEL } from '../config.js';
 import { heightAt } from '../world/noise.js';
 import { clamp, damp, lerp, smoothstep } from '../util/math.js';
 
+// Creature forward is local +Z.
+//
+// Note this is the OPPOSITE of the player camera, whose forward is -Z. The
+// bodies in registry.js are built head-forward along +Z (chest at +0.6, rump at
+// -0.62, tail at -0.78), so matching that here means `object.rotation.y = yaw`
+// is simply correct, with no 180-degree correction hidden in the renderer for
+// someone to trip over later. Every heading calculation below uses it.
+const fwdX = (yaw) => Math.sin(yaw);
+const fwdZ = (yaw) => Math.cos(yaw);
+
 export const GRAZE = 'graze';
 export const WANDER = 'wander';
 export const ALERT = 'alert';
@@ -86,7 +96,7 @@ export class Creature {
 
     // ── sight ──
     if (dist < S.sightRange) {
-      _fwd.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+      _fwd.set(fwdX(this.yaw), 0, fwdZ(this.yaw));
       const facing = (dx / (dist || 1)) * _fwd.x + (dz / (dist || 1)) * _fwd.z;
       const inFov = facing > Math.cos(S.sightFov / 2);
       if (inFov) {
@@ -213,7 +223,8 @@ export class Creature {
   }
 
   faceToward(x, z, dt, rate = null) {
-    const want = Math.atan2(-(x - this.position.x), -(z - this.position.z));
+    // atan2(dx, dz) is the +Z-forward inverse — see the note at the top.
+    const want = Math.atan2(x - this.position.x, z - this.position.z);
     let diff = ((want - this.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
     const turn = (rate ?? this.species.turnRate) * dt;
     this.yaw += clamp(diff, -turn, turn);
@@ -241,8 +252,8 @@ export class Creature {
    * step over a narrow inlet.
    */
   clearAhead(yaw, distance) {
-    const dx = -Math.sin(yaw);
-    const dz = -Math.cos(yaw);
+    const dx = fwdX(yaw);
+    const dz = fwdZ(yaw);
     for (let i = 1; i <= 3; i++) {
       const t = (i / 3) * distance;
       if (!this.passable(this.position.x + dx * t, this.position.z + dz * t)) return false;
@@ -280,7 +291,7 @@ export class Creature {
         }
       }
 
-      _fwd.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+      _fwd.set(fwdX(this.yaw), 0, fwdZ(this.yaw));
       const nx = this.position.x + _fwd.x * this.speed * dt;
       const nz = this.position.z + _fwd.z * this.speed * dt;
       // Final guard: never actually step into water it cannot stand in.
