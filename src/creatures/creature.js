@@ -15,7 +15,7 @@
 // States: GRAZE -> ALERT -> FLEE -> (recover) -> GRAZE, plus WANDER and DEAD.
 
 import * as THREE from 'three';
-import { STEALTH } from '../config.js';
+import { STEALTH, WATER_LEVEL } from '../config.js';
 import { heightAt } from '../world/noise.js';
 import { clamp, damp, lerp, smoothstep } from '../util/math.js';
 
@@ -150,15 +150,23 @@ export class Creature {
         this.headDown = damp(this.headDown, 0.35, 2, dt);
         this.targetSpeed = sp.walk;
         if (!this.wanderTarget || this.stateTime > 12) {
-          const a = this.rand() * Math.PI * 2;
-          const r = 8 + this.rand() * 22;
-          this.wanderTarget = new THREE.Vector3(
-            this.home.x + Math.cos(a) * r,
-            0,
-            this.home.z + Math.sin(a) * r
-          );
+          // Try a few spots and keep the first that is not in the lake, so
+          // grazing animals never set off toward open water.
+          this.wanderTarget = null;
+          for (let attempt = 0; attempt < 8; attempt++) {
+            const a = this.rand() * Math.PI * 2;
+            const r = 8 + this.rand() * 22;
+            const tx = this.home.x + Math.cos(a) * r;
+            const tz = this.home.z + Math.sin(a) * r;
+            if (this.passable(tx, tz)) {
+              this.wanderTarget = new THREE.Vector3(tx, 0, tz);
+              break;
+            }
+          }
           this.stateTime = 0;
+          if (!this.wanderTarget) this.setState(GRAZE);
         }
+        if (!this.wanderTarget) break;
         this.steerTo(this.wanderTarget.x, this.wanderTarget.z, dt);
         if (Math.hypot(this.wanderTarget.x - this.position.x, this.wanderTarget.z - this.position.z) < 2.5) {
           this.setState(GRAZE);
@@ -217,14 +225,77 @@ export class Creature {
 
   // ── movement + animation ──────────────────────────────────────────────────
 
+  /** Deepest water this animal will walk into, in metres. */
+  get wadeMax() {
+    return this.species.wadeMax ?? 0.8;
+  }
+
+  /** Can it stand here, or is the water over its head? */
+  passable(x, z) {
+    return heightAt(x, z) > WATER_LEVEL - this.wadeMax;
+  }
+
+  /**
+   * Look ahead along a heading and report whether it stays out of deep water.
+   * Sampled at a few points rather than just the endpoint, so a deer cannot
+   * step over a narrow inlet.
+   */
+  clearAhead(yaw, distance) {
+    const dx = -Math.sin(yaw);
+    const dz = -Math.cos(yaw);
+    for (let i = 1; i <= 3; i++) {
+      const t = (i / 3) * distance;
+      if (!this.passable(this.position.x + dx * t, this.position.z + dz * t)) return false;
+    }
+    return true;
+  }
+
   move(dt) {
     this.speed = damp(this.speed, this.targetSpeed, 3.2, dt);
+
     if (this.speed > 0.02) {
+      // ── don't run into the lake ──
+      // A deer fleeing straight away from you will happily sprint off a
+      // shoreline otherwise, and the lake bed drops to 14 m below the surface.
+      // Fan out from the intended heading and take the nearest clear one.
+      const look = Math.max(2.5, this.speed * 0.8);
+      if (!this.clearAhead(this.yaw, look)) {
+        let found = null;
+        for (let step = 1; step <= 7 && found === null; step++) {
+          for (const side of [1, -1]) {
+            const test = this.yaw + side * step * 0.32;
+            if (this.clearAhead(test, look)) {
+              found = test;
+              break;
+            }
+          }
+        }
+        if (found === null) {
+          // Boxed in — stop rather than wade in blindly.
+          this.speed *= 0.25;
+        } else {
+          // Turn hard toward the opening; panicking animals cut sharply.
+          let diff = ((found - this.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+          this.yaw += clamp(diff, -6 * dt, 6 * dt);
+        }
+      }
+
       _fwd.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
-      this.position.addScaledVector(_fwd, this.speed * dt);
+      const nx = this.position.x + _fwd.x * this.speed * dt;
+      const nz = this.position.z + _fwd.z * this.speed * dt;
+      // Final guard: never actually step into water it cannot stand in.
+      if (this.passable(nx, nz)) {
+        this.position.x = nx;
+        this.position.z = nz;
+      } else {
+        this.speed *= 0.4;
+      }
     }
-    // Feet on the ground, always.
-    this.position.y = heightAt(this.position.x, this.position.z);
+
+    // Feet on the ground — but never below chest depth, so an animal that
+    // somehow ends up in the shallows wades out instead of sinking.
+    const ground = heightAt(this.position.x, this.position.z);
+    this.position.y = Math.max(ground, WATER_LEVEL - this.wadeMax);
     this.object.rotation.y = this.yaw;
   }
 
@@ -234,7 +305,9 @@ export class Creature {
       // Topple over and stay down.
       const t = smoothstep(0, 0.7, this.deathTime);
       this.object.rotation.z = lerp(0, Math.PI / 2.1, t);
-      this.object.position.y = heightAt(this.position.x, this.position.z) - lerp(0, 0.25, t);
+      // Same floor as the living case: a carcass in the shallows must not sink.
+      const ground = Math.max(heightAt(this.position.x, this.position.z), WATER_LEVEL - this.wadeMax);
+      this.object.position.y = ground - lerp(0, 0.25, t);
       for (const leg of p.legs) leg.rotation.x = lerp(leg.rotation.x, 0.2, dt * 3);
       p.neckPivot.rotation.x = lerp(p.neckPivot.rotation.x, 0.9, dt * 3);
       return;

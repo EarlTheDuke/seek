@@ -219,6 +219,9 @@ export const SPECIES = {
     radius: 0.55,
     height: 1.75,
     eyeHeight: 1.5,
+    // Deer will wade the shallows but will not swim, so they steer around
+    // anything deeper than this rather than running out into the lake.
+    wadeMax: 0.7,
 
     speeds: { graze: 0.55, walk: 1.5, trot: 4.2, flee: 10.5 },
     turnRate: 3.2, // radians per second
