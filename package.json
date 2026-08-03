@@ -18,6 +18,7 @@
     "companioncheck": "node server/companioncheck.js",
     "bookcheck": "node server/bookcheck.js",
     "dangercheck": "node server/dangercheck.js",
+    "reportcheck": "node server/reportcheck.js",
     "glidercheck": "node server/glidercheck.js",
     "audit": "node server/audit.js",
     "agents": "node server/agents.js",

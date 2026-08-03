@@ -3,7 +3,17 @@
 //
 //   npm run agents                          six scripted players, no network
 //   npm run agents -- 12                    twelve of them
+//   node server/agents.js 6 --for 300       six, for five minutes, then report
 //   MINDS_PROVIDER=claude MINDS_API_KEY=sk-... npm run agents -- 4
+//
+// Every run ends by writing a session report into DEV-NOTES.md — the same file
+// a person types into from the game — so what the agents found and what a
+// human noticed read as one document rather than two systems you have to
+// remember to check. See server/playreport.js for what it looks for and why.
+//
+// Give it at least three minutes. Below that the report will tell you it is
+// too short to conclude anything, which is the correct answer and the reason
+// it says so out loud.
 //
 // Each agent is a real WebSocket client holding a real socket and sending real
 // intents. The server cannot tell them from you — not as a trick, but because
@@ -21,6 +31,8 @@ import { Agent } from '../src/net/agent.js';
 import { ScriptedProvider, LlmProvider, Budget } from '../src/minds/providers.js';
 import { makeRandom } from '../src/world/noise.js';
 import { AGENTS } from '../src/config.js';
+import { buildReport, summarise } from './playreport.js';
+import { appendNote, NOTES_FILE } from './notes.js';
 
 const args = process.argv.slice(2);
 const positional = args.filter((a) => /^\d+$/.test(a)).map(Number);
@@ -147,7 +159,26 @@ async function main() {
       const s = budget.spent;
       console.log(`\n    ${s.calls} calls · ${s.tokensIn} in / ${s.tokensOut} out tokens`);
     }
-    console.log('');
+
+    // ── and file it ──
+    // The console scrolls away and the findings go with it. A run that noticed
+    // nobody ever made camp should still be saying so tomorrow, in the same
+    // file the humans write their notes into — so the two kinds of feedback
+    // read as one document rather than as two systems you have to check.
+    const { text, findings } = buildReport(agents, {
+      seconds: elapsed,
+      minds: useModel && hasKey ? 'model' : 'scripted',
+      model: useModel && hasKey ? (process.env.MINDS_MODEL ?? 'claude-sonnet-4-5') : null,
+      spend: useModel && hasKey ? budget.spent : null,
+    });
+    try {
+      appendNote({ text, who: `${agents.length} agents`, context: `${Math.round(elapsed)}s at ${URL}` });
+      console.log(`\n  written to ${NOTES_FILE} — ${summarise(findings)}\n`);
+    } catch (err) {
+      // Never let filing a report be the thing that breaks the run.
+      console.log(`\n  could not write ${NOTES_FILE}: ${err.message}\n`);
+    }
+
     for (const a of agents) a.close();
     setTimeout(() => process.exit(0), 300);
   }

@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
-import { writeFileSync, mkdirSync, appendFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { appendNote } from './server/notes.js';
 
 /**
  * Dev-only screenshot sink.
@@ -74,21 +75,19 @@ function notesSink() {
             res.statusCode = 400;
             return res.end('bad json');
           }
-          const when = new Date().toISOString().replace('T', ' ').slice(0, 19);
-          const who = String(note.who ?? 'player').slice(0, 40);
-          const body = String(note.text ?? '').trim();
-          if (!body) {
+          // The FORMAT lives in server/notes.js, not here. A person typing in
+          // the browser and a fleet of agents finishing a session both write
+          // this file, and two writers means two formats the moment either one
+          // is touched — so there is exactly one, and this is a caller.
+          try {
+            appendNote(note, server.config.root);
+          } catch (err) {
             res.statusCode = 400;
-            return res.end('empty');
+            return res.end(err.message);
           }
-          // Markdown, because these get read by a person and pasted into
-          // issues. The context goes in a blockquote under the note so the
-          // note itself is what your eye lands on.
-          const ctx = String(note.context ?? '').trim();
-          const entry = `\n## ${when} — ${who}\n\n${body}\n${ctx ? `\n> ${ctx}\n` : ''}`;
-          const file = resolve(server.config.root, 'DEV-NOTES.md');
-          appendFileSync(file, entry, 'utf8');
-          server.config.logger.info(`  note from ${who}: ${body.split('\n')[0].slice(0, 70)}`);
+          server.config.logger.info(
+            `  note from ${note.who ?? 'player'}: ${String(note.text).split('\n')[0].slice(0, 70)}`
+          );
           res.end('ok');
         });
       });

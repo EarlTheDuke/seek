@@ -74,6 +74,11 @@ export class Agent {
     this.thinking = false;
     this.decisions = 0;
     this.log = [];
+    // What a session report is built out of — see server/playreport.js.
+    this.goalCounts = {};
+    this.said = [];
+    this.startX = 0;
+    this.startZ = 0;
     this.wanderAngle = rand() * Math.PI * 2;
     this.retarget = 0;
     this.target = null;
@@ -111,6 +116,11 @@ export class Agent {
             const sp = msg.data.spawn?.p;
             this._x = sp ? sp[0] : 0;
             this._z = sp ? sp[2] : 0;
+            // Remembered so a report can say how far they actually got. An
+            // agent that decided forty times and moved nine metres is the
+            // single loudest signal a session produces.
+            this.startX = this._x;
+            this.startZ = this._z;
             this.yaw = msg.data.spawn?.y ?? 0;
             for (const p of msg.data.players) if (p.id !== this.id) this.others.set(p.id, p.n);
             resolve(this);
@@ -271,10 +281,19 @@ export class Agent {
         // repeated by feeding these back rather than by asking again.
         this.log.push({ t: this.snapshot?.t ?? 0, h: +this.hours.toFixed(2), g: goal });
         if (this.log.length > AGENTS.logSize) this.log.shift();
+        // Counted separately from the log, because the log is a ring buffer.
+        // Tallying goals out of it would silently undercount exactly the long
+        // runs worth reporting on, and "nobody ever made camp" has to mean
+        // nobody ever made camp rather than nobody made camp recently.
+        this.goalCounts[goal.kind] = (this.goalCounts[goal.kind] ?? 0) + 1;
 
         if (goal.kind === 'say' && goal.text && this.hours - this.spoke > AGENTS.speakEveryHours) {
           this.spoke = this.hours;
           this.send(C_CHAT, { m: goal.text });
+          // Kept because it is the only unprompted sentence anybody in this
+          // world produces — the closest thing to a player telling you
+          // something in their own words.
+          this.said.push(goal.text);
           this.goal = { kind: 'wander' };
         } else if (changed) {
           this.memory.add(this.hours, `I decided to ${describeGoal(goal)}`);
