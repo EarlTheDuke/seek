@@ -1,4 +1,4 @@
-# Mission — fly the thing, and find out why nobody can eat
+# Mission — the door is unlocked, so walk in through it
 
 You are playing Highlands in a browser. Whoever wrote this is the one changing
 the code, and cannot see your session. This file and `DEV-NOTES.md` are the
@@ -9,111 +9,119 @@ whole conversation between you.
 ```js
 await highlands.mission()      // this file
 highlands.danger('no-bears')   // do this — see "the world" below
+await highlands.beat()         // want: "wrote a line to SESSION.log"
 ```
 
-Open the dev server's page (`npm run dev`, usually http://localhost:5173).
+If `beat()` says `no recorder`, **reload and start again** — the recorder
+switches itself off the first time it cannot reach the dev server and does not
+switch back on by itself. Re-check it after any reload.
+
+**Keep this tab in the foreground.** The recorder rides on the animation frame,
+so a hidden or backgrounded tab silently stops writing. If you have to hand-step
+the world with `highlands.stepWorld`, say so in a note — the log cannot tell.
+
 Pick **Survival**, and any companion.
 
 ## The world
 
-Bears are the hardest thing in this game and they will end a run in seconds.
-Turn them off with `?danger=no-bears` in the URL or `highlands.danger('no-bears')`
-**unless the mission says to test them.** Nobody learns anything from you being
-eaten on the way to testing something else.
+Bears will end a run in seconds. `highlands.danger('no-bears')` unless the
+mission says otherwise. Nobody learns anything from you being eaten en route to
+testing something else.
 
-## Mode: INSTRUMENTED
+## What changed since last night — both because of your reports
 
-The opposite of the last mission. Read what you like, use the debug handles, go
-straight at the mechanic.
+**1. `B` now asks what to build.** It used to call "build whatever the camp is
+missing", which evaluated to a windbreak unconditionally, forever — which is why
+four sessions never flew, and why it looked like a glider problem for three of
+them. B opens a chooser listing all six, with costs, and greys out what you
+cannot afford saying what you are short of.
 
-Three sessions have now answered the old question — *can a player find out the
-glider exists?* — and the answer was no, three times, in writing. Do not spend a
-fourth night re-deriving it. Everything downstream of that question is still
-completely unproven, because no run has ever got a wing off the ground: the
-glider costs 10 hides, hides come from deer, and nobody has ever killed one. So
-tonight you skip the queue.
+**2. The wing buffets before it stalls.** Measured, it used to say "stalled" at
+the exact instant it stalled and be unrecoverable a second later. It now
+complains at 72% of the critical angle, and that message outranks everything
+else on screen.
 
-## What to attack, in order
+**3. The book's build hint said "hold E where you want it".** That was simply
+wrong — building was never an E interaction. It now says "press B and choose".
 
-### 1. Fly it — the main event
+## Mode: NAIVE first, then INSTRUMENTED
 
-Hand yourself the materials and go. The wing is the point, not the shopping:
+The order matters. Do leg 1 before you read anything at all.
+
+### 1. NAIVE — is the door findable, or just unlocked?
+
+**Read nothing. No source, no `FINDINGS.md`, no debug handles except `report`
+and `beat`.** Play a fresh run as someone who has never seen this game.
+
+The fix above makes building *possible*. It does not obviously make it
+*discoverable*, and that is a different question that only a cold run answers.
+
+- Gather, get cold, and try to make yourself a shelter. **How did you find out
+  that B was the verb?** Controls list, the book, guessing, or not at all?
+- When the chooser opens, is it obvious what to do with it? Did you know the
+  number keys work?
+- Did you find out the glider exists this time? Say when, and from what.
+- How long from spawn to your first built structure?
+
+Report that leg before reading on. It is the only cold run we will get on this
+change.
+
+### 2. INSTRUMENTED — fly it, and see whether the warning is any use
+
+Now read what you like. Hand yourself materials — that part is not the test:
 
 ```js
 highlands.inventory.add('hide', 10)
 highlands.inventory.add('wood', 20)
 ```
 
-Then build it, launch it, and answer the three questions no session has ever
-reached:
+Build the wing from the menu, carry it to a hill, and fly. Then the real
+question:
 
-- **Launch.** The prompt says something like "160% downhill ahead of you". Did
-  that number mean anything to you before you jumped? Did you know which way to
-  face, or where you were allowed to put the wing down?
-- **Stay up.** Wind blowing up a slope should lift you. Find a hillside facing
-  into the wind and fly *along* it rather than straight off the front. Did you
-  climb? **Could you tell you were climbing** — is there anything on screen
-  saying "you are going up" other than the ground getting further away?
-- **Land.** Did it survive? Did you keep the wing, and could you find it again?
+- **Pull back until it buffets.** Does "buffeting — ease off" arrive in time for
+  a *person* to act on? My harness recovers from it with 2.0 m/s of sink, but my
+  harness reacts in one frame and you do not. If it is still effectively fatal,
+  say so with the timing — that is a finding and I will widen the margin.
+- Does the message read as a warning, or as flavour you would ignore?
+- Fly at least three times. The first tells you it works; the third tells you
+  whether it is any good.
+- Work a ridge in a headwind and try to climb. **Can you tell you are going up**
+  without watching the ground?
 
-Fly more than once. The first flight tells you whether it works; the third tells
-you whether it is any good.
+### 3. If there is time — the chain nobody has walked
 
-### 2. Then — why can nobody eat?
-
-Ten minutes, and it unblocks every future session. Every food in this game is an
-animal; nothing grows on the hill. Three runs have now starved without eating
-once. Deer are a known problem. **Trout are not**, and they are meant to be the
-reliable half of the food economy.
-
-Wade into the loch and try to fish. Then:
-
-```js
-highlands.fishing()      // the odds on the nearest shoal, and why
-highlands.nearestFood    // what "seek" would point your otter at
-```
-
-- Standing in open water, was there ever anything to press? Last session waded
-  out for a full minute and reported no prompt at all.
-- `highlands.fishing()` reports wade depth, crouch, your noise and how spooked
-  the shoal is. **Could you have worked any of that out from the screen?**
-- Try the otter's **Seek**. Last session the pet stalled at "33% there / it does
-  not know you well enough" and never moved again — see whether you can tame one
-  at all, and how long it takes.
+**bow → deer → hide → wing**, with nothing handed to you. Earlier sessions
+reported only 8 deer in the world, never closer than ~227 m, and zero hides
+across two and a half days. A wing costs 10. If a link is impassable, stop there
+and report it with the arithmetic — a broken link IS the finding.
 
 ## How to report
 
-Little and often beats one summary at the end — a note costs you nothing and
-you will forget the interesting bit.
+Little and often. A note costs you one line and you will forget the interesting
+part by the end.
 
 ```js
 await highlands.report({
   verdict: 'confusing',            // works | broken | confusing | unreachable
-  about: 'launching the glider',
-  found: 'The prompt shows a percentage. I had no idea whether 160% was good.',
-  steps: ['built it on the ridge north of the loch', 'pressed E', 'nose-dived'],
+  about: 'the build chooser',
+  found: 'I only found B because the controls list mentions it.',
+  steps: ['got cold', 'opened Shift+B', 'pressed B'],
 })
 ```
 
 Where you are, what you are carrying, the weather and **the last twenty things
-the game said to you** are attached automatically. You never need to write those
-down. `highlands.heard()` shows them if you want to see what you are about to send.
+the game said to you** are attached automatically. Never write those down.
 
-Use `verdict: 'unreachable'` for anything you only found because this file told
-you it existed. That is still the most damning verdict available.
+`verdict: 'unreachable'` for anything you only found because this file told you
+it existed. Still the most damning verdict available.
 
 ## Do not
 
-- Teleport to a hilltop, or use the debug handles to fly for free. You may
-  **hand yourself the materials** — that is the whole point of tonight — but the
-  flight has to be yours or it tells us nothing.
-- Worry about dying. Dying is data. Report what killed you.
-- Stand still for three hours. The last session spent 73% of its beats
-  motionless, much of it re-reading a refusal message. If something will not let
-  you act, file the note and walk away rather than nudging at it.
-
----
-
-*Rewritten overnight by the triage watcher, 2026-08-02 22:20 PDT, after the
-previous session had been silent for half an hour. The evidence behind every
-claim above is in `FINDINGS.md`.*
+- Read anything during leg 1. That leg is worthless if contaminated.
+- Teleport, or fly for free. Materials may be handed to you on leg 2; the flight
+  has to be yours.
+- Worry about dying. Dying is data — report what killed you, then restore a
+  checkpoint or start a fresh run and carry on.
+- Stand still for an hour. Last night 64% of beats were motionless and 42% of
+  the session was one spot in a lake. If something will not let you act, file
+  the note and walk away rather than nudging at it.

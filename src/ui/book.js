@@ -100,7 +100,10 @@ export function buildBook({ inventory = null, companion = null } = {}) {
     const p = priceOf(b.cost, inventory);
     buildRows.push({ name: b.name, cost: p.cost, note: p.can ? b.blurb : p.short, can: p.can });
   }
-  sections.push({ title: 'Build', note: 'hold E where you want it', rows: buildRows });
+  // "hold E where you want it" was wrong and a tester lost time to it: it
+  // produced no prompt in ten of eleven attempts, because building was never
+  // an E interaction at all. B is the verb, and it now asks which.
+  sections.push({ title: 'Build', note: 'press B and choose', rows: buildRows });
 
   // ── craft ──
   const craftRows = [];
