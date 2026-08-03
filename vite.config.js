@@ -98,6 +98,24 @@ function notesSink() {
 export default defineConfig({
   base: './',
   plugins: [screenshotSink(), notesSink()],
-  server: { host: '127.0.0.1' },
+  server: {
+    host: '127.0.0.1',
+    watch: {
+      // Vite watches the project root, and a full page reload throws a player
+      // back to the menu and rolls the world to its last save. Two things in
+      // this repo write files WHILE somebody is playing — the notes box and
+      // the agent session report — and both of them live at the root, so
+      // filing a note used to cost you your run.
+      //
+      // Reported from a real session: "the dev server kept doing full page
+      // reloads every minute or two, which bounced the game back to the menu
+      // and rolled the world back to the last save."
+      //
+      // Note this does NOT cover the other cause of that report, which was
+      // somebody editing source while somebody else played. Nothing can fix
+      // that but not doing it.
+      ignored: ['**/DEV-NOTES.md', '**/shots/**', '**/*.save.json'],
+    },
+  },
   build: { target: 'es2022', chunkSizeWarningLimit: 2000 },
 });
