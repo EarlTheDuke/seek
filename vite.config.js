@@ -152,7 +152,10 @@ export default defineConfig({
       // Note this does NOT cover the other cause of that report, which was
       // somebody editing source while somebody else played. Nothing can fix
       // that but not doing it.
-      ignored: ['**/DEV-NOTES.md', '**/shots/**', '**/*.save.json'],
+      // MISSION.md is here for the same reason: the next work order gets
+      // written while the last session may still be running, and reloading a
+      // tester to hand them their next job would be a poor way to hand it over.
+      ignored: ['**/DEV-NOTES.md', '**/MISSION.md', '**/shots/**', '**/*.save.json'],
     },
   },
   build: { target: 'es2022', chunkSizeWarningLimit: 2000 },
