@@ -2156,6 +2156,61 @@ function boot() {
       const ok = await sendNote(text, noteContext());
       return ok ? 'written to DEV-NOTES.md' : 'could not write — is `npm run dev` running?';
     },
+
+    /**
+     * Your orders for this session, left by whoever last changed the code.
+     *
+     *   await highlands.mission()
+     *
+     * Read it FIRST. It says what changed, what is worth attacking, and
+     * whether you are meant to play naive — working things out the way a new
+     * player would, which is itself the test — or instrumented, where you may
+     * read the constants and go straight at the mechanic.
+     */
+    mission: async () => {
+      try {
+        const res = await fetch('/__mission', { cache: 'no-store' });
+        return res.ok ? await res.text() : 'no mission board — is `npm run dev` running?';
+      } catch {
+        return 'no mission board — is `npm run dev` running?';
+      }
+    },
+
+    /**
+     * File a finding, with the evidence stapled on.
+     *
+     *   await highlands.report({
+     *     verdict: 'works',                      // works | broken | confusing | unreachable
+     *     about: 'the glider',
+     *     found: 'ridge lift only helps if you turn back along the face...',
+     *     steps: ['built it on the ridge at 80 m', 'launched into wind', '...'],
+     *   })
+     *
+     * Prose in a chat window dies when the window closes. This lands in
+     * DEV-NOTES.md with where you were, what you were carrying, AND the last
+     * twenty things the game said to you — which is the part you cannot
+     * reconstruct afterwards and the part that turns "I was confused" into a
+     * transcript of exactly what you were told.
+     */
+    report: async ({ verdict = 'note', about = '', found = '', steps = [] } = {}) => {
+      if (!found) return 'say what you found';
+      const said = hud.heard.slice(-20).map((h) => `    ${h.t}s  "${h.text}"`).join('\n');
+      const body = [
+        `**${verdict.toUpperCase()}**${about ? ` — ${about}` : ''}`,
+        '',
+        found,
+        steps.length ? `\nWhat I did:\n${steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}` : '',
+        said ? `\nWhat the game said:\n\n${said}` : '',
+      ].join('\n');
+      const ok = await sendNote(body, noteContext());
+      return ok ? 'filed to DEV-NOTES.md' : 'could not write — is `npm run dev` running?';
+    },
+
+    /**
+     * What the game just told you, in order. The last few seconds of its side
+     * of the conversation, which is otherwise gone in about two seconds.
+     */
+    heard: (n = 20) => hud.heard.slice(-n).map((h) => `${h.t}s  ${h.text}`),
     /** Build the best thing you can afford, as B does. */
     build: () => (placeStructure(), structures.stats),
     /** What you could put down right now, and what it would cost. */

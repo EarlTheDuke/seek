@@ -463,6 +463,7 @@ export class Hud {
     this.menuFoot = this.menuEl.querySelector('.foot');
     this.menu = null; // { items, index, onPick, onClose }
     this.book = false;
+    this.heard = []; // every toast this session — see toast()
     this.surveyEl = this.root.querySelector('#hl-survey');
     this.surveyTitle = this.surveyEl.querySelector('h3');
     this.surveyRows = this.surveyEl.querySelector('.rows');
@@ -639,6 +640,16 @@ export class Hud {
     this.toastEl.textContent = text;
     this.toastEl.classList.add('show');
     this.toastTimer = seconds;
+    // Everything the game ever said to you, kept.
+    //
+    // A toast is the game's entire side of the conversation — "you need a
+    // branch to build a fire", "not steep enough", "you set down and the wing
+    // is still whole" — and it vanishes after two seconds. When somebody
+    // reports "I could not work out how to build", the sequence of toasts they
+    // saw is the difference between a guess and knowing: it shows what they
+    // tried and exactly what the game told them in return.
+    this.heard.push({ t: Math.round(performance.now() / 100) / 10, text });
+    if (this.heard.length > 200) this.heard.shift();
   }
 
   /** H — hide everything, for looking at the world properly. */

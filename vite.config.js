@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { appendNote } from './server/notes.js';
 
@@ -95,9 +95,47 @@ function notesSink() {
   };
 }
 
+/**
+ * Dev-only mission board.
+ *
+ * `GET /__mission` returns MISSION.md. That is the whole mechanism, and it is
+ * deliberately not more than that.
+ *
+ * The problem it solves: two Claudes work on this game — one writing the code,
+ * one playing it in a browser — and they cannot talk to each other. Separate
+ * sessions, separate contexts, no channel. The instinct is to want an
+ * agent-to-agent protocol. The instinct is wrong: they already share a
+ * FILESYSTEM, and the game is already a web page that can read from it.
+ *
+ * So the channel is a mailbox. The one writing code leaves a work order; the
+ * one playing picks it up with `highlands.mission()` at the start of a session.
+ * Asynchronous, durable, survives a reload, needs no coordination, and a human
+ * can read the whole conversation by opening two files in an editor.
+ */
+function missionBoard() {
+  return {
+    name: 'highlands-mission-board',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__mission', (req, res) => {
+        const file = resolve(server.config.root, 'MISSION.md');
+        res.setHeader('content-type', 'text/plain; charset=utf-8');
+        // No cache, because the point is that it changes between sessions and
+        // a stale mission is worse than none — you would test last week's build.
+        res.setHeader('cache-control', 'no-store');
+        try {
+          res.end(readFileSync(file, 'utf8'));
+        } catch {
+          res.end('no mission set — nobody has left you any orders');
+        }
+      });
+    },
+  };
+}
+
 export default defineConfig({
   base: './',
-  plugins: [screenshotSink(), notesSink()],
+  plugins: [screenshotSink(), notesSink(), missionBoard()],
   server: {
     host: '127.0.0.1',
     watch: {
