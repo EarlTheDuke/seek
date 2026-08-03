@@ -605,14 +605,21 @@ export class Hud {
     this.resume.classList.remove('show');
     const row = this.keys.querySelector('tr');
     const hint = document.createElement('tr');
-    hint.innerHTML = '<td class="k">Drag</td><td class="d">hold left mouse to look</td>';
+    // RIGHT mouse. The fallback has always been bound to button 2 (see
+    // input.js) and this line said "left" — which is the fire button, so
+    // following the instruction loosed arrows and never turned the camera. A
+    // tester burned two arrows learning that and then drove the camera another
+    // way for a whole session. Pointer lock is refused in exactly the automated
+    // browsers we playtest in, so this hint is the FIRST thing an agent reads
+    // about how to look around, and it was wrong.
+    hint.innerHTML = '<td class="k">Right-drag</td><td class="d">hold the RIGHT mouse button to look around</td>';
     row.parentNode.insertBefore(hint, row);
     // The Esc row is meaningless with no lock to escape from.
     const rows = [...this.keys.querySelectorAll('tr')];
     const esc = rows.find((r) => r.textContent.startsWith('Esc'));
     if (esc) esc.remove();
     this.showKeys(12);
-    this.toast('pointer lock unavailable here — hold the left mouse button to look', 5);
+    this.toast('pointer lock unavailable here — hold the RIGHT mouse button to look around', 6);
   }
 
   showKeys(seconds) {
