@@ -88,6 +88,20 @@ check('but a mind with a spread of goals is not',
   !/same goal over and over/i.test(buildReport(varied, { seconds: 600 }).text),
   'hunt led but never dominated');
 
+// ── hands ──
+// For most of this project's life every agent had zero of these and nothing
+// said so. A report that cannot tell "reached for something" from "decided to"
+// would have hidden it for longer.
+const handless = [agent('Iseabail', { gather: 12 })];
+check('a fleet that never touched anything says so loudly',
+  /never touched anything/i.test(buildReport(handless, { seconds: 600 }).text),
+  'twelve decisions to gather and not one interact');
+const handy = [agent('Lachlan', { gather: 12 }, { acted: { interact: 9 } })];
+const withHands = buildReport(handy, { seconds: 600 });
+check('and one that did is counted where the key was pressed',
+  /actually touched/i.test(withHands.text) && withHands.text.includes('interact — 9'),
+  'decided 12 times, arrived 9 — the walk in between is the difference');
+
 // ── their own words ──
 const talkative = [agent('Beathag', { wander: 4 }, { said: ['have you seen the stones?'] })];
 const spoken = buildReport(talkative, { seconds: 300 });

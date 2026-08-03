@@ -42,6 +42,7 @@ import {
 import { createIntent } from '../sim/intents.js';
 import { sanitiseGoal, describeGoal, GOAL_IDS } from '../minds/goals.js';
 import { Memory } from '../minds/mind.js';
+import { nearestDeadfall } from '../world/pickups.js';
 import { bearingName, describePosition } from '../world/placenames.js';
 import { AGENTS } from '../config.js';
 
@@ -76,6 +77,11 @@ export class Agent {
     this.log = [];
     // What a session report is built out of — see server/playreport.js.
     this.goalCounts = {};
+    // Times it actually reached for something, by intent field. Counted where
+    // the key is pressed rather than where the goal is chosen, because those
+    // are very different numbers: deciding to gather and arriving at a branch
+    // are separated by a walk that may not finish.
+    this.acted = {};
     this.said = [];
     this.startX = 0;
     this.startZ = 0;
@@ -351,6 +357,15 @@ export class Agent {
         i.crouch = g.kind === 'hunt' && dist < AGENTS.stalkWithin;
       } else {
         i.forward = 0;
+        // ── arrived, so use your hands ──
+        // Pulsed for exactly one tick, because `interact` is edge-detected on
+        // the server and a held key would collect on every frame you stood
+        // there. Cleared at the top of act(), so it is false again next tick
+        // without anything having to remember to unset it.
+        if (this.target.act) {
+          i[this.target.act] = true;
+          this.acted[this.target.act] = (this.acted[this.target.act] ?? 0) + 1;
+        }
         this.target = null;
       }
     } else {
@@ -375,6 +390,25 @@ export class Agent {
       return null;
     };
     switch (g.kind) {
+      // Walk to the nearest branch and PRESS E when you get there.
+      //
+      // The snapshot carries players, creatures and arrows — no pickups, and it
+      // never will, because deadfall is a pure function of the seed and both
+      // ends compute it rather than shipping it. That is the same trick the
+      // terrain and the place names already use, and it is why an agent can
+      // walk to a branch it was never told about. See world/pickups.js.
+      case 'gather': {
+        const wood = nearestDeadfall(this._x, this._z);
+        return wood ? { x: wood.x, z: wood.z, act: 'interact' } : this.roam();
+      }
+      // Camp is a place with fuel in reach, so this is gather with a reason.
+      // It used to fall through to `roam()` — which meant an agent that decided
+      // to make camp did precisely what an agent that decided to wander did,
+      // and the report counted it as a distinct activity. It was not one.
+      case 'makeCamp': {
+        const wood = nearestDeadfall(this._x, this._z, 60);
+        return wood ? { x: wood.x, z: wood.z, act: 'interact' } : this.roam();
+      }
       case 'hunt':
         return find((label) => label === (g.quarry ?? '')) ?? this.roam();
       case 'approach':

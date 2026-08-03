@@ -114,6 +114,28 @@ export function buildReport(agents, meta = {}) {
     findings.push(`${thrash.length} looping on one goal`);
   }
 
+  // ── did they ever touch anything ──
+  // Separate from the goal tally on purpose. Deciding to gather and actually
+  // arriving at a branch are different events with a walk in between, and for
+  // most of this project's life the second number was zero for every verb —
+  // the agent had no hands and nothing said so.
+  const hands = {};
+  for (const a of live) {
+    for (const [k, n] of Object.entries(a.acted ?? {})) hands[k] = (hands[k] ?? 0) + n;
+  }
+  const touched = Object.entries(hands);
+  if (touched.length) {
+    out.push('\n**What they actually touched**\n');
+    for (const [what, n] of touched.sort((x, y) => y[1] - x[1])) {
+      out.push(`- ${what} — ${n} time${n === 1 ? '' : 's'}`);
+    }
+  } else if (totalDecisions > 0) {
+    out.push('\n**They never touched anything**\n');
+    out.push('Not one interact, place or eat in the whole run. Either nothing ' +
+      'was ever in reach, or the goals they chose do not lead to the hands.');
+    findings.push('never touched anything');
+  }
+
   // ── what they said ──
   // The only unprompted words in the whole run, and the closest thing to a
   // player telling you something in their own voice.

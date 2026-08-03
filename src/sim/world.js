@@ -499,7 +499,14 @@ export class SimWorld {
   }
 
   updateWildlife(dt, worldCtx) {
-    const anchor = this.playersInOrder()[0];
+    const everyone = this.playersInOrder();
+    // Populate the world around ALL of them, not just the first to join. See
+    // the note in creatures/manager.js — this is why the second player onto a
+    // server used to find an empty hillside.
+    this.wildlife.extraAnchors = everyone.slice(1).map((p) => ({
+      key: p.id, x: p.ctrl.position.x, z: p.ctrl.position.z,
+    }));
+    const anchor = everyone[0];
     if (!anchor) return;
     this.wildlife.update(dt, anchor.ctrl.position, anchor.stealth, worldCtx);
   }

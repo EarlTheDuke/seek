@@ -68,6 +68,10 @@ export class Wildlife {
     this.wasNight = false;
     /** Species that may not spawn at all — see modes/danger.js. */
     this.banned = new Set();
+    // Everyone else the world should populate around. Set by the server each
+    // tick; empty in the browser, where there is only ever one of you.
+    this.extraAnchors = [];
+    this.anchors = new Map(); // key -> last position we spawned around
   }
 
   /**
@@ -312,6 +316,25 @@ export class Wildlife {
     if (Math.hypot(playerPos.x - this.anchor.x, playerPos.z - this.anchor.z) > 40) {
       this.anchor.copy(playerPos);
       this.refresh(playerPos.x, playerPos.z);
+    }
+
+    // ── and around everybody else ──
+    // Spawning followed ONE player — the first to join — so on a server every
+    // other player walked through a world with no animals in it. Not a subtle
+    // effect: six agents ran for three minutes and 88% of every decision they
+    // made was "wander", because the scripted brain had nothing to hunt, avoid
+    // or greet. It read like incurious minds and it was an empty hillside.
+    //
+    // A second HUMAN player had exactly the same experience, which is the part
+    // that makes this a real bug rather than an agent-harness quirk.
+    //
+    // Cheap because `spawnedSites` already stops a site being used twice, so
+    // extra callers only ever fill in ground the first one has not reached.
+    for (const p of this.extraAnchors ?? []) {
+      const prev = this.anchors.get(p.key);
+      if (prev && Math.hypot(p.x - prev.x, p.z - prev.z) <= 40) continue;
+      this.anchors.set(p.key, { x: p.x, z: p.z });
+      this.refresh(p.x, p.z);
     }
 
     this.updatePacks(dt, darkness(this.ctx.sunAltitude ?? 90));

@@ -94,6 +94,11 @@ export class Pickups {
   }
 
   // ── deterministic world loot ─────────────────────────────────────────────
+  //
+  // See `deadfallNear` below for WHERE the wood is. It is a pure function of
+  // the seed, which is why the browser can draw branches it never downloaded —
+  // and, now, why an agent playing over a socket can walk to one. The snapshot
+  // does not carry pickups and never will; both ends compute them instead.
 
   /**
    * Deadfall branches, found where trees are.
@@ -108,37 +113,25 @@ export class Pickups {
     const R = PICKUP.woodRadius;
     const want = new Set();
 
-    for (let cj = Math.floor((pz - R) / cell); cj <= Math.ceil((pz + R) / cell); cj++) {
-      for (let ci = Math.floor((px - R) / cell); ci <= Math.ceil((px + R) / cell); ci++) {
-        const key = `w${ci},${cj}`;
-        if (this.taken.has(key)) continue;
+    // WHERE the branches are comes from the pure function; this loop only
+    // decides what to draw. Keeping the placement rules in one place is what
+    // lets an agent with no scene walk to the same branch you can see.
+    for (const w of deadfallNear(px, pz, R)) {
+      const { key, x, z, y, count } = w;
+      if (this.taken.has(key)) continue;
+      want.add(key);
+      if (this.loot.has(key)) continue;
 
-        const x = ci * cell + hash2i(ci, cj, 511) * cell;
-        const z = cj * cell + hash2i(ci, cj, 512) * cell;
-        if ((x - px) ** 2 + (z - pz) ** 2 > R * R) continue;
-
-        // Only under woodland, and only sometimes.
-        const clump = clumpAt(x, z);
-        if (clump < 0.25) continue;
-        if (hash2i(ci, cj, 513) > PICKUP.woodChance * clump) continue;
-
-        const y = heightAt(x, z);
-        if (y < WATER_LEVEL + 0.5) continue;
-        if (slopeAt(x, z) > 0.45) continue;
-
-        want.add(key);
-        if (this.loot.has(key)) continue;
-
-        const def = getItem('wood');
-        const obj = def.makeObject();
-        obj.castShadow = true;
-        obj.rotation.y = hash2i(ci, cj, 514) * Math.PI * 2;
-        obj.rotation.z = (hash2i(ci, cj, 515) - 0.5) * 0.4;
-        obj.position.set(x, y + 0.06, z);
-        this.scene.add(obj);
-        // Deadfall lies still — flagged so the bob/spin pass skips it.
-        this.loot.set(key, { obj, item: 'wood', count: 1 + (hash2i(ci, cj, 516) < 0.35 ? 1 : 0), x, z, baseY: y + 0.06, key, still: true });
-      }
+      const [ci, cj] = key.slice(1).split(',').map(Number);
+      const def = getItem('wood');
+      const obj = def.makeObject();
+      obj.castShadow = true;
+      obj.rotation.y = hash2i(ci, cj, 514) * Math.PI * 2;
+      obj.rotation.z = (hash2i(ci, cj, 515) - 0.5) * 0.4;
+      obj.position.set(x, y + 0.06, z);
+      this.scene.add(obj);
+      // Deadfall lies still — flagged so the bob/spin pass skips it.
+      this.loot.set(key, { obj, item: 'wood', count, x, z, baseY: y + 0.06, key, still: true });
     }
 
     for (const [key, entry] of this.loot) {
@@ -282,4 +275,50 @@ export class Pickups {
   get stats() {
     return { recoverable: this.recovered.length, dropped: this.dropped.length, loot: this.loot.size };
   }
+}
+
+// ── where the wood is, as a pure function ───────────────────────────────────
+//
+// Same hash, same clump mask, same water and slope rules as `refreshDeadfall`
+// above — because it is the definition, and that method now calls this one.
+// Two copies of "where is the wood" would drift the first time either was
+// tuned, and the drift would be invisible: the branches you can see and the
+// branches something walks toward would simply stop being the same branches.
+//
+// No THREE and no scene, which is the point. A browser needs geometry to draw
+// deadfall; an agent over a socket needs only coordinates, and the snapshot
+// carries no pickups at all. Both ends compute the same answer from the seed,
+// exactly as they already do for the terrain and the place names.
+export function deadfallNear(px, pz, radius = PICKUP.woodRadius) {
+  const cell = PICKUP.woodCell;
+  const out = [];
+  for (let cj = Math.floor((pz - radius) / cell); cj <= Math.ceil((pz + radius) / cell); cj++) {
+    for (let ci = Math.floor((px - radius) / cell); ci <= Math.ceil((px + radius) / cell); ci++) {
+      const x = ci * cell + hash2i(ci, cj, 511) * cell;
+      const z = cj * cell + hash2i(ci, cj, 512) * cell;
+      if ((x - px) ** 2 + (z - pz) ** 2 > radius * radius) continue;
+      const clump = clumpAt(x, z);
+      if (clump < 0.25) continue;
+      if (hash2i(ci, cj, 513) > PICKUP.woodChance * clump) continue;
+      const y = heightAt(x, z);
+      if (y < WATER_LEVEL + 0.5) continue;
+      if (slopeAt(x, z) > 0.45) continue;
+      out.push({ key: `w${ci},${cj}`, x, z, y, count: 1 + (hash2i(ci, cj, 516) < 0.35 ? 1 : 0) });
+    }
+  }
+  return out;
+}
+
+/** The closest branch to a point, or null if the ground here is bare. */
+export function nearestDeadfall(px, pz, radius = PICKUP.woodRadius) {
+  let best = null;
+  let bestD = Infinity;
+  for (const w of deadfallNear(px, pz, radius)) {
+    const d = (w.x - px) ** 2 + (w.z - pz) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = w;
+    }
+  }
+  return best ? { ...best, distance: Math.sqrt(bestD) } : null;
 }

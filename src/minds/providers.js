@@ -76,6 +76,18 @@ export class ScriptedProvider {
 
     if (quarry.length && this.rand() < 0.7) return { kind: 'hunt', quarry: quarry[0].what };
     if (brief.light === 'dark') return { kind: 'makeCamp' };
+
+    // ── pick up firewood on the way past ──
+    // Below the hunt and above the aimless walk, which is where it belongs: a
+    // person crossing woodland with nothing pressing picks up a branch, and a
+    // person with a deer in sight does not stop to do it.
+    //
+    // This existed as a verb before anything ever chose it. The rule set is the
+    // floor every mind falls back to, so a verb the floor never reaches for is
+    // a verb that is only exercised when somebody is paying for a model — which
+    // is the wrong way round for the one brain that is meant to prove the game
+    // is playable without one.
+    if (this.rand() < 0.4) return { kind: 'gather' };
     return { kind: 'wander' };
   }
 }
