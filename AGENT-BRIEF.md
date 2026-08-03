@@ -40,8 +40,12 @@ one run of each is worth more than two runs of something in between.
 
 ## Report as you go
 
-Little and often. A note costs you nothing and you will forget the interesting
-part by the end.
+**File your first report within ten minutes**, even if it is only "nothing
+surprising yet". Then keep filing — little and often. A note costs you one line
+and you will have forgotten the interesting part by the end of the session.
+
+A report written at the end is a summary. A report written when it happened is
+evidence.
 
 ```js
 await highlands.report({
@@ -58,18 +62,33 @@ the game said to you** are attached automatically. Never write those down.
 Use `verdict: 'unreachable'` for anything you only found because the mission
 mentioned it. That is the most damning verdict and the most useful.
 
-## Do not lose progress
+## Checkpoint constantly. This is not optional.
 
-Before anything risky — a fight, a jump, a first flight — take a checkpoint.
-Dying is fine and is data. Dying and losing the hour that got you somewhere
-interesting is waste, and it is the main way these sessions get thrown away.
+The last session ignored this, survived a whole day and night, starved to death,
+and lost all of it. Do not repeat that.
 
 ```js
-highlands.checkpoint('on the ridge')
-highlands.restore('on the ridge')
+highlands.checkpoint('fed and warm')
+highlands.restore('fed and warm')
 ```
 
-Take one whenever you reach somewhere it took effort to get to.
+**Take one every single time you gain something you would hate to lose** — a
+kill, a fire lit, a camp built, a new place reached, a full stomach. It costs
+one line. Name them so you can tell them apart.
+
+Dying is fine and is data. Dying and losing the hour that got you somewhere
+interesting is pure waste.
+
+## When you die
+
+You will die. Report what killed you, then **keep going** — do not stop and wait
+to be told.
+
+1. `highlands.restore(...)` to your last checkpoint if you have one.
+2. If you have none, start a fresh run from the menu and carry on testing.
+
+A session ends when you run out of things to try, not when you run out of
+health.
 
 ## Turn the bears off
 

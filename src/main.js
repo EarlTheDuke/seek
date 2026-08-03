@@ -1443,7 +1443,12 @@ function boot() {
       `${vitals.dead ? 'DEAD' : `health ${Math.round(vitals.health)}`}`,
     ];
     if (ruleset.current.survival && !vitals.dead) {
-      bits.push(`core ${vitals.coreC.toFixed(1)}°`, `hunger ${Math.round(vitals.hunger)}%`);
+      // `food`, not `hunger`. The number is how much you have LEFT (body.js:
+      // "0 starving .. 100 full"), so a report saying "hunger 85%" read as
+      // nearly starving when it meant nearly full — backwards in every note
+      // filed, and the notes are the whole point. Matches the HUD, which has
+      // always said FOOD, and the flight recorder.
+      bits.push(`core ${vitals.coreC.toFixed(1)}°`, `food ${Math.round(vitals.hunger)}%`);
       if (vitals.wetness > 0.25) bits.push('soaked');
     }
     if (flight) bits.push(`flying, ${Math.round(flight.y)} m up`);
