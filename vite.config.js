@@ -1,5 +1,12 @@
 import { defineConfig } from 'vite';
-import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
+// `appendFileSync` is used by the flight recorder. It was dropped from here
+// when the notes sink moved to server/notes.js, and the recorder was written
+// later assuming it was still imported — so the FIRST request to /__beat threw
+// ReferenceError and took the whole dev server down with it, which killed a
+// live playtest session. Third time this project has shipped "used a function
+// that was never imported"; the config parses, the build is clean, and nothing
+// finds it until the line actually runs.
+import { writeFileSync, mkdirSync, readFileSync, appendFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { appendNote } from './server/notes.js';
 
@@ -112,6 +119,48 @@ function notesSink() {
  * Asynchronous, durable, survives a reload, needs no coordination, and a human
  * can read the whole conversation by opening two files in an editor.
  */
+/**
+ * Dev-only flight recorder.
+ *
+ * The game POSTs one line of its own state every few seconds to `/__beat` and
+ * it lands in `SESSION.log`. `tail -f SESSION.log` and you are watching the
+ * run, from a machine that is not the one playing it.
+ *
+ * Why this rather than screenshots or asking: a playtester's report is what
+ * they CHOSE to tell you, filtered through what they noticed. A session where
+ * somebody quietly starves, or spends forty minutes stuck inside a rock, or
+ * never once opens the thing you shipped last week, produces no report at all —
+ * the most damning sessions are the quietest. This is the part they cannot
+ * forget to mention.
+ *
+ * One line, human-readable, so a tail is legible without tooling:
+ *
+ *   12:52  -140,-220  under trees   hp100 food0 warm34.4  branch  "you are starving"
+ */
+function flightRecorder() {
+  return {
+    name: 'highlands-flight-recorder',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__beat', (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405;
+          return res.end('POST only');
+        }
+        const chunks = [];
+        req.on('data', (c) => chunks.push(c));
+        req.on('end', () => {
+          const line = Buffer.concat(chunks).toString('utf8').replace(/[\r\n]+/g, ' ').slice(0, 400);
+          if (line.trim()) {
+            appendFileSync(resolve(server.config.root, 'SESSION.log'), `${line}\n`, 'utf8');
+          }
+          res.end('ok');
+        });
+      });
+    },
+  };
+}
+
 function missionBoard() {
   return {
     name: 'highlands-mission-board',
@@ -135,7 +184,7 @@ function missionBoard() {
 
 export default defineConfig({
   base: './',
-  plugins: [screenshotSink(), notesSink(), missionBoard()],
+  plugins: [screenshotSink(), notesSink(), missionBoard(), flightRecorder()],
   server: {
     host: '127.0.0.1',
     watch: {
@@ -155,7 +204,7 @@ export default defineConfig({
       // MISSION.md is here for the same reason: the next work order gets
       // written while the last session may still be running, and reloading a
       // tester to hand them their next job would be a poor way to hand it over.
-      ignored: ['**/DEV-NOTES.md', '**/MISSION.md', '**/shots/**', '**/*.save.json'],
+      ignored: ['**/DEV-NOTES.md', '**/MISSION.md', '**/SESSION.log', '**/shots/**', '**/*.save.json'],
     },
   },
   build: { target: 'es2022', chunkSizeWarningLimit: 2000 },

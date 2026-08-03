@@ -1477,6 +1477,40 @@ function boot() {
 
   hud.wireNotes(noteContext, sendNote);
 
+  // ── the flight recorder ───────────────────────────────────────────────────
+  //
+  // One line of state every few seconds into SESSION.log, so somebody on
+  // another machine can `tail -f` a run they are not playing.
+  //
+  // The reason this exists rather than relying on the tester: a report is what
+  // somebody CHOSE to tell you. A session where they quietly starve, or spend
+  // forty minutes stuck inside a rock, or never once open the thing you shipped
+  // last week, produces no report at all — the quietest sessions are the most
+  // damning, and they are exactly the ones with nothing written down.
+  //
+  // Self-disabling. In a production build there is no sink, and a fetch into
+  // the void every four seconds forever is not an acceptable thing to ship.
+  let beating = true;
+  let beatAt = 0;
+  async function beat() {
+    const p = ctrl.position;
+    const last = hud.heard[hud.heard.length - 1];
+    const held = inventory.slots.filter((s) => s.item).map((s) => `${s.count}${s.item}`).join(' ');
+    const line =
+      `${atmosphere.clockText}  ${p.x.toFixed(0)},${p.z.toFixed(0)}  ` +
+      `${vitals.dead ? 'DEAD' : `hp${Math.round(vitals.health)}`} ` +
+      `food${Math.round(vitals.hunger)} warm${vitals.coreC.toFixed(1)}  ` +
+      `${weather.label}  ${held || 'empty-handed'}` +
+      (flight ? '  FLYING' : riding ? '  RIDING' : '') +
+      (last ? `  "${last.text}"` : '');
+    try {
+      const res = await fetch('/__beat', { method: 'POST', body: line });
+      if (!res.ok) beating = false;
+    } catch {
+      beating = false;
+    }
+  }
+
   /**
    * Turn the dangerous things on or off, now, including any already out there.
    *
@@ -2000,6 +2034,13 @@ function boot() {
         `${wl.alive} alive (${wl.alert} alert) · ${stealth.label}`
     );
 
+    // Once every few seconds, say where we are. Cheap, and it is the only
+    // record of a session nobody writes a report about.
+    if (beating && hud.started && time - beatAt > 4) {
+      beatAt = time;
+      beat();
+    }
+
     composer.render(dt, time);
     // The viewmodel draws last, onto a cleared depth buffer, so it can never
     // clip into the world and never picks up the bloom or grain.
@@ -2243,6 +2284,19 @@ function boot() {
       return `restored "${name}"`;
     },
     checkpoints: () => [...checkpoints.keys()],
+
+    /**
+     * Force one line into SESSION.log now, rather than waiting for the next
+     * beat. Exposed because the automatic one fires from the RENDER loop, and
+     * a hidden or backgrounded tab parks requestAnimationFrame — so on the
+     * machine where this is usually verified, the thing being verified never
+     * runs. Testing the endpoint proves the endpoint; this tests the line the
+     * game actually writes.
+     */
+    beat: async () => {
+      await beat();
+      return beating ? 'wrote a line to SESSION.log' : 'no recorder — is `npm run dev` running?';
+    },
     /** Build the best thing you can afford, as B does. */
     build: () => (placeStructure(), structures.stats),
     /** What you could put down right now, and what it would cost. */
