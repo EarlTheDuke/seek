@@ -675,6 +675,8 @@ function boot() {
   // only altitude you will ever have is the altitude you carried up the hill.
   let flight = null;
   let wing = null;
+  // Named in-memory checkpoints for testers — see `highlands.checkpoint`.
+  const checkpoints = new Map();
 
   function beginFlight(s) {
     const ok = canLaunch(ctrl.position.x, ctrl.position.z, ctrl.yaw, heightAt);
@@ -2211,6 +2213,36 @@ function boot() {
      * of the conversation, which is otherwise gone in about two seconds.
      */
     heard: (n = 20) => hud.heard.slice(-n).map((h) => `${h.t}s  ${h.text}`),
+
+    /**
+     * Named checkpoints, held in memory, for testing something risky twice.
+     *
+     *   highlands.checkpoint('on the ridge')   before you try the thing
+     *   highlands.restore('on the ridge')      after it kills you
+     *   highlands.checkpoints()                what you have
+     *
+     * A tester who dies loses the hour of play that got them to the interesting
+     * bit, and then either spends another hour or — far more likely — stops
+     * testing that thing. A real session was reported lost exactly this way.
+     *
+     * Separate from the ordinary save on purpose: the save file is the PLAYER'S
+     * run and a test harness must never overwrite it. These live only as long
+     * as the tab does, which is right — a checkpoint is scaffolding for one
+     * session, not a second save system to keep working forever.
+     */
+    checkpoint: (name = 'here') => {
+      checkpoints.set(name, JSON.parse(JSON.stringify(captureSave(saveContext()))));
+      hud.toast(`checkpoint: ${name}`, 1.6);
+      return `saved "${name}" — ${checkpoints.size} held`;
+    },
+    restore: (name = 'here') => {
+      const data = checkpoints.get(name);
+      if (!data) return `no checkpoint called "${name}" — have: ${[...checkpoints.keys()].join(', ') || 'none'}`;
+      applySave(JSON.parse(JSON.stringify(data)), saveContext());
+      hud.toast(`back to: ${name}`, 2);
+      return `restored "${name}"`;
+    },
+    checkpoints: () => [...checkpoints.keys()],
     /** Build the best thing you can afford, as B does. */
     build: () => (placeStructure(), structures.stats),
     /** What you could put down right now, and what it would cost. */
