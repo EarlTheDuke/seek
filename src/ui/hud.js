@@ -464,6 +464,7 @@ export class Hud {
     this.menu = null; // { items, index, onPick, onClose }
     this.book = false;
     this.heard = []; // every toast this session — see toast()
+    this.onToast = null; // set by main, so the event log hears everything
     this.surveyEl = this.root.querySelector('#hl-survey');
     this.surveyTitle = this.surveyEl.querySelector('h3');
     this.surveyRows = this.surveyEl.querySelector('.rows');
@@ -657,6 +658,9 @@ export class Hud {
     // tried and exactly what the game told them in return.
     this.heard.push({ t: Math.round(performance.now() / 100) / 10, text });
     if (this.heard.length > 200) this.heard.shift();
+    // And out to the event log, so the record has every line in order rather
+    // than whichever one happened to be showing when the sampler looked.
+    this.onToast?.(text);
   }
 
   /** H — hide everything, for looking at the world properly. */

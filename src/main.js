@@ -314,6 +314,14 @@ function boot() {
     onDeath: () => {
       weapons.cancel();
       hud.setPrompt(null);
+      // The most important event in any session, and the one every run so far
+      // has produced. What they were CARRYING when it happened is most of the
+      // finding — four sessions starved holding the branch that would have
+      // lit the fire.
+      const held = inventory.slots.filter((s) => s.item).map((s) => `${s.count} ${s.item}`).join(', ');
+      logEvent('DIED', `food ${Math.round(vitals.hunger)}, core ${vitals.coreC.toFixed(1)}, ` +
+        `carrying ${held || 'nothing'}`);
+      shoot('death');
     },
     onRespawn: () => {
       ctrl.teleport(spawn.position, spawn.yaw);
@@ -698,6 +706,8 @@ function boot() {
     scene.add(pivot);
     wing.pivot = pivot;
     hud.toast('you run, and the ground stops being there', 3);
+    logEvent('LAUNCH', `${ok.drop ? `${(ok.drop * 100).toFixed(0)}% downhill` : ''} at ${Math.round(flight.y)} m`);
+    shoot('launch', true);
     return null;
   }
 
@@ -705,6 +715,9 @@ function boot() {
     if (!flight) return;
     const s = flight;
     flight = null;
+    logEvent(crashed ? 'CRASHED' : 'LANDED',
+      `after ${Math.hypot(s.x, s.z).toFixed(0)} m, at ${s.v.toFixed(1)} m/s sinking ${s.sink.toFixed(1)}`);
+    shoot(crashed ? 'crash' : 'landed', true);
     if (wing?.pivot) scene.remove(wing.pivot);
     wing = null;
     hud.clearFlight();
@@ -1173,6 +1186,11 @@ function boot() {
       return null;
     }
     Structures.pay(spec.id, inventory);
+    // The first of each kind gets a picture. This is the moment four sessions
+    // never reached, and "they built one" is worth far less than seeing where
+    // and what it looked like.
+    logEvent('BUILT', spec.name);
+    shoot(`built-${spec.id}`, true);
     // A holt is not a building, it is a gift. Telling the pet where it is is
     // the whole point of having dug it.
     if (spec.holt) {
@@ -1529,6 +1547,79 @@ function boot() {
   // the void every four seconds forever is not an acceptable thing to ship.
   let beating = true;
   let beatAt = 0;
+
+  // ── the event log ─────────────────────────────────────────────────────────
+  //
+  // The heartbeat SAMPLES state; this records what HAPPENED. The difference is
+  // not academic — it is the difference between a police report and a story,
+  // and sampling has already misled me once. The beat logs the LAST toast, so
+  // one stale message looked identical to a message firing six times in a row,
+  // and I nearly reported a pickup loop that never existed. Anything that
+  // happens between two samples simply is not in the record.
+  //
+  // So: every toast in order, every time the player reaches for something,
+  // every refusal, every death, and anything that throws. That last one matters
+  // most — a console error is currently invisible unless a tester happens to
+  // mention it, and this project has shipped four crashes that only showed up
+  // when a line actually ran.
+  function logEvent(kind, detail = '') {
+    if (!beating) return;
+    const p = ctrl.position;
+    const line = `${atmosphere.clockText}  ${p.x.toFixed(0)},${p.z.toFixed(0)}  ${kind}  ${detail}`;
+    fetch('/__beat', { method: 'POST', body: line }).catch(() => { beating = false; });
+  }
+
+  // Every line the game says, in order and complete, rather than whichever one
+  // happened to be showing when the sampler looked.
+  hud.onToast = (text) => logEvent('SAY', `"${text}"`);
+
+  // A throw becomes a line in the log instead of depending on somebody noticing
+  // red text in a console they may not have open.
+  window.addEventListener('error', (e) => logEvent('ERROR', `${e.message} @ ${e.filename?.split('/').pop()}:${e.lineno}`));
+  window.addEventListener('unhandledrejection', (e) => logEvent('ERROR', `unhandled: ${e.reason?.message ?? e.reason}`));
+
+  /**
+   * A picture, at the moment it mattered.
+   *
+   * `capture()` has worked since before any of this and nobody ever called it,
+   * so every visual judgement made about this game has come from a human
+   * pasting a screenshot by hand. A tester spent three separate reports
+   * misdiagnosing a black band — sun, then bog water, then finally the carried
+   * wing filling the bottom of the screen — and none of that could be helped
+   * with, because the one thing nobody could see was the screen.
+   *
+   * Sparse on purpose: deaths, first-of-a-kind builds, flights, and anything
+   * filed as a report. A picture of every four seconds would be unreadable.
+   */
+  const shotsTaken = new Set();
+  function shoot(name, once = false) {
+    if (once && shotsTaken.has(name)) return;
+    if (shotsTaken.size > 24) return; // a session, not a film
+    shotsTaken.add(name);
+    captureFrame(`${shotsTaken.size}-${name}`.replace(/[^a-z0-9-]/gi, '-'));
+  }
+
+  /**
+   * Render one frame and save it to `shots/<name>.jpg` via the dev server.
+   *
+   * Rendering and reading the pixels must happen in the same task — without
+   * `preserveDrawingBuffer` the buffer is gone the moment we yield.
+   */
+  function captureFrame(name, quality = 0.82) {
+    try {
+      stepWorld(1 / 60);
+      const url = renderer.domElement.toDataURL('image/jpeg', quality);
+      const bin = atob(url.slice(url.indexOf(',') + 1));
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return fetch(`/__shot?name=${encodeURIComponent(name)}`, { method: 'POST', body: bytes })
+        .then((r) => `${name}: ${r.ok ? 'saved' : 'failed'} (${bytes.length} bytes)`)
+        .catch(() => `${name}: no sink`);
+    } catch (err) {
+      return Promise.resolve(`${name}: ${err.message}`);
+    }
+  }
+
   async function beat() {
     const p = ctrl.position;
     const last = hud.heard[hud.heard.length - 1];
@@ -2274,6 +2365,11 @@ function boot() {
      */
     report: async ({ verdict = 'note', about = '', found = '', steps = [] } = {}) => {
       if (!found) return 'say what you found';
+      // A picture of what they were looking at when they filed it. Half the
+      // reports in this project have been about something on screen, and the
+      // one person who could fix it has never seen the screen.
+      const shotName = `report-${verdict}-${(about || 'note').slice(0, 24)}`;
+      shoot(shotName);
       const said = hud.heard.slice(-20).map((h) => `    ${h.t}s  "${h.text}"`).join('\n');
       const body = [
         `**${verdict.toUpperCase()}**${about ? ` — ${about}` : ''}`,
@@ -2502,15 +2598,7 @@ function boot() {
      * Rendering and reading the pixels must happen in the same task — without
      * `preserveDrawingBuffer` the buffer is gone the moment we yield.
      */
-    capture(name, quality = 0.9) {
-      stepWorld(1 / 60);
-      const url = renderer.domElement.toDataURL('image/jpeg', quality);
-      const bin = atob(url.slice(url.indexOf(',') + 1));
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return fetch(`/__shot?name=${encodeURIComponent(name)}`, { method: 'POST', body: bytes })
-        .then((r) => `${name}: ${r.ok ? 'saved' : 'failed'} (${bytes.length} bytes)`);
-    },
+    capture: (name, quality) => captureFrame(name, quality),
 
     /** Jump somewhere and have the world fully present, for tests and photos. */
     warp(x, z, yaw, pitch = 0, y = null) {
