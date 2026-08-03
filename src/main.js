@@ -51,7 +51,7 @@ import { Structures, Harvest, BUILDABLE } from './world/structures.js';
 import { Companion } from './creatures/companion.js';
 import { COMPANIONS, COMPANION_IDS } from './creatures/companions.js';
 import { Fish } from './world/fish.js';
-import { buildBook } from './ui/book.js';
+import { buildBook, amountText } from './ui/book.js';
 import { launch, stepGlide, canLaunch, flightReport } from './world/glider.js';
 import { DANGER_LEVELS, bannedSpecies, readDanger, writeDanger, getDangerLevel } from './modes/danger.js';
 import { GLIDER } from './config.js';
@@ -1124,12 +1124,44 @@ function boot() {
   // G already lit fires in Phase 2. A fire is now just the cheapest structure
   // in the list conceptually, so the key keeps its meaning — put something
   // down here — and gains the rest.
-  function placeStructure() {
+  /**
+   * Choose what to build, instead of the game choosing for you.
+   *
+   * `B` used to call `bestToBuild`, which returns the first AFFORDABLE thing
+   * your camp is missing — and the table starts with the windbreak, which costs
+   * three branches and is therefore always affordable and always first. So `B`
+   * built a windbreak, unconditionally, forever. A tester handed itself 200
+   * wood and 40 hide, sprinted between presses so nothing could be refused for
+   * proximity, and got seven windbreaks out of seven presses. The store, the
+   * lean-to, the holt, the palisade and the glider had no reachable route in
+   * the game at all — four sessions never flew because of this, and it read as
+   * a glider problem for three of them.
+   *
+   * The pieces to fix it both already existed and had never been introduced:
+   * the HUD's chooser (whose own comment says "a fire's recipes or a store's
+   * contents would want exactly the same thing") and the reference book's
+   * costing. This is the introduction.
+   */
+  function openBuildMenu() {
+    const items = Object.values(BUILDABLE).map((spec) => {
+      const short = Object.entries(spec.cost)
+        .filter(([id, n]) => inventory.countOf(id) < n)
+        .map(([id, n]) => amountText(id, n - inventory.countOf(id)));
+      return {
+        label: spec.name,
+        detail: Object.entries(spec.cost).map(([id, n]) => amountText(id, n)).join(', '),
+        disabled: short.length > 0,
+        why: `need ${short.join(' and ')}`,
+        value: spec.id,
+      };
+    });
+    hud.openMenu('Build', items, (kind) => placeStructure(kind));
+  }
+
+  function placeStructure(kind = null) {
     const x = ctrl.position.x - Math.sin(ctrl.yaw) * STRUCTURES.placeRange;
     const z = ctrl.position.z - Math.cos(ctrl.yaw) * STRUCTURES.placeRange;
-    // Whatever this camp is still missing, so pressing build repeatedly
-    // completes one rather than lining up four windbreaks.
-    const spec = structures.bestToBuild(inventory, x, z);
+    const spec = kind ? BUILDABLE[kind] : structures.bestToBuild(inventory, x, z);
     if (!spec) {
       hud.toast('nothing you can build — gather wood', 2.2);
       return null;
@@ -1728,7 +1760,7 @@ function boot() {
           else refreshBook();
           break;
         }
-        placeStructure();
+        openBuildMenu();
         break;
       case 'KeyN':
         hud.toast(`bloom ${composer.toggle('bloom') ? 'on' : 'off'}`);

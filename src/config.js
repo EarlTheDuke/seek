@@ -544,6 +544,9 @@ export const GLIDER = {
   cl0: 0.05,
   clAlpha: 3.88,     // per radian
   alphaStall: 0.262, // 15°, where the flow lets go
+  // Fraction of the critical angle at which the wing starts complaining. The
+  // margin IS the warning — see the stick-shaker note in glider.js.
+  stallWarnAt: 0.72,
   clStall: 1.07,
   cd0: 0.06,         // struts, bracing, and a person in the breeze
   k: 0.1157,         // induced drag factor, 1/(π·e·AR)

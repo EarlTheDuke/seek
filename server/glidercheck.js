@@ -100,6 +100,41 @@ check('hauling back stalls it', stalled.s.stalled || stalled.track.some((p) => p
 check('and a stall costs you height fast', Math.max(...stalled.track.map((p) => p.sink)) > 4,
   `${Math.max(...stalled.track.map((p) => p.sink)).toFixed(1)} m/s down at the worst of it`);
 
+// ── the wing complains before it lets go ──
+// It used to say "stalled" at the exact instant it stalled, and be past
+// unrecoverable sink a second later. A tester reported the most intuitive
+// input in the game killing them silently, and was right: there was nothing
+// between pulling and dying.
+const shaker = launch({ x: 0, y: 900, z: 0, heading: 0 });
+for (let i = 0; i < 60 * 45; i++) stepGlide(shaker, { pitch: 0, roll: 0 }, DT, flat);
+let buffetAt = null, letGoAt = null;
+for (let i = 0; i < 60 * 30 && shaker.airborne; i++) {
+  stepGlide(shaker, { pitch: 1, roll: 0 }, DT, flat);
+  if (buffetAt === null && shaker.nearStall) buffetAt = i * DT;
+  if (letGoAt === null && shaker.stalled) letGoAt = i * DT;
+  if (buffetAt !== null && letGoAt !== null) break;
+}
+check('the wing buffets BEFORE it stalls, not as it stalls',
+  buffetAt !== null && letGoAt !== null && buffetAt < letGoAt,
+  `buffet at ${buffetAt?.toFixed(2)}s, stall at ${letGoAt?.toFixed(2)}s`);
+check('and the buffet outranks every other message',
+  (() => { const s = { stalled: false, nearStall: true, sink: 0.1, v: 12 };
+    return flightReport(s) === 'buffeting — ease off'; })(),
+  'it beats "flying well", which is what you would otherwise be told');
+
+// And reacting to the buffet has to actually save you, or it is decoration.
+const heeded = launch({ x: 0, y: 900, z: 0, heading: 0 });
+for (let i = 0; i < 60 * 45; i++) stepGlide(heeded, { pitch: 0, roll: 0 }, DT, flat);
+let felt = false, worstSink = 0;
+for (let i = 0; i < 60 * 40 && heeded.airborne; i++) {
+  if (heeded.nearStall || heeded.stalled) felt = true;
+  stepGlide(heeded, { pitch: felt ? 0 : 1, roll: 0 }, DT, flat);
+  worstSink = Math.max(worstSink, heeded.sink);
+}
+check('easing off when it buffets keeps you flying',
+  !heeded.stalled && !heeded.crashed && worstSink < 4,
+  `worst sink ${worstSink.toFixed(1)} m/s, and it landed rather than wrecked`);
+
 // Recovery, flown the way a person would fly it: hold it stalled, push the nose
 // down until the wing bites again, then CENTRE the stick. The first version of
 // this check held full-forward for another twelve seconds and then complained

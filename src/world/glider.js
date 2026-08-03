@@ -50,7 +50,7 @@ import { GLIDER } from '../config.js';
 const { rho, wingArea, mass, cl0, clAlpha, alphaStall, clStall, cd0, k,
         gravity, alphaTrim, pitchAuthority, pitchRate, rollRate, maxBank,
         launchSpeed, minLaunchSlope, crashSpeed, crashSink,
-        liftEfficiency, liftBandHeight } = GLIDER;
+        liftEfficiency, liftBandHeight, stallWarnAt } = GLIDER;
 
 /** Lift coefficient at an angle of attack, in radians. */
 export function liftCoefficient(alpha) {
@@ -179,6 +179,17 @@ export function stepGlide(s, c, dt, groundAt, wind = null) {
   const alpha = s.theta - s.gamma;
   s.alpha = alpha;
   s.stalled = alpha > alphaStall;
+  // ── the stick shaker ──
+  // A warning that fires AT the stall is an obituary. Measured: hauling back
+  // from trim, the stall went true at 0.1 s and the text said "stalled" at
+  // 0.1 s — the same instant — and the wing was past unrecoverable sink by
+  // 1.18 s. A tester found the most intuitive input in the game kills you
+  // silently, and it was right: there was nothing between pulling and dying.
+  //
+  // So the wing complains before it lets go, the way a real one buffets. The
+  // margin below the critical angle is what makes "ease off" a thing you can
+  // still act on rather than a thing you read on the way down.
+  s.nearStall = !s.stalled && alpha > alphaStall * stallWarnAt;
 
   const cl = liftCoefficient(alpha);
   const cd = dragCoefficient(cl, alpha);
@@ -270,6 +281,9 @@ export function canLaunch(x, z, heading, groundAt) {
 /** What a person would say about how it is going. No instruments in 3000 BC. */
 export function flightReport(s) {
   if (s.stalled) return 'stalled — nose down';
+  // Above everything else, including the good news. A wing about to let go is
+  // the only thing worth saying at that moment.
+  if (s.nearStall) return 'buffeting — ease off';
   if (s.v > 19) return 'too fast — ease back';
   if (s.v < 8.5) return 'slow — nose down';
   // Climbing comes above the sink warnings on purpose. Finding lift is the
