@@ -1097,6 +1097,12 @@ export class Hud {
   }
 
   setPrompt(text) {
+    // Nothing to interact with until you are actually in the world. The sim
+    // runs behind the title screen — that is what makes the menu background a
+    // living hillside rather than a picture — and the interaction prompt went
+    // with it, so "E pick up Branch" floated over the companion picker on the
+    // first screen anybody ever sees.
+    if (!this.started) text = null;
     if (text === this.promptText) return;
     this.promptText = text;
     this.prompt.classList.toggle('show', !!text);
