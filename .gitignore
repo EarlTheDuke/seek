@@ -11,3 +11,8 @@ DEV-NOTES.md
 
 # Live telemetry from the flight recorder — one line every few seconds.
 SESSION.log
+
+# Accumulated triage of the telemetry and the notes, appended overnight. Local
+# for the same reason as the two above: it is working material, and the useful
+# bits become commits and issues rather than being committed raw.
+FINDINGS.md

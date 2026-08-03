@@ -204,7 +204,16 @@ export default defineConfig({
       // MISSION.md is here for the same reason: the next work order gets
       // written while the last session may still be running, and reloading a
       // tester to hand them their next job would be a poor way to hand it over.
-      ignored: ['**/DEV-NOTES.md', '**/MISSION.md', '**/SESSION.log', '**/shots/**', '**/*.save.json'],
+      // FINDINGS.md too: the overnight triage appends to it on a timer, which
+      // means it writes at the root while somebody is very likely playing.
+      ignored: [
+        '**/DEV-NOTES.md',
+        '**/MISSION.md',
+        '**/SESSION.log',
+        '**/FINDINGS.md',
+        '**/shots/**',
+        '**/*.save.json',
+      ],
     },
   },
   build: { target: 'es2022', chunkSizeWarningLimit: 2000 },
