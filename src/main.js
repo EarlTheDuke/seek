@@ -53,6 +53,7 @@ import { COMPANIONS, COMPANION_IDS } from './creatures/companions.js';
 import { Fish } from './world/fish.js';
 import { buildBook } from './ui/book.js';
 import { launch, stepGlide, canLaunch, flightReport } from './world/glider.js';
+import { DANGER_LEVELS, bannedSpecies, readDanger, writeDanger, getDangerLevel } from './modes/danger.js';
 import { GLIDER } from './config.js';
 import { NetClient } from './net/client.js';
 import { Avatars } from './net/avatars.js';
@@ -325,6 +326,11 @@ function boot() {
       hud.toast('you wake at the lake, shaken', 3);
     },
   });
+
+  // How much of the world is hunting you. Read from `?danger=` or from what you
+  // chose last time, and applied to the manager below before anything spawns —
+  // see modes/danger.js.
+  let dangerLevel = readDanger();
 
   const wildlife = new Wildlife(scene, {
     stealth,
@@ -1411,6 +1417,87 @@ function boot() {
     hud.showBook(buildBook({ inventory, companion: pet?.species ?? null }));
   }
 
+  /**
+   * Everything a note needs in order to be actionable, in one line.
+   *
+   * This is the whole reason the notes box is worth building rather than just
+   * asking people to keep a text file. "The cold is confusing" is a shrug;
+   * "the cold is confusing — Rowan Moor, 03:12, rain, core 34.9°, no fire, 2
+   * branches" is a bug report, and the player did not have to write, know or
+   * care about any of the second half.
+   *
+   * Deliberately words and rounded numbers rather than a state dump. These get
+   * read by a person, and a wall of JSON is a thing people stop reading.
+   */
+  function noteContext() {
+    const p = ctrl.position;
+    const env = sampleEnvironment(p, {
+      hours: atmosphere.hours, sunAltitude: atmosphere.elevation, weather, fires,
+    });
+    const bits = [
+      env.describe(),
+      atmosphere.clockText,
+      weather.label,
+      `${vitals.dead ? 'DEAD' : `health ${Math.round(vitals.health)}`}`,
+    ];
+    if (ruleset.current.survival && !vitals.dead) {
+      bits.push(`core ${vitals.coreC.toFixed(1)}°`, `hunger ${Math.round(vitals.hunger)}%`);
+      if (vitals.wetness > 0.25) bits.push('soaked');
+    }
+    if (flight) bits.push(`flying, ${Math.round(flight.y)} m up`);
+    else if (riding) bits.push(`riding the ${pet.species.name.toLowerCase()}`);
+    const carrying = inventory.slots.filter((s) => s.item).map((s) => `${s.count} ${s.item}`);
+    bits.push(carrying.length ? `carrying ${carrying.join(', ')}` : 'carrying nothing');
+    const near = wildlife.creatures.filter(
+      (c) => c.position.distanceTo(p) < 60 && !c.dead
+    ).map((c) => c.species.id);
+    if (near.length) bits.push(`near: ${[...new Set(near)].join(', ')}`);
+    bits.push(`danger: ${dangerLevel}`);
+    bits.push(`at ${p.x.toFixed(0)}, ${p.z.toFixed(0)} · seed ${SEED}`);
+    return bits.join(' · ');
+  }
+
+  /** POST a note to the dev server. Returns whether it actually landed. */
+  async function sendNote(text, context) {
+    try {
+      const res = await fetch('/__note', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text, context, who: ruleset.current.name.toLowerCase() }),
+      });
+      return res.ok;
+    } catch {
+      // Almost always "this is a production build, there is no sink" — which is
+      // correct behaviour, not a failure, but the box still has to say so.
+      return false;
+    }
+  }
+
+  hud.wireNotes(noteContext, sendNote);
+
+  /**
+   * Turn the dangerous things on or off, now, including any already out there.
+   *
+   * Applied through the manager rather than by filtering the registry, because
+   * a bear that has already spawned is the one actually chasing you — see
+   * Wildlife.setBanned for why removing them matters more than not spawning
+   * them.
+   */
+  function setDanger(id, announce = true) {
+    dangerLevel = writeDanger(id);
+    const level = getDangerLevel(dangerLevel);
+    const removed = wildlife.setBanned(bannedSpecies(dangerLevel));
+    if (announce) {
+      hud.toast(
+        removed ? `${level.name.toLowerCase()} — ${removed} sent away`
+          : level.name.toLowerCase(), 2.6
+      );
+    }
+    return { danger: dangerLevel, removed, banned: [...bannedSpecies(dangerLevel)] };
+  }
+  // Apply whatever was asked for before the first spawn pass runs.
+  setDanger(dangerLevel, false);
+
   function refreshItemUi() {
     weapons.sync(inventory);
     viewmodel.setItem(inventory.equippedSlot?.item ?? null);
@@ -1490,7 +1577,10 @@ function boot() {
       name: COMPANIONS[id].name,
       helps: COMPANIONS[id].helps,
     })),
-    (id) => swapCompanion(id)
+    (id) => swapCompanion(id),
+    Object.values(DANGER_LEVELS).map((d) => ({ id: d.id, name: d.name, tagline: d.tagline })),
+    dangerLevel,
+    (id) => setDanger(id, false)
   );
 
   // Last-ditch save when the tab goes away. `pagehide` fires in cases
@@ -1517,6 +1607,13 @@ function boot() {
       hud.toggleKeys();
       return;
     }
+    // The notes box owns the keyboard completely while it is up — you are
+    // typing prose, and every letter in this game is bound to something. W
+    // would walk you off the hill you are writing about. Escape shuts it.
+    if (hud.notesOpen) {
+      if (e.code === 'Escape') hud.closeNotes();
+      return;
+    }
     // Esc closes the book. Nothing else wants Escape while it is open, and a
     // panel you can only shut with the key that opened it is a panel people
     // press Escape at and then conclude is stuck.
@@ -1531,6 +1628,9 @@ function boot() {
           break;
         }
         hud.toast(ctrl.toggleFly() ? 'free-fly on — Space / C for up and down' : 'free-fly off');
+        break;
+      case 'KeyO':
+        hud.openNotes();
         break;
       case 'KeyH':
         hud.toggleHidden();
@@ -2017,6 +2117,45 @@ function boot() {
     // flown in a live frame loop.
     get flight() { return flight; },
     fly: (s) => beginFlight(s ?? structures.nearest(ctrl.position, 60)?.structure),
+
+    /**
+     * How much of the world is hunting you.
+     *
+     *   highlands.danger()             what it is now, and the choices
+     *   highlands.danger('no-bears')   change it, including anything already out
+     *   highlands.danger('none')       nothing hostile spawns at all
+     *
+     * Also settable as `?danger=none` in the URL, which is the form that works
+     * for something driving a browser: it needs no clicking and it survives a
+     * reload, and a reload is how most automated sessions recover.
+     */
+    danger: (id) => {
+      if (id === undefined) {
+        return {
+          now: dangerLevel,
+          choices: Object.values(DANGER_LEVELS).map((d) => `${d.id} — ${d.tagline}`),
+          alsoAsUrl: `${location.pathname}?danger=none`,
+        };
+      }
+      if (!DANGER_LEVELS[id]) return `no such level — try ${Object.keys(DANGER_LEVELS).join(', ')}`;
+      return setDanger(id);
+    },
+
+    /**
+     * Write a note to DEV-NOTES.md without touching the UI at all.
+     *
+     *   await highlands.note('the cold is confusing, nothing told me I was wet')
+     *
+     * The context is attached automatically, exactly as it is from the box.
+     * This is the form to use when something is playing the game rather than
+     * someone: no panel to open, no focus to steal, no typing into a world that
+     * is still running around you.
+     */
+    note: async (text) => {
+      if (!text) return 'say something';
+      const ok = await sendNote(text, noteContext());
+      return ok ? 'written to DEV-NOTES.md' : 'could not write — is `npm run dev` running?';
+    },
     /** Build the best thing you can afford, as B does. */
     build: () => (placeStructure(), structures.stats),
     /** What you could put down right now, and what it would cost. */

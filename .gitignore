@@ -3,3 +3,8 @@ dist/
 shots/
 .DS_Store
 *.log
+
+# Playtest feedback, written live by the in-game notes box. Local by design:
+# it is a scratchpad that fills up fast during a session, and the useful bits
+# get lifted out of it into commits and issues rather than committed raw.
+DEV-NOTES.md

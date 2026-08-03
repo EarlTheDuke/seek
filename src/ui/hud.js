@@ -50,6 +50,20 @@ const CSS = `
    second decision, not the first — you pick how you want to play, then who
    comes with you. Each one says what it is FOR, because a choice between six
    animals you know nothing about is a coin toss. */
+/* How dangerous. A second axis rather than a third mode — "survival, and no
+   bears" is a sentence people mean, and folding it into the mode list would
+   double the rows the moment anyone wants a peaceful sandbox too. */
+#hl-danger { display: flex; gap: 8px; align-items: center; margin-top: 24px;
+  flex-wrap: wrap; justify-content: center; }
+#hl-danger .lbl { font-size: 10px; letter-spacing: .22em; text-transform: uppercase;
+  opacity: .4; margin-right: 6px; }
+#hl-danger button { font: inherit; font-size: 11.5px; letter-spacing: .1em; cursor: pointer;
+  padding: 6px 13px; color: #e8dcc8; background: rgba(30,22,14,.5);
+  border: 1px solid rgba(255,214,150,.2); border-radius: 3px; transition: all .16s; }
+#hl-danger button:hover { border-color: rgba(255,214,150,.55); }
+#hl-danger button.on { color: #ffe0b0; border-color: rgba(255,214,150,.8);
+  background: rgba(60,40,18,.7); }
+
 #hl-pets { margin-top: 26px; }
 #hl-pets .lbl { font-size: 10px; letter-spacing: .26em; text-transform: uppercase;
   opacity: .45; margin-bottom: 10px; }
@@ -259,6 +273,52 @@ const CSS = `
 #hl-flight.bad b { color: #e8734f; }
 #hl-flight span { display: block; font-size: 11px; letter-spacing: .2em; opacity: .5; margin-top: 4px; }
 
+/* The notes box, and the tab that opens it.
+
+   The TAB is not decoration. A keyboard shortcut is invisible to anything that
+   is looking at the screen rather than reading the source — a person who has
+   not read the controls, and an agent driving the game through a browser — so
+   there has to be something on screen to click. It sits out of the way and at
+   low opacity until you want it. */
+/* pointer-events: auto, because #hl-ui is click-through — the whole HUD sets
+   pointer-events: none so that clicking anywhere reaches the game canvas and
+   re-acquires the pointer lock. Any control that lives ON the HUD has to opt
+   back in, one element at a time. Without it the tab is a picture of a button:
+   the click sails through to the canvas, nothing happens, and nothing anywhere
+   reports an error. Which is exactly what it did the first time it was clicked
+   rather than driven from the console.
+
+   (And no backticks in this block. All of this CSS lives inside a template
+   literal, so one in a comment ends the string and takes the whole module with
+   it — which is how a stale "dangers is not defined" got chased for a while.) */
+#hl-notetab { position: absolute; right: 22px; top: 46px; font: inherit; font-size: 11px;
+  letter-spacing: .14em; opacity: .3; cursor: pointer; padding: 5px 10px; color: #f3e6d4;
+  border: 1px solid rgba(255,230,200,.18); border-radius: 4px; pointer-events: auto;
+  background: rgba(10,8,6,.3); transition: opacity .2s; }
+#hl-notetab:hover { opacity: .85; }
+
+#hl-notes { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  width: min(560px, 92vw); padding: 20px 22px 14px; background: rgba(12,14,11,.94);
+  border: 1px solid rgba(220,210,190,.2); opacity: 0; pointer-events: none;
+  transition: opacity .18s ease; }
+#hl-notes.show { opacity: 1; pointer-events: auto; }
+#hl-notes h3 { font-size: 12px; letter-spacing: .26em; text-transform: uppercase;
+  opacity: .55; font-weight: 400; margin: 0 0 4px; }
+#hl-notes .why { font-size: 11px; opacity: .4; margin-bottom: 12px; line-height: 1.5; }
+#hl-notes textarea { width: 100%; height: 128px; resize: vertical; box-sizing: border-box;
+  background: rgba(0,0,0,.35); border: 1px solid rgba(220,210,190,.18); color: #f3e6d4;
+  font: inherit; font-size: 13px; line-height: 1.55; padding: 10px; outline: none; }
+#hl-notes textarea:focus { border-color: rgba(255,217,160,.5); }
+#hl-notes .ctx { font-size: 10px; opacity: .34; margin-top: 8px; line-height: 1.5;
+  letter-spacing: .04em; }
+#hl-notes .row { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+#hl-notes button { font: inherit; font-size: 11px; letter-spacing: .16em;
+  text-transform: uppercase; padding: 7px 16px; cursor: pointer; color: #ffd9a0;
+  background: rgba(255,217,160,.1); border: 1px solid rgba(255,217,160,.32); }
+#hl-notes button:hover { background: rgba(255,217,160,.2); }
+#hl-notes button.ghost { color: #f3e6d4; background: none; border-color: rgba(220,210,190,.18); }
+#hl-notes .said { font-size: 11px; opacity: .55; margin-left: auto; }
+
 /* The otter. Shown only once it is yours, and each need only once it is
    actually a need — the same rule the body's own gauges follow, for the same
    reason: a permanent row of bars turns a companion into a chore list. */
@@ -298,6 +358,7 @@ const KEYS = [
   ['G', 'light a fire (costs a branch)'],
   ['B', 'build — whatever your camp is still missing'],
   ['Shift + B', 'what you can build and make, and what you are short of'],
+  ['O', 'write a note for the developer — where you are gets attached'],
   ['X', 'put on / take off your cloak'],
   ['Z', 'choose what to ask the otter (Shift+Z back)'],
   ['V', 'tell the otter'],
@@ -326,6 +387,7 @@ export class Hud {
         <h1>HIGHLANDS</h1>
         <div class="sub">a golden hour, somewhere high up</div>
         <div id="hl-modes"></div>
+        <div id="hl-danger"></div>
         <div id="hl-pets"><div class="lbl">who comes with you</div><div class="grid"></div></div>
         <div id="hl-continue" style="display:none"></div>
         <div class="note">mouse to look &middot; W A S D to walk &middot; <b>Tab</b> for controls</div>
@@ -348,6 +410,20 @@ export class Hud {
       <div id="hl-menu"><h3></h3><div class="rows"></div><div class="foot"></div></div>
       <div id="hl-book"></div>
       <div id="hl-flight"></div>
+      <button id="hl-notetab" title="write a note for the developer (O)"
+        aria-label="write a note for the developer">✎ note</button>
+      <div id="hl-notes">
+        <h3>Developer notes</h3>
+        <div class="why">Anything you noticed — confusing, broken, boring, or an idea.
+          Where you are and what is happening gets attached automatically.</div>
+        <textarea placeholder="what happened, and what you expected…"></textarea>
+        <div class="ctx"></div>
+        <div class="row">
+          <button class="send">Send</button>
+          <button class="ghost close">Close</button>
+          <span class="said"></span>
+        </div>
+      </div>
       <div id="hl-survey"><h3></h3><div class="rows"></div></div>
       <div id="hl-health"><i></i></div>
       <div id="hl-fps"></div>
@@ -427,7 +503,8 @@ export class Hud {
    * @param {{id,name,helps}[]} companions  who you may bring
    * @param {(id:string)=>void} onCompanion  called as soon as you choose
    */
-  wire(modes, resumeText, onBegin, onResume, companions = [], onCompanion = null) {
+  wire(modes, resumeText, onBegin, onResume, companions = [], onCompanion = null,
+       dangers = [], dangerNow = 'full', onDanger = null) {
     // ── who comes with you ──
     // Chosen BEFORE you start, so the animal exists from the first frame
     // rather than being swapped in afterwards. Each button says what the
@@ -438,7 +515,8 @@ export class Hud {
       grid.innerHTML = companions
         .map(
           (c, i) =>
-            `<button data-pet="${c.id}"${i === 0 ? ' class="on"' : ''}>` +
+            `<button data-pet="${c.id}"${i === 0 ? ' class="on"' : ''}` +
+            ` aria-label="${c.name} — ${c.helps}">` +
             `<span class="n">${c.name}</span><span class="h">${c.helps}</span></button>`
         )
         .join('');
@@ -454,6 +532,24 @@ export class Hud {
       this.root.querySelector('#hl-pets').style.display = 'none';
     }
 
+    // ── how dangerous ──
+    // A row of choices under the modes, because it is genuinely a second axis
+    // and not a third mode: "survival, and no bears" is a sentence people mean.
+    if (dangers?.length) {
+      const wrap = this.root.querySelector('#hl-danger');
+      wrap.innerHTML = '<span class="lbl">the world</span>' + dangers
+        .map((d) => `<button data-danger="${d.id}"${d.id === dangerNow ? ' class="on"' : ''}` +
+          ` aria-label="${d.name} — ${d.tagline}" title="${d.tagline}">${d.name}</button>`).join('');
+      for (const btn of wrap.querySelectorAll('button')) {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          for (const b of wrap.querySelectorAll('button')) b.classList.remove('on');
+          btn.classList.add('on');
+          onDanger?.(btn.dataset.danger);
+        });
+      }
+    }
+
     const begin = (mode, continuing) => {
       this.start.style.opacity = '0';
       setTimeout(() => (this.start.style.display = 'none'), 520);
@@ -462,8 +558,15 @@ export class Hud {
       onBegin(mode, continuing);
     };
 
+    // `aria-label` on every start-screen button, because the visible text lives
+    // in child spans and an accessibility tree reports the button as blank —
+    // which is what a screen reader hears and what an agent driving the game
+    // through a browser sees. The whole start screen read as six anonymous
+    // buttons until these were added, and picking a companion from six blank
+    // rectangles is not a choice, it is a coin toss.
     this.modesEl.innerHTML = modes
-      .map((m) => `<button data-mode="${m.id}"><span class="t">${m.name}</span><span class="d">${m.tagline}</span></button>`)
+      .map((m) => `<button data-mode="${m.id}" aria-label="${m.name} — ${m.tagline}">` +
+        `<span class="t">${m.name}</span><span class="d">${m.tagline}</span></button>`)
       .join('');
     for (const btn of this.modesEl.querySelectorAll('button')) {
       btn.addEventListener('click', (e) => {
@@ -696,6 +799,89 @@ export class Hud {
 
   clearFlight() {
     this.flightEl.classList.remove('show');
+  }
+
+  // ── developer notes ────────────────────────────────────────────────────────
+  //
+  // A box you type into that lands in DEV-NOTES.md on disk, with where you were
+  // and what was happening stapled on. See the notes sink in vite.config.js.
+  //
+  // The design decision worth stating: the panel takes the KEYBOARD but does
+  // not pause the world. Pausing would be kinder and would also make every note
+  // a report about a game that had stopped, which is not the game anybody is
+  // complaining about. The cost is that you can be eaten while typing, and that
+  // is a fair price and occasionally the note itself.
+
+  wireNotes(getContext, send) {
+    this.noteTab = this.root.querySelector('#hl-notetab');
+    this.notesEl = this.root.querySelector('#hl-notes');
+    this.noteText = this.notesEl.querySelector('textarea');
+    this.noteCtx = this.notesEl.querySelector('.ctx');
+    this.noteSaid = this.notesEl.querySelector('.said');
+    this.getNoteContext = getContext;
+    this.sendNote = send;
+
+    this.noteTab.addEventListener('click', (e) => { e.stopPropagation(); this.openNotes(); });
+    // Clicking anywhere in the game re-acquires the pointer lock, and a pointer
+    // lock while you are typing means the caret is a rumour and your text is
+    // going to the world instead. The panel swallows its own clicks.
+    this.notesEl.addEventListener('click', (e) => e.stopPropagation());
+    this.notesEl.addEventListener('mousedown', (e) => e.stopPropagation());
+    this.notesEl.querySelector('.close').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.closeNotes();
+    });
+    this.notesEl.querySelector('.send').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.submitNote();
+    });
+    // Ctrl+Enter sends, because that is what every box like this does and
+    // nobody should have to find the button.
+    this.noteText.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        this.submitNote();
+      }
+    });
+  }
+
+  get notesOpen() {
+    return !!this.notesEl?.classList.contains('show');
+  }
+
+  openNotes() {
+    if (!this.notesEl) return;
+    // Show the context BEFORE they write, not after. Seeing "Rowan Moor, 03:12,
+    // freezing" already attached stops people spending the first line of every
+    // note explaining where they are.
+    this.noteCtx.textContent = this.getNoteContext?.() ?? '';
+    this.notesEl.classList.add('show');
+    this.noteSaid.textContent = '';
+    // Give up the pointer lock, or the mouse is captured and the caret is a
+    // rumour.
+    if (document.pointerLockElement) document.exitPointerLock();
+    this.noteText.focus();
+  }
+
+  closeNotes() {
+    this.notesEl?.classList.remove('show');
+    this.noteText?.blur();
+  }
+
+  async submitNote() {
+    const text = this.noteText.value.trim();
+    if (!text) return this.closeNotes();
+    this.noteSaid.textContent = 'sending…';
+    const ok = await this.sendNote?.(text, this.getNoteContext?.() ?? '');
+    if (ok) {
+      this.noteText.value = '';
+      this.noteSaid.textContent = 'written to DEV-NOTES.md';
+      setTimeout(() => this.closeNotes(), 700);
+    } else {
+      // Say so rather than pretending. A note you thought you filed and did not
+      // is worse than no notes box at all.
+      this.noteSaid.textContent = 'could not write — is `npm run dev` running?';
+    }
   }
 
   // ── the reference book ─────────────────────────────────────────────────────

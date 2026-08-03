@@ -66,6 +66,30 @@ export class Wildlife {
     // that forgets to pass it gets the mundane world rather than a crash.
     this.ctx = { hours: 12, sunAltitude: 90, weather: null };
     this.wasNight = false;
+    /** Species that may not spawn at all — see modes/danger.js. */
+    this.banned = new Set();
+  }
+
+  /**
+   * Change what is allowed to exist, and clear out anything that already does.
+   *
+   * The second half is the part that matters. Turning bears off and then being
+   * stalked for ten minutes by the one that spawned before you changed your
+   * mind is not "off", it is a setting that lies to you — and the person most
+   * likely to turn bears off is the person least able to survive the bear that
+   * was already there. Cleared sites are forgotten too, so the world can put
+   * something harmless where the bear had been rather than leaving a hole.
+   */
+  setBanned(ids) {
+    this.banned = new Set(ids);
+    let removed = 0;
+    for (const c of [...this.creatures]) {
+      if (!this.banned.has(c.species.id)) continue;
+      this.remove(c);
+      removed++;
+    }
+    if (removed) this.spawnedSites.clear();
+    return removed;
   }
 
   // ── spawning ──────────────────────────────────────────────────────────────
@@ -111,6 +135,9 @@ export class Wildlife {
     const now = [];
     for (const species of Object.values(SPECIES)) {
       const s = species.spawn;
+      // The one chokepoint every spawn in the game passes through, which is why
+      // the danger setting is enforced here and nowhere else — see modes/danger.js.
+      if (this.banned?.has(species.id)) continue;
       if (!this.suits(species, x, z)) continue;
       everPossible.push(species);
       if (!inBand(s.strangeness, strangeness)) continue;
