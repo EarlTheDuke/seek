@@ -20,6 +20,7 @@ import { SimWorld } from '../src/sim/world.js';
 import { makeProvider } from '../src/minds/providers.js';
 import { addRivalHunter } from '../src/minds/hunter.js';
 import { makeRandom } from '../src/world/noise.js';
+import { bannedSpecies, getDangerLevel } from '../src/modes/danger.js';
 import { solarPosition } from '../src/world/sky.js';
 import {
   PROTOCOL_VERSION,
@@ -62,6 +63,25 @@ const world = new SimWorld({ headless: true });
 const clients = new Map(); // ws -> { id, name, lastSeen }
 let nextId = 1;
 
+// ── how dangerous, on the server ────────────────────────────────────────────
+//
+//   DANGER=no-bears npm run serve
+//   DANGER=none npm run serve
+//
+// The browser reads this from `?danger=` and remembers it in localStorage.
+// Neither of those exists in Node, so for a while the setting was CLIENT ONLY
+// and a fleet of agents was always playing the full world with bears in it —
+// while the console said nothing, because nothing was wrong from its point of
+// view. Worth stating plainly: turning bears off in your browser never had any
+// effect on what the agents were walking into.
+//
+// It matters most for exactly the case it was missing from. A person who turns
+// bears off has hands and can run; an agent is being tested on whether the
+// FOOD loop works and should not be eaten while we find out.
+const DANGER = process.env.DANGER ?? 'full';
+const banned = bannedSpecies(DANGER);
+world.wildlife.setBanned(banned);
+
 // ── minds ───────────────────────────────────────────────────────────────────
 //
 // Server-side only, which VISION.md is explicit about: "Clients never hold keys
@@ -84,6 +104,10 @@ const wss = new WebSocketServer({ port: PORT });
 
 console.log(`\n  Highlands server`);
 console.log(`  seed ${world.seed}  ·  tick ${TICK_HZ} Hz  ·  snapshots ${SEND_HZ} Hz`);
+// Said out loud every run, because a world with the bears quietly turned off is
+// a different experiment and nothing else on screen would tell you.
+console.log(`  danger: ${getDangerLevel(DANGER).name.toLowerCase()}` +
+  (banned.size ? ` — no ${[...banned].join(', ')}` : ''));
 console.log(`  listening on ws://0.0.0.0:${PORT}`);
 console.log(
   `  ${rivals.length} rival hunter${rivals.length === 1 ? '' : 's'} (${provider.name} minds)` +
