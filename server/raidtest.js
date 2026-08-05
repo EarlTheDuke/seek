@@ -110,6 +110,87 @@ for (const [name, pass, detail] of checks) {
   console.log(`  ${pass ? 'PASS' : 'FAIL'}  ${name} — ${detail}`);
 }
 
+// ── daylight: a rout that runs out of breath ────────────────────────────────
+//
+// The sun puts a goblin's morale on the floor, so a daylight pack breaks the
+// moment it sees you. For a long time that did not make them harmless, it made
+// them INVULNERABLE: the broken branch held `flee` (7.6 m/s) for ever, and a
+// player who sprints at 8.6 can only hold it for nine seconds. Measured in the
+// running game before the fix — sprinting the whole time and re-sprinting the
+// instant stamina allowed — a chase that started 5.9 m behind one goblin ended
+// 159 m behind it fifty-five seconds later, still losing ground.
+//
+// Now it spends stamina like every other flight in creature.js, and when its
+// breath is gone in daylight it hunkers where it stands instead of trotting on.
+// Daylight goblins are AVOIDABLE rather than UNREACHABLE: you cannot run one
+// down in the open, you run it out of breath and then walk up to it.
+//
+// Sampled either side of the goblin's 14 s of stamina.
+function rout(hours, seconds) {
+  const world = new SimWorld({ hours });
+  world.clock.hours = hours;
+  world.clock.running = false; // the sun is the variable; hold it still
+
+  const p = world.addPlayer(1, 'P1');
+  const base = p.ctrl.position.clone();
+  for (const c of [...world.wildlife.creatures]) world.wildlife.remove(c);
+  const born = world.wildlife.spawnHerd('goblin', base.x, base.z - 20, 3, 5);
+  for (const c of born) {
+    c.packId = 'rout';
+    c.awareness = 1;
+    c.lastKnownThreat.copy(base);
+  }
+
+  for (let i = 0; i < seconds * 60; i++) world.step(STEP);
+
+  const live = world.wildlife.creatures.filter((c) => c.species.id === 'goblin' && c.state !== 'dead');
+  const mean = (f) => (live.length ? live.reduce((s, c) => s + f(c), 0) / live.length : 0);
+  return {
+    dist: +mean((c) => c.distanceToPlayer ?? 0).toFixed(1),
+    speed: +mean((c) => c.speed ?? 0).toFixed(1),
+    gone: live.filter((c) => c.goneToGround).length,
+    broken: live.filter((c) => c.broken).length,
+    n: live.length,
+  };
+}
+
+console.log('\n  Daylight: a routed pack runs out of breath.\n');
+console.log('  when      after   mean dist   mean speed   gone to ground');
+const dayEarly = rout(12, 8);
+const dayLate = rout(12, 40);
+const nightLate = rout(1, 40);
+for (const [label, t, r] of [
+  ['noon', 8, dayEarly],
+  ['noon', 40, dayLate],
+  ['1 a.m.', 40, nightLate],
+]) {
+  console.log(
+    `  ${label.padEnd(8)}  ${String(t).padStart(2)} s   ${String(r.dist).padStart(7)} m   ` +
+      `${String(r.speed).padStart(8)} m/s   ${r.gone}/${r.n}`
+  );
+}
+
+// 7.6 m/s held for the full 40 s would be ~300 m from a 20 m start. Anything
+// near that means the stamina spend has been lost again.
+const runaway = 200;
+const daylightChecks = [
+  ['daylight still breaks them on sight', dayEarly.broken === dayEarly.n, `${dayEarly.broken}/${dayEarly.n} broken`],
+  ['with breath left they genuinely run', dayEarly.speed > 6 && dayEarly.gone === 0,
+    `${dayEarly.speed} m/s, none gone to ground yet`],
+  ['out of breath in daylight they go to ground', dayLate.gone === dayLate.n,
+    `${dayLate.gone}/${dayLate.n} hunkered`],
+  ['and having gone to ground they stay put', dayLate.speed < 0.5, `${dayLate.speed} m/s`],
+  ['so a daylight pack is reachable, not gone', dayLate.dist < runaway,
+    `${dayLate.dist} m after 40 s, not ${runaway}+`],
+  ['the night rout is untouched — it keeps moving', nightLate.gone === 0,
+    `${nightLate.gone} gone to ground at 1 a.m.`],
+];
+console.log('');
+for (const [name, pass, detail] of daylightChecks) {
+  if (!pass) failed++;
+  console.log(`  ${pass ? 'PASS' : 'FAIL'}  ${name} — ${detail}`);
+}
+
 // ── PvP zoning ──
 console.log('\n  PvP is the strangeness gradient, not a toggle.\n');
 const w = new SimWorld({});
@@ -169,6 +250,6 @@ for (const [name, pass, detail] of deathChecks) {
   console.log(`  ${pass ? 'PASS' : 'FAIL'}  ${name} — ${detail}`);
 }
 
-const total = checks.length + zoneChecks.length + deathChecks.length;
+const total = checks.length + daylightChecks.length + zoneChecks.length + deathChecks.length;
 console.log(`\n  ${total - failed}/${total} passed\n`);
 process.exit(failed ? 1 : 0);

@@ -2816,6 +2816,8 @@ function boot() {
           morale: +c.morale.toFixed(2),
           nerve: describeMorale(c.morale),
           broken: c.broken,
+          blown: +Math.max(0, c.stamina ?? 0).toFixed(1), // seconds of run left in it
+          gone: !!c.goneToGround,
           standing: c.packStanding,
           shock: +(c.shock ?? 0).toFixed(2),
           dist: +(c.distanceToPlayer ?? 0).toFixed(1),

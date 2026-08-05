@@ -15,8 +15,9 @@
 // States: GRAZE -> ALERT -> FLEE -> (recover) -> GRAZE, plus WANDER and DEAD.
 
 import * as THREE from 'three';
-import { STEALTH, WATER_LEVEL } from '../config.js';
+import { STEALTH, WATER_LEVEL, WILDLIFE } from '../config.js';
 import { heightAt } from '../world/noise.js';
+import { darkness } from '../world/strangeness.js';
 import { clamp, damp, lerp, smoothstep } from '../util/math.js';
 
 // Creature forward is local +Z.
@@ -121,6 +122,8 @@ export class Creature {
     this.morale = 1;
     this.broken = false;
     this.shock = 0;
+    this.routing = false; // has spent stamina on this rout; reset when it rallies
+    this.goneToGround = false; // blown, in daylight, hunkered where it stands
   }
 
   get position() {
@@ -242,8 +245,50 @@ export class Creature {
 
     // ── broken: run to the rally point, not simply away ──
     if (this.broken) {
+      // Running is WORK, and this was the one flight in the file that never
+      // paid for it. The prey bolt spends stamina and drops to a trot; so does
+      // the bear breaking off; this branch held `sp.flee` for ever.
+      //
+      // Against a player that is FASTER but can only hold it for nine seconds,
+      // "for ever" is not an escape, it is invulnerability. Measured in
+      // daylight, sprinting the whole time and re-sprinting the instant stamina
+      // allowed: from 5.9 m behind one to 159 m behind it in fifty-five
+      // seconds, still losing ground when the run was cut. That is the whole of
+      // "goblins are unkillable in daylight" — a pack at the daylight morale
+      // floor breaks on sight and then simply outlasts you.
+      if (!this.routing) {
+        this.routing = true;
+        this.stamina = this.species.stamina;
+      }
+      this.stamina -= dt;
+      const blown = this.stamina <= 0;
+
+      // ── gone to ground ──
+      //
+      // The sun is what broke its nerve, so the sun is what strands it: out of
+      // breath in daylight, a goblin does not keep trotting politely away, it
+      // stops where it is and hunkers, head down, watching you come. Folklore
+      // first — the thing that will not fight at noon hides from noon — but the
+      // point of it is that daylight goblins become AVOIDABLE rather than
+      // UNREACHABLE. You still cannot run one down in the open; you can run it
+      // out of breath and then walk up to it.
+      //
+      // At night it drops to a trot instead, which is the rest of the file's
+      // idiom, and its morale is climbing the whole time — so a night pack
+      // still rallies and comes back at you rather than being farmed.
+      const daylit = darkness(this.world?.sunAltitude ?? 90) < WILDLIFE.nightThreshold;
+      if (blown && daylit) {
+        this.goneToGround = true;
+        this.setState(ALERT);
+        this.targetSpeed = 0;
+        this.headDown = damp(this.headDown, 1, 3, dt);
+        this.faceToward(tx, tz, dt, this.species.turnRate);
+        return;
+      }
+      this.goneToGround = false;
+
       this.setState(FLEE);
-      this.targetSpeed = sp.flee;
+      this.targetSpeed = blown ? sp.trot : sp.flee;
       // Away from you, but biased toward where the rest of the pack is, so a
       // routed pack balls up somewhere in the dark instead of scattering to
       // the four winds and never being a pack again.
@@ -260,6 +305,12 @@ export class Creature {
       this.steerTo(this.position.x + rx * 10, this.position.z + rz * 10, dt, 4);
       return;
     }
+
+    // Rallied. It gets its breath back with its nerve, so a pack you let
+    // regroup comes at you fresh — and a routed one you keep pressure on does
+    // not, which is the difference the chase is supposed to turn on.
+    this.routing = false;
+    this.goneToGround = false;
 
     // ── hasn't noticed you ── prowl, in a loose group.
     if (this.awareness < S.alertAt) {
