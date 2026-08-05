@@ -712,14 +712,44 @@ function boot() {
   // Named in-memory checkpoints for testers — see `highlands.checkpoint`.
   const checkpoints = new Map();
 
+  /**
+   * The two halves of this game do not agree on which way a heading points.
+   *
+   * Walking forward moves you along (−sin yaw, −cos yaw) — measured in play at
+   * three separate yaws, and the camera's own world matrix says the same — while
+   * `glider.js` integrates position along (+sin h, +cos h). The flight module is
+   * self-consistent; it was simply wired up with a raw camera yaw, so every
+   * heading crossing that boundary arrived reversed.
+   *
+   * The cost was not subtle and was mis-filed for a long time as "the launch
+   * check is wrong". It was not wrong, it was aimed at the ground BEHIND you:
+   * stand on a 280% slope looking down it and the check honestly reports the
+   * hill at your back, which climbs, and refuses with "not steep enough". Flown
+   * from a spot it did accept, the wing carried me 45 m in the exact opposite
+   * direction to the one I was facing, with the aircraft behind the camera the
+   * whole way.
+   *
+   * One conversion, named, at every crossing — rather than a bare `+ Math.PI`
+   * sprinkled at four call sites where the next reader would delete one.
+   *
+   * Declarations, not `const` arrows, and deliberately: these are called from
+   * `resolveInteraction` six hundred lines below, and this file has already
+   * paid for that once — see the note in `structures.js` about builders that
+   * threw "Cannot access before initialization" the first time they ran, with
+   * the bundler perfectly happy about it.
+   */
+  function flightHeading(yaw) { return yaw + Math.PI; }
+  function viewYaw(heading) { return heading + Math.PI; }
+
   function beginFlight(s) {
-    const ok = canLaunch(ctrl.position.x, ctrl.position.z, ctrl.yaw, heightAt);
+    const heading = flightHeading(ctrl.yaw);
+    const ok = canLaunch(ctrl.position.x, ctrl.position.z, heading, heightAt);
     if (!ok.ok) return ok.why;
     if (riding) dismount('you slide off');
 
     structures.remove(s); // it is not on the hill any more, it is under you
     flight = launch({
-      x: ctrl.position.x, y: ctrl.position.y + 0.6, z: ctrl.position.z, heading: ctrl.yaw,
+      x: ctrl.position.x, y: ctrl.position.y + 0.6, z: ctrl.position.z, heading,
     });
     // The wing you are hanging from. Reusing the structure's own geometry means
     // the thing you fly is visibly the thing you built, which matters more than
@@ -798,8 +828,9 @@ function boot() {
     ctrl.horizontalSpeed = 0;
     ctrl.wadeDepth = 0;
     // The view turns with the aircraft. In first person with no cockpit around
-    // you, a bank you cannot see is a bank you cannot fly.
-    ctrl.yaw = flight.heading;
+    // you, a bank you cannot see is a bank you cannot fly. Back through the
+    // same seam the launch came in by, so you are looking where you are going.
+    ctrl.yaw = viewYaw(flight.heading);
 
     if (wing) {
       wing.pivot.position.set(flight.x, flight.y, flight.z);
@@ -1398,7 +1429,7 @@ function boot() {
         // The prompt tells you whether this spot will fly BEFORE you commit,
         // which is the same courtesy the fishing odds pay you. Finding out that
         // a hilltop is not steep enough by running off it would be funny once.
-        const ok = canLaunch(ctrl.position.x, ctrl.position.z, ctrl.yaw, heightAt);
+        const ok = canLaunch(ctrl.position.x, ctrl.position.z, flightHeading(ctrl.yaw), heightAt);
         return {
           label: ok.ok
             ? `<b>E</b>  take the wing — ${(ok.drop * 100).toFixed(0)}% downhill ahead of you`

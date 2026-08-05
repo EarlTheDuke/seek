@@ -259,23 +259,84 @@ export function stepGlide(s, c, dt, groundAt, wind = null) {
  */
 export function canLaunch(x, z, heading, groundAt) {
   const here = groundAt(x, z);
-  const near = (here - groundAt(x + Math.sin(heading) * 14, z + Math.cos(heading) * 14)) / 14;
+  // How far the ground falls, per metre, `d` metres along `hd`. One probe,
+  // reused: the two thresholds below and the refusal's sweep are all the same
+  // question asked at different distances and bearings, and sharing the
+  // function is what stops the message from describing a different hill than
+  // the check just rejected.
+  const fall = (hd, d) => (here - groundAt(x + Math.sin(hd) * d, z + Math.cos(hd) * d)) / d;
+  const near = fall(heading, 14);
   // And SUSTAINED, out to 45 m. Checking only the ground immediately ahead
   // cannot tell a hillside from a hollow, and on rolling terrain that is most
   // of the map: measured against this world, a single 14 m probe called 59% of
   // it launchable, which makes an aeroplane something you can take off in
   // anywhere and takes the hill out of hill flying. Both probes together, at
   // this threshold, leave about 6% — a real edge, that you have to go and find.
-  const far = (here - groundAt(x + Math.sin(heading) * 45, z + Math.cos(heading) * 45)) / 45;
+  const far = fall(heading, 45);
   if (near < minLaunchSlope || far < minLaunchSlope * 0.6) {
-    return {
-      ok: false,
-      why: near < 0.08 ? 'you need a hill, and it has to fall away in front of you'
-        : near < minLaunchSlope ? 'not steep enough — find a proper edge'
-        : 'it drops away and then flattens — you would land in seconds',
-    };
+    return { ok: false, why: launchRefusal(near, far, heading, fall), near, far };
   }
   return { ok: true, drop: near };
+}
+
+/** Wrap an angle difference into (−π, π] so it reads as a turn, not a bearing. */
+function relativeTurn(a) {
+  let r = a;
+  while (r > Math.PI) r -= Math.PI * 2;
+  while (r <= -Math.PI) r += Math.PI * 2;
+  return r;
+}
+
+/**
+ * Say what was measured, what was needed, and which way to turn.
+ *
+ * "not steep enough — find a proper edge" was reported against a 280% slope,
+ * and the player was right to call it nonsense: they were standing on a
+ * mountain being told there was no hill. Two separate things were wrong. The
+ * direction was one, and it is fixed at the seam in `main.js`. The other is
+ * this message, which withheld everything it knew — the check has the slope it
+ * measured AND the slope it wanted, and one more sweep of the same probe knows
+ * where the ground does fall away. A refusal that carries all three stops being
+ * a wall and becomes an instruction: turn ninety degrees left and run.
+ *
+ * Bearings are given as turns because that is what a person standing on a hill
+ * can act on. Left is increasing heading: the camera's forward is
+ * (−sin, −cos), so d/dyaw of forward is −right, measured and re-derived.
+ */
+function launchRefusal(near, far, heading, fall) {
+  const pct = (v) => `${Math.round(v * 100)}%`;
+
+  // Steep enough underfoot, but it does not keep going. This one already knew
+  // its own condition; it just never said the numbers.
+  if (near >= minLaunchSlope) {
+    return `it drops away and then flattens — ${pct(near)} for the first 14 m`
+      + ` but only ${pct(far)} averaged over 45 m, and you would land in seconds`;
+  }
+
+  // Where DOES it fall away? Twelve bearings of the same probe. This runs only
+  // on the refusal path — never while the answer is yes — so the prompt costs
+  // nothing on a hill you can actually fly off.
+  let best = { turn: 0, near };
+  for (let i = 1; i < 12; i++) {
+    const hd = heading + (i * Math.PI) / 6;
+    const n = fall(hd, 14);
+    if (n > best.near) best = { turn: relativeTurn(hd - heading), near: n };
+  }
+
+  const measured = near < 0
+    ? `the ground ahead of you climbs at ${pct(-near)}`
+    : `the ground ahead of you falls ${pct(near)}`;
+
+  let advice = '';
+  if (best.near >= minLaunchSlope) {
+    const deg = Math.round((Math.abs(best.turn) * 180) / Math.PI);
+    advice = deg > 150
+      ? ` — it falls ${pct(best.near)} straight behind you`
+      : ` — it falls ${pct(best.near)} about ${deg}° to your ${best.turn > 0 ? 'left' : 'right'}`;
+  } else if (best.near < 0.08) {
+    advice = ' — there is no edge here at all, go and find a hill';
+  }
+  return `${measured} and a launch needs ${pct(minLaunchSlope)}${advice}`;
 }
 
 /** What a person would say about how it is going. No instruments in 3000 BC. */

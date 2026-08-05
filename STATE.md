@@ -6,61 +6,54 @@ under a hundred lines. **Update it at the end of every run.** If it grows past
 that, cut the oldest resolved things rather than letting it become another
 archive.
 
-Last updated: 2026-08-05 08:05, by the session that put the mark on the world.
+Last updated: 2026-08-05 08:40, by the session that turned the glider round.
 
 ## What works right now
 
-- **Everyone hunts the same animals.** `herdcheck` 12/12. **Arrows can hit
-  players** (`arrowcheck` 7/7), a browser client's shot works (`shotcheck` 8/8),
-  wounds persist (7/7), standing orders 17/17, and the cull is per-player
-  (`spreadcheck` 10/10).
-- **You can see where your arrow will actually go.** The mark — see below.
+- **Everyone hunts the same animals**, arrows hit players, wounds persist, the
+  cull is per-player, standing orders are obeyed. All twelve suites green this
+  run (`herdcheck` 12, `arrowcheck` 7, `ordercheck` 17, `glidercheck` 32,
+  `netcheck` 12, `mindcheck` 21, `campcheck` 20, `companioncheck` 29 …).
+- **You can see where your arrow will land** (`weapons/aimMark.js`, the run
+  before: predicted impact agrees with a loosed arrow to 1–2 cm), and **the
+  glider now flies where you are looking** — see below.
 - The client reads world events; chat is a column on the right; `B` opens a
   build chooser; `E` obeys one distance rule; captures are real pictures.
 
-## The missing kill is CLOSED — and the queue had it diagnosed wrong
+## CLOSED: the glider launched, checked and looked backwards
 
-Queue item 1 used to read "nobody is told how to aim… the shot needs ~20° of
-hold-over". **That is not the bug.** Drop is 0.12 m at 10 m and 0.50 m at 20 m,
-matching the spec in `ARROW` exactly. Twenty degrees at 20 m would be seven
-metres of drop. Nothing like it exists, and the bow was never the problem.
+Queue item 1's headline example — "not steep enough" on a 258% slope — was
+**not a wording bug.** The message was honest; it described the hill behind you.
+Walking forward is `(−sin yaw, −cos yaw)` (measured at three yaws; the camera's
+`matrixWorld` agrees) but `glider.js` integrates `(+sin h, +cos h)`, and
+`main.js` handed it a raw `ctrl.yaw`. So `canLaunch` probed **behind** you,
+`launch()` flew you that way, and `ctrl.yaw = flight.heading` aimed the camera
+back down the track — which is why the wing is in none of the old in-flight
+captures: it is behind the eye. Flown, not argued: from a spot the OLD check
+accepted, looking toward −x, the glide carried me 45 m toward **+x** (alignment
+with gaze **−1.0**; after the fix **+0.995**). Compare
+`shots/launch-view-before.jpg` — a hillside rising to a ridge, the view the game
+called a good launch — with `launch-view-after-fix.jpg`.
 
-The real fault: aiming dead at a deer at 35 m from twelve stands on a ring,
-full draw, spread removed — **12 of 12 arrows hit the ground short**, by 5.4 to
-29.9 m, **with the animal in clear view at 8 of those 12 stands.** The sight
-line clears the intervening ground by only **0.2–0.9 m**, while the arrow drops
-**0.5 m by 20 m and 1.1 m by 30 m**. The drop is bigger than the clearance, so
-a shot that looks perfectly clear is stopped by a shallow rise no eye can read
-on a smooth heightfield. The shot was not missed — it was never available.
+Fixed at the seam, not in the module: `flightHeading` / `viewYaw` in `main.js`
+at all three crossings, so `glider.js` keeps its convention and its 32 checks
+keep their meaning. **The refusal now states its condition** too — the slope
+measured, the slope needed, and a twelve-bearing sweep (refusal path only) for
+which way to turn: "the ground ahead of you climbs at 2% and a launch needs 70%
+— it falls 93% about 90° to your left". Verified by turning, not by trusting the
+derivation. Numbers in `FINDINGS.md` 2026-08-05 08:35.
 
-**The fix is `src/weapons/aimMark.js`:** while the bow is drawn, a ring is drawn
-on the world where the arrow would actually stop — warm on flesh, pale on
-ground. It adds no accuracy and tracks nothing. When it sits on the hillside
-twelve metres ahead instead of on the deer, the answer is to move, which is the
-stalk doing its job.
+## Two ways a measurement silently lies to you
 
-It cannot drift from the real arrow because it *is* the arrow's code:
-`Projectiles.advance` and the new `Projectiles.predict` both collide through one
-extracted pure query, `Projectiles.sweep`, at the same `ARROW.substep`.
-
-Verified by playing, not by building: predicted impact agrees with a real loosed
-arrow to **1–2 cm**; the ring is the real spread cone, so it shrinks **0.34 m →
-0.06 m as you draw** and swells with fatigue, which finally makes that mechanic
-visible; 0.19 ms of a 16.7 ms frame, only while a draw is held. Scanning stands
-around one deer: **39 of 72 give a shot ON the animal** — blocked at 28 m, ON at
-20 m and 12 m. "Get closer" is now something the game can say.
-
-Detail, and the two traps it cost time on, in `FINDINGS.md` 2026-08-05 08:20.
-
-## Also fixed: `warp(x, z)` was silently NaN-ing the camera
-
-`yaw` sat between two parameters that had defaults and had none itself, so the
-obvious `warp(x, z)` set `ctrl.yaw = undefined`, NaN'd the camera quaternion and
-then its world position. It surfaced three calls away as a *non-finite
-AudioParam* throw from `Soundscape.spatial` on the next arrow impact.
-**Any Sandbox measurement taken after a two-argument warp was garbage** — if you
-are re-reading an old number in the notes, check whether it warped first. `yaw`
-now defaults to the facing you already had.
+- **`warp` does not cancel a glide.** `updateFlight` rewrites `ctrl.position`
+  from the flight state every step, so a warp issued while airborne is gone on
+  the next `stepWorld`. It cost this run a full set of four readings: I asked
+  for (−20, −160) and measured at (−226, −270), 235 m away, and the messages
+  looked wrong when they were right for where I actually was. **Step until
+  `highlands.flight` is falsy before measuring after a flight.**
+- **`warp(x, z)` used to NaN the camera** (fixed the run before: `yaw` had no
+  default). If you are re-reading an old number in the notes, check whether it
+  warped first.
 
 ## Things that will waste your time if you do not know them
 
@@ -96,9 +89,16 @@ land underneath it mid-session; re-read `STATE.md` before rewriting it.
 
 ## The game queue, ranked
 
-1. **Refusals never state their condition** — "not steep enough" on a 258%
-   slope, "gather wood" while holding wood, "nothing in reach" 2.66 m from a
-   visible tree when the truth is "you cut this one and it has not regrown".
+1. **Refusals never state their condition** — glider DONE (above); two left,
+   both reproduced this run, so it is a short job:
+   - `main.js:1205` "nothing you can build — gather wood" while holding wood.
+     `bestToBuild` returns null only when *nothing* is affordable; the message
+     should name the cheapest shortfall, which `Structures.affordable` already
+     computes and throws away.
+   - "nothing in reach" 2.00 m from a tree you just cut (stand at a trunk, press
+     E twice). `nearestSource` skips `isTaken` and returns null, so
+     `hud.setPrompt(null)` makes the prompt *vanish* — the player is told
+     nothing at all. `harvest.taken` holds the exact regrow hour.
 2. **The fire is silent and invisible** — spawns at your feet, below the view,
    drawn under the hotbar.
 3. **A fire cannot save a soaked player in the rain** — 36.1 → 28.0 either way.
@@ -118,9 +118,12 @@ Still true, and now visible rather than merely annoying: **animals graze on
 steep convex slopes and under canopy**, so a blind-aimed `capture` of one mostly
 photographs a hillside — `heightAt` does not know about trees.
 
-Left behind by the mirror, deliberately, and small: harvesting a carcass in
-multiplayer fills a LOCAL inventory the server knows nothing about, and a
-mirrored animal's morale/`hurt` flags are never sent. Neither is visible in play.
+Small and deliberate, left by the mirror: multiplayer carcass harvesting fills a
+LOCAL inventory only, and a mirrored animal's morale/`hurt` flags are never sent.
+
+Worth a look, unfixed: `glider.js` samples ridge lift upwind with `(−sin, −cos)`
+of `wind.angle` while integrating flight in `(+sin, +cos)`. Untouched this run
+because nothing establishes which way `wind.angle` points — find that out first.
 
 ## How to play it
 
@@ -137,11 +140,15 @@ for anything networked. **The preview pane does not composite when it is not
 displayed**, so `requestAnimationFrame` never fires and the world looks frozen
 and connected-but-dead. Not a bug; it is why `stepWorld` exists.
 
+Because of that the pane reports a **0×0 viewport**, so clicking the mode button
+by element ref lands at a negative y and silently starts Survival — where `warp`
+is refused. Click it from the page instead:
+`[...document.querySelectorAll('button')].find(b=>/Sandbox/.test(b.textContent)).click()`,
+and check `highlands.ruleset.current.id` before trusting anything.
+
 `highlands.capture('name')` writes a JPEG to `shots/` — **read those images**,
 it is the only way anyone sees this game. Under ~5 KB means the blind-pane bug
-is back. The HUD is DOM and can NEVER appear in a capture. This run is the case
-in point: every number said the mark was correct and on the animal, and the
-first picture showed no ring at all.
+is back. The HUD is DOM and can NEVER appear in a capture.
 
 ## The trap this project falls into
 
