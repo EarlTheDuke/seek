@@ -113,7 +113,12 @@ function makeFlame() {
 export class Fires {
   constructor(scene, deps = {}) {
     this.scene = scene;
-    this.deps = deps; // { audio }
+    // { audio, roofedAt }. `roofedAt(x, z)` is the same query main.js already
+    // uses for the player — see the note in `update` about why a fire needs it
+    // too. A host without structures (the headless sim, the server) does not
+    // pass one, and then every fire is open to the sky, which is what those
+    // worlds actually are.
+    this.deps = deps;
     this.active = [];
     this.rand = makeRandom('fires');
     this.time = 0;
@@ -212,12 +217,21 @@ export class Fires {
     for (let i = this.active.length - 1; i >= 0; i--) {
       const f = this.active[i];
 
-      const burn = SURVIVAL.fireBurnPerSec * lerp(1, 2.2, rain) * lerp(0.85, 1.3, clamp(wind / 2, 0, 1));
+      // ── how much of that rain actually lands on THIS fire ──
+      // It used to be all of it, always, because this loop only ever saw the
+      // global weather. So you could build a lean-to, light a fire under the
+      // roof, and the game would still half-drown it and burn the fuel twice as
+      // fast — which is the exact opposite of why anybody builds a shelter over
+      // a fire. `roofedAt` was already here; nothing had ever asked it.
+      const rainOnIt = this.deps.roofedAt?.(f.position.x, f.position.z) ? 0 : rain;
+
+      const burn =
+        SURVIVAL.fireBurnPerSec * lerp(1, 2.2, rainOnIt) * lerp(0.85, 1.3, clamp(wind / 2, 0, 1));
       f.fuel = Math.max(0, f.fuel - burn * dt);
       if (f.fuel <= 0) f.lit = false;
 
       // Intensity ramps down as it dies, so it fades rather than snapping out.
-      const target = f.lit ? clamp(0.35 + f.fuel / 60, 0.35, 1) * lerp(1, 0.45, rain) : 0;
+      const target = f.lit ? clamp(0.35 + f.fuel / 60, 0.35, 1) * lerp(1, 0.45, rainOnIt) : 0;
       f.intensity = lerp(f.intensity, target, clamp(dt * 1.5, 0, 1));
 
       // Flicker. Two incommensurate frequencies so it never looks like a pulse.

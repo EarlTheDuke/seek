@@ -17,6 +17,7 @@ import { heightAt, slopeAt } from '../src/world/noise.js';
 import { regionAt } from '../src/world/regions.js';
 import { WATER_LEVEL, LOADOUT, STRUCTURES, FEEL, PLAYER, SURVIVAL } from '../src/config.js';
 import { Soundscape } from '../src/audio/soundscape.js';
+import { Fires } from '../src/world/fires.js';
 import { readFileSync } from 'node:fs';
 
 const results = [];
@@ -270,6 +271,38 @@ check('the fire asks for sounds that exist', asked.length > 0 && missing.length 
       : `${asked.join(', ')} — all defined`);
 check('and something drives the fire bed', typeof Soundscape.prototype.setFire === 'function',
   'Soundscape.setFire');
+
+// ── a fire under a roof is not rained on ──
+//
+// Same failure, one floor down. `Fires.update` dimmed every fire by the GLOBAL
+// weather, so building a lean-to and lighting a fire under the roof still cost
+// you 44% of its warmth and burned the fuel twice as fast — the exact opposite
+// of the reason anyone roofs a fire. `roofedAt` already existed and nothing had
+// ever asked it. Measure both fires rather than trusting the constant.
+{
+  const storm = { rain: 0.8, wind: 1.9 };
+  const settle = (roofed) => {
+    const f = new Fires(new THREE.Scene(), { roofedAt: () => roofed });
+    const lit = f.light(site.x + 40, site.z + 40, 1e6);
+    if (!lit.ok) return null;
+    for (let i = 0; i < 300; i++) f.update(1 / 30, storm); // let intensity settle
+    return f.active[0];
+  };
+  const open = settle(false);
+  const under = settle(true);
+  check('a fire in the open is drowned by rain', open && open.intensity < 0.7,
+    open ? `intensity ${open.intensity.toFixed(2)} in rain 0.8` : 'could not light one');
+  check('a fire under a roof is not', under && under.intensity > 0.95,
+    under ? `intensity ${under.intensity.toFixed(2)} under a lean-to` : 'could not light one');
+  check('...and its fuel lasts longer for it', under && open && under.fuel > open.fuel,
+    under && open ? `${under.fuel.toFixed(0)} vs ${open.fuel.toFixed(0)} after 10 s` : '');
+
+  // And the browser must actually WIRE it, or the whole thing is decoration.
+  const mainSrc = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const wired = /new Fires\([^)]*\{[\s\S]{0,240}?roofedAt/.test(mainSrc);
+  check('and main.js hands the fires a roofedAt', wired,
+    wired ? 'new Fires(scene, { audio, roofedAt })' : 'fires.js asks, nothing answers');
+}
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n  ${results.length - failed}/${results.length} passed\n`);

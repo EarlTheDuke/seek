@@ -222,7 +222,14 @@ function boot() {
   const weather = new Weather();
   const rain = new Rain(scene);
 
-  const fires = new Fires(scene, { audio });
+  // `roofedAt` is a lambda rather than a direct reference because `structures`
+  // is built three lines below this one — it is only ever called from a tick,
+  // by which time it exists. A fire under a lean-to is not rained on; see the
+  // note in fires.js `update`.
+  const fires = new Fires(scene, {
+    audio,
+    roofedAt: (x, z) => structures.roofedAt(x, z),
+  });
   const sites = new Sites(scene, { audio });
   const caves = new Caves(scene);
   const structures = new Structures(scene, { audio, colliders: staticColliders });

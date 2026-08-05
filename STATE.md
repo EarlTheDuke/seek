@@ -6,13 +6,13 @@ under a hundred lines. **Update it at the end of every run.** If it grows past
 that, cut the oldest resolved things rather than letting it become another
 archive.
 
-Last updated: 2026-08-05 09:45, by the session that closed the fire.
+Last updated: 2026-08-05 09:52, by the session that got the rain off the fire.
 
 ## What works right now
 
 - **Everyone hunts the same animals**, arrows hit players, wounds persist, the
   cull is per-player, standing orders are obeyed. All twelve suites green
-  (`campcheck` now **32**, `glidercheck` 32, `companioncheck` 29, `mindcheck`
+  (`campcheck` now **36**, `glidercheck` 32, `companioncheck` 29, `mindcheck`
   21, `bookcheck`/`reportcheck` 18, `ordercheck` 17, `netcheck`/`herdcheck` 12,
   `dangercheck` 12, `arrowcheck`/`woundcheck` 7).
 - **A fire is something you can see and hear** — photographed by night at last:
@@ -23,26 +23,32 @@ Last updated: 2026-08-05 09:45, by the session that closed the fire.
   build chooser; `E` obeys one distance rule and **always answers** — gather,
   build and launch refusals all state their condition.
 
-## CLOSED: "the fire is silent and invisible" — both halves
+## CLOSED: queue #1, "a fire cannot save a soaked player in the rain"
 
-It was not dim, it was **below the frame**: laid 1.6 m ahead of an eye 1.72 m
-up, the pit projected to **row 927 of a 720-row frame**, and the hotbar (live
-rect `top 646, height 54, width 160`, centred on exactly the column a fire lands
-in) hid the rest — 40 px of flame tip was the whole of it. Now
-`SURVIVAL.firePlaceDistance` = 3 m: base at row 689, 132 px of clear flame. Not
-further, because E reaches a fire at 3.4 m — once an anonymous literal, now
-`SURVIVAL.fireReach`, with campcheck asserting the inequality.
+Two claims in one. **The bug:** `Fires.update` dimmed every fire by the GLOBAL
+`weather.rain`, so a fire under a lean-to roof was still being rained on — 44%
+of its warmth gone and fuel burning twice as fast. `structures.roofedAt()` had
+existed all along and `main.js` already called it for the PLAYER; nothing had
+ever asked it for a fire. `Fires` now takes a `roofedAt` dep. Live, rain 1.0:
+roofed fire **intensity 1.000 / fuel 40.7**, open fire **0.428 / 35.4**. Photo:
+`shots/leanto-fire-in-the-rain.jpg`. campcheck is now **36** and asserts both
+intensities AND that main.js still passes the dep.
 
-Silent because **`Soundscape.fireLit` was never written**: `fires.js` always
-called `this.deps.audio?.fireLit?.()` and the `?.` turned a missing name into
-silence rather than a crash. Added `fireLit`, `fireCrackle` and a bed levelled
-by `setFire(distance, intensity)` — and campcheck now reads the `audio?.X?.`
-call sites out of `fires.js` and asserts `Soundscape.prototype` answers each,
-which is worth more than the sound. Crackle timing is jittered by a **hash** of
-`time` and the fire's `phase`, never `this.rand()`, so a client's frame count
-cannot desync the seeded stream from the headless sim.
+**The part that was not a bug:** "36.1 → 28.0" was measured over 30+ real
+minutes = two in-world DAYS. A night is 8.7 real minutes, and over one night
+nobody dies of cold in any configuration (worst case 34.5; damage starts at
+33.0). A fire in the open genuinely cannot beat rain — you re-soak at 0.018/s
+and dry at 0.004/s, and being soaked costs ~15 C. Get the rain off you first.
+Only `lean-to + fire + cloak` now sits above neutral (+0.020 C/min, holds 37);
+it was −0.047 and slowly losing. Eight-row table in `FINDINGS.md` 09:50.
 
-Table and burn-down trace in `FINDINGS.md` 2026-08-05 09:35.
+## CLOSED earlier: "the fire is silent and invisible"
+
+Invisible because it was laid **below the frame** (1.6 m ahead projected to row
+927 of 720) — `SURVIVAL.firePlaceDistance` is now 3 m, and must stay under
+`SURVIVAL.fireReach` 3.4 m, which campcheck asserts. Silent because
+`Soundscape.fireLit` was never written and `?.` swallowed it. Full trace:
+`FINDINGS.md` 2026-08-05 09:35.
 
 ## Things that will waste your time if you do not know them
 
@@ -69,6 +75,11 @@ Table and burn-down trace in `FINDINGS.md` 2026-08-05 09:35.
   after one is worthless.
 - **Deer wander.** Reading a deer's position once and then stepping through a
   long scan aims you where it used to be — it cost a run two wrong readings.
+- **A long survival test measures FOOD, not what you think.** `dayMinutes: 26`,
+  so 40 real minutes is 32 in-world hours and a shivering body (`hungerColdMul`
+  1.9) starves first. A thermal probe reported deaths at 34.9 C — *above* the
+  33.0 cold threshold — and they were all starvation. Pin `hunger`, or keep the
+  window to one night (8.7 real min).
 - **`highlands.report({steps})` wants an ARRAY.** A string throws and files
   nothing. **`agentcheck` is 16/17**, pre-existing. **`netcheck` needs a server
   up** or it prints "could not run" and no score.
@@ -78,16 +89,15 @@ Table and burn-down trace in `FINDINGS.md` 2026-08-05 09:35.
 
 ## The game queue, ranked
 
-1. **A fire cannot save a soaked player in the rain** — 36.1 → 28.0 either way.
-2. **Window resize wrecks the sim** — `setPixelRatio` set once at boot.
-3. **Goblins are unkillable in daylight** — flee 7.6 vs your sprint 8.6.
-4. **Companions do not exist in multiplayer** — `Companion` appears 0 times in
+1. **Window resize wrecks the sim** — `setPixelRatio` set once at boot.
+2. **Goblins are unkillable in daylight** — flee 7.6 vs your sprint 8.6.
+3. **Companions do not exist in multiplayer** — `Companion` appears 0 times in
    `sim/world.js`.
-5. **A stranded glider cannot be recovered.**
-6. `glider.js` samples ridge lift upwind with `(−sin, −cos)` of `wind.angle`
+4. **A stranded glider cannot be recovered.**
+5. `glider.js` samples ridge lift upwind with `(−sin, −cos)` of `wind.angle`
    while integrating flight in `(+sin, +cos)`. Establish which way `wind.angle`
    points before touching it.
-7. Multiplayer carcass harvesting fills a LOCAL inventory only, and a mirrored
+6. Multiplayer carcass harvesting fills a LOCAL inventory only, and a mirrored
    animal's morale/`hurt` flags are never sent. Small and deliberate, for now.
 
 **Unmeasured, worth one run:** with 4 players the server's population drifted
