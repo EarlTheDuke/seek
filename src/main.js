@@ -301,6 +301,24 @@ function boot() {
       // at once and time to read them; the toast gives you one for four seconds
       // and the next speaker wipes the last.
       onChat: (m) => hud.chat(m.system ? null : m.n, m.m),
+      // ── what just happened to somebody ──
+      // Until now none of these reached a screen. An arrow that hit, or that
+      // glanced off because you may not fight on settled ground, looked exactly
+      // like an arrow that sailed through — which is how "arrows do not hit
+      // people" was reported twice when the shot had in fact been refused, by a
+      // rule, for a stated reason nobody could read.
+      onEvent: (e) => {
+        const mine = net && e.id === net.id;
+        const byMe = net && e.by === net.id;
+        if (e.k === 'hit') {
+          if (mine) hud.chat(null, `an arrow hits you — ${e.dmg}`);
+          else if (byMe) hud.chat(null, `your arrow strikes home — ${e.dmg}`);
+        } else if (e.k === 'glance') {
+          if (mine || byMe) hud.chat(null, `the arrow glances off — ${e.why}`);
+        } else if (e.k === 'death') {
+          hud.chat(null, `${e.n} was killed by ${e.by} ${e.where ?? ''}`.trim());
+        }
+      },
       onError: (m) => hud.toast(`server: ${m}`, 5),
       onStatus: (s) => hud.toast(`network: ${s}`, 2),
     });
@@ -2489,6 +2507,24 @@ function boot() {
       // at once and time to read them; the toast gives you one for four seconds
       // and the next speaker wipes the last.
       onChat: (m) => hud.chat(m.system ? null : m.n, m.m),
+      // ── what just happened to somebody ──
+      // Until now none of these reached a screen. An arrow that hit, or that
+      // glanced off because you may not fight on settled ground, looked exactly
+      // like an arrow that sailed through — which is how "arrows do not hit
+      // people" was reported twice when the shot had in fact been refused, by a
+      // rule, for a stated reason nobody could read.
+      onEvent: (e) => {
+        const mine = net && e.id === net.id;
+        const byMe = net && e.by === net.id;
+        if (e.k === 'hit') {
+          if (mine) hud.chat(null, `an arrow hits you — ${e.dmg}`);
+          else if (byMe) hud.chat(null, `your arrow strikes home — ${e.dmg}`);
+        } else if (e.k === 'glance') {
+          if (mine || byMe) hud.chat(null, `the arrow glances off — ${e.why}`);
+        } else if (e.k === 'death') {
+          hud.chat(null, `${e.n} was killed by ${e.by} ${e.where ?? ''}`.trim());
+        }
+      },
         onError: (m) => hud.toast(`server: ${m}`, 5),
         onStatus: (s) => hud.toast(`network: ${s}`, 2),
       });

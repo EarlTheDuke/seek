@@ -33,7 +33,7 @@ import {
 import { NET } from '../config.js';
 
 export class NetClient {
-  constructor({ onWelcome, onChat, onError, onStatus } = {}) {
+  constructor({ onWelcome, onChat, onError, onStatus, onEvent } = {}) {
     this.ws = null;
     this.id = null;
     this.seed = null;
@@ -44,6 +44,7 @@ export class NetClient {
     this.lastSent = 0;
     this.onWelcome = onWelcome;
     this.onChat = onChat;
+    this.onEvent = onEvent;
     this.onError = onError;
     this.onStatus = onStatus;
   }
@@ -89,6 +90,17 @@ export class NetClient {
           // interpolator needs — the server's tick number tells us the order
           // but not how long ago we heard it.
           this.buffer.push({ at: performance.now(), snap: msg.data });
+          // ── things that HAPPENED ──
+          // The server has always pushed deaths, hits and glances into `ev` and
+          // the client has never read one. So an arrow that struck somebody, or
+          // glanced off because the ground was too settled to fight on, was
+          // indistinguishable from an arrow that passed through them: the world
+          // knew, said so, and nobody was listening.
+          //
+          // Delivered as they arrive rather than through the interpolation
+          // buffer — an event is a fact about the past, not a thing to draw
+          // 110 ms late.
+          for (const e of msg.data.ev ?? []) this.onEvent?.(e);
           // Keep a second of history; anything older can never be drawn.
           const cutoff = performance.now() - 1000;
           while (this.buffer.length > 2 && this.buffer[0].at < cutoff) this.buffer.shift();
