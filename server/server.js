@@ -29,6 +29,7 @@ import {
   C_PING,
   C_CHAT,
   C_PARTY,
+  C_PET,
   S_WELCOME,
   S_SNAPSHOT,
   S_JOIN,
@@ -42,6 +43,7 @@ import {
   cleanName,
   cleanChat,
   cleanPet,
+  cleanPetState,
 } from '../src/net/protocol.js';
 
 const args = process.argv.slice(2);
@@ -161,6 +163,14 @@ wss.on('connection', (ws, req) => {
         // The only thing a client is allowed to assert. Filtered for which keys
         // may exist, then clamped inside the simulation.
         world.setIntent(client.id, pickIntent(msg.data.i));
+        break;
+
+      case C_PET:
+        if (client.id === null) return;
+        // What your animal is actually like. A claim about the thing you own,
+        // the same class as your name — sanitised for shape here, checked for
+        // meaning against the species' own trick table inside the simulation.
+        world.setCompanionState(client.id, cleanPetState(msg.data));
         break;
 
       case C_PING:

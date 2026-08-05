@@ -20,6 +20,7 @@ import {
   C_INTENT,
   C_PING,
   C_CHAT,
+  C_PET,
   S_WELCOME,
   S_SNAPSHOT,
   S_JOIN,
@@ -177,6 +178,30 @@ export class NetClient {
     if (nowMs - this.lastSent < 1000 / NET.intentHz) return;
     this.lastSent = nowMs;
     this.send(C_INTENT, { i: intent });
+  }
+
+  /**
+   * Tell the server what your animal is like, when it changes.
+   *
+   * SENT ON CHANGE, NOT ON A TIMER, and the rate limiter is the rounding.
+   * `Companion.relationship` quantises trust, food, play and warmth to two
+   * decimals, so the slow decay produces a packet a second at its very worst
+   * and a resting animal produces none at all. That is a better fit than a
+   * fixed interval, because the interesting moments — a trick learned, `guard`
+   * switched on — go up the instant they happen instead of up to a second late.
+   *
+   * `trick` is a one-shot: it is not part of the digest, so it always sends,
+   * and it is what makes a trick something the rest of the server can watch
+   * rather than a private event on the owner's screen.
+   */
+  syncCompanion(pet, trick = null) {
+    if (!this.connected || this.id === null || !pet) return false;
+    const digest = pet.relationship();
+    const key = JSON.stringify(digest);
+    if (key === this.lastPet && !trick) return false;
+    this.lastPet = key;
+    this.send(C_PET, trick ? { ...digest, a: trick } : digest);
+    return true;
   }
 
   /**

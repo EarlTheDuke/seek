@@ -229,6 +229,76 @@ export class Companion {
     return !!this.toggles[trickId];
   }
 
+  /**
+   * Do a trick it already knows, with no training and no bill.
+   *
+   * This is what a COPY of somebody's animal does — the one the server keeps so
+   * that everybody else can see it. The repetition, the trust it cost and the
+   * tiredness a power leaves behind were all paid for on the owner's machine by
+   * the hands that did it; charging for them twice would have the same animal
+   * getting hungry once per person watching.
+   *
+   * So: no `learn`, no cooldown, no `power`. Only the shape of the thing, which
+   * is the part other people can see. Deliberately refuses a trick it has not
+   * been told it knows, so a half-trained animal looks half-trained to the whole
+   * server rather than only to its owner.
+   */
+  perform(trickId) {
+    const t = this.tricks[trickId];
+    if (!t || t.toggle || !this.learned.has(trickId)) return false;
+    this.setState(PERFORM);
+    this.pose = t.pose ?? null;
+    this.commandTime = t.holds;
+    this.spun = 0;
+    if (t.pose === 'speak') this.says = this.species.voice ?? 'chirp';
+    return true;
+  }
+
+  /**
+   * Take on a relationship somebody else earned.
+   *
+   * The same fields `toJSON` writes, which is not a coincidence: a save file and
+   * a network packet are asking the identical question — what does this animal
+   * know and how does it feel about its person? Position and home are NOT here,
+   * because whoever is applying this is already simulating where it stands.
+   *
+   * Every trick id is checked against THIS species' own list. A parrot does not
+   * sit and a hippo does not perch, and nothing that arrives from outside gets
+   * to invent a trick — the table is the authority, here as everywhere else.
+   */
+  applyRelationship(st) {
+    if (!st) return false;
+    if (typeof st.t === 'number') this.trust = clamp(st.t, 0, 1);
+    if (typeof st.f === 'number') this.fed = clamp(st.f, 0, 1);
+    if (typeof st.y === 'number') this.played = clamp(st.y, 0, 1);
+    if (typeof st.w === 'number') this.warmth = clamp(st.w, 0, 1);
+    if ('n' in st) this.name = st.n ?? null;
+    if (Array.isArray(st.l)) this.learned = new Set(st.l.filter((id) => id in this.tricks));
+    if (st.o && typeof st.o === 'object') {
+      this.toggles = {};
+      for (const [k, v] of Object.entries(st.o)) if (k in this.tricks) this.toggles[k] = !!v;
+    }
+    return true;
+  }
+
+  /** What the owner's client sends up so a copy can be the same animal. */
+  relationship() {
+    const q = (v) => Math.round(v * 100) / 100;
+    return {
+      // Which animal, every time — the menu can change it mid-session, and a
+      // relationship applied to the wrong species has its tricks silently
+      // dropped by the filter in `applyRelationship`.
+      k: this.species.id,
+      t: q(this.trust),
+      f: q(this.fed),
+      y: q(this.played),
+      w: q(this.warmth),
+      n: this.name,
+      l: [...this.learned].sort(),
+      o: Object.fromEntries(Object.entries(this.toggles).filter(([, v]) => v)),
+    };
+  }
+
   defend(attacker) {
     if (!this.isOn('guard') || !this.tame) return false;
     this.target = attacker;
@@ -334,7 +404,15 @@ export class Companion {
       this.pointingAt = null;
     }
 
-    if (!this.tame) {
+    // A MIRROR heels whatever its trust says.
+    //
+    // Below `tame` the brain below shies away and then wanders, which is right
+    // for the animal you are standing next to and wrong for a copy of somebody
+    // else's. Two copies wandering on two machines diverge without limit, so an
+    // untamed pet would be drawn 200 m from where its owner can see it. The
+    // trust is real — `defend` still refuses on it, which is the gate that
+    // matters — but the BODY's job here is to be where the animal is.
+    if (!this.tame && !this.mirrored) {
       const d = owner ? this.dist(owner.position) : Infinity;
       if (d < this.care_.shyRange) {
         this.faceToward(owner.position.x, owner.position.z, dt, 2);

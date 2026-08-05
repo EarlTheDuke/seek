@@ -217,6 +217,47 @@ check('a trained companion survives a save', loaded.name === c.name && loaded.sp
 check('including which animal it was', json.k === 'octopus', `saved kind "${json.k}"`);
 check('its tricks and home survive', loaded.learned.has('dive') && loaded.progress.ink === 2 && !!loaded.home);
 
+// ── a copy of somebody else's animal ──
+//
+// What the server keeps so that everyone else can see your pet. It has to be
+// able to BECOME your animal from a digest, do a trick it has been told it
+// knows, and refuse everything else — including a trick belonging to another
+// species, which is the one thing a packet could otherwise invent.
+const mirror = make('wolfcub');
+mirror.mirrored = true;
+mirror.applyRelationship({ t: 0.9, f: 0.9, y: 0.9, w: 0.9, n: 'Fang', l: ['sit', 'guard'], o: { guard: true } });
+check('a copy takes on a relationship it did not earn',
+  mirror.name === 'Fang' && mirror.tame && mirror.learned.has('sit') && mirror.isOn('guard'),
+  `${mirror.name}, trust ${mirror.trust.toFixed(2)}, guard ${mirror.isOn('guard') ? 'on' : 'off'}`);
+check('and then it will fight for a person it has never met',
+  mirror.defend(goblin) && mirror.state === 'attack', mirror.state);
+mirror.setState('idle');
+check('it performs a trick it was told it knows', mirror.perform('sit') && mirror.pose === 'sit', mirror.pose);
+check('but not one it was not', !mirror.perform('lunge'), 'lunge was never in the digest');
+mirror.applyRelationship({ l: ['perch', 'ferry', 'sit'] });
+check('and a wolf cub still cannot perch',
+  !mirror.learned.has('perch') && !mirror.learned.has('ferry') && mirror.learned.has('sit'),
+  `it knows ${[...mirror.learned].join(', ') || 'nothing'}`);
+// The round trip the wire actually makes.
+const source = make('hippo');
+source.trust = 0.8; source.name = 'Bess'; source.learned = new Set(['wallow', 'guard']); source.toggles.guard = true;
+const copy = make('hippo');
+copy.applyRelationship(JSON.parse(JSON.stringify(source.relationship())));
+check('a digest survives the round trip',
+  copy.name === 'Bess' && copy.learned.has('wallow') && copy.isOn('guard') && Math.abs(copy.trust - 0.8) < 0.01,
+  `${copy.name}, trust ${copy.trust.toFixed(2)}, knows ${[...copy.learned].join(', ')}`);
+// A mirror heels whether or not it likes you: two untamed copies wandering on
+// two machines diverge without limit, and the owner would watch their animal
+// stand still while everyone else watched it walk into the next glen.
+const shy = make('otter');
+shy.mirrored = true;
+shy.trust = 0;
+const far = { position: at(340, 200) };
+for (let i = 0; i < 60 * 6; i++) shy.update(STEP, far, {}, mild);
+check('an untamed copy still follows its owner',
+  Math.hypot(shy.position.x - far.position.x, shy.position.z - far.position.z) < 30,
+  `${Math.hypot(shy.position.x - far.position.x, shy.position.z - far.position.z).toFixed(1)} m away, trust 0`);
+
 // ── they all animate without throwing ──
 let animated = 0;
 for (const id of COMPANION_IDS) {

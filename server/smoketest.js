@@ -10,7 +10,7 @@
 // two machines, sending nothing but intents, end up agreeing about a world
 // neither of them downloaded.
 
-import { PROTOCOL_VERSION, C_HELLO, C_INTENT, C_PING, C_CHAT,
+import { PROTOCOL_VERSION, C_HELLO, C_INTENT, C_PING, C_CHAT, C_PET,
          S_WELCOME, S_SNAPSHOT, S_JOIN, S_LEAVE, S_PONG, S_CHAT,
          encode, decode } from '../src/net/protocol.js';
 
@@ -164,6 +164,60 @@ async function main() {
   // it should hit. Anything under `runRange` (20 m) is still a chase; standing
   // still would show as ~17.
   check('and stayed at her heel', cubBehind < 16, `${cubBehind.toFixed(1)} m behind her`);
+
+  // ── and what the animal is LIKE ──
+  //
+  // The body has crossed the wire since the session before this one; the
+  // relationship had not. The server's copy sat at trust 0.6 with no name, no
+  // tricks and `guard` off, and nothing anywhere was able to change that — so
+  // `Companion.defend` and the bite behind it were unreachable on every server
+  // that has ever run. These four checks are that gap.
+  alice.send(C_PET, {
+    t: 0.95, f: 0.95, y: 0.95, w: 0.95,
+    n: 'Fang',
+    l: ['sit', 'howl', 'guard'],
+    o: { guard: true },
+  });
+  await sleep(300);
+  const known = bob.lastSnapshot?.co?.find((c) => c.o === alice.id);
+  check('the name Alice earned reaches Bob', known?.n === 'Fang', `Bob sees "${known?.n ?? 'nothing'}"`);
+  // `mood` is computed from trust, food, play and warmth, so 'devoted' is only
+  // reachable if all four landed — it is the whole digest in one word.
+  check('and the relationship behind it', known?.m === 'devoted', `it is ${known?.m ?? 'unknown'}`);
+
+  // A trick, performed for the whole server rather than privately at home.
+  alice.send(C_PET, { l: ['sit', 'howl', 'guard'], a: 'sit' });
+  await sleep(250);
+  const sitting = bob.lastSnapshot?.co?.find((c) => c.o === alice.id);
+  check('a trick is something Bob can watch', sitting?.q === 'sit',
+        `pose ${sitting?.q ?? 'none'}, state ${sitting?.s ?? '?'}`);
+
+  // ── and the lies it must not swallow ──
+  // A wolf cub does not perch, and claiming to do a trick must not teach it
+  // one. Both are filtered against the SPECIES' own table, not the packet.
+  alice.send(C_PET, { l: ['perch', 'ferry'], o: { perch: true }, a: 'lunge' });
+  await sleep(250);
+  const lying = bob.lastSnapshot?.co?.find((c) => c.o === alice.id);
+  check('a trick its species has not got is refused', lying?.q !== 'perch' && lying?.q !== 'lunge',
+        `pose ${lying?.q ?? 'none'} after claiming perch, ferry and an untaught lunge`);
+
+  // ── and if she changes her mind about the animal ──
+  // The menu allows it after joining. Until the digest carried the species,
+  // Alice could be walking a parrot while the whole server watched a wolf cub —
+  // and every parrot trick in her digest was being dropped on the floor by a
+  // filter checking the cub's table.
+  alice.send(C_PET, { k: 'parrot', l: ['perch', 'squawk'], a: 'perch' });
+  await sleep(300);
+  const swapped = bob.lastSnapshot?.co?.find((c) => c.o === alice.id);
+  check('the animal she swapped to is the one Bob sees',
+        swapped?.k === 'parrot' && swapped?.q === 'perch',
+        `a ${swapped?.k}, pose ${swapped?.q ?? 'none'}`);
+  // An id nothing answers to must not rebuild the animal every packet — a
+  // silent otter would appear and be replaced for ever.
+  alice.send(C_PET, { k: 'dragon', l: ['perch'] });
+  await sleep(250);
+  const bogus = bob.lastSnapshot?.co?.find((c) => c.o === alice.id);
+  check('an animal that does not exist changes nothing', bogus?.k === 'parrot', `still a ${bogus?.k}`);
 
   // ── the world, which nobody downloaded ──
   const snap = bob.lastSnapshot;

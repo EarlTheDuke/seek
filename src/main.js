@@ -992,6 +992,11 @@ function boot() {
     const res = pet.ask(id);
     if (!res.ok) return hud.toast(res.why, 2.4), null;
 
+    // Straight up the wire, so a trick is something the server can WATCH. A
+    // toggle sends no `a` — there is no pose to show, only the standing order,
+    // which the digest carries anyway.
+    net?.syncCompanion(pet, res.toggled === undefined && res.learned ? id : null);
+
     if (res.toggled !== undefined) {
       // A toggle may carry a power too — ferry is both a standing order and a
       // thing that has to actually happen. Dispatching before the toast so the
@@ -2318,6 +2323,12 @@ function boot() {
       // we earned and the tricks it knows. Drawing the server's copy as well
       // would put a second otter half a metre behind the first.
       petAvatars.update(dt, world, net.id);
+      // ── and what OURS is like ──
+      // The body has gone up since it was first put on the wire; the trust, the
+      // name, the tricks and the standing orders had not, so the server's copy
+      // was a stranger's animal wearing our otter's coat. Sends only when one of
+      // those actually changes — see `syncCompanion`.
+      net.syncCompanion(pet);
       // ── and the animals, from the same packet ──
       // The comment at the top of this section has claimed since the day it was
       // written that creatures are drawn from server snapshots. Until now only

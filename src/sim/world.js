@@ -38,6 +38,7 @@ import { Weather } from '../world/weather.js';
 import { solarPosition } from '../world/sky.js';
 import { Wildlife, segmentCylinder } from '../creatures/manager.js';
 import { Companion } from '../creatures/companion.js';
+import { COMPANION_IDS } from '../creatures/companions.js';
 
 // A person, as something an arrow can hit. The controller has no collider of
 // its own — it is a capsule in the movement code and nothing anywhere else —
@@ -255,18 +256,16 @@ export class SimWorld {
    * Now it is a thing standing on the hillside that everyone's snapshot
    * mentions, which is the difference between a pet and a picture of one.
    *
-   * WHY IT ARRIVES ALREADY TAME. The relationship — feeding, playing, the
-   * tricks, the trust — is kept by the owner's own client, where the hands
-   * are. This copy is the body other people see. An untamed body wanders off
-   * on its own (that is what `think` does below `tame`), so a server-side copy
-   * that had to be re-earned from zero would trot away from its owner in front
-   * of the whole server while the real animal heeled perfectly on their screen.
-   * It starts at the trust that makes it follow, and is fed and played enough
-   * that a session's decay does not drop it back out of that.
+   * IT IS A MIRROR, AND THAT IS A FLAG. `mirrored` tells the brain to heel
+   * regardless of trust: two copies of an untamed animal wandering on two
+   * machines diverge without limit, so this copy's job is to stand where the
+   * animal stands, not to have its own opinion about whether it likes anybody.
    *
-   * What this copy deliberately does NOT do is train: asking it for a trick
-   * happens on the owner's machine. Syncing the relationship both ways is a
-   * separate job and is not pretended at here.
+   * The relationship it arrives with is a PLACEHOLDER, not a claim. Tame enough
+   * to look right, fed and played enough that a session's decay does not eat it
+   * — and overwritten wholesale by `setCompanionState` the first time the owner
+   * says what the animal is actually like. An agent (`PET=hippo`) never says,
+   * and lives on these numbers for ever, which is what they are for.
    */
   giveCompanion(id, speciesId) {
     const p = this.players.get(id);
@@ -275,11 +274,44 @@ export class SimWorld {
     at.x += 1.2;
     at.y = heightAt(at.x, at.z);
     const c = new Companion(speciesId, at, makeRandom(`pet:${id}:${speciesId}`));
+    c.mirrored = true;
     c.trust = Math.max(c.care_.tameAt + 0.3, 0.6);
     c.fed = c.played = 0.85;
     p.companion = c;
     p.dirty = true;
     return c;
+  }
+
+  /**
+   * The owner says what their animal is actually like.
+   *
+   * Before this, the copy above was permanently a stranger's idea of your pet:
+   * trust 0.6, no name, no tricks, and `guard` off with nothing anywhere able
+   * to turn it on — so `defend` and the bite it leads to were dead code on
+   * every server that has ever run. This is the switch.
+   *
+   * `st.a` is a trick being performed right now. It is applied AFTER the
+   * relationship, because the relationship is what says whether the animal
+   * knows it — `perform` refuses anything not in the freshly-applied `learned`
+   * set, so claiming to do a trick does not teach it one.
+   */
+  setCompanionState(id, st) {
+    let c = this.players.get(id)?.companion;
+    if (!c || !st) return false;
+    // Changed their mind about which animal. The menu allows it after you have
+    // already joined, and the copy has to be rebuilt rather than relabelled —
+    // the body, the speeds and the trick table all belong to the species.
+    // Checked against the real list rather than trusted: `getCompanion` falls
+    // back to the otter for anything it does not know, so an unknown id would
+    // build an otter, still not match, and rebuild the animal on every packet
+    // for ever.
+    if (st.k && st.k !== c.species.id && COMPANION_IDS.includes(st.k)) {
+      c = this.giveCompanion(id, st.k) ?? c;
+    }
+    c.applyRelationship(st);
+    if (st.a) c.perform(st.a);
+    this.players.get(id).dirty = true;
+    return true;
   }
 
   removePlayer(id) {
@@ -706,6 +738,10 @@ export class SimWorld {
         s: c.state,
         q: c.pose ?? null,
         v: round2(c.speed),
+        // One word for the whole relationship — 'wary' through 'devoted'. It is
+        // derived from trust, food, play and warmth, so it is also the cheapest
+        // proof from outside that an owner's sync actually landed.
+        m: c.mood,
       });
     }
 
