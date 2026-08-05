@@ -1336,14 +1336,27 @@ function boot() {
     // Everything competes on the same distance rule, so whatever you are
     // nearest to is what E does. That single rule is why the prompt and the
     // action can never disagree.
-    // ── the pet ──
-    // Care is a world interaction like any other, on the same distance rule,
-    // so tending it never fights with picking something up.
+    //
+    // THESE ARE WORKED OUT BEFORE THE PET AND THE WATER, not after. They used
+    // to be computed below both, which meant neither could see them: the pet
+    // and the shoal each compared themselves against only the loose pickups and
+    // the fire, and won by default against a tree that was never entered in the
+    // race. A pet FOLLOWS YOU, so it is within a few metres almost always —
+    // which made "E" mean "pet the otter" for most of a session spent standing
+    // in a wood. It is the single most-repeated report in FINDINGS.md, it cost
+    // one tester six minutes and the conclusion that wood gathering was broken,
+    // and it was reported again on the first hillside of this run.
+    const mine = structures.nearest(ctrl.position);
+    const source = harvest.nearestSource(scatterColliders, ctrl.position, STRUCTURES.useRange, totalHours);
+    const mineDist = mine ? mine.distance : Infinity;
+    const sourceDist = source ? source.distance : Infinity;
+    const closest = Math.min(near?.distance ?? Infinity, fireDist, mineDist, sourceDist);
+
     // ── fishing ──
     // Only when you are actually in the water. Standing on the bank pointing
     // at a shoal is not fishing, and the prompt should not pretend otherwise.
     const shoal = ctrl.wadeDepth > 0.25 ? fish.nearest(ctrl.position) : null;
-    if (shoal && shoal.distance < Math.min(near?.distance ?? Infinity, fireDist)) {
+    if (shoal && shoal.distance < closest) {
       const odds = fishOdds(shoal.shoal);
       return {
         label:
@@ -1353,23 +1366,19 @@ function boot() {
       };
     }
 
+    // ── the pet ──
+    // Care is a world interaction like any other, on the same distance rule,
+    // so tending it never fights with picking something up — or, now, with the
+    // tree you are standing at.
     const otterDist = Math.hypot(pet.position.x - ctrl.position.x, pet.position.z - ctrl.position.z);
-    if (otterDist < OTTER.followRange * 0.8) {
+    if (otterDist < OTTER.followRange * 0.8 && otterDist < closest) {
       // A wild pet has one thing you can do to it. A tame one has a dozen,
       // which is a menu rather than a keybind.
       const label = pet.tame
         ? `<b>E</b>  ${petName()}`
         : `<b>E</b>  offer the pet something`;
-      if (otterDist < Math.min(near?.distance ?? Infinity, fireDist)) {
-        return { label, run: () => (pet.tame ? openPetMenu() : tendPet()) };
-      }
+      return { label, run: () => (pet.tame ? openPetMenu() : tendPet()) };
     }
-
-    const mine = structures.nearest(ctrl.position);
-    const source = harvest.nearestSource(scatterColliders, ctrl.position, STRUCTURES.useRange, totalHours);
-    const mineDist = mine ? mine.distance : Infinity;
-    const sourceDist = source ? source.distance : Infinity;
-    const closest = Math.min(near?.distance ?? Infinity, fireDist, mineDist, sourceDist);
 
     if (mine && mineDist === closest) {
       const s = mine.structure;
@@ -1645,6 +1654,26 @@ function boot() {
    * `preserveDrawingBuffer` the buffer is gone the moment we yield.
    */
   function captureFrame(name, quality = 0.82) {
+    // ── a blind pane still has to be able to take a photograph ──
+    //
+    // An unattended run drives the game from a HIDDEN browser pane, because
+    // that is the only way to hold a session open while nobody is watching. A
+    // hidden pane reports `window.innerWidth` and `innerHeight` as 0, `syncSize`
+    // clamps that to `Math.max(1, …)`, and the renderer sits at 1×1 — so every
+    // screenshot taken this way was ONE GREY PIXEL, written out as a 761-byte
+    // JPEG and reported as "saved". Measured on this run: `capture('stalk-25m')`
+    // returned success and produced 761 bytes beside real shots of 200–370 KB.
+    //
+    // That is worth more than it looks. `capture()` is the only way anybody on
+    // this project ever sees the game — the brief says so in as many words — and
+    // it has been silently blind in exactly the workflow the brief prescribes.
+    //
+    // The size is forced only for the one frame the photograph needs, so a
+    // visible window is completely unaffected and nothing pays for a resolution
+    // it is not using.
+    const el = renderer.domElement;
+    const blind = el.width < 320 || el.height < 240;
+    if (blind) shotSize = { w: 1280, h: 720 };
     try {
       stepWorld(1 / 60);
       const url = renderer.domElement.toDataURL('image/jpeg', quality);
@@ -1656,6 +1685,12 @@ function boot() {
         .catch(() => `${name}: no sink`);
     } catch (err) {
       return Promise.resolve(`${name}: ${err.message}`);
+    } finally {
+      // Hand the window back its own size, whatever happened above.
+      if (blind) {
+        shotSize = null;
+        syncSize();
+      }
     }
   }
 
@@ -1961,9 +1996,13 @@ function boot() {
    * changes and anything else that moves the viewport without an event.
    */
   const _size = new THREE.Vector2();
+  // While a shot is being taken this holds the size to render at, overriding a
+  // window that has no size to report. See `captureFrame`.
+  let shotSize = null;
+
   function syncSize() {
-    const w = Math.max(1, window.innerWidth);
-    const h = Math.max(1, window.innerHeight);
+    const w = shotSize ? shotSize.w : Math.max(1, window.innerWidth);
+    const h = shotSize ? shotSize.h : Math.max(1, window.innerHeight);
     renderer.getSize(_size);
     if (_size.x === w && _size.y === h) return;
     camera.aspect = w / h;

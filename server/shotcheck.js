@@ -13,7 +13,7 @@
 //
 // So this one is deliberately end to end and deliberately dumb about internals:
 // it starts a REAL server as a child process, connects two REAL sockets, steers
-// one of them to face the other by sending look deltas the way a keyboard does,
+// one of them to face the other by sending look deltas the way a mouse does,
 // holds `primary` for a full draw, lets go, and then asks the server — through
 // its own snapshots — whether an arrow existed and what happened to it.
 //
@@ -28,7 +28,7 @@ import {
   S_WELCOME, S_SNAPSHOT, S_JOIN, S_LEAVE,
   encode, decode,
 } from '../src/net/protocol.js';
-import { PLAYER, BOW } from '../src/config.js';
+import { PLAYER, BOW, ARROW } from '../src/config.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.argv[2] ?? 8099);
@@ -47,6 +47,7 @@ class WireClient {
     this.name = name;
     this.id = null;
     this.me = null; // where the server says I am
+    this.meTick = -1; // which tick that was, so a loop can wait for a fresh one
     this.others = new Map(); // id -> last snapshot of them
     this.events = []; // everything the server said happened
     this.projectiles = []; // every arrow the server showed me, as it flew
@@ -67,6 +68,7 @@ class WireClient {
         } else if (msg.type === S_SNAPSHOT) {
           const s = msg.data;
           this.me = s.me ?? this.me;
+          this.meTick = s.t;
           for (const p of s.pl ?? []) this.others.set(p.id, p);
           for (const e of s.ev ?? []) this.events.push(e);
           for (const pr of s.pr ?? []) this.projectiles.push({ t: s.t, p: pr.p, v: pr.v });
@@ -99,10 +101,9 @@ const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const yawTo = (x, z, tx, tz) => Math.atan2(-(tx - x), -(tz - z));
 
 /** Drive both clients in REAL time. The server ticks on a wall clock. */
-async function driveFor(ms, clients, each = null) {
+async function driveFor(ms, clients) {
   const t0 = Date.now();
   while (Date.now() - t0 < ms) {
-    each?.((Date.now() - t0) / 1000);
     for (const c of clients) c.sendIntent();
     await sleep(1000 / 30);
   }
@@ -131,34 +132,99 @@ async function main() {
   check('two clients joined over a socket', archer.id !== null && target.id !== null,
     `#${archer.id} archer, #${target.id} target`);
 
-  // ── aim ──
-  // Steer with look deltas, the way a mouse does. The server owns the yaw and
-  // reports it back; this reads it and corrects, so it is a real control loop
-  // over the wire rather than a teleport.
   const them = () => archer.others.get(target.id);
-  const t0 = them();
-  check('the archer can see the target', !!t0,
-    t0 ? `${Math.hypot(t0.p[0] - archer.me.p[0], t0.p[2] - archer.me.p[2]).toFixed(1)} m away` : 'nobody there');
-
-  await driveFor(1500, [archer, target], () => {
+  const aimError = () => {
     const t = them();
-    if (!t || !archer.me) return;
-    const want = yawTo(archer.me.p[0], archer.me.p[2], t.p[0], t.p[2]);
-    // `targetYaw -= lookYaw`, so turning left is a negative delta.
-    archer.intent.lookYaw = -wrap(want - archer.me.y) * 0.4;
-    // And level, because the aim starts wherever the spawn left it.
-    // `targetPitch -= lookPitch`, same as yaw — the first run of this file got
-    // that sign backwards, drove the aim to 89° down, and reported "the press
-    // never crossed the wire" when it had simply been shooting at its own boots.
-    archer.intent.lookPitch = archer.me.t * 0.4;
-  });
+    if (!t || !archer.me) return Math.PI;
+    return wrap(yawTo(archer.me.p[0], archer.me.p[2], t.p[0], t.p[2]) - archer.me.y);
+  };
 
-  const t1 = them();
-  const aimErr = t1 && archer.me
-    ? Math.abs(wrap(yawTo(archer.me.p[0], archer.me.p[2], t1.p[0], t1.p[2]) - archer.me.y))
-    : Math.PI;
-  check('the server turned the archer to face them', aimErr < 0.08,
-    `${(aimErr * 57.3).toFixed(1)}° off, pitch ${(archer.me.t * 57.3).toFixed(1)}°`);
+  /**
+   * How far ABOVE level to hold, to put the arrow in the middle of them.
+   *
+   * Not zero, and assuming zero is what made this check miss every shot at
+   * 10 m while hitting at 3. Two reasons the aim is not flat: the ground is a
+   * hillside, so backing away changes your height relative to theirs, and an
+   * arrow falls — ARROW.gravity is 12.5, which is about 0.1 m over this range.
+   * Both are small at spawn distance and neither is small at ten metres.
+   */
+  const pitchWanted = () => {
+    const t = them();
+    if (!t || !archer.me) return 0;
+    const d = Math.hypot(t.p[0] - archer.me.p[0], t.p[2] - archer.me.p[2]);
+    if (d < 0.5) return 0;
+    const eyeY = archer.me.p[1] + PLAYER.eyeHeight;
+    const aimY = t.p[1] + PLAYER.eyeHeight * 0.5; // the middle of them, not their feet
+    const flight = d / BOW.maxSpeed;
+    const drop = 0.5 * ARROW.gravity * flight * flight;
+    return Math.atan2(aimY - eyeY + drop, d);
+  };
+
+  // ── aiming over a wire, which is harder than it looks ──
+  //
+  // Two rates and an accumulator, and every naive controller here oscillates.
+  // `targetYaw -= lookYaw` ACCUMULATES; the yaw you are told about lags behind
+  // it through the look smoothing; and `me` refreshes at the 20 Hz snapshot
+  // rate while intents go out at 30. Re-applying the whole remaining error
+  // every tick therefore stacks corrections for a turn already under way, AND
+  // applies each stale reading about one and a half times. Done that way the
+  // aim ended up 38° wide with the pitch 67° in the air.
+  //
+  // So: ONE correction per FRESH look at yourself, then hands off while it
+  // settles. Which is what a hand on a mouse actually does.
+  const cap = 0.34; // the per-tick look clamp in sanitiseIntent, less a hair
+  const clampLook = (v) => Math.max(-cap, Math.min(cap, v));
+  const freshMe = async () => {
+    const seen = archer.meTick;
+    for (let i = 0; i < 40 && archer.meTick === seen; i++) await sleep(5);
+  };
+  const nudge = async (dyaw, dpitch) => {
+    archer.intent.lookYaw = dyaw;
+    archer.intent.lookPitch = dpitch;
+    archer.sendIntent(); // sendIntent clears both, so everything after sends zero
+    target.sendIntent();
+    await freshMe();
+  };
+  const aim = async (tolerance, passes) => {
+    for (let i = 0; i < passes; i++) {
+      const err = aimError();
+      const pErr = archer.me.t - pitchWanted();
+      if (Math.abs(err) < tolerance && Math.abs(pErr) < tolerance) return;
+      await nudge(clampLook(-err), clampLook(pErr));
+      if (Math.abs(err) < cap) await driveFor(300, [archer, target]); // let it settle
+    }
+  };
+
+  // Point at them while they are still close, where a couple of degrees cannot
+  // miss — a person is 0.42 m wide, so at 3 m the tolerance is a whole 8°.
+  await aim(0.004, 40);
+
+  // ── then open the range, walking straight backwards ──
+  //
+  // An arrow covers 3.3 m in 45 ms and snapshots are 50 ms apart, so at spawn
+  // range whether ANY snapshot catches the shaft in flight is a coin toss: this
+  // check passed 8/8 when it was written and 6/8 on the very next run, purely
+  // from that. Backing off puts three or four snapshots inside the flight.
+  //
+  // Backwards, specifically: retreating along the line of sight leaves the
+  // bearing to them exactly unchanged, so the aim above survives the walk.
+  archer.intent.forward = -1;
+  await driveFor(3000, [archer, target]);
+  archer.intent.forward = 0;
+  await driveFor(400, [archer, target]);
+  await aim(0.004, 12);
+
+  const t0 = them();
+  const range = t0 ? Math.hypot(t0.p[0] - archer.me.p[0], t0.p[2] - archer.me.p[2]) : 0;
+  check('the archer backed off to a range a snapshot can see', !!t0 && range > 6,
+    t0 ? `${range.toFixed(1)} m away — ${((range / 74) * 20).toFixed(1)} snapshots of flight` : 'nobody there');
+
+  const aimErr = Math.abs(aimError());
+  const pitchErr = Math.abs(archer.me.t - pitchWanted());
+  check('the server turned the archer to face them', aimErr < 0.02 && pitchErr < 0.02,
+    `${(aimErr * 57.3).toFixed(2)}° wide, ${(pitchErr * 57.3).toFixed(2)}° high — ` +
+      `${(Math.sin(aimErr) * range).toFixed(2)} m of lateral miss, against a 0.42 m body ` +
+      `(holding ${(archer.me.t * 57.3).toFixed(2)}° for ${range.toFixed(1)} m)`);
 
   // ── draw, and let go ──
   const feetY = archer.me.p[1];
