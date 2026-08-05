@@ -674,10 +674,29 @@ export class SimWorld {
  * The weapon system asks a camera for its aim. There is no camera on a server,
  * so this supplies the same interface from the body's own yaw and pitch — which
  * is what the camera was reporting anyway.
+ *
+ * THE EYE, NOT THE FEET. `ctrl.position` is the ground under you; the browser's
+ * real camera sits `ctrl.eyeHeight` above it, and a bow loosed from the ankles
+ * puts its arrow into the hill 0.55 m in front of the archer on the very first
+ * frame. Measured, in exactly those terms: archer standing on ground at 46.85,
+ * arrow spawned at 46.85, landed at 45.90 — buried, `landed: true`, dropped
+ * from the snapshot's `pr`, no hit, no glance, no event of any kind.
+ *
+ * That one missing 1.72 m is the whole of "a browser client's shot never
+ * reaches the server". It reached the server perfectly. The server shot the
+ * ground. It applied to every remote player, every rival hunter and every
+ * agent — everyone whose weapons are driven by this proxy instead of a camera —
+ * which is also the likeliest reason a fleet of agents has never brought home
+ * a single hide.
  */
 function makeAimProxy(ctrl) {
+  const eye = new THREE.Vector3();
   return {
-    position: ctrl.position,
+    // A live view rather than a copy: weapons read this at the moment they
+    // fire, and the body has usually moved since the proxy was built.
+    get position() {
+      return eye.copy(ctrl.position).setY(ctrl.position.y + ctrl.eyeHeight);
+    },
     up: new THREE.Vector3(0, 1, 0),
     getWorldDirection(out) {
       const cp = Math.cos(ctrl.pitch);

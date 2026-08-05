@@ -162,8 +162,14 @@ export function createSimWorld({ seed = SEED, hours = TIME.startHour } = {}) {
  * is what the camera was reporting anyway.
  */
 function makeAimProxy(ctrl) {
+  const eye = new THREE.Vector3();
   return {
-    position: ctrl.position,
+    // THE EYE, NOT THE FEET — see the long note on the twin of this function in
+    // sim/world.js. `ctrl.position` is the ground under you, so an arrow loosed
+    // from here buries itself in the hill on the first frame.
+    get position() {
+      return eye.copy(ctrl.position).setY(ctrl.position.y + ctrl.eyeHeight);
+    },
     up: new THREE.Vector3(0, 1, 0),
     getWorldDirection(out) {
       const cp = Math.cos(ctrl.pitch);
