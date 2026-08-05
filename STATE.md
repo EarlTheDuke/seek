@@ -6,25 +6,35 @@ under a hundred lines. **Update it at the end of every run.** If it grows past
 that, cut the oldest resolved things rather than letting it become another
 archive.
 
-Last updated: 2026-08-05 15:00, by the session that found queue #1 was NOT a
-one-liner — food and core temperature cannot be taken from the server until the
-server's copy of you stops living in a different world. Half of that is now
-fixed: your fire reaches the server.
+Last updated: 2026-08-05 15:45, by the session that closed queue #1 — a fire is
+now one fire, in one world, that everybody can see, feel and feed.
 
 ## What works right now
 
-- **THE FIRE YOU LIGHT REACHES THE SERVER.** Until now `fires.light` was called
-  in `main.js` and nowhere else, so the body the server keeps for you had never
-  once had a fire — measured standing 1.54 m from one: 8.90 °C of warmth on the
-  client, none at all on the machine that owns your health. `C_FIRE` now carries
-  it up as ONE packet at the moment it catches (not through `intent.place` —
-  that is a one-frame edge against a rate-limited send, so it is dropped or
-  repeated). Watched from the server's own console: `* Claude's fire at -25.1,
-  89.0 — lit`, `1 fires`. `npm run firecheck` (**26/26**, new, needs no server)
-  drives the real `SimWorld` and the real `sampleEnvironment`: 0.00 → 5.46 °C.
-  The client is believed about the WOOD (it is yours and already spent); the
-  world is the authority on the GROUND. **Other players still cannot see it —
-  see the queue.**
+- **EVERYBODY SEES THE SAME FIRE, AND IT WARMS THEM.** The snapshot carries `fi`
+  (position + fuel; no height, the client has the same terrain from the same
+  seed) and `Fires.applyRemote` mirrors it, delivered RAW from `onSnapshot` like
+  `me.h` and `snap.c`. Watched in a browser with a second player on a real
+  socket: their fire on my screen 6.68 m away one packet after they lit it,
+  fuel counting down on the server's clock; standing 3 m from it, `fireWarmth`
+  **5.46 °C** and `effectiveC` 22.98 → **28.14**, against 0.00 forty metres away
+  in the same minute. Photographed: `shots/someone-elses-fire.jpg`. My own fire
+  is drawn the same frame as `pending`, appears in `snap.fi`, and is adopted
+  (`pending: false`) two packets later. **The fuel clock stands aside while
+  remote** — one authority — and the flicker, the light and the crackle stay
+  local because nobody else has to agree with them. `npm run firecheck`
+  (**57/57**, needs no server) drives both ends for real.
+- **FEEDING A FIRE GOES UP THE WIRE**, and had to: once the server owns the
+  fuel, `addFuel` in the browser is a number the next snapshot overwrites five
+  times a second. A `C_FIRE` claim that lands ON a fire (within the same 3 m
+  placement radius) is FUEL for it, one packet doing both, because from the
+  player's end lighting and feeding are one sentence. Watched: server fuel
+  19 → 63, one branch spent, client's number equal to the server's.
+- **THE FIRE YOU LIGHT REACHES THE SERVER.** `C_FIRE` carries it up as ONE
+  packet at the moment it catches (not through `intent.place` — a one-frame edge
+  against a rate-limited send, so it is dropped or repeated). The client is
+  believed about the WOOD (it is yours and already spent); the world is the
+  authority on the GROUND.
 - **It is the same time of day for everybody.** The snapshot's hour (`c`) has
   been sent since there have been snapshots and nothing ever read it; now
   `Atmosphere.applyRemote` takes it and the local clock stands aside while
@@ -60,13 +70,13 @@ fixed: your fire reaches the server.
   breath doing it and goes to ground where you can reach it.
 - **Everyone hunts the same animals**, arrows hit players, wounds persist, the
   cull is per-player, standing orders are obeyed. All suites green
-  (`companioncheck` **45**, `campcheck` 36, `glidercheck` 32, `netcheck` **24**,
-  `mindcheck`/`clockcheck` **21**, `deathcheck` 19,
+  (`firecheck` **57**, `companioncheck` 45, `campcheck` 36, `glidercheck` 32,
+  `netcheck` 24, `mindcheck`/`clockcheck` 21, `deathcheck` 19,
   `raidcheck`/`bookcheck`/`reportcheck` 18, `ordercheck` 17,
   `herdcheck`/`dangercheck`/`rendercheck` 12, `spreadcheck` 10, `shotcheck` 8,
-  `arrowcheck`/`woundcheck` 7, `firecheck` **26**). **`deathcheck`, `clockcheck`
-  and `firecheck` are new and are not in the standing check list yet — run
-  them.** None of the three needs a server.
+  `arrowcheck`/`woundcheck` 7). **`deathcheck`, `clockcheck` and `firecheck` are
+  still not in the standing check list in this file's own instructions — run
+  them anyway.** None of the three needs a server.
 - The picture fits the window at any scaling; a fire can be seen and heard; the
   arrow's predicted impact is within 1–2 cm of a loosed one; the glider flies
   where you look; the client reads world events; chat is a column on the right;
@@ -74,11 +84,25 @@ fixed: your fire reaches the server.
 
 ## Recently closed — details in `FINDINGS.md` under the dated heading
 
+- **"NOBODY COULD SEE ANYBODY ELSE'S FIRE"** (15:40). Queue #1, closed both
+  directions. Carry forward, all three still load-bearing:
+  - **Reconciled by POSITION, not by id.** The server's fire ids are built from
+    a rounded position and the length of its own list, so they are not stable
+    across two worlds and matching on them would spawn a duplicate every packet.
+    1.5 m is unambiguous **because placement already refuses any fire within 3 m
+    of another** — if that 3 m rule ever changes, `REMOTE_MATCH` changes with it.
+  - **A fire you light is `pending` for `REMOTE_GRACE` 2.5 s.** Drawn instantly,
+    swept away if the server never lists it — which it genuinely does refuse,
+    because it can see somebody else's fire 2 m away that your browser cannot.
+  - **Owning a number on the server breaks whatever wrote it locally.** The fuel
+    was the case in point: feeding a fire would have silently done nothing. When
+    you make the server the authority on something, grep for every local writer
+    of it before you call the fix done.
 - **"THE FIX IS ONE LINE" WAS WRONG** (14:55), and the line would have starved
   everybody. Queue #1 said food and core temperature were one line beside
   `vitals.applyRemote(snap.me.h)`. Measured, it is not: the server's copy of you
-  has never had a fire and can never be fed. Half fixed — the fire goes up. The
-  rest, and why, is in the queue below and in `FINDINGS.md`.
+  has never had a fire and can never be fed. The fire half is now done both
+  ways, so **`me.c` is unblocked**; `me.f` is still blocked on the old #6.
 - **"THE CLIENT DREW ITS OWN DAYLIGHT"** (15:00). The browser never read
   `snap.c`, so it ticked the clock it booted with for ever. Fixed like the health
   and the position: `applyRemote`, a `remote` flag, `takeOverLocally`. Carry
@@ -179,6 +203,18 @@ fixed: your fire reaches the server.
 - **A fresh server does NOT clear the duplicate roster.** `[#1 Eachann, #4
   Eachann, #5 Morag]` is a name collision between the server's rival hunters and
   the `agents.js` pool, not stale state. Restarting to fix it is waste.
+- **`ctrl.position.set(...)` IS THE SAME TRAP AS `warp`, and it cost this run
+  three readings.** It is a fine way to put your camera where the thing is, and
+  it is fatal to anything the server must agree about: the server's copy of you
+  stays where it was, so your next claim arrives from a body 10 m — then 41 m —
+  away and is refused, and the refusal looks exactly like the fix being broken.
+  Re-align with `ctrl.position.set(...snap.me.p)` (also local, but it agrees) and
+  **print the split before believing anything positional**. `snap` is readable
+  live from `highlands.net.buffer[len-1].snap` — that one line settled it.
+- **The server's stdout does not reach a redirected log file promptly.** Its fire
+  log (`* Claude's fire at … — lit`) was invisible in the captured file all run.
+  Read the state from the CLIENT instead — `net.buffer[…].snap.fi` is the
+  server's own list, and it needs no console at all.
 - **`warp` is LOCAL, and it does not cancel a glide.** `updateFlight` rewrites
   `ctrl.position` every step, so step until `highlands.flight` is falsy before
   measuring. Refused in Survival (it *returns* the refusal as a string), and the
@@ -238,20 +274,20 @@ fixed: your fire reaches the server.
 
 ## The game queue, ranked
 
-1. **Nobody can see anybody else's fire.** The fire now reaches the server but is
-   still not in the snapshot, so a second player standing at your campfire sees
-   bare ground and is not warmed by it. Add `fi` to `snapshot()` and have clients
-   mirror it (`Fires.applyRemote`, the shape of `Vitals.applyRemote`), with the
-   local `light()` standing aside while remote so there is ONE authority. This is
-   also the last thing between here and #2.
-2. **Your food and core temperature are still your own opinion — and the fix is
-   NOT one line.** That claim was measured and it is wrong; see `FINDINGS.md`
-   2026-08-05 14:55. `me.c` becomes safe to read the moment #1 lands (one
-   authority for fires). **`me.f` does not**, and is blocked on #6: nothing can
-   ever feed the server's copy of you. `intent.eat` is on the wire and no handler
-   reads it, and the server's `p.inventory` is not your inventory — so reading
-   `me.f` today means eating does nothing (overwritten ~5×/s) and everybody
-   starves on a schedule they cannot touch. **Do not "just add the line".**
+1. **YOUR CORE TEMPERATURE IS NOW SAFE TO READ, AND STILL IS NOT READ.** This is
+   the top of the queue and it is genuinely small: `me.c` is in every snapshot,
+   and the one thing that made it a lie — the server's copy of you standing in a
+   world with no fire in it — is fixed in both directions as of 15:40. Give
+   `Body` the same `applyRemote`/`takeOverLocally` treatment for `coreC` that it
+   has for `health`, and check what else writes `coreC` locally before calling it
+   done (that is the lesson the fuel taught this run). **`me.f` is NOT part of
+   this** — see below.
+2. **Your food is still your own opinion, and the fix is NOT one line.** Blocked
+   on #6: nothing can ever feed the server's copy of you. `intent.eat` is on the
+   wire and no handler reads it, and the server's `p.inventory` is not your
+   inventory — so reading `me.f` today means eating does nothing (overwritten
+   ~5×/s) and everybody starves on a schedule they cannot touch. The route in is
+   an `intent.eat` handler plus a server-side inventory, not a read.
 3. **A stranded glider cannot be recovered.**
 4. `glider.js` samples ridge lift upwind with `(−sin, −cos)` of `wind.angle`
    while integrating flight in `(+sin, +cos)`. Establish which way `wind.angle`

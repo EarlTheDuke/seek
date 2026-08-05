@@ -386,6 +386,25 @@ export class SimWorld {
     if (!p) return { ok: false, why: 'no such player' };
     const d = Math.hypot(p.ctrl.position.x - x, p.ctrl.position.z - z);
     if (d > SURVIVAL.firePlaceDistance + 3) return { ok: false, why: 'too far from you to be yours' };
+
+    // ── a claim that lands ON a fire is FUEL, not a new fire ──
+    //
+    // The same packet does both, because from the player's end it is the same
+    // sentence: "I have put a branch on the ground here and set light to it."
+    // Placement already refuses anything within 3 m of another fire, so a claim
+    // inside that radius could never have been a new fire anyway — and once the
+    // server owns how long a fire burns, feeding one locally is a second
+    // opinion that the next snapshot silently overwrites. Without this branch,
+    // pressing E to feed a dying fire on a server would cost you the branch and
+    // do nothing at all.
+    for (const f of this.fires.active) {
+      if (Math.hypot(f.position.x - x, f.position.z - z) < 3) {
+        const before = f.fuel;
+        const now = fuel === undefined ? this.fires.addFuel(f) : this.fires.addFuel(f, fuel);
+        return { ok: true, fed: true, fuel: now, why: `fed — ${Math.round(before)} → ${Math.round(now)}` };
+      }
+    }
+
     return fuel === undefined ? this.fires.light(x, z) : this.fires.light(x, z, fuel);
   }
 
@@ -828,6 +847,23 @@ export class SimWorld {
       });
     }
 
+    // ── what is burning ──
+    //
+    // NOBODY COULD SEE ANYBODY ELSE'S FIRE. The fire reached the server one fix
+    // ago, so the server's copy of you is finally warm beside your own — and
+    // there it stopped, because nothing carried it back down. A second player
+    // walking into your camp saw bare ground, stood in the cold beside a fire
+    // that was heating somebody else, and could not cook on it or feed it.
+    //
+    // Position and fuel, and no height: the client has the same terrain from the
+    // same seed and computes `heightAt` itself, so sending y would be sending a
+    // number the other end already knows. Three numbers per fire, and there are
+    // never many — this is the cheapest entry in the whole snapshot.
+    const fires = [];
+    for (const f of this.fires.active) {
+      fires.push({ p: [round2(f.position.x), round2(f.position.z)], f: Math.round(f.fuel) });
+    }
+
     const projectiles = [];
     for (const pr of this.projectiles.items) {
       if (pr.landed) continue; // landed arrows are pickups, not flight
@@ -853,6 +889,8 @@ export class SimWorld {
       me,
       cr: creatures,
       co: companions,
+      // What is burning, for everybody. See the note where it is built.
+      fi: fires,
       pr: projectiles,
       // Drained by the caller, not here — snapshot() is called once per client
       // and clearing inside it would deliver each event to exactly one person.

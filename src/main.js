@@ -361,6 +361,13 @@ function boot() {
         // whatever it started at, which is how a browser drew a blue midday sky
         // while the server it was connected to was at 01:00 and sending so.
         atmosphere.applyRemote(snap.c);
+        // ── and what is burning ──
+        // Same channel, same reason. Until this, a fire existed on exactly one
+        // screen: you could stand in somebody's camp, in the dark, beside a
+        // fire that was warming them and see bare ground. See
+        // `Fires.applyRemote` — from here the server owns the whole list, so
+        // the local fuel clock stands aside and there is one authority.
+        fires.applyRemote(snap.fi);
       },
       onError: (m) => hud.toast(`server: ${m}`, 5),
       onStatus: (s) => {
@@ -370,6 +377,7 @@ function boot() {
         if (s !== 'connected') {
           vitals.takeOverLocally();
           atmosphere.takeOverLocally();
+          fires.takeOverLocally();
         }
       },
     };
@@ -1448,6 +1456,22 @@ function boot() {
    *
    * Resolution is by distance, so whatever you are closest to is what you get.
    */
+  /**
+   * Put a branch on a fire, and tell the server you did.
+   *
+   * ONE PACKET AND THE SAME PACKET as lighting one — `lightFireFor` treats a
+   * claim that lands on an existing fire as fuel for it, because from the
+   * player's end the two actions are one sentence. Needed the moment the server
+   * became the authority on how long a fire burns: without it `addFuel` here is
+   * a number the next snapshot overwrites five times a second, and feeding a
+   * dying fire on a server would cost you the branch and change nothing.
+   */
+  function feedFire(fire) {
+    fires.addFuel(fire);
+    net?.lightFire(fire.position.x, fire.position.z, SURVIVAL.fireFuelPerWood);
+    return 'fed the fire';
+  }
+
   function resolveInteraction() {
     const near = pickups.nearest; // set by pickups.update, carries .distance
     const fire = fires.nearest(ctrl.position, SURVIVAL.fireReach);
@@ -1604,8 +1628,7 @@ function boot() {
         label: '<b>E</b>  feed the fire',
         run: () => {
           inventory.remove('wood', 1);
-          fires.addFuel(fire);
-          return 'fed the fire';
+          return feedFire(fire);
         },
       };
     }
@@ -1624,8 +1647,7 @@ function boot() {
         label: '<b>E</b>  feed the fire',
         run: () => {
           inventory.remove('wood', 1);
-          fires.addFuel(fire);
-          return 'fed the fire';
+          return feedFire(fire);
         },
       };
     }

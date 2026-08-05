@@ -23,7 +23,9 @@
 // can execute. Needs no server.
 
 import { readFileSync } from 'node:fs';
+import * as THREE from 'three';
 import { SimWorld } from '../src/sim/world.js';
+import { Fires } from '../src/world/fires.js';
 import { sampleEnvironment } from '../src/world/environment.js';
 import { solarPosition } from '../src/world/sky.js';
 import { cleanFireClaim } from '../src/net/protocol.js';
@@ -135,9 +137,25 @@ const far = world.lightFireFor(1, at.x + 400, at.z, SURVIVAL.fireFuelPerWood);
 check('a fire claimed 400 m away is refused', far.ok === false, far.why);
 const nobody = world.lightFireFor(99, at.x + 1, at.z);
 check('and one from a player who is not here', nobody.ok === false, nobody.why);
-const stacked = world.lightFireFor(1, fx + 0.5, fz);
-check('and one laid on top of an existing fire', stacked.ok === false, stacked.why);
 check('none of those left anything in the world', world.fires.active.length === 1,
+  `${world.fires.active.length} fires`);
+
+// ── a claim laid ON a fire is FUEL ──────────────────────────────────────────
+//
+// It used to be refused, which was right while the client kept its own fuel:
+// the browser fed the fire locally and the server's copy was nobody's business.
+// It is wrong the moment the server owns how long a fire burns, because then
+// `addFuel` in the browser is a number the next snapshot overwrites five times
+// a second — pressing E to feed a dying fire would cost you the branch and
+// change nothing. One packet does both, because from the player's end lighting
+// and feeding are the same sentence.
+const fedFire = world.fires.active[0];
+const fuelBefore = fedFire.fuel;
+const fed = world.lightFireFor(1, fx + 0.5, fz, SURVIVAL.fireFuelPerWood);
+check('a claim laid on top of an existing fire feeds it', fed.ok === true && fed.fed === true, fed.why);
+check('and the fuel actually went up', fedFire.fuel > fuelBefore,
+  `${fuelBefore.toFixed(1)} → ${fedFire.fuel.toFixed(1)}`);
+check('and it did NOT become a second fire', world.fires.active.length === 1,
   `${world.fires.active.length} fires`);
 
 // A fire just inside the reach the browser uses must still be accepted — the
@@ -146,6 +164,139 @@ check('none of those left anything in the world', world.fires.active.length === 
 const edge = world.lightFireFor(1, at.x - SURVIVAL.firePlaceDistance - 1, at.z);
 check('a legal spot within reach is still accepted', edge.ok === true,
   edge.ok ? 'lit' : edge.why);
+
+// ── AND BACK DOWN: can anybody ELSE see it? ─────────────────────────────────
+//
+// NOBODY COULD SEE ANYBODY ELSE'S FIRE. Everything above is the trip UP — the
+// server's copy of you is warm beside your own fire. It stopped there: the
+// snapshot did not carry the fires, so a second player walking into your camp
+// stood in the dark on bare ground, unwarmed, beside a fire that was heating
+// somebody else.
+//
+// Driven against the real `Fires` on both ends. The receiving one is built with
+// a real `THREE.Scene`, which is what a browser gives it, and it needs no GL
+// context — the same trick `clockcheck` uses for `Atmosphere`.
+// Two of them by now — the fed one and the one the reach test lit — which is
+// worth having: a list of one cannot catch a reconcile that collapses the list.
+const BURNING = world.fires.active.length;
+const snap = world.snapshot(1);
+check('the snapshot carries the fires at all',
+  Array.isArray(snap.fi) && snap.fi.length === BURNING,
+  `fi ${JSON.stringify(snap.fi)}`);
+check('as a position and a fuel load, and no height the client can compute itself',
+  snap.fi[0].p.length === 2 && Number.isFinite(snap.fi[0].f),
+  JSON.stringify(snap.fi[0]));
+check('at the place the fire actually is',
+  Math.hypot(snap.fi[0].p[0] - fedFire.position.x, snap.fi[0].p[1] - fedFire.position.z) < 0.01,
+  `${snap.fi[0].p} vs ${fedFire.position.x.toFixed(2)}, ${fedFire.position.z.toFixed(2)}`);
+
+/** The other player's browser: its own world, and not one fire in it. */
+const theirs = new Fires(new THREE.Scene(), {});
+check('the second player starts with bare ground', theirs.active.length === 0);
+const theirEnvBefore = sampleEnvironment(fedFire.position, {
+  hours: world.clock.hours,
+  sunAltitude: solarPosition(world.clock.hours).altitude,
+  weather: world.weather,
+  fires: theirs,
+});
+check('and is cold standing on the exact spot', theirEnvBefore.fireWarmth === 0,
+  `fireWarmth ${theirEnvBefore.fireWarmth.toFixed(2)} °C`);
+
+theirs.applyRemote(snap.fi);
+check('ONE packet later they can see it', theirs.active.length === BURNING,
+  `${theirs.active.length} of ${BURNING} fires`);
+check('in the same square metre of the same world',
+  Math.hypot(theirs.active[0].position.x - fedFire.position.x,
+             theirs.active[0].position.z - fedFire.position.z) < 0.01,
+  `${theirs.active[0].position.x.toFixed(2)}, ${theirs.active[0].position.z.toFixed(2)}`);
+check('standing on the ground the server generated, not floating over it',
+  Math.abs(theirs.active[0].position.y - fedFire.position.y) < 0.01,
+  `y ${theirs.active[0].position.y.toFixed(2)} vs ${fedFire.position.y.toFixed(2)}`);
+const theirEnvAfter = sampleEnvironment(fedFire.position, {
+  hours: world.clock.hours,
+  sunAltitude: solarPosition(world.clock.hours).altitude,
+  weather: world.weather,
+  fires: theirs,
+});
+check('AND IT WARMS THEM — which is the whole point', theirEnvAfter.fireWarmth > 2,
+  `fireWarmth ${theirEnvBefore.fireWarmth.toFixed(2)} → ${theirEnvAfter.fireWarmth.toFixed(2)} °C`);
+check('and they know they are beside one', !!theirEnvAfter.nearFire);
+
+// ── and it stays ONE fire, packet after packet ──────────────────────────────
+//
+// The reconcile matches on POSITION, not on id: the server builds its ids from
+// a rounded position and the length of its own list, so they are not stable
+// across two worlds and matching on them would spawn a duplicate every packet
+// — five a second, for ever.
+theirs.applyRemote(world.snapshot(1).fi);
+theirs.applyRemote(world.snapshot(1).fi);
+check('the same fires arriving again are the same fires', theirs.active.length === BURNING,
+  `${theirs.active.length} fires after three packets, ${BURNING} burning`);
+const nudged = world.snapshot(1).fi.map((e) => ({ ...e, p: [e.p[0] + 0.4, e.p[1] - 0.3] }));
+theirs.applyRemote(nudged);
+check('and half a metre of jitter does not make a second set', theirs.active.length === BURNING,
+  `${theirs.active.length} fires`);
+
+// ── the fuel is the server's, not theirs ────────────────────────────────────
+theirs.applyRemote([{ p: [fedFire.position.x, fedFire.position.z], f: 120 }]);
+check('and a shorter list drops the ones it no longer names', theirs.active.length === 1,
+  `${theirs.active.length} fires`);
+check('the fuel that arrives is the fuel they hold', theirs.active[0].fuel === 120,
+  `fuel ${theirs.active[0].fuel}`);
+const heldFuel = theirs.active[0].fuel;
+for (let i = 0; i < 60 * 30; i++) theirs.update(STEP, world.weather);
+check('and thirty seconds of their own clock does not touch it',
+  theirs.active[0].fuel === heldFuel,
+  `fuel ${theirs.active[0].fuel} after 30 s — the local burn must stand aside`);
+theirs.takeOverLocally();
+for (let i = 0; i < 60 * 30; i++) theirs.update(STEP, world.weather);
+check('until the socket drops, and then it is theirs again',
+  theirs.active[0].fuel < heldFuel,
+  `fuel ${heldFuel} → ${theirs.active[0].fuel.toFixed(1)}`);
+
+// ── a fire the server stops mentioning is out ───────────────────────────────
+theirs.applyRemote(world.snapshot(1).fi);
+theirs.applyRemote([]);
+check('a fire the server no longer lists is taken away', theirs.active.length === 0,
+  `${theirs.active.length} fires`);
+
+// ── the one you light yourself, in the moment before the answer ─────────────
+//
+// The packet that confirms it was already in flight when it caught, so a fire
+// lit here must be drawn immediately and must not be swept away by the very
+// next snapshot — but it must not burn here for ever either if the server
+// refused it, which it can: the server sees a fire 2 m away that this browser
+// cannot.
+const mine = new Fires(new THREE.Scene(), {});
+mine.applyRemote([]); // connected, nothing burning yet
+const own = mine.light(fx, fz, SURVIVAL.fireFuelPerWood);
+check('a fire you light on a server appears at once', own.ok === true && mine.active.length === 1);
+check('and is held as unanswered-for', own.fire.pending === true);
+mine.applyRemote([]); // the packet in flight, which cannot know about it yet
+check('the packet already in flight does not sweep it away', mine.active.length === 1,
+  `${mine.active.length} fires`);
+mine.applyRemote([{ p: [fx, fz], f: SURVIVAL.fireFuelPerWood }]);
+check('the next one adopts it', mine.active.length === 1 && mine.active[0].pending === false);
+
+const refused = new Fires(new THREE.Scene(), {});
+refused.applyRemote([]);
+refused.light(fx, fz, SURVIVAL.fireFuelPerWood);
+for (let i = 0; i < 60 * 4; i++) refused.update(STEP, world.weather);
+refused.applyRemote([]);
+check('but a fire the server never answers for stops being drawn',
+  refused.active.length === 0, `${refused.active.length} fires after 4 s unanswered`);
+
+// ── and none of this happens in single player ───────────────────────────────
+const alone = new Fires(new THREE.Scene(), {});
+const soloFire = alone.light(fx, fz, SURVIVAL.fireFuelPerWood).fire;
+check('a single-player fire is never pending', soloFire.pending === false);
+for (let i = 0; i < 60 * 30; i++) alone.update(STEP, world.weather);
+check('and burns down on its own clock exactly as it always did',
+  soloFire.fuel < SURVIVAL.fireFuelPerWood && alone.active.length === 1,
+  `fuel ${SURVIVAL.fireFuelPerWood} → ${soloFire.fuel.toFixed(1)}`);
+check('and nothing that arrives is garbage the client acts on',
+  (alone.applyRemote(null), alone.applyRemote(undefined), alone.remote === false),
+  `remote ${alone.remote}`);
 
 // ── the packet boundary ─────────────────────────────────────────────────────
 //
@@ -182,6 +333,17 @@ check('the client sends it as one packet, not through the intent',
 check('the server has a case for it', /case C_FIRE:/.test(serverSrc));
 check('which sanitises before it believes',
   /cleanFireClaim\(msg\.data\)[\s\S]{0,200}?world\.lightFireFor\(/.test(serverSrc));
+
+// ── and the wiring for the trip back DOWN ──
+const snapHandler = (mainSrc.match(/onSnapshot: \(snap\) => \{[\s\S]*?\n      \},/) ?? [''])[0];
+check('the browser reads the fires out of the snapshot',
+  /fires\.applyRemote\(snap\.fi\)/.test(snapHandler), snapHandler ? 'handler found' : 'NO onSnapshot handler');
+check('and takes them back when the socket drops',
+  /if \(s !== 'connected'\) \{[\s\S]{0,300}?fires\.takeOverLocally\(\)/.test(mainSrc));
+check('feeding a fire goes up the wire too',
+  /function feedFire\([\s\S]{0,400}?net\?\.lightFire\(fire\.position\.x, fire\.position\.z/.test(mainSrc));
+check('and every feed goes through it, none left writing only locally',
+  !/inventory\.remove\('wood', 1\);\s*\n\s*fires\.addFuel\(/.test(mainSrc));
 
 const passed = results.filter(Boolean).length;
 console.log(`\n  ${passed}/${results.length}\n`);

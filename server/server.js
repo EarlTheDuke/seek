@@ -220,7 +220,7 @@ wss.on('connection', (ws, req) => {
         // theory before the line was added.
         console.log(
           `  ${r.ok ? '*' : '~'} ${client.name}'s fire at ` +
-            `${claim.x.toFixed(1)}, ${claim.z.toFixed(1)} — ${r.ok ? 'lit' : r.why}`
+            `${claim.x.toFixed(1)}, ${claim.z.toFixed(1)} — ${r.why ?? 'lit'}`
         );
         break;
       }
