@@ -53,10 +53,15 @@ apart, 75 alive, nearest animal 117.0 m and 129.4 m.
 - **A fresh server does NOT clear the duplicate roster.** `[#1 Eachann, #4
   Eachann, #5 Morag]` is a name collision between the server's own rival hunters
   and the `agents.js` name pool, not stale state. Restarting to fix it is waste.
-- **Stale processes ARE worth checking.** Five orphaned `agents.js` were still
-  running from earlier sessions, all ready to rejoin. Find them with
+- **Stale processes ARE worth checking, and here is where they come from.** A
+  server started as a background command is torn down at the end of the agent
+  turn — but not always cleanly: this run's `agents.js` died with the wrapper
+  while `server.js` survived it, kept port 8080, and went on ticking into a
+  closed stdout pipe (log frozen, process alive). That is the orphan the next
+  session inherits. Five of them were waiting this morning. Find them with
   `wmic process where "name='node.exe'" get processid,commandline` — the port
-  check alone does not see them.
+  check alone does not see the agents at all — and **kill them at the end of
+  your own run**, not just the start.
 - **`warp` is client-only and silently refused in Survival** (it *returns* the
   refusal as a string). Even in Sandbox the server never hears about it: a
   browser sends intents, not positions. Any multiplayer measurement taken after
@@ -86,6 +91,12 @@ a source edit bounces it to the menu via Vite's reload.
 7. **Companions do not exist in multiplayer** — `Companion` appears 0 times in
    `sim/world.js`.
 8. **A stranded glider cannot be recovered.**
+
+**Unmeasured, seen in passing, worth one run:** over ~24 game minutes with 4
+players the server's population drifted 68 → 37 (cap 120, so not the cap) across
+02:00–05:00. Daybreak retiring the night shift would explain it, and so would
+`clearedSites` slowly sterilising ground on a long run. I did not test which, so
+do not repeat it as fact. `server.log` for the run is gone with the process.
 
 Also measured: **animals graze on steep convex slopes and under canopy**, so a
 blind-aimed `capture` of one mostly photographs a hillside — four tries, no deer
