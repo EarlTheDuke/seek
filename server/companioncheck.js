@@ -246,6 +246,47 @@ copy.applyRelationship(JSON.parse(JSON.stringify(source.relationship())));
 check('a digest survives the round trip',
   copy.name === 'Bess' && copy.learned.has('wallow') && copy.isOn('guard') && Math.abs(copy.trust - 0.8) < 0.01,
   `${copy.name}, trust ${copy.trust.toFixed(2)}, knows ${[...copy.learned].join(', ')}`);
+// ── the owner watching their OWN animal fight ──
+//
+// The other half of the same bug. The copy above fights for a person it has
+// never met, so everybody on the server sees the fight — except the owner, who
+// draws the real animal from their own simulation and never ran the line that
+// starts a fight. `defend` cannot be that line: it is a DECISION, and it refuses
+// on trust and on standing orders, so on a connected client it would be asked a
+// second question the server has already answered. `mirrorFight` is the answer
+// being delivered instead of asked for.
+const own = make('wolfcub');                       // untamed, guard off
+const boar = { position: at(310, 200), state: 'charge', species: { name: 'Boar' }, remote: true };
+check('the gate that stops `defend` does not stop the server\'s word',
+  !own.defend(boar) && own.mirrorFight(boar) === true && own.state === 'attack',
+  `defend refused at trust ${own.trust.toFixed(2)}, mirrorFight did not`);
+check('and the animal is pointed at the body the packet named', own.target === boar,
+  `target is the ${own.target?.species?.name?.toLowerCase() ?? 'nothing'}`);
+const wasAway = own.dist(boar.position);
+run(own, 1.2);
+const nowAway = own.dist(boar.position);
+check('it closes on the quarry under its own legs', nowAway < wasAway - 1,
+  `${wasAway.toFixed(1)} m -> ${nowAway.toFixed(1)} m in 1.2 s`);
+check('saying the same thing twice does not restart the lunge', own.mirrorFight(boar) === false,
+  `still ${own.state}, stateTime ${own.stateTime.toFixed(2)} s`);
+// Reaching it must draw blood, or this is a mime.
+run(own, 4);
+check('and it bites when it gets there', own.pendingBite === boar || own.dist(boar.position) < own.care_.biteRange + 0.5,
+  own.pendingBite ? `pendingBite is the ${boar.species.name.toLowerCase()}` : `${own.dist(boar.position).toFixed(2)} m away`);
+// And when the server lets go, so does this — otherwise the owner's animal
+// chases a mirrored body on its own authority and the two disagree again.
+check('the server calling it off calls it off here', own.stopMirroredFight() && own.state === 'follow' && own.target === null,
+  `state ${own.state}`);
+check('and calling off a fight that is not happening is not an event', own.stopMirroredFight() === false, own.state);
+check('a dead quarry is never taken up', own.mirrorFight({ ...boar, state: 'dead' }) === false, own.state);
+// The one that cost a browser run: the fight was 417 m away, because a client
+// keeps its own position and the server's copy of the same body was elsewhere.
+// Five toasts, five lunges, nothing within sight.
+const overTheHorizon = { position: at(710, 200), state: 'charge', species: { name: 'Goblin' }, remote: true };
+check('a fight over the horizon is not this animal\'s fight',
+  own.mirrorFight(overTheHorizon) === false && own.state !== 'attack',
+  `${own.dist(overTheHorizon.position).toFixed(0)} m away, giveUpRange is ${own.care_.giveUpRange}`);
+
 // A mirror heels whether or not it likes you: two untamed copies wandering on
 // two machines diverge without limit, and the owner would watch their animal
 // stand still while everyone else watched it walk into the next glen.

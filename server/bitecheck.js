@@ -165,6 +165,36 @@ async function main() {
     }
   };
 
+  // ── and what ALICE's own stream says about her own animal ──
+  //
+  // Everything above is read from Bob, deliberately. But Alice is the one person
+  // who could not see any of it: she draws the REAL animal out of her own
+  // simulation, and the line that starts a fight — `onAttack`, the only caller of
+  // `pet.defend` — lives in a wildlife simulation a connected client does not
+  // run. Her cub sat in `follow` for the whole eight seconds the server's copy
+  // spent killing goblins.
+  //
+  // So her client has to be TOLD, which means the snapshot must say what the
+  // animal is fighting and not merely that it is. `g` is that: one creature id,
+  // and only while there is a fight. This reads it out of her stream.
+  const own = { attackSeen: false, quarry: null, quarryKind: null, calmWithQuarry: [] };
+  owner.onSnapshot = (s) => {
+    const pet = s.co?.find((c) => c.o === owner.id);
+    if (!pet) return;
+    if (pet.s === 'attack') {
+      own.attackSeen = true;
+      if (pet.g != null && own.quarry === null) {
+        own.quarry = pet.g;
+        // The quarry has to be a body she is ALREADY DRAWING, or there is
+        // nothing on her machine to point the animal at. `cr` is exactly that
+        // list, in the same packet.
+        own.quarryKind = s.cr?.find((c) => c.i === pet.g)?.k ?? null;
+      }
+    } else if (pet.g !== undefined) {
+      own.calmWithQuarry.push(pet.s);
+    }
+  };
+
   // Bob walks off. He is a witness, not a combatant — and a second body
   // standing in the ring is counted by the pack as opposition, which is exactly
   // the arithmetic that makes goblins refuse a fight. This happens AFTER the
@@ -210,6 +240,16 @@ async function main() {
           : 'no goblin ever lost hit points');
   check('the bite is the cub\'s, by range', !!seen.goblinHurt && seen.goblinHurt.petDistance < 6,
         seen.goblinHurt ? `${seen.goblinHurt.petDistance.toFixed(1)} m — biteRange is 2.0` : '-');
+
+  // ── and the owner is told, in her own stream ──
+  check('THE OWNER\'S OWN SNAPSHOT NAMES WHAT HER ANIMAL IS FIGHTING', own.quarry !== null,
+        own.quarry !== null ? `creature #${own.quarry}`
+          : own.attackSeen ? 'she saw the attack state but no quarry id' : 'her stream never showed a fight');
+  check('and the quarry is a body she is already drawing', own.quarryKind === 'goblin',
+        own.quarryKind ? `#${own.quarry} is a ${own.quarryKind} in the same packet's cr` : 'not in cr at all');
+  check('and nothing is said while the animal is calm', own.calmWithQuarry.length === 0,
+        own.calmWithQuarry.length ? `a quarry id arrived in state ${[...new Set(own.calmWithQuarry)].join('/')}`
+                                  : 'the field only exists during a fight');
 
   owner.close();
   watcher.close();

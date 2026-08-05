@@ -49,7 +49,7 @@ import { Fires } from './world/fires.js';
 import { Sites } from './world/sites.js';
 import { Caves } from './world/caves.js';
 import { Structures, Harvest, BUILDABLE } from './world/structures.js';
-import { Companion } from './creatures/companion.js';
+import { Companion, ATTACK as COMPANION_ATTACK } from './creatures/companion.js';
 import { COMPANIONS, COMPANION_IDS } from './creatures/companions.js';
 import { Fish } from './world/fish.js';
 import { buildBook, amountText } from './ui/book.js';
@@ -2301,8 +2301,16 @@ function boot() {
     if (pet.pendingBite) {
       const victim = pet.pendingBite;
       pet.pendingBite = null;
-      const zone = victim.species?.hitZones?.find((z) => z.name === 'body');
-      victim.applyDamage?.(OTTER.biteDamage, zone, pet.position);
+      // On a server the bite has ALREADY landed — `stepCompanion` resolves it
+      // there and the next snapshot brings the hit points back down. Doing it
+      // here as well would take the damage off a mirrored body whose hp is
+      // overwritten from the packet a frame later anyway, and could bury a
+      // goblin the server still has standing. The teeth are real either way;
+      // who does the arithmetic is the only question.
+      if (!(net && net.connected)) {
+        const zone = victim.species?.hitZones?.find((z) => z.name === 'body');
+        victim.applyDamage?.(OTTER.biteDamage, zone, pet.position);
+      }
     }
     if (pet.says) audio.otterCall?.(pet.position, pet.says);
     if (pet.forgot) {
@@ -2340,6 +2348,35 @@ function boot() {
           sunAltitude: atmosphere.elevation,
           weather,
         });
+        // ── and OUR OWN animal's fight, from the same packet ──
+        //
+        // THE BUG. The owner was the one person in the world who could not see
+        // their own animal defend them. `pet.defend` has exactly one caller,
+        // `onAttack` above, and that lives in the local wildlife simulation —
+        // which a connected client does not run, by the three paragraphs at the
+        // top of this block. Measured: the server's copy held `attack` for eight
+        // seconds and killed three goblins while the cub at the owner's heel sat
+        // in `follow` the whole time. Everybody else watched the fight.
+        //
+        // The animals here are already the server's, mirrored one line above, so
+        // the quarry is a body we are drawing — we look it up by the server id
+        // the snapshot names and hand it to the real animal. It runs there on its
+        // own legs; only the DECISION comes down the wire. See `mirrorFight`,
+        // which refuses a quarry out of `giveUpRange` — and read the measurement
+        // in that comment before trusting any of this in a browser, because the
+        // fight happens where the SERVER thinks you are, and that was 417 m from
+        // where this client thought it was.
+        const mine = world.co?.find((c) => c.o === net.id);
+        const quarry = mine?.g != null ? wildlife.byServerId.get(mine.g) : null;
+        if (mine?.s === COMPANION_ATTACK && quarry) {
+          if (pet.mirrorFight(quarry)) {
+            hud.toast(`${petName()} goes for the ${quarry.species.name.toLowerCase()}`, 2);
+          }
+        } else if (pet.target?.remote) {
+          // Only ever a MIRRORED target: a locally-decided fight is not ours to
+          // end, and on a connected client there are none anyway.
+          pet.stopMirroredFight();
+        }
       }
       // Dropped the connection: the world is ours again, and repopulates.
       if (!net.connected && wildlife.remote) wildlife.setRemote(false);

@@ -37,7 +37,7 @@ import { ColliderField } from '../world/colliders.js';
 import { Weather } from '../world/weather.js';
 import { solarPosition } from '../world/sky.js';
 import { Wildlife, segmentCylinder } from '../creatures/manager.js';
-import { Companion } from '../creatures/companion.js';
+import { Companion, ATTACK } from '../creatures/companion.js';
 import { COMPANION_IDS } from '../creatures/companions.js';
 
 // A person, as something an arrow can hit. The controller has no collider of
@@ -742,6 +742,15 @@ export class SimWorld {
         // derived from trust, food, play and warmth, so it is also the cheapest
         // proof from outside that an owner's sync actually landed.
         m: c.mood,
+        // WHAT IT IS FIGHTING, by creature id, and only while it is fighting.
+        //
+        // The state `s` already said 'attack', and for everybody else that is
+        // enough — a mirrored body lunging is all a spectator needs. It is not
+        // enough for the OWNER, who is drawing the real animal from their own
+        // simulation and needs something to point it AT. One integer for a few
+        // seconds of a fight, against the alternative of the owner being the
+        // only person in the world who cannot see their animal defend them.
+        ...(c.state === ATTACK && c.target ? { g: c.target.id } : {}),
       });
     }
 

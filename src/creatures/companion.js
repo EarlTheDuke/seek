@@ -307,6 +307,62 @@ export class Companion {
     return true;
   }
 
+  /**
+   * The server says this animal is fighting, and says what it is fighting.
+   *
+   * WHY THIS EXISTS WHEN `defend` ALREADY DOES ALMOST THIS. `defend` is a
+   * DECISION: it asks whether this animal is tame and under a guard order, and
+   * refuses if not. On a connected client that decision has already been taken
+   * — by the server's copy, against the same trust and the same standing orders
+   * this animal sent up — and asking it a second time here can only ever
+   * DISAGREE. The way it disagrees is the bug this is for: the owner was the
+   * one person who could not see their own animal fight, because `onAttack`,
+   * the only caller of `defend`, lives in the local wildlife simulation and a
+   * connected client does not run one. The server's copy held `attack` for
+   * eight seconds and killed three goblins while the animal at the owner's heel
+   * sat in `follow`.
+   *
+   * So this is not a second decision. It is the owner's client being told the
+   * outcome of the first one. The BODY stays locally simulated — it runs at the
+   * quarry under its own legs, at its own `runSpeed`, and gives up at its own
+   * `giveUpRange` — because two things driving one body is how an animal ends
+   * up vibrating. Only the decision is mirrored.
+   */
+  mirrorFight(quarry) {
+    if (!quarry || quarry.state === 'dead') return false;
+    // OUT OF REACH IS NOT A FIGHT THIS ANIMAL IS IN, and the check is not
+    // theoretical. Measured in a browser against a staged warband: the local
+    // body stood at (-28, 82) while the SERVER's copy of the same body stood at
+    // (279, -199) — 417 m apart, because a client keeps its own position and
+    // ignores the snapshot's `me` (the note in `SimWorld.snapshot` says so out
+    // loud). The fight was real, and it was happening where the server thought
+    // the owner was, so the quarry the packet named was 417 m from the animal
+    // at the owner's heel. Taking it up anyway produced five toasts about a
+    // fight over the horizon and an animal that lunged, hit `giveUpRange` and
+    // heeled, five times over. `giveUpRange` is this animal's own opinion of
+    // how far a fight can be and still be its fight; use it here too, so the
+    // silence is honest and the lunge means something.
+    if (this.dist(quarry.position) > this.care_.giveUpRange) return false;
+    if (this.state === ATTACK && this.target === quarry) return false;
+    this.target = quarry;
+    this.setState(ATTACK);
+    this.says = 'growl';
+    return true;
+  }
+
+  /**
+   * The server has let go — so does this. Without it the animal keeps chasing a
+   * mirrored body on its own authority, long after the server has decided the
+   * fight is over, and the owner sees a different animal from everybody else
+   * for the second time in one bug.
+   */
+  stopMirroredFight() {
+    if (this.state !== ATTACK) return false;
+    this.target = null;
+    this.setState(FOLLOW);
+    return true;
+  }
+
   // ── the tick ──────────────────────────────────────────────────────────────
 
   update(dt, owner, world, ctx) {
