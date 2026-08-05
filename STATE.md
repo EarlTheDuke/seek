@@ -61,7 +61,9 @@ Numbers for all three in `FINDINGS.md`, 2026-08-05 08:35 and 08:45.
   frozen, process alive). Find them with
   `wmic process where "name='node.exe'" get processid,commandline` — the port
   check does not see the agents at all — and **kill them at the end of your own
-  run**, not just the start.
+  run**, not just the start. Grep that output for `server.js` / `agents.js`, NOT
+  for the project path: the command line is stored cwd-relative, so it reads
+  plain `server/server.js 8080` and a path filter silently misses it.
 - **A creature's Object3D is `c.object`** — not `root`/`group`/`mesh`.
 - **Deer wander.** Capturing a deer's position once and then stepping the world
   through a long scan aims you at where it used to be. It cost a run two wrong
