@@ -160,6 +160,22 @@ export class Agent {
           case S_SNAPSHOT:
             this.snapshot = msg.data;
             this.hours = msg.data.c ?? this.hours;
+            // ── the server knows better ──
+            // Dead reckoning between snapshots is fine; dead reckoning FOREVER
+            // is what put a puppet 8 km from where it stood inside a minute,
+            // after which it perceived nothing at all because every contact is
+            // measured from here. Snap to the truth whenever it arrives.
+            if (msg.data.me) {
+              this._x = msg.data.me.p[0];
+              this._z = msg.data.me.p[2];
+              // Heading too. Position without facing is half a fix: a body that
+              // integrates its own yaw against a server integrating it
+              // differently walks confidently in the wrong direction.
+              if (msg.data.me.y !== undefined) this.yaw = msg.data.me.y;
+              this.health = msg.data.me.h;
+              this.food = msg.data.me.f;
+              this.coreC = msg.data.me.c;
+            }
             break;
           case S_JOIN:
             this.others.set(msg.data.id, msg.data.n);
@@ -267,6 +283,23 @@ export class Agent {
       weather: s?.w?.s ?? 'clear',
       wind: s?.w?.a !== undefined ? bearingName(0, 0, Math.cos(s.w.a), Math.sin(s.w.a)) : null,
       goal: describeGoal(this.goal),
+      // ── how you are ──
+      // In words, like everything else a mind is told. A companion that cannot
+      // tell it is nearly dead cannot decide to retreat, and "retreat when
+      // hurt, and say so" is the single most useful thing a companion does.
+      // These were simply absent before, so no mind has ever been able to
+      // reason about its own body at all.
+      health: this.health === undefined ? 'unhurt'
+        : this.health < 30 ? 'nearly finished'
+        : this.health < 60 ? 'badly hurt'
+        : this.health < 90 ? 'hurt' : 'unhurt',
+      hunger: this.food === undefined ? 'fed'
+        : this.food <= 0 ? 'starving'
+        : this.food < 25 ? 'hungry' : 'fed',
+      cold: this.coreC === undefined ? 'warm enough'
+        : this.coreC < 33 ? 'freezing to death'
+        : this.coreC < 34.5 ? 'badly chilled'
+        : this.coreC < 35.6 ? 'shivering' : 'warm enough',
       contacts: contacts.slice(0, AGENTS.maxContacts).map(({ _m, ...r }) => r),
       heard: this.heard.slice(-3),
       memory: this.memory.recent(this.hours),

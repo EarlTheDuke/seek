@@ -7,6 +7,13 @@ import { SHOW_FPS } from '../config.js';
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
+// How long a spoken line stays up, and how many are kept. Fifteen seconds is
+// long enough to read a sentence twice and glance back at it. The toast this
+// replaced gave four, which is right for "you need a branch" and hopeless for
+// a conversation.
+const CHAT_HOLD = 15;
+const CHAT_KEEP = 6;
+
 // Everything this HUD prints comes from our own tables today, so nothing here
 // is hostile yet. It stops being true the moment a panel shows another
 // player's name — and in a game that already has other players on a socket,
@@ -273,6 +280,27 @@ const CSS = `
 #hl-flight.bad b { color: #e8734f; }
 #hl-flight span { display: block; font-size: 11px; letter-spacing: .2em; opacity: .5; margin-top: 4px; }
 
+/* What people have said, down the right-hand side.
+
+   Chat used to go through the ordinary toast: centre screen, one line at a
+   time, gone in four seconds. That is right for "you need a branch" and wrong
+   for a conversation — a second person speaking wiped the first, and anything
+   longer than a glance was gone before you had read it. So: its own column,
+   several lines deep, and long enough to read twice. */
+#hl-chat { position: absolute; right: 22px; top: 96px; width: min(340px, 30vw);
+  display: flex; flex-direction: column; align-items: flex-end; gap: 5px;
+  pointer-events: none; }
+#hl-chat .line { max-width: 100%; padding: 6px 10px; font-size: 12.5px;
+  line-height: 1.45; letter-spacing: .02em; text-align: right;
+  background: rgba(10,8,6,.62); border-right: 2px solid rgba(255,217,160,.55);
+  border-radius: 3px 0 0 3px; opacity: 0; transition: opacity .35s ease;
+  backdrop-filter: blur(2px); }
+#hl-chat .line.in { opacity: 1; }
+#hl-chat .line b { color: #ffd9a0; font-weight: 400; }
+/* The game talking about itself — arrivals, departures — reads as an aside. */
+#hl-chat .line.system { opacity: 0; font-style: italic; border-right-color: rgba(220,210,190,.28); }
+#hl-chat .line.system.in { opacity: .72; }
+
 /* Saying something out loud.
 
    The whole reason the party works: an agent already HEARS chat — it lands in
@@ -425,6 +453,7 @@ export class Hud {
       <div id="hl-menu"><h3></h3><div class="rows"></div><div class="foot"></div></div>
       <div id="hl-book"></div>
       <div id="hl-flight"></div>
+      <div id="hl-chat"></div>
       <div id="hl-say"><div class="who">say to the others</div><input maxlength="160"
         placeholder="there is a troll on the ridge — keep back and shoot it"></div>
       <button id="hl-notetab" title="write a note for the developer (O)"
@@ -455,6 +484,7 @@ export class Hud {
     this.continueEl = this.root.querySelector('#hl-continue');
     this.keys = this.root.querySelector('#hl-keys');
     this.bookEl = this.root.querySelector('#hl-book');
+    this.chatEl = this.root.querySelector('#hl-chat');
     this.flightEl = this.root.querySelector('#hl-flight');
     this.fps = this.root.querySelector('#hl-fps');
     this.toastEl = this.root.querySelector('#hl-toast');
@@ -481,6 +511,7 @@ export class Hud {
     this.menu = null; // { items, index, onPick, onClose }
     this.book = false;
     this.heard = []; // every toast this session — see toast()
+    this.chatLines = []; // { el, left } — see chat()
     this.onToast = null; // set by main, so the event log hears everything
     this.surveyEl = this.root.querySelector('#hl-survey');
     this.surveyTitle = this.surveyEl.querySelector('h3');
@@ -838,6 +869,40 @@ export class Hud {
 
   clearFlight() {
     this.flightEl.classList.remove('show');
+  }
+
+  // ── what people said ───────────────────────────────────────────────────────
+  //
+  // Its own column rather than the toast, because a conversation is not a
+  // notification: several lines need to coexist, and they need to last long
+  // enough to read a sentence twice rather than long enough to notice one.
+
+  /**
+   * @param {string|null} who   speaker, or null for the game's own asides
+   * @param {string} text
+   */
+  chat(who, text) {
+    const el = document.createElement('div');
+    el.className = who ? 'line' : 'line system';
+    el.innerHTML = who ? `<b>${esc(who)}</b>  ${esc(text)}` : esc(text);
+    this.chatEl.appendChild(el);
+    // A beat's delay, or the transition has nothing to animate from. A timer
+    // rather than requestAnimationFrame: rAF is parked in a hidden or
+    // backgrounded tab, so a message arriving while you were on another window
+    // would sit at zero opacity for ever and read as a dropped message.
+    setTimeout(() => el.classList.add('in'), 16);
+    // Longer for what a person said than for the game noting somebody arrived.
+    this.chatLines.push({ el, left: who ? CHAT_HOLD : CHAT_HOLD * 0.6 });
+    // Oldest out first once the column is full, so the newest is always the
+    // one your eye lands on and the screen never fills up.
+    while (this.chatLines.length > CHAT_KEEP) this.dropChatLine(0);
+  }
+
+  dropChatLine(i) {
+    const [gone] = this.chatLines.splice(i, 1);
+    if (!gone) return;
+    gone.el.classList.remove('in');
+    setTimeout(() => gone.el.remove(), 400);
   }
 
   // ── saying something out loud ──────────────────────────────────────────────
@@ -1235,6 +1300,13 @@ export class Hud {
     // The breadcrumb is the panel's complement — exactly one of them is up, so
     // there is always something on screen saying how to get the controls back.
     this.hint.classList.toggle('show', this.started && !this.keys.classList.contains('show'));
+    // Spoken lines age out oldest-first. Counted down here rather than on a
+    // timer per line so a paused or backgrounded tab does not silently expire
+    // a conversation nobody was there to read.
+    for (let i = this.chatLines.length - 1; i >= 0; i--) {
+      this.chatLines[i].left -= dt;
+      if (this.chatLines[i].left <= 0) this.dropChatLine(i);
+    }
     if (this.toastTimer > 0) {
       this.toastTimer -= dt;
       if (this.toastTimer <= 0) this.toastEl.classList.remove('show');

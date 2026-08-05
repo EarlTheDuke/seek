@@ -297,7 +297,10 @@ function boot() {
         );
         terrain.buildImmediate(ctrl.position.x, ctrl.position.z);
       },
-      onChat: (m) => hud.toast(m.system ? m.m : `${m.n}: ${m.m}`, 4),
+      // Into the chat column, not the toast. A conversation needs several lines
+      // at once and time to read them; the toast gives you one for four seconds
+      // and the next speaker wipes the last.
+      onChat: (m) => hud.chat(m.system ? null : m.n, m.m),
       onError: (m) => hud.toast(`server: ${m}`, 5),
       onStatus: (s) => hud.toast(`network: ${s}`, 2),
     });
@@ -1541,9 +1544,12 @@ function boot() {
       return;
     }
     net.say(text);
-    // Shown locally too. The server echoes to everyone else, not to you, and a
-    // line you cannot see yourself having said reads as a dropped message.
-    hud.toast(`you: ${text}`, 3.5);
+    // Shown locally, and the server's echo of this same line is dropped in
+    // client.js — otherwise every sentence appeared twice, once as "you" and
+    // once as your own name. Local wins because "you" is what you want to read
+    // and because it appears the instant you press Enter rather than after a
+    // round trip.
+    hud.chat('you', text);
     logEvent('SAID', `"${text}"`);
   });
 
@@ -2479,7 +2485,10 @@ function boot() {
       avatars.clear();
       net = new NetClient({
         onWelcome: (d) => hud.toast(`joined — ${d.players.length + 1} here`, 3),
-        onChat: (m) => hud.toast(m.system ? m.m : `${m.n}: ${m.m}`, 4),
+        // Into the chat column, not the toast. A conversation needs several lines
+      // at once and time to read them; the toast gives you one for four seconds
+      // and the next speaker wipes the last.
+      onChat: (m) => hud.chat(m.system ? null : m.n, m.m),
         onError: (m) => hud.toast(`server: ${m}`, 5),
         onStatus: (s) => hud.toast(`network: ${s}`, 2),
       });

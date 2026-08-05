@@ -19,6 +19,8 @@
     "bookcheck": "node server/bookcheck.js",
     "woundcheck": "node server/woundcheck.js",
     "ordercheck": "node server/ordercheck.js",
+    "puppet": "node server/puppet.js",
+    "claude": "node server/claude.js",
     "dangercheck": "node server/dangercheck.js",
     "reportcheck": "node server/reportcheck.js",
     "glidercheck": "node server/glidercheck.js",

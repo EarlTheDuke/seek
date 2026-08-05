@@ -111,6 +111,13 @@ export class NetClient {
           break;
 
         case S_CHAT:
+          // The server sends your own line back to you along with everybody
+          // else. The HUD already showed it the moment you pressed Enter — as
+          // "you", which is what you want to read — so letting the echo through
+          // printed every sentence twice, once as "you" and once as your name.
+          // Dropped here rather than in the HUD because this is the only place
+          // that knows which id is us.
+          if (msg.data.id === this.id) break;
           this.onChat?.(msg.data);
           break;
 

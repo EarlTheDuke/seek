@@ -171,7 +171,10 @@ export function briefToText(b) {
   const when = [b.hour, b.light, b.weather, b.wind && `wind ${b.wind}`].filter(Boolean).join(', ');
   if (where) lines.push(`You are ${where}. It is ${when}.`);
   else lines.push(`It is ${when}.`);
-  const body = [b.health, b.condition, b.hunger].filter(Boolean).join(', ');
+  // `cold` is the agent's word for what a creature calls `condition`. Both go
+  // in — a mind that cannot tell it is freezing cannot decide to make a fire,
+  // and until now neither number reached an agent at all.
+  const body = [b.health, b.condition, b.cold, b.hunger].filter(Boolean).join(', ');
   if (body) lines.push(`You are ${body}.`);
   if (b.carrying?.length) lines.push(`You are carrying: ${b.carrying.join(', ')}.`);
   if (b.heard?.length) {

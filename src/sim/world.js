@@ -523,8 +523,35 @@ export class SimWorld {
    */
   snapshot(forId = null) {
     const players = [];
+    let me = null;
     for (const p of this.playersInOrder()) {
-      if (p.id === forId) continue; // you already know where you are
+      if (p.id === forId) {
+        // ── where YOU are ──
+        // "You already know where you are" is true of a browser, which runs the
+        // whole physics locally and stays in step. It is not true of an agent,
+        // which runs no physics at all — it integrates its own velocity and
+        // never hears about anything the server did to it. Collisions, slopes,
+        // wading, hunger slowdown, the speed scale a drawn bow applies: all
+        // invisible, and the error only ever accumulates.
+        //
+        // Measured: a puppet driven for under a minute believed it was 8 km
+        // from where it stood. Everything downstream is computed from that
+        // position, so its brief said "you are aware of nothing but the
+        // weather" while it stood among four players and twenty-one creatures.
+        // An agent that does not know where it is perceives nothing and can
+        // decide nothing, and that is most of why they have looked so passive.
+        //
+        // Six numbers a second. Cheaper than the bug.
+        // Yaw and pitch belong here for exactly the same reason as position.
+        // Leaving them out left a client integrating its own facing against a
+        // server that integrates it differently, and the two drift: a body
+        // told to walk toward somebody 240 m west walked 80 m east instead.
+        // Position without heading is half a fix.
+        me = { p: [round2(p.ctrl.position.x), round2(p.ctrl.position.y), round2(p.ctrl.position.z)],
+               y: round3(p.ctrl.yaw), t: round3(p.ctrl.pitch),
+               h: Math.round(p.body.health), f: Math.round(p.body.hunger), c: round2(p.body.coreC) };
+        continue;
+      }
       players.push(p.snapshot());
     }
 
@@ -559,6 +586,10 @@ export class SimWorld {
         a: round3(this.weather.windAngle),
       },
       pl: players,
+      // You. Position, health, food and core temperature — the four things you
+      // cannot work out for yourself without running the simulation. A browser
+      // ignores this and keeps its own; an agent needs every one of them.
+      me,
       cr: creatures,
       pr: projectiles,
       // Drained by the caller, not here — snapshot() is called once per client

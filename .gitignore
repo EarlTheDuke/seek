@@ -16,3 +16,9 @@ SESSION.log
 # for the same reason as the two above: it is working material, and the useful
 # bits become commits and issues rather than being committed raw.
 FINDINGS.md
+
+# Live chat log and outgoing line for the in-game presence (server/claude.js).
+CHAT.log
+SAY.txt
+
+DO.txt
