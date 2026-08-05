@@ -30,6 +30,7 @@ import {
   C_CHAT,
   C_PARTY,
   C_PET,
+  C_FIRE,
   S_WELCOME,
   S_SNAPSHOT,
   S_JOIN,
@@ -44,6 +45,7 @@ import {
   cleanChat,
   cleanPet,
   cleanPetState,
+  cleanFireClaim,
 } from '../src/net/protocol.js';
 
 const args = process.argv.slice(2);
@@ -196,6 +198,32 @@ wss.on('connection', (ws, req) => {
         // meaning against the species' own trick table inside the simulation.
         world.setCompanionState(client.id, cleanPetState(msg.data));
         break;
+
+      case C_FIRE: {
+        if (client.id === null) return;
+        // A fire you lit, arriving so the server's copy of you can feel it. The
+        // wood was yours and is already spent; what the simulation checks is
+        // that the spot is one you could have reached and that the ground will
+        // take it. Dropped silently when it refuses — the browser is still
+        // drawing its own fire, and a toast saying "the server disagreed about
+        // your fire" is not a sentence any player should ever have to read.
+        const claim = cleanFireClaim(msg.data);
+        if (!claim) {
+          console.log(`  ~ ${client.name} sent a fire that made no sense`);
+          break;
+        }
+        const r = world.lightFireFor(client.id, claim.x, claim.z, claim.fuel);
+        // Logged either way, and on purpose. A fire that the browser drew and
+        // the server dropped is invisible from both ends — the player sees
+        // flames, the server sees nothing, and the only place the disagreement
+        // exists is in a packet nobody printed. It cost this session a wrong
+        // theory before the line was added.
+        console.log(
+          `  ${r.ok ? '*' : '~'} ${client.name}'s fire at ` +
+            `${claim.x.toFixed(1)}, ${claim.z.toFixed(1)} — ${r.ok ? 'lit' : r.why}`
+        );
+        break;
+      }
 
       case C_PING:
         ws.send(encode(S_PONG, { t: msg.data.t, s: world.tick }));
@@ -351,7 +379,9 @@ function loop() {
     const s = world.stats;
     console.log(
       `  tick ${s.tick} · ${(ticksThisSecond / 5).toFixed(0)} Hz · ` +
-        `${s.players} players · ${s.creatures} creatures · ${String(Math.floor(s.hours)).padStart(2, '0')}:00`
+        `${s.players} players · ${s.creatures} creatures · ` +
+        (s.fires ? `${s.fires} fires · ` : '') +
+        `${String(Math.floor(s.hours)).padStart(2, '0')}:00`
     );
     ticksThisSecond = 0;
     secondMark = Date.now();

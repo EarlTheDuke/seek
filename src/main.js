@@ -2224,6 +2224,14 @@ function boot() {
         if (result.ok) {
           inventory.remove('wood', 1);
           hud.toast('a fire', 1.6);
+          // ── and tell the server, so ITS copy of you is beside it too ──
+          // Until this the fire existed in exactly one browser. The server's
+          // body for you — the one that owns your health, and that fills in the
+          // `me.c` core temperature the snapshot has always carried — sampled a
+          // world with no fire in it and cooled as if you were standing in the
+          // open. Measured at 1.54 m from a burning fire: 8.90 °C of warmth on
+          // this side and none at all on the other. See `Client.lightFire`.
+          net?.lightFire(fx, fz, result.fire.fuel);
         } else {
           hud.toast(result.why, 2);
         }

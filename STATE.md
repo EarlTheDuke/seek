@@ -6,12 +6,25 @@ under a hundred lines. **Update it at the end of every run.** If it grows past
 that, cut the oldest resolved things rather than letting it become another
 archive.
 
-Last updated: 2026-08-05 15:00, by the session that closed "the client drew its
-own daylight" — the last surviving piece of "the client keeps its own copy of a
-number the server owns".
+Last updated: 2026-08-05 15:00, by the session that found queue #1 was NOT a
+one-liner — food and core temperature cannot be taken from the server until the
+server's copy of you stops living in a different world. Half of that is now
+fixed: your fire reaches the server.
 
 ## What works right now
 
+- **THE FIRE YOU LIGHT REACHES THE SERVER.** Until now `fires.light` was called
+  in `main.js` and nowhere else, so the body the server keeps for you had never
+  once had a fire — measured standing 1.54 m from one: 8.90 °C of warmth on the
+  client, none at all on the machine that owns your health. `C_FIRE` now carries
+  it up as ONE packet at the moment it catches (not through `intent.place` —
+  that is a one-frame edge against a rate-limited send, so it is dropped or
+  repeated). Watched from the server's own console: `* Claude's fire at -25.1,
+  89.0 — lit`, `1 fires`. `npm run firecheck` (**26/26**, new, needs no server)
+  drives the real `SimWorld` and the real `sampleEnvironment`: 0.00 → 5.46 °C.
+  The client is believed about the WOOD (it is yours and already spent); the
+  world is the authority on the GROUND. **Other players still cannot see it —
+  see the queue.**
 - **It is the same time of day for everybody.** The snapshot's hour (`c`) has
   been sent since there have been snapshots and nothing ever read it; now
   `Atmosphere.applyRemote` takes it and the local clock stands aside while
@@ -51,8 +64,9 @@ number the server owns".
   `mindcheck`/`clockcheck` **21**, `deathcheck` 19,
   `raidcheck`/`bookcheck`/`reportcheck` 18, `ordercheck` 17,
   `herdcheck`/`dangercheck`/`rendercheck` 12, `spreadcheck` 10, `shotcheck` 8,
-  `arrowcheck`/`woundcheck` 7). **`deathcheck` and `clockcheck` are new and are
-  not in the standing check list yet — run them.** Neither needs a server.
+  `arrowcheck`/`woundcheck` 7, `firecheck` **26**). **`deathcheck`, `clockcheck`
+  and `firecheck` are new and are not in the standing check list yet — run
+  them.** None of the three needs a server.
 - The picture fits the window at any scaling; a fire can be seen and heard; the
   arrow's predicted impact is within 1–2 cm of a loosed one; the glider flies
   where you look; the client reads world events; chat is a column on the right;
@@ -60,35 +74,24 @@ number the server owns".
 
 ## Recently closed — details in `FINDINGS.md` under the dated heading
 
-- **"THE CLIENT DREW ITS OWN DAYLIGHT"** (15:00), queue #1, and the last member
-  of the family. One cause, stated plainly: the browser never read `snap.c`, so
-  it ticked the clock it booted with (`TIME.startHour`, 07:12) for ever. Fixed
-  the same way as the health and the position before it — `applyRemote` takes
-  the number, a `remote` flag stops the local clock arguing, `takeOverLocally`
-  hands it back when the socket drops. Carry forward:
-  - **Delivered RAW from `onSnapshot`, not through the interpolator.** The
-    buffer is for smoothing BODIES; an hour that arrives 110 ms late is still
-    the right hour. Same call, same reason, as `me.h` and the events.
-  - **The correction is a nudge, not a jump.** Both ends advance with the same
-    formula, so each packet carries the rounding — 5e-4 h, a thousandth of a
-    degree of sun. Only the first packet is a real jump, and that is the bug.
-  - **`totalHours` is NOT the clock.** It is a separate monotonic accumulator
-    fed from `dt` in the frame loop, so durations (tree regrowth) were not
-    affected by correcting the hour. Checked before assuming it.
-  - **`[`, `]` and `T` now refuse while connected** — a scrub overwritten a
-    tenth of a second later looks exactly like a broken key.
+- **"THE FIX IS ONE LINE" WAS WRONG** (14:55), and the line would have starved
+  everybody. Queue #1 said food and core temperature were one line beside
+  `vitals.applyRemote(snap.me.h)`. Measured, it is not: the server's copy of you
+  has never had a fire and can never be fed. Half fixed — the fire goes up. The
+  rest, and why, is in the queue below and in `FINDINGS.md`.
+- **"THE CLIENT DREW ITS OWN DAYLIGHT"** (15:00). The browser never read
+  `snap.c`, so it ticked the clock it booted with for ever. Fixed like the health
+  and the position: `applyRemote`, a `remote` flag, `takeOverLocally`. Carry
+  forward: **delivered RAW from `onSnapshot`, not through the interpolator** —
+  the buffer is for smoothing BODIES, and an hour that arrives 110 ms late is
+  still the right hour. Same call, same reason, as `me.h` and the events, **and
+  the same rule for the fires that go down next.**
 - **"THE SERVER KILLED ME AND RESPAWNED ME AND THE BROWSER NEVER NOTICED"**
-  (14:20). Three bugs: nothing read `me.h`; `stepPlayer` ticked the body TWICE
-  per step (a bare `p.body.update(dt)` sixty lines under the real one, halving
-  every death and double-counting every regen); and the server revived you where
-  you fell, so a player in a warband was farmed on one square metre for ever.
-  Players now carry `home`. Carry forward:
-  **a bare `Body.update` runs the whole of `Vitals.update`** — that is what made
-  the duplicate call invisible. And **the client's respawn must never use its own
-  `spawn`.** It
-  teleports to `me.p` instead. On a `HOURS=1` server the client's own shore is
-  the far side of the lake, so the naive version of this fix would have
-  recreated the 417 m split on every death, one session after it was closed.
+  (14:20). Nothing read `me.h`; `stepPlayer` ticked the body TWICE per step; the
+  server revived you where you fell. Carry forward: **a bare `Body.update` runs
+  the whole of `Vitals.update`**, which is what made the duplicate invisible; and
+  **the client's respawn must never use its own `spawn`** — it teleports to
+  `me.p`, because on a `HOURS=1` server its own shore is the far side of the lake.
 - **"YOUR BODY IS NOT WHERE THE SERVER THINKS IT IS — 417 m"** (13:40),
   **"the owner cannot see their own animal fight"** (13:15), **the companion bite
   over the wire** (12:35), **the relationship over the wire** (12:05), **goblins
@@ -145,6 +148,20 @@ number the server owns".
   8080 and ticks into a closed pipe. Find them with `wmic process where
   "name='node.exe'" get processid,commandline` and grep for `server.js` /
   `agents.js` — **not** the project path, which is cwd-relative and will miss.
+- **A KEY RELEASE YOU DO NOT STEP IS NEVER SENT, AND THE SERVER WALKS YOUR BODY
+  AWAY WITHOUT YOU.** `sendIntent` lives inside `stepWorld` and is rate-limited
+  to `NET.intentHz`, so `keyup` followed by ONE `stepWorld` is swallowed — and
+  the server holds the last intent it was given, `forward: 1`, for ever. Measured
+  at **36.1 m** of split with the client stationary; it cost this session a wrong
+  theory that the 417 m position bug had returned (it had not — a clean join
+  measures **0.01 m**). After releasing a key, keep stepping for at least
+  `1000/NET.intentHz` ms of REAL time before believing any position.
+- **A number the server refuses is invisible from both ends unless it is
+  printed.** The server now logs every fire claim it takes or drops, with the
+  reason (`~ Claude's fire at -25.1, 88.9 — too far from you to be yours`). That
+  one line turned two wrong guesses into an answer in a single run. When
+  something crosses the wire and does not arrive, log it at the receiving end
+  BEFORE theorising about the sending end.
 - **Keys must be dispatched on `window`, not `document`.** A `document` keydown
   moves nothing and throws nothing — measured, 0.00 m against 1.66 m for the
   same event on `window`. It cost this run three wrong readings.
@@ -221,24 +238,31 @@ number the server owns".
 
 ## The game queue, ranked
 
-1. **Your food and your core temperature are still your own opinion.** `me` has
-   always carried `f` and `c` alongside `h`, and only `h` is now read. Nothing
-   has been seen to go wrong with them, so this is a loose end rather than a
-   bug — but a body that starves on the server while the browser draws a full
-   belly is the exact shape of the two just closed, and the fix is one line
-   beside `vitals.applyRemote(snap.me.h)`. **This is now the last one of the
-   family** — position, health and the hour are all the server's.
-2. **A stranded glider cannot be recovered.**
-3. `glider.js` samples ridge lift upwind with `(−sin, −cos)` of `wind.angle`
+1. **Nobody can see anybody else's fire.** The fire now reaches the server but is
+   still not in the snapshot, so a second player standing at your campfire sees
+   bare ground and is not warmed by it. Add `fi` to `snapshot()` and have clients
+   mirror it (`Fires.applyRemote`, the shape of `Vitals.applyRemote`), with the
+   local `light()` standing aside while remote so there is ONE authority. This is
+   also the last thing between here and #2.
+2. **Your food and core temperature are still your own opinion — and the fix is
+   NOT one line.** That claim was measured and it is wrong; see `FINDINGS.md`
+   2026-08-05 14:55. `me.c` becomes safe to read the moment #1 lands (one
+   authority for fires). **`me.f` does not**, and is blocked on #6: nothing can
+   ever feed the server's copy of you. `intent.eat` is on the wire and no handler
+   reads it, and the server's `p.inventory` is not your inventory — so reading
+   `me.f` today means eating does nothing (overwritten ~5×/s) and everybody
+   starves on a schedule they cannot touch. **Do not "just add the line".**
+3. **A stranded glider cannot be recovered.**
+4. `glider.js` samples ridge lift upwind with `(−sin, −cos)` of `wind.angle`
    while integrating flight in `(+sin, +cos)`. Establish which way `wind.angle`
    points before touching it.
-4. **Arrows fired at ~0 m all miss.** Four full-charge shots at a motionless
+5. **Arrows fired at ~0 m all miss.** Four full-charge shots at a motionless
    goblin standing on top of me did nothing. Same family as the
    axe-misses-in-a-swarm note, probably. Unexamined. Worth retrying now that a
    goblin on screen is genuinely the goblin the server is holding.
-5. Multiplayer carcass harvesting fills a LOCAL inventory only, and a mirrored
+6. Multiplayer carcass harvesting fills a LOCAL inventory only, and a mirrored
    animal's morale/`hurt` flags are never sent. Small and deliberate, for now.
-6. **Nothing else comes back DOWN about your own animal.** The FIGHT now does
+7. **Nothing else comes back DOWN about your own animal.** The FIGHT now does
    (`g` + `mirrorFight`). The owner is still the authority on the relationship,
    which is right, but the server cannot say the pet was hurt, fed by somebody
    else, or killed — and `g` is the pattern to copy when it should.
@@ -288,7 +312,7 @@ is back. And **you can press keys**: `window.dispatchEvent(new KeyboardEvent(
 E / W / G / B without pointer lock, so walking, gathering, lighting, building
 and sprinting all work headlessly.
 
-*(This file is 304 lines by `wc -l`, not the 100 it asks for, and the note here
+*(This file is 328 lines by `wc -l`, not the 100 it asks for, and the note here
 has twice been an estimate that was already wrong — so do not trust it, run
 `wc -l`. The overflow is nearly all in "things that will waste your time":
 every line there is a measured fact that cost a run to learn, and deleting them

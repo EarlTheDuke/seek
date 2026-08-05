@@ -21,6 +21,7 @@ import {
   C_PING,
   C_CHAT,
   C_PET,
+  C_FIRE,
   S_WELCOME,
   S_SNAPSHOT,
   S_JOIN,
@@ -188,6 +189,26 @@ export class NetClient {
     if (nowMs - this.lastSent < 1000 / NET.intentHz) return;
     this.lastSent = nowMs;
     this.send(C_INTENT, { i: intent });
+  }
+
+  /**
+   * Tell the server you have lit a fire.
+   *
+   * ONE PACKET, ONCE, AT THE MOMENT IT CATCHES — not on a timer and not through
+   * the intent. `intent.place` is already on the wire and the server could in
+   * principle read it, but it is edge-triggered for a single frame while
+   * `sendIntent` is rate-limited to `NET.intentHz`, so the pulse is dropped
+   * whenever it falls between two sends and repeated whenever it does not. The
+   * same one-shot problem, and the same answer, as `syncCompanion`'s `trick`.
+   *
+   * Sent AFTER the local light has succeeded, carrying the position the browser
+   * actually used, so the two worlds put the fire in the same place rather than
+   * each deriving a spot from a camera the other cannot see.
+   */
+  lightFire(x, z, fuel) {
+    if (!this.connected || this.id === null) return false;
+    this.send(C_FIRE, { p: [Math.round(x * 100) / 100, Math.round(z * 100) / 100], f: fuel });
+    return true;
   }
 
   /**

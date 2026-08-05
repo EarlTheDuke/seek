@@ -21,7 +21,7 @@
 // which is a handful of kilobytes a second for a world of unbounded size.
 
 import * as THREE from 'three';
-import { SEED, WATER_LEVEL, LOADOUT, TIME, SOCIAL } from '../config.js';
+import { SEED, WATER_LEVEL, LOADOUT, TIME, SOCIAL, SURVIVAL } from '../config.js';
 import { placeStrangeness, darkness } from '../world/strangeness.js';
 import { describePosition } from '../world/placenames.js';
 import { findRegion } from '../world/regions.js';
@@ -356,6 +356,37 @@ export class SimWorld {
     Object.assign(p.intent, raw);
     sanitiseIntent(p.intent);
     return true;
+  }
+
+  /**
+   * Somebody says they have lit a fire. Put it in the world.
+   *
+   * The other half of `cleanFireClaim`: that checked the packet had two finite
+   * numbers in it, this checks the claim against the world. Two rules, and both
+   * are about the ground rather than about the player:
+   *
+   * - it has to be somewhere you could have reached. `firePlaceDistance` is how
+   *   far in front of you the browser lays the pit, so anything much beyond it
+   *   did not come from a person standing where you are standing. The margin is
+   *   generous on purpose — you are moving, the packet is a frame or two old,
+   *   and a fire refused for being 3.4 m away when the rule says 3 would be an
+   *   invisible, intermittent failure, which is worse than a permissive one.
+   * - `canPlaceAt` has to agree. It is the same function, on the same seeded
+   *   terrain, that the browser already ran before sending — so it agrees
+   *   almost always, and the exception that matters is "too close to another
+   *   fire", where the server can see somebody else's and the client cannot.
+   *
+   * Returns the same `{ ok, why }` shape as `Fires.light`, so a caller that
+   * wants to answer the client can, and the server — which does not, yet —
+   * simply drops it. The client keeps drawing its own fire either way; what
+   * this fixes is the SERVER's copy of you being cold beside it.
+   */
+  lightFireFor(id, x, z, fuel = undefined) {
+    const p = this.players.get(id);
+    if (!p) return { ok: false, why: 'no such player' };
+    const d = Math.hypot(p.ctrl.position.x - x, p.ctrl.position.z - z);
+    if (d > SURVIVAL.firePlaceDistance + 3) return { ok: false, why: 'too far from you to be yours' };
+    return fuel === undefined ? this.fires.light(x, z) : this.fires.light(x, z, fuel);
   }
 
   /** Nearest living player to a point — how a creature picks a target. */
@@ -866,6 +897,10 @@ export class SimWorld {
       players: this.players.size,
       companions: this.playersInOrder().filter((p) => p.companion).length,
       creatures: this.wildlife.creatures.length,
+      // Fires, because until `lightFireFor` this was always zero and nobody
+      // could have noticed. It is the cheapest proof from outside that a
+      // client's fire reached the machine that keeps its body warm.
+      fires: this.fires.active.length,
       projectiles: this.projectiles.items.length,
       hours: round2(this.clock.hours),
     };
