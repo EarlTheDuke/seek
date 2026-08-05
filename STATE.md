@@ -6,10 +6,15 @@ under a hundred lines. **Update it at the end of every run.** If it grows past
 that, cut the oldest resolved things rather than letting it become another
 archive.
 
-Last updated: 2026-08-05 12:05, by the session that put the RELATIONSHIP on the wire.
+Last updated: 2026-08-05 12:35, by the session that finally WATCHED a bite.
 
 ## What works right now
 
+- **A companion bites for its owner, and other people see it happen.** Proven
+  live twice — `npm run bitecheck` (7/7, spawns its own server) watches it from
+  a second player's snapshot, and a browser watched the server's copy of a wolf
+  cub kill three goblins. The whole chain is live: C_PET up, `setCompanionState`,
+  `resolveAttack`, `defend`, `pendingBite`, snapshot out.
 - **Your animal comes with you onto a server, and so does everything about it.**
   The server keeps its own copy, walks it, and puts it in every snapshot — with
   the name it earned, the trust, the tricks it knows and the standing orders it
@@ -29,7 +34,21 @@ Last updated: 2026-08-05 12:05, by the session that put the RELATIONSHIP on the 
 
 ## Recently closed — details in `FINDINGS.md` under the dated heading
 
-- **"A companion's relationship does not cross the wire"** (12:05), queue #1.
+- **"Nobody has SEEN a companion bite over the wire"** (12:35), queue #1. A
+  second player's snapshot: Alice hurt at 2.6 s, her cub in state `attack` in the
+  same snapshot, goblin #3 34 → 19 hp at 3.7 s, 1.8 m from the cub, no arrow in
+  flight. 15 is exactly the wolf cub's `biteDamage`. Two runs agreed to the tenth
+  of a second. Three things worth carrying forward:
+  - **`HOURS=1 RAID=6` are new knobs on `server.js`**, off by default, changing
+    nothing when off. They stage the night and the warband, because goblins are
+    night-only, a day is 26 real minutes, and a goblin arriving ALONE has morale
+    0.00 and runs — so a real fight cost more to wait for than to test. Same
+    stage `raidtest.js` has used for months, on the far side of the socket.
+  - **Attach the witness before you start the fight.** The first run failed two
+    checks — "nothing ever hit her", "attack before the hurt" — and both were the
+    harness: the observer went on three seconds late, and the goblins covered
+    26 m and drew blood inside those three seconds. The evidence had been spent.
+- **"A companion's relationship does not cross the wire"** (12:05), earlier queue #1.
   A new `C_PET` message carries a digest up from the owner — species, trust,
   fed/played/warmth, name, learned tricks, standing orders — plus a one-shot `a`
   for a trick being performed now, so a trick is something the whole server
@@ -44,16 +63,13 @@ Last updated: 2026-08-05 12:05, by the session that put the RELATIONSHIP on the 
     The trust is still real and `defend` still refuses on it — that is the gate.
   - **`giveCompanion`'s trust 0.6 is now a placeholder**, overwritten by the
     owner's first packet, kept for ever only by agents, which never send one.
-- **"Companions do not exist in multiplayer"** (11:45). **Your own animal IS in
-  your own snapshot**, unlike `pl` — a watcher with no local pet would otherwise
-  be missing exactly the one it brought, so the browser skips its own by owner
-  id.
+  - **Your own animal IS in your own snapshot**, unlike `pl`; the browser skips
+    its own by owner id.
 - **Goblins unkillable in daylight** (10:45), **window resize wrecking the sim**
-  (10:15), **both fire bugs** (09:35, 09:50). All by their own suites. Two
-  lessons from them, both about trusting a queue entry's own words: one
-  inherited a RETRACTED symptom as its title, one carried a number measured in
-  the wrong game mode. **Check the symptom still stands, and check which mode a
-  number came from, before you hunt a cause.**
+  (10:15), **both fire bugs** (09:35, 09:50). The lesson that outlived them:
+  **check the symptom still stands, and check which game mode a number came
+  from, before you hunt a cause.** One of those bugs inherited a RETRACTED
+  symptom as its title and one carried a number measured in the wrong mode.
 
 ## Things that will waste your time if you do not know them
 
@@ -120,30 +136,45 @@ Last updated: 2026-08-05 12:05, by the session that put the RELATIONSHIP on the 
 
 ## The game queue, ranked
 
-1. **Nobody has SEEN a companion bite over the wire.** `guard` now reaches the
-   server and `companioncheck` proves a copy with the order on answers what hurt
-   its owner, but nothing has staged it live: get hurt by a creature with `guard`
-   on and watch a second player's snapshot. The bite has never been observed in
-   multiplayer.
-2. **A stranded glider cannot be recovered.**
-3. `glider.js` samples ridge lift upwind with `(−sin, −cos)` of `wind.angle`
+1. **The owner is the one person who cannot see their own animal fight.**
+   Measured 12:25 and not a matter of opinion: the server's copy held `attack`
+   for 8 s and killed three goblins while the LOCAL cub sat in `follow` the whole
+   time. In multiplayer the client's wildlife is a mirror (`wildlife.remote`,
+   drawn by `applySnapshot`), and `deps.onAttack` — the single caller of the
+   local `pet.defend`, `main.js:388` — has exactly one call site,
+   `manager.js:584`, inside the local simulation path multiplayer never runs.
+   This is queue #6 made concrete. Probably wants the server to say so: the
+   snapshot already carries your own animal's state in `co`, so the cheapest fix
+   may be to let the owner's client believe it.
+2. **The server killed me and respawned me and the browser never noticed.** The
+   snapshot's `me.h` ran 12 → 0 → 89 → 34 → 1 → 0 → 100 while the local health
+   bar read 100 throughout. `snapshot()` says out loud that a browser ignores
+   `me` and keeps its own, which is right in single player and fiction in a
+   fight. Nobody has tested what a real death does to a browser client.
+3. **A stranded glider cannot be recovered.**
+4. `glider.js` samples ridge lift upwind with `(−sin, −cos)` of `wind.angle`
    while integrating flight in `(+sin, +cos)`. Establish which way `wind.angle`
    points before touching it.
-4. **Arrows fired at ~0 m all miss.** Four full-charge shots at a motionless
+5. **Arrows fired at ~0 m all miss.** Four full-charge shots at a motionless
    goblin standing on top of me did nothing. Same family as the
    axe-misses-in-a-swarm note, probably. Unexamined.
-5. Multiplayer carcass harvesting fills a LOCAL inventory only, and a mirrored
+6. Multiplayer carcass harvesting fills a LOCAL inventory only, and a mirrored
    animal's morale/`hurt` flags are never sent. Small and deliberate, for now.
-6. **Nothing comes back DOWN about your own animal.** The owner is the authority
-   on its relationship, which is right, but the server can never tell you your
-   pet was hurt, fed by someone else, or killed. Fine today because nothing on
-   the server can do any of those. Revisit before anything can.
+7. **Nothing comes back DOWN about your own animal** — the general case of #1.
+   The owner is the authority on the relationship, which is right, but the server
+   can never say the pet was hurt, fed by someone else, or killed.
 
 **Measured 11:40, not a regression, worth a decision:** a companion trails a
 CONTINUOUSLY MOVING owner at about its own `runRange` — inside that range
 `think` only walks it and every species walks slower than a person. Morag's
 hippo sat 21.9 m behind her (`runRange` 22). Invisible in single player because
 people stop constantly; glaring with agents, which never do.
+
+**Two readings from 12:25 with no cause found — do not repeat as fact.** My
+LOCAL cub read 341.6 m away after picking a mode and swapping species (far past
+the `runRange` trailing above), and the client drew midday while the server
+clock said 01:00 — the snapshot carries `c` (hours) and whether the client
+applies it was never checked.
 
 **Unmeasured, worth one run:** with 4 players the server's population drifted
 68 → 37 over ~24 game minutes (cap is 120, so not the cap), across 02:00–05:00.
@@ -155,6 +186,7 @@ sterilising ground. Nobody tested which — do not repeat it as fact.
 ```
 npx vite --port 5173 --strictPort
 DANGER=no-bears node server/server.js 8080
+HOURS=1 RAID=6 DANGER=full node server/server.js 8080   # staged for a fight
 PET=hippo ORDERS=obeys node server/agents.js 2
 ```
 

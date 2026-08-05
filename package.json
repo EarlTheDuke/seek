@@ -16,6 +16,7 @@
     "campcheck": "node server/campcheck.js",
     "mindcheck": "node server/mindcheck.js",
     "companioncheck": "node server/companioncheck.js",
+    "bitecheck": "node server/bitecheck.js",
     "bookcheck": "node server/bookcheck.js",
     "woundcheck": "node server/woundcheck.js",
     "arrowcheck": "node server/arrowcheck.js",

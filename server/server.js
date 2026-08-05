@@ -62,9 +62,26 @@ const MAX_PLAYERS = 8;
 // the reliable signal; this is only the backstop for a machine that vanished.
 const TIMEOUT_MS = 90000;
 
-const world = new SimWorld({ headless: true });
+// ── staging a fight you would otherwise have to wait for ────────────────────
+//
+//   HOURS=1 npm run serve        start the world at 01:00 instead of the morning
+//   RAID=6  npm run serve        the first player to join is met by a warband
+//
+// Both off by default, and neither changes a single number when it is off. They
+// exist because the interesting things in this game happen at night to somebody
+// who is already in trouble, and there was no way to be in that position on a
+// REAL server without waiting for it: a day is 26 real minutes, and goblins
+// only spawn where the ground is strange enough. Waiting cost more than the
+// thing being tested. `raidtest.js` has staged exactly this against SimWorld
+// directly for a long time — this is the same stage, on the far side of the
+// socket, which is the half that was never watched.
+const HOURS = Number(process.env.HOURS);
+const RAID = Math.min(12, Math.max(0, Number(process.env.RAID) || 0));
+
+const world = new SimWorld({ headless: true, ...(Number.isFinite(HOURS) ? { hours: HOURS } : {}) });
 const clients = new Map(); // ws -> { id, name, lastSeen }
 let nextId = 1;
+let raided = false;
 
 // ── how dangerous, on the server ────────────────────────────────────────────
 //
@@ -111,6 +128,8 @@ console.log(`  seed ${world.seed}  ·  tick ${TICK_HZ} Hz  ·  snapshots ${SEND_
 // a different experiment and nothing else on screen would tell you.
 console.log(`  danger: ${getDangerLevel(DANGER).name.toLowerCase()}` +
   (banned.size ? ` — no ${[...banned].join(', ')}` : ''));
+if (Number.isFinite(HOURS)) console.log(`  staged: the world starts at ${String(Math.floor(HOURS)).padStart(2, '0')}:00`);
+if (RAID) console.log(`  staged: a warband of ${RAID} meets the first player through the door`);
 console.log(`  listening on ws://0.0.0.0:${PORT}`);
 console.log(
   `  ${rivals.length} rival hunter${rivals.length === 1 ? '' : 's'} (${provider.name} minds)` +
@@ -155,6 +174,11 @@ wss.on('connection', (ws, req) => {
           `  + ${client.name} (#${client.id}) from ${where} — ${clients.size} here` +
             (pet ? ` · with a ${world.players.get(client.id).companion.species.name.toLowerCase()}` : '')
         );
+        if (RAID && !raided) {
+          raided = true;
+          if (banned.has('goblin')) console.log('  RAID — asked for, but goblins are banned by DANGER');
+          else stageRaid(world.players.get(client.id), RAID);
+        }
         break;
       }
 
@@ -208,6 +232,27 @@ wss.on('connection', (ws, req) => {
   ws.on('close', () => drop(ws, 'left'));
   ws.on('error', () => drop(ws, 'error'));
 });
+
+/**
+ * Put a warband on the hill above the first person through the door.
+ *
+ * Staged the way `raidtest.js` stages it — 26 m off, already aware, one pack —
+ * because a goblin that has to FIND you turns a two-minute test into a
+ * twenty-minute one, and a pack that arrives one at a time never commits: a
+ * lone goblin's morale is 0.00 and it runs. They walk in from there on their
+ * own legs and decide for themselves whether to come.
+ */
+function stageRaid(player, n) {
+  const at = player.ctrl.position;
+  const born = world.wildlife.spawnHerd('goblin', at.x, at.z - 26, n, 6);
+  for (const c of born) {
+    c.packId = 'raid';
+    c.awareness = 1;
+    c.lastKnownThreat.copy(at);
+  }
+  console.log(`  RAID — ${born.length} goblins staged 26 m from ${player.name}`);
+  return born.length;
+}
 
 function drop(ws, why) {
   const client = clients.get(ws);
