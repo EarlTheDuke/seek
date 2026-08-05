@@ -71,13 +71,19 @@ export class Projectiles {
     scene.add(this.mesh);
   }
 
-  spawn(typeId, origin, velocity) {
+  /**
+   * @param {string|number|null} ownerId  who loosed it, so it cannot hit them.
+   *   Without this an arrow strikes its own archer on the first frame, because
+   *   it spawns 0.55 m in front of a capsule 0.4 m wide.
+   */
+  spawn(typeId, origin, velocity, ownerId = null) {
     const type = TYPES[typeId];
     if (!type) return null;
     const p = {
       id: nextId++,
       typeId,
       type,
+      ownerId,
       pos: origin.clone(),
       vel: velocity.clone(),
       quat: new THREE.Quaternion(),

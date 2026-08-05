@@ -36,7 +36,13 @@ import { Scatter } from '../world/scatter.js';
 import { ColliderField } from '../world/colliders.js';
 import { Weather } from '../world/weather.js';
 import { solarPosition } from '../world/sky.js';
-import { Wildlife } from '../creatures/manager.js';
+import { Wildlife, segmentCylinder } from '../creatures/manager.js';
+
+// A person, as something an arrow can hit. The controller has no collider of
+// its own — it is a capsule in the movement code and nothing anywhere else —
+// so these are stated once, here, where the only thing that needs them lives.
+const PLAYER_RADIUS = 0.42;
+const PLAYER_HEIGHT = 1.8;
 import { Projectiles } from '../world/projectiles.js';
 import { Pickups } from '../world/pickups.js';
 import { Controller } from '../player/controller.js';
@@ -82,6 +88,7 @@ class Player {
       controller: this.ctrl,
       inventory: this.inventory,
       projectiles,
+      ownerId: id, // whose arrows these are — see projectiles.spawn
       rand: makeRandom(`combat:${id}`),
       onDryFire: () => {},
     });
@@ -163,6 +170,41 @@ export class SimWorld {
       onCreatureHit: () => {},
     });
     this.pickups.deps.projectiles = this.projectiles;
+
+    // ── arrows can hit people ─────────────────────────────────────────────
+    //
+    // They never could. Projectiles were tested against terrain, colliders and
+    // wildlife, and nothing else — so a shaft passed through every player, at
+    // any range, in any country. It never reached `canHarm`, because nothing
+    // noticed it had arrived. Reported as "the arrow goes directly through your
+    // character model", and it did.
+    this.projectiles.deps.playerHitTest = (from, to, exceptId) => {
+      let best = null;
+      for (const p of this.players.values()) {
+        if (p.id === exceptId || p.body.dead || !p.connected) continue;
+        const t = segmentCylinder(from, to, p.ctrl.position, PLAYER_RADIUS, PLAYER_HEIGHT);
+        if (t !== null && (!best || t < best.t)) best = { t, player: p };
+      }
+      return best;
+    };
+
+    this.projectiles.deps.onPlayerHit = (target, damage, at, byId) => {
+      const by = this.players.get(byId) ?? null;
+      // The arrow STOPS either way — that happens in projectiles.js. Whether it
+      // hurts is this rule, which already existed and had simply never been
+      // reachable by an arrow.
+      if (!this.canHarm(by, target)) {
+        this.events.push({ k: 'glance', id: target.id, by: byId,
+          why: by && by.party && by.party === target.party
+            ? 'you are in the same party'
+            : 'this ground is too settled to fight on' });
+        return;
+      }
+      target.body.damage(damage, by ? { name: by.name } : null);
+      target.dirty = true;
+      this.events.push({ k: 'hit', id: target.id, by: byId, dmg: Math.round(damage) });
+      if (target.body.dead) this.onPlayerDied(target, by);
+    };
 
     this.spawn = pickSpawn(this.sunHorizontal(new THREE.Vector3()));
     this.scatter.update(this.spawn.position, 0);

@@ -18,6 +18,7 @@
     "companioncheck": "node server/companioncheck.js",
     "bookcheck": "node server/bookcheck.js",
     "woundcheck": "node server/woundcheck.js",
+    "arrowcheck": "node server/arrowcheck.js",
     "ordercheck": "node server/ordercheck.js",
     "puppet": "node server/puppet.js",
     "claude": "node server/claude.js",

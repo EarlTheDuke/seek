@@ -132,7 +132,9 @@ export class Bow extends Weapon {
     // where the crosshair says. Offsetting to the bow looks nicer and lies.
     _origin.copy(camera.position).addScaledVector(_fwd, 0.55);
 
-    projectiles.spawn('arrow', _origin, _vel);
+    // `ownerId` so the shaft cannot strike the archer who loosed it — it
+    // spawns half a metre in front of a capsule wider than that.
+    projectiles.spawn('arrow', _origin, _vel, this.ctx.ownerId ?? null);
     audio?.bowRelease?.(this.charge);
 
     // A little upward kick, scaled by how hard you drew.

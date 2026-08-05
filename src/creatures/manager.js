@@ -706,7 +706,7 @@ export class Wildlife {
 }
 
 /** Segment vs vertical cylinder standing on `base`. Returns t in [0,1] or null. */
-function segmentCylinder(a, b, base, r, h) {
+export function segmentCylinder(a, b, base, r, h) {
   const dx = b.x - a.x;
   const dz = b.z - a.z;
   const ox = a.x - base.x;
