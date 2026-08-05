@@ -427,7 +427,17 @@ export const WILDLIFE = {
   // which reads as a dead hillside. This restores ~14 without touching the
   // rarity model — more places where something COULD be, same odds that it is.
   siteDensity: 0.66,
+  // How many creatures ONE player's hillside is worth. It is a budget per
+  // player, not a global total: measured on a server, six players spread a
+  // kilometre apart drew 26 between them and the first two took all of it —
+  // players 3 to 6 stood 612 to 805 m from the nearest living thing. A shared
+  // cap makes the world emptier the more people are in it, which is precisely
+  // backwards.
   maxAlive: 26,
+  // The server's ceiling, because a budget per player is unbounded and the
+  // machine is not. At 60 Hz with distance LOD this is the point where the
+  // wildlife tick stops being free.
+  maxAliveTotal: 120,
   minSpawnDistance: 55, // never pop into existence in your face
   // Distance bands for update rate. Far creatures still move, just coarsely.
   lodNear: 90,

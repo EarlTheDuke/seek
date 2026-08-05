@@ -21,6 +21,7 @@
     "arrowcheck": "node server/arrowcheck.js",
     "shotcheck": "node server/shotcheck.js",
     "herdcheck": "node server/herdcheck.js",
+    "spreadcheck": "node server/spreadcheck.js",
     "ordercheck": "node server/ordercheck.js",
     "puppet": "node server/puppet.js",
     "claude": "node server/claude.js",

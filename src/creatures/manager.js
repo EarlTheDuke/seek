@@ -157,6 +157,22 @@ export class Wildlife {
     return { everPossible, now };
   }
 
+  /**
+   * How many creatures may be alive at once.
+   *
+   * A budget per player rather than one shared total. The cull was fixed first
+   * and it was not enough on its own: with everyone's animals finally surviving
+   * they all came out of the same 26, the first two players took every one, and
+   * six players spread a kilometre apart measured 15, 7, 0, 0, 0 and 0 within
+   * sight. A shared cap makes the world emptier the more people are in it.
+   *
+   * One player is one budget, so single-player is exactly what it was.
+   */
+  aliveCap() {
+    const players = 1 + (this.extraAnchors?.length ?? 0);
+    return Math.min(WILDLIFE.maxAlive * players, WILDLIFE.maxAliveTotal);
+  }
+
   refresh(px, pz) {
     const cell = WILDLIFE.spawnCell;
     const R = WILDLIFE.spawnRadius;
@@ -167,7 +183,7 @@ export class Wildlife {
       for (let ci = Math.floor((px - R) / cell); ci <= Math.ceil((px + R) / cell); ci++) {
         const key = `${ci},${cj}`;
         if (this.spawnedSites.has(key) || this.clearedSites.has(key)) continue;
-        if (this.creatures.length >= WILDLIFE.maxAlive) return;
+        if (this.creatures.length >= this.aliveCap()) return;
 
         // Not every cell holds a herd.
         if (hash2i(ci, cj, 811) > WILDLIFE.siteDensity) {
@@ -263,7 +279,7 @@ export class Wildlife {
     const apart = (species.personalSpace ?? 2) * 1.6;
 
     for (let i = 0; i < count; i++) {
-      if (this.creatures.length >= WILDLIFE.maxAlive) break;
+      if (this.creatures.length >= this.aliveCap()) break;
       // Walk the ring so members start spread around the site, and retry until
       // the spot is both out of the water and clear of the ones already placed
       // — the water nudge in particular used to pile several onto one point.
@@ -463,9 +479,35 @@ export class Wildlife {
 
     this.updatePacks(dt, darkness(this.ctx.sunAltitude ?? 90));
 
+    // ── who is this creature's nearest human? ──
+    // Spawning learned to follow everybody (above) and culling did not, which
+    // is worse than either bug alone: animals were born around the second
+    // player and deleted on the same frame, and because their site stayed in
+    // `spawnedSites` the ground never refilled. Printed live, two players 900 m
+    // apart: 15 removals in four seconds, all 15 inside the second player's
+    // spawn radius, leaving him 931 m from the nearest animal while the first
+    // player had a herd at 110 m. That is why multiplayer looked empty — not
+    // the population cap, which was 26 with only 18 alive.
+    //
+    // So every distance below is to the NEAREST player, and the creature senses
+    // that player with THEIR stealth: a deer should startle at whoever is
+    // actually creeping up on it, not at the first person who joined the
+    // server. Single-player is one entry and the loop collapses to what it was.
+    const watchers = [{ pos: playerPos, stealth }];
+    for (const p of this.extraAnchors ?? []) {
+      if (p.pos) watchers.push({ pos: p.pos, stealth: p.stealth ?? stealth });
+    }
+
     for (let i = this.creatures.length - 1; i >= 0; i--) {
       const c = this.creatures[i];
-      const d = Math.hypot(c.position.x - playerPos.x, c.position.z - playerPos.z);
+      let d = Infinity;
+      let watcher = watchers[0];
+      for (const w of watchers) {
+        const wd = Math.hypot(c.position.x - w.pos.x, c.position.z - w.pos.z);
+        if (wd < d) { d = wd; watcher = w; }
+      }
+      const nearPos = watcher.pos;
+      const nearStealth = watcher.stealth;
 
       // Cull far creatures. A corpse you have walked away from is gone for
       // good; a live one just leaves the simulation and its site can refill.
@@ -500,12 +542,12 @@ export class Wildlife {
       // means they still get the full elapsed time, so movement stays correct.
       const period = d < WILDLIFE.lodNear ? 0 : d < WILDLIFE.lodFar ? 0.25 : 0.5;
       if (period === 0) {
-        c.update(dt, playerPos, stealth, this.ctx);
+        c.update(dt, nearPos, nearStealth, this.ctx);
       } else {
         const owed = (this.accum.get(c.id) ?? 0) + dt;
         if (owed >= period) {
           this.accum.set(c.id, 0);
-          c.update(owed, playerPos, stealth, this.ctx);
+          c.update(owed, nearPos, nearStealth, this.ctx);
         } else {
           this.accum.set(c.id, owed);
         }

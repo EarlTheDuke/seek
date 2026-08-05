@@ -545,8 +545,13 @@ export class SimWorld {
     // Populate the world around ALL of them, not just the first to join. See
     // the note in creatures/manager.js — this is why the second player onto a
     // server used to find an empty hillside.
+    // `pos` and `stealth` ride along so the manager can cull and sense against
+    // the nearest player rather than this one. Without them the world spawned
+    // animals around everybody and then deleted every animal that was not near
+    // player #1.
     this.wildlife.extraAnchors = everyone.slice(1).map((p) => ({
       key: p.id, x: p.ctrl.position.x, z: p.ctrl.position.z,
+      pos: p.ctrl.position, stealth: p.stealth,
     }));
     const anchor = everyone[0];
     if (!anchor) return;

@@ -6,7 +6,7 @@ under a hundred lines. **Update it at the end of every run.** If it grows past
 that, cut the oldest resolved things rather than letting it become another
 archive.
 
-Last updated: 2026-08-05 06:51, by the session that closed the private-herd bug.
+Last updated: 2026-08-05 07:35, by the session that closed the single-anchor cull.
 
 ## What works right now
 
@@ -20,47 +20,48 @@ Last updated: 2026-08-05 06:51, by the session that closed the private-herd bug.
 
 ## The private herd is CLOSED — do not chase it again
 
-Every player ran a full local wildlife simulation while the server ran another,
-and `snapshot.cr` was decoded, interpolated and dropped on the floor. Kills were
-private fiction and two people side by side hunted different deer.
+Everyone ran a private local wildlife sim and dropped `snapshot.cr` on the
+floor, so two people side by side hunted different deer. The client is now a
+MIRROR when connected (`Wildlife.setRemote`/`applySnapshot`, gated in `main.js`
+on `net.connected`). Guarded by `herdcheck` 12/12. Single-player is untouched.
+Detail in `FINDINGS.md`, 2026-08-05 06:40.
 
-Fixed by making the client a MIRROR when connected: `Wildlife.setRemote` /
-`applySnapshot` (`creatures/manager.js`), gated in `main.js` on `net.connected`,
-with `Creature.applyDamage` refusing to hurt a body it does not own. Measured in
-the browser after the fix, same instant, same client:
+## The single-anchor cull is CLOSED — and it was two bugs
 
-    my local world:   18 creatures, nearest deer 836.9 m
-    the server's:     18 creatures, nearest deer 836.9 m
+`npm run spreadcheck` 10/10. Guarded, and the check was verified failing 4/7
+against the pre-fix source before it was trusted. Detail in `FINDINGS.md` under
+2026-08-05 07:30. There is no open bug right now — take the top of the queue.
 
-Single-player is untouched — no `?join=`, no mirror, 23 local creatures, nearest
-deer 111 m, exactly as before.
+Culling measured every distance to `everyone[0]` while spawning followed
+everybody, so animals were born around player two and deleted on the frame they
+were born, permanently. `manager.update` now builds a `watchers` list and each
+creature uses its NEAREST one — for the cull, for LOD, and for `c.update`, so a
+deer is sensed with the stealth of whoever is actually next to it.
 
-## The one open bug — spawning is multi-anchor, CULLING IS NOT
+**Fixing the cull alone was not enough**, which is the part worth remembering:
+the survivors then all came out of one shared cap of 26 and six players a
+kilometre apart measured 15, 7, 0, 0, 0, 0 within sight. `maxAlive` is now a
+budget PER player with a ceiling (`maxAliveTotal: 120`) via `aliveCap()`; the
+same six then got 15, 10, 19, 11, 13, 9 at 0.103 ms/tick of a 16.7 ms budget.
+One player is one budget, so single-player is unchanged.
 
-Animals are born around every player and then deleted for everyone but the
-first, because `manager.update` culls on distance to `playerPos`, which
-`world.js updateWildlife` fills from `everyone[0]` alone. Printed state, two
-players 900 m apart, four seconds:
-
-    11 alive — nearest to Ann 110 m, nearest to Bel 931 m
-    removals: 15 total, 15 of them standing WITHIN Bel's spawn radius
-
-Fifteen animals spawned around the second player and every one was culled on the
-frame it was born. It is permanent, too: the site stays in `spawnedSites`, so it
-never refills. Confirmed live — all 18 creatures on the server were within 50 m
-of player #1 while #4, #5 and #6 were 605, 987 and 823 m from the nearest
-animal. **This is why multiplayer looks empty, and it is not the cap** — that is
-26 and only 18 were alive. The fix is a cull that asks "near ANY player", which
-`countPlayersNear`/`nearestPlayer` in `world.js` already know how to answer.
+Live, real server, two sockets, one holding sprint-forward for 200 s: 923 m
+apart, 75 alive, nearest animal 117.0 m and 129.4 m.
 
 ## Corrections to things this file used to say
 
-- **A fresh server does NOT clear the duplicate roster.** Restarted clean, two
-  agents, and the welcome already read `[#1 Eachann, #4 Eachann, #5 Morag]`. It
-  is a name collision between the server's own rival hunters and the `agents.js`
-  name pool — not stale state. Restarting to fix it is wasted time.
-- The old "nearest deer 227 m / 1390 m" figures are superseded by the numbers
-  above; the 1390 m one was this bug, seen from the wrong end.
+- **A fresh server does NOT clear the duplicate roster.** `[#1 Eachann, #4
+  Eachann, #5 Morag]` is a name collision between the server's own rival hunters
+  and the `agents.js` name pool, not stale state. Restarting to fix it is waste.
+- **Stale processes ARE worth checking.** Five orphaned `agents.js` were still
+  running from earlier sessions, all ready to rejoin. Find them with
+  `wmic process where "name='node.exe'" get processid,commandline` — the port
+  check alone does not see them.
+- **`warp` is client-only and silently refused in Survival** (it *returns* the
+  refusal as a string). Even in Sandbox the server never hears about it: a
+  browser sends intents, not positions. Any multiplayer measurement taken after
+  a warp is worthless. Walk, or drive headless clients by intent.
+- **A creature's Object3D is `c.object`** — not `root`/`group`/`mesh`.
 
 ## Two sessions can be running at once — check before you edit
 
@@ -86,10 +87,14 @@ a source edit bounces it to the menu via Vite's reload.
    `sim/world.js`.
 8. **A stranded glider cannot be recovered.**
 
+Also measured: **animals graze on steep convex slopes and under canopy**, so a
+blind-aimed `capture` of one mostly photographs a hillside — four tries, no deer
+in frame, even with a line-of-sight test, because `heightAt` does not know about
+trees. Item 1 is the same terrain in a different hat.
+
 Left behind by the mirror, deliberately, and small: harvesting a carcass in
-multiplayer still fills a LOCAL inventory the server knows nothing about, and a
-mirrored animal's morale/`hurt` flags are never sent, so pack chatter runs at
-full confidence. Neither is visible in play yet.
+multiplayer fills a LOCAL inventory the server knows nothing about, and a
+mirrored animal's morale/`hurt` flags are never sent. Neither is visible in play.
 
 ## How to play it
 
@@ -100,13 +105,11 @@ ORDERS=obeys node server/agents.js 2
 ```
 
 Join at `http://localhost:5173/?join=ws://127.0.0.1:8080&name=Claude&danger=no-bears`,
-click a mode button, then drive with `window.highlands.stepWorld(1/60)`. For
-anything networked, drive in REAL time with `setTimeout` between steps.
-
-**The preview pane does not composite when it is not displayed**, so
-`requestAnimationFrame` never fires and the game loop does not run at all — the
-world looks frozen and connected-but-dead. That is not a bug, it is why
-`stepWorld` exists. Drive it by hand and everything works.
+click a mode button (**Sandbox** if you need `warp`), then drive with
+`window.highlands.stepWorld(1/60)` — in REAL time, `setTimeout` between steps,
+for anything networked. **The preview pane does not composite when it is not
+displayed**, so `requestAnimationFrame` never fires and the world looks frozen
+and connected-but-dead. Not a bug; it is why `stepWorld` exists.
 
 `highlands.capture('name')` writes a JPEG to `shots/` — **read those images**,
 it is the only way anyone sees this game. Under ~5 KB means the blind-pane bug
