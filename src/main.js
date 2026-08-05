@@ -377,6 +377,14 @@ function boot() {
         // `Fires.applyRemote` — from here the server owns the whole list, so
         // the local fuel clock stands aside and there is one authority.
         fires.applyRemote(snap.fi);
+        // ── and what the sky is doing ──
+        // The last of the six. Same channel, same reason, and it matters more
+        // now than it did an hour ago: your temperature became the server's at
+        // 15:40, and the wind chill and rain the HUD explains it WITH were
+        // still your browser's own invention — so the number could be right and
+        // the reason beside it wrong. Wind also carries your scent. See
+        // `Weather.applyRemote`.
+        weather.applyRemote(snap.w);
       },
       onError: (m) => hud.toast(`server: ${m}`, 5),
       onStatus: (s) => {
@@ -387,6 +395,7 @@ function boot() {
           vitals.takeOverLocally();
           atmosphere.takeOverLocally();
           fires.takeOverLocally();
+          weather.takeOverLocally();
         }
       },
     };
@@ -2585,6 +2594,11 @@ function boot() {
      */
     setWeather(name) {
       if (!ruleset.allows('allowWeatherControl')) return 'the weather does as it likes in Survival';
+      // OWNING A NUMBER ON THE SERVER BREAKS WHATEVER WROTE IT LOCALLY — the
+      // fire's fuel taught this, so say so rather than doing nothing. Every
+      // field below is overwritten by the next snapshot about five times a
+      // second, and a pin that silently lasts 200 ms is worse than a refusal.
+      if (weather.remote) return 'the server owns the sky while you are connected';
       const names = Object.keys(WEATHER.states);
       if (name === undefined) {
         weather.hold = 1;

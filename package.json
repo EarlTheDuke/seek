@@ -23,6 +23,7 @@
     "clockcheck": "node server/clockcheck.js",
     "firecheck": "node server/firecheck.js",
     "warmthcheck": "node server/warmthcheck.js",
+    "weathercheck": "node server/weathercheck.js",
     "arrowcheck": "node server/arrowcheck.js",
     "shotcheck": "node server/shotcheck.js",
     "herdcheck": "node server/herdcheck.js",
