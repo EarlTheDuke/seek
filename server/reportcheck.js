@@ -54,7 +54,17 @@ check('and reports no finding it cannot support',
   `"${summarise(tooShort.findings)}"`);
 
 // ── the finding the whole thing exists for ──
-const narrow = [agent('Eachann', { wander: 20, hunt: 8 }), agent('Morag', { wander: 14, avoid: 3 })];
+// Sized off the VOCABULARY, not a magic number. This was 45 decisions, which
+// cleared the honesty floor of 5-per-verb until `follow` and `guard` were added
+// and the floor rose to 55 — at which point the report correctly said "too
+// short to conclude" and four checks here failed. The check was wrong, not the
+// report: a fixture that has to be hand-edited every time the game grows a verb
+// is a fixture that will be hand-edited wrongly.
+const BULK = GOAL_IDS.length * 6;
+const narrow = [
+  agent('Eachann', { wander: BULK, hunt: 8 }),
+  agent('Morag', { wander: 14, avoid: 3 }),
+];
 const found = buildReport(narrow, { seconds: 1200 });
 check('a verb nobody reached for is called out',
   /nobody ever did/i.test(found.text) && found.text.includes('makeCamp'),

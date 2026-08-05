@@ -729,6 +729,17 @@ export const AGENTS = {
   turnRate: 1.7,
   speakEveryHours: 0.5,
 
+  // ── standing orders ──
+  // Station-keeping for `follow` and `guard`. Twelve metres is close enough to
+  // be company and far enough not to be underfoot — a companion that walks into
+  // your back while you are drawing a bow is worse than one you have to glance
+  // over your shoulder for.
+  followWithin: 12,
+  // How close something hostile gets to the person you are guarding before you
+  // break off for it. Wide enough to intercept rather than react: a guard that
+  // waits until the troll is swinging is an usher.
+  guardRange: 45,
+
   // What goes in a brief. Small on purpose: a decision needs the nearest few
   // things, not an inventory of the county.
   noticeRange: 140,
@@ -760,7 +771,6 @@ export const MINDS = {
   arriveWithin: 6,
   roamDistance: 55,
   stalkWithin: 45, // start crouching this far from quarry
-  turnRate: 1.6, // radians a second — a body, not a turret
   speakEveryHours: 0.4, // in-game hours between remarks
 
   // Memory, in words rather than coordinates.

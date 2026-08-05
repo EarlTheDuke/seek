@@ -43,6 +43,9 @@ import { createIntent } from '../sim/intents.js';
 import { sanitiseGoal, describeGoal, GOAL_IDS } from '../minds/goals.js';
 import { Memory } from '../minds/mind.js';
 import { nearestDeadfall } from '../world/pickups.js';
+// For `guard`: what counts as a threat is read off the species table rather
+// than listed here, so a wolf added later is guarded against without an edit.
+import { SPECIES } from '../creatures/registry.js';
 import { bearingName, describePosition } from '../world/placenames.js';
 import { AGENTS } from '../config.js';
 
@@ -55,11 +58,33 @@ export class Agent {
    * @param {object} opts.provider  anything with decide(brief) -> goal
    * @param {function} opts.rand    seeded, for the reflex layer's jitter
    */
-  constructor({ name, provider, rand, onLog = null }) {
+  /**
+   * @param {object} o
+   * @param {'decides'|'obeys'} [o.orders]  what a plain instruction does
+   *
+   * TWO WAYS TO BE COMMANDED, and the default is the interesting one.
+   *
+   *   'decides' — a sentence you say is PERCEPTION. It arrives in the brief as
+   *     "You have heard: Ben: keep back and shoot it" and the mind does
+   *     whatever it thinks best, which may be to ignore you. This is the
+   *     honesty rule applied to language: a mind acts on what it perceives, and
+   *     speech is a thing you perceive. A frightened companion can reasonably
+   *     refuse, and that makes it company rather than a drone.
+   *
+   *   'obeys' — a recognised instruction is parsed straight into a goal without
+   *     consulting the mind at all. Deterministic, free, and the right choice
+   *     when you are testing whether a fight is winnable rather than whether a
+   *     companion is interesting.
+   *
+   * Both exist because they answer different questions and the author wanted
+   * the option. Neither is a fallback for the other.
+   */
+  constructor({ name, provider, rand, onLog = null, orders = 'decides' }) {
     this.name = name;
     this.provider = provider;
     this.rand = rand;
     this.onLog = onLog;
+    this.orders = orders;
 
     this.id = null;
     this.seed = null;
@@ -146,6 +171,12 @@ export class Agent {
             if (msg.data.id === this.id) break; // it does not need to hear itself
             this.heard.push(`${msg.data.n}: ${msg.data.m}`);
             if (this.heard.length > 6) this.heard.shift();
+            // In 'obeys' mode a recognised instruction becomes a goal here and
+            // now, without waiting for the next deliberation — which may be
+            // seconds away and may cost a model call. In 'decides' mode this
+            // does nothing at all and the sentence simply travels on into the
+            // brief, which is the whole point of the mode.
+            if (this.orders === 'obeys') this.takeOrder(msg.data.n, msg.data.m);
             this.memory.add(this.hours, `${msg.data.n} said "${msg.data.m}"`);
             break;
           case S_ERROR:
@@ -207,7 +238,13 @@ export class Agent {
       });
     };
 
-    for (const p of s.pl ?? []) {
+    // `s?.` and not `s.` — a mind can deliberate before its first snapshot
+    // lands, and a brief that throws does not fail loudly: it lands in the
+    // provider's catch and the agent silently falls back to its scripted brain
+    // for ever. That exact shape has already cost this project a night, when
+    // briefToText read a field an agent's brief does not have and every
+    // model-driven player quietly never called the model once.
+    for (const p of s?.pl ?? []) {
       add(
         this.others.get(p.id) ?? 'someone',
         p.p[0], p.p[2],
@@ -215,7 +252,7 @@ export class Agent {
         p.x ? 'down' : p.h < 45 ? 'badly hurt' : 'unhurt'
       );
     }
-    for (const c of s.cr ?? []) {
+    for (const c of s?.cr ?? []) {
       add(`a ${c.k}`, c.p[0], c.p[2], c.s, c.h < 30 ? 'wounded' : 'unhurt');
     }
     contacts.sort((a, b) => a._m - b._m);
@@ -225,10 +262,10 @@ export class Agent {
       // brief does — an agent has less to say than a creature does, but what
       // it says must read the same way.
       place: this.where(),
-      hour: `${String(Math.floor(s.c ?? 12)).padStart(2, '0')}:00`,
-      light: (s.c ?? 12) > 20 || (s.c ?? 12) < 5 ? 'dark' : 'daylight',
-      weather: s.w?.s ?? 'clear',
-      wind: s.w?.a !== undefined ? bearingName(0, 0, Math.cos(s.w.a), Math.sin(s.w.a)) : null,
+      hour: `${String(Math.floor(s?.c ?? 12)).padStart(2, '0')}:00`,
+      light: (s?.c ?? 12) > 20 || (s?.c ?? 12) < 5 ? 'dark' : 'daylight',
+      weather: s?.w?.s ?? 'clear',
+      wind: s?.w?.a !== undefined ? bearingName(0, 0, Math.cos(s.w.a), Math.sin(s.w.a)) : null,
       goal: describeGoal(this.goal),
       contacts: contacts.slice(0, AGENTS.maxContacts).map(({ _m, ...r }) => r),
       heard: this.heard.slice(-3),
@@ -382,6 +419,57 @@ export class Agent {
     this._z -= Math.cos(this.yaw) * speed * dt;
   }
 
+  /**
+   * Turn a sentence into a goal, for 'obeys' mode.
+   *
+   * Deliberately a SMALL vocabulary of plain phrasings rather than anything
+   * clever. This is the deterministic path — its whole value is that it does
+   * exactly the same thing every time and costs nothing — and a fuzzy matcher
+   * that guesses wrong is worse than one that plainly does not understand.
+   * Anything it does not recognise falls through to the mind, which is the
+   * 'decides' behaviour, so nothing is ever swallowed.
+   *
+   * @returns {boolean} whether it took the order
+   */
+  takeOrder(from, text) {
+    const t = String(text).toLowerCase();
+    // "follow me", "stay with me", "with me"
+    if (/\b(follow|stay with|come with|with) me\b/.test(t)) {
+      this.setOrder({ kind: 'follow', target: from });
+      return true;
+    }
+    // "guard me", "cover me", "watch my back"
+    if (/\b(guard|cover|protect) me\b|\bwatch my back\b/.test(t)) {
+      this.setOrder({ kind: 'guard', target: from });
+      return true;
+    }
+    // "wait", "hold", "stay here", "stop"
+    if (/\b(wait|hold|stay here|stop|hold position)\b/.test(t)) {
+      this.setOrder({ kind: 'hold' });
+      return true;
+    }
+    // "kill the troll", "attack the bear", "shoot the deer"
+    const quarry = /\b(kill|attack|shoot|hunt)\s+(?:the\s+|that\s+|a\s+)?(\w+)/.exec(t);
+    if (quarry) {
+      this.setOrder({ kind: 'hunt', quarry: `a ${quarry[2]}` });
+      return true;
+    }
+    // "go on", "carry on", "as you were" — hands them back to themselves
+    if (/\b(carry on|go on|as you were|free|do what you like)\b/.test(t)) {
+      this.setOrder({ kind: 'wander' });
+      return true;
+    }
+    return false;
+  }
+
+  setOrder(goal) {
+    this.goal = goal;
+    this.goalCounts[goal.kind] = (this.goalCounts[goal.kind] ?? 0) + 1;
+    this.ordered = true;
+    this.memory.add(this.hours, `I was told to ${describeGoal(goal)}`);
+    this.onLog?.(`${this.name}: ${describeGoal(goal)} (ordered)`);
+  }
+
   resolve(g) {
     const s = this.snapshot;
     const find = (pred) => {
@@ -408,6 +496,44 @@ export class Agent {
       case 'makeCamp': {
         const wood = nearestDeadfall(this._x, this._z, 60);
         return wood ? { x: wood.x, z: wood.z, act: 'interact' } : this.roam();
+      }
+      // ── standing orders ──
+      // Both resolve to "be near them", and the difference is what happens when
+      // something attacks: `guard` breaks off to deal with it (see update()),
+      // `follow` does not. Keeping a respectful distance rather than standing
+      // in their pocket — a companion that walks into your back while you draw
+      // is worse company than one twelve metres away.
+      case 'follow':
+      case 'guard': {
+        const who = find((label) => label === (g.target ?? ''));
+        if (!who) return this.roam();
+
+        // Guarding means watching THEM, not waiting to be told. An agent gets
+        // senses, not events — there is no "so-and-so was attacked" message on
+        // the wire and there should not be — so it looks for something hostile
+        // standing near the person it is minding, exactly as you would.
+        //
+        // Hostility is read off the registry rather than a list here, so a wolf
+        // added to the species table is guarded against for free.
+        if (g.kind === 'guard') {
+          let threat = null;
+          let nearest = AGENTS.guardRange;
+          for (const c of s?.cr ?? []) {
+            if (SPECIES[c.k]?.faction === 'prey') continue;
+            const d = Math.hypot(c.p[0] - who.x, c.p[2] - who.z);
+            if (d < nearest) {
+              nearest = d;
+              threat = { x: c.p[0], z: c.p[2] };
+            }
+          }
+          if (threat) return threat;
+        }
+
+        const dx = who.x - this._x;
+        const dz = who.z - this._z;
+        const d = Math.hypot(dx, dz) || 1;
+        if (d < AGENTS.followWithin) return null; // close enough; hold station
+        return { x: who.x - (dx / d) * AGENTS.followWithin, z: who.z - (dz / d) * AGENTS.followWithin };
       }
       case 'hunt':
         return find((label) => label === (g.quarry ?? '')) ?? this.roam();

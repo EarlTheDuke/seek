@@ -51,6 +51,14 @@ const NAMES = [
   'Calum', 'Beathag', 'Ruaridh', 'Mairead', 'Lachlan', 'Oighrig',
 ];
 
+// What a sentence you say to them DOES. See the note on Agent's constructor.
+//
+//   decides (default) — they hear you and make up their own minds
+//   obeys             — a recognised instruction becomes a goal, deterministically
+//
+//   ORDERS=obeys npm run agents -- 2
+const ORDERS = process.env.ORDERS === 'obeys' ? 'obeys' : 'decides';
+
 const useModel = (process.env.MINDS_PROVIDER ?? 'scripted') === 'claude';
 const hasKey = !!process.env.MINDS_API_KEY;
 
@@ -63,6 +71,9 @@ const budget = new Budget({
 
 console.log('\n  Highlands — agents');
 console.log(`  ${COUNT} player${COUNT === 1 ? '' : 's'} joining ${URL}`);
+console.log(`  orders: ${ORDERS === 'obeys'
+  ? 'obeys — "follow me", "guard me", "kill the troll", "wait", "carry on"'
+  : 'decides — they hear you and make up their own minds (ORDERS=obeys to change)'}`);
 if (useModel && hasKey) {
   console.log(`  minds: ${process.env.MINDS_MODEL ?? 'claude-sonnet-4-5'}`);
   console.log(`  budget: ${budget.maxCalls} calls for the whole session, then scripted`);
@@ -95,6 +106,7 @@ async function main() {
       provider: providerFor(i),
       rand: makeRandom(`agentbody:${i}`),
       onLog: log,
+      orders: ORDERS,
     });
     try {
       await a.connect(URL);
