@@ -222,6 +222,7 @@ export class Projectiles {
 
     // Living things, tested last so a tree between you and the deer wins.
     let struck = null;
+    let struckPlayer = null;
     const wildlife = this.deps.wildlife;
     if (wildlife) {
       const ch = wildlife.hitTest(pos, _next);
@@ -231,10 +232,39 @@ export class Projectiles {
         struck = ch.creature;
       }
     }
+    // ── and people ──
+    // There was no player test here at all. Arrows passed through everybody,
+    // always, at any range, in any country — reported as "the arrow goes
+    // directly through your character model". It looked like the strangeness
+    // gate refusing damage, and it was not: the shot never reached that check
+    // because nothing ever noticed it had hit a person.
+    const hitPlayer = this.deps.playerHitTest;
+    if (hitPlayer) {
+      const ph = hitPlayer(pos, _next, p.ownerId);
+      if (ph && ph.t < bestT) {
+        bestT = ph.t;
+        surface = 'flesh';
+        struck = null;
+        struckPlayer = ph.player;
+      }
+    }
 
     if (bestT === Infinity) {
       pos.copy(_next);
       return false;
+    }
+
+    if (struckPlayer) {
+      _probe.lerpVectors(pos, _next, bestT);
+      const speed = vel.length();
+      const base = (type.damage ?? 0) * (speed / (type.refSpeed ?? speed));
+      // The arrow STOPS either way. Whether it hurts is somebody else's rule —
+      // PvP is gated on strangeness — but a shaft that sails through a person
+      // because the rules say you cannot fight here is indistinguishable from a
+      // bug, and was reported as one.
+      this.deps.onPlayerHit?.(struckPlayer, base, _probe, p.ownerId);
+      this.deps.audio?.impact?.('flesh', _probe);
+      return true;
     }
 
     if (struck) {
