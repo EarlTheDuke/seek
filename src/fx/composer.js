@@ -80,9 +80,21 @@ export class Composer {
     this.composer.addPass(this.grain);
   }
 
-  setSize(w, h) {
+  /**
+   * `w`/`h` are CSS pixels; `pixelRatio` is the backing-store scale.
+   *
+   * EffectComposer caches the pixel ratio it was CONSTRUCTED with and multiplies
+   * every pass's target by it, so a DPR change has to be handed over explicitly
+   * or the render targets stay at the old scale while the canvas moves on.
+   *
+   * The bloom pass is deliberately not sized here any more: `composer.setSize`
+   * already calls `setSize` on every pass it owns, with the ratio-multiplied
+   * size. Passing it the CSS size afterwards re-shrank bloom's targets by the
+   * pixel ratio — invisible at DPR 1, half-resolution glow on a scaled display.
+   */
+  setSize(w, h, pixelRatio) {
+    if (pixelRatio !== undefined) this.composer.setPixelRatio(pixelRatio);
     this.composer.setSize(w, h);
-    this.bloom.setSize(w, h);
   }
 
   render(dt, time) {

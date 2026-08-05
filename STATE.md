@@ -6,15 +6,16 @@ under a hundred lines. **Update it at the end of every run.** If it grows past
 that, cut the oldest resolved things rather than letting it become another
 archive.
 
-Last updated: 2026-08-05 09:52, by the session that got the rain off the fire.
+Last updated: 2026-08-05 10:18, by the session that made the picture fit the window.
 
 ## What works right now
 
 - **Everyone hunts the same animals**, arrows hit players, wounds persist, the
-  cull is per-player, standing orders are obeyed. All twelve suites green
-  (`campcheck` now **36**, `glidercheck` 32, `companioncheck` 29, `mindcheck`
+  cull is per-player, standing orders are obeyed. All thirteen suites green
+  (`campcheck` **36**, `glidercheck` 32, `companioncheck` 29, `mindcheck`
   21, `bookcheck`/`reportcheck` 18, `ordercheck` 17, `netcheck`/`herdcheck` 12,
-  `dangercheck` 12, `arrowcheck`/`woundcheck` 7).
+  `dangercheck` 12, **`rendercheck` 12 (new)**, `arrowcheck`/`woundcheck` 7).
+- **The picture fits the window** at any monitor scaling or browser zoom.
 - **A fire is something you can see and hear** — photographed by night at last:
   `shots/fire-at-3m-night.jpg`.
 - **You can see where your arrow will land** (predicted impact agrees with a
@@ -23,32 +24,28 @@ Last updated: 2026-08-05 09:52, by the session that got the rain off the fire.
   build chooser; `E` obeys one distance rule and **always answers** — gather,
   build and launch refusals all state their condition.
 
-## CLOSED: queue #1, "a fire cannot save a soaked player in the rain"
+## Recently closed — details in `FINDINGS.md` under the dated heading
 
-Two claims in one. **The bug:** `Fires.update` dimmed every fire by the GLOBAL
-`weather.rain`, so a fire under a lean-to roof was still being rained on — 44%
-of its warmth gone and fuel burning twice as fast. `structures.roofedAt()` had
-existed all along and `main.js` already called it for the PLAYER; nothing had
-ever asked it for a fire. `Fires` now takes a `roofedAt` dep. Live, rain 1.0:
-roofed fire **intensity 1.000 / fuel 40.7**, open fire **0.428 / 35.4**. Photo:
-`shots/leanto-fire-in-the-rain.jpg`. campcheck is now **36** and asserts both
-intensities AND that main.js still passes the dep.
+- **"Window resize wrecks the sim"** (10:15). `setPixelRatio` ran once at boot
+  and `syncSize` early-returned on CSS size alone, so a DPR change (other
+  monitor, browser zoom) never reached the renderer and no resize event could
+  recover it: at a forced 1280x720, DPR 2 gave a 1280x720 buffer at ratio 1
+  before, 1920x1080 at 1.5 after. `EffectComposer` caches the ratio it was built
+  with and already sizes every pass by it, so the wrapper's extra
+  `bloom.setSize(w, h)` was re-shrinking bloom. Guarded by `rendercheck`.
+- **A fire under a roof was still being rained on** (09:50). `Fires` now takes a
+  `roofedAt` dep; roofed 1.000/40.7 vs open 0.428/35.4 at rain 1.0. Only
+  `lean-to + fire + cloak` beats the rain (+0.020 C/min). Guarded by `campcheck`.
+- **The fire was silent and invisible** (09:35). Laid below the frame;
+  `firePlaceDistance` 3 m must stay under `fireReach` 3.4 m. `Soundscape.fireLit`
+  was never written and `?.` ate it. Guarded by `campcheck`.
 
-**The part that was not a bug:** "36.1 → 28.0" was measured over 30+ real
-minutes = two in-world DAYS. A night is 8.7 real minutes, and over one night
-nobody dies of cold in any configuration (worst case 34.5; damage starts at
-33.0). A fire in the open genuinely cannot beat rain — you re-soak at 0.018/s
-and dry at 0.004/s, and being soaked costs ~15 C. Get the rain off you first.
-Only `lean-to + fire + cloak` now sits above neutral (+0.020 C/min, holds 37);
-it was −0.047 and slowly losing. Eight-row table in `FINDINGS.md` 09:50.
-
-## CLOSED earlier: "the fire is silent and invisible"
-
-Invisible because it was laid **below the frame** (1.6 m ahead projected to row
-927 of 720) — `SURVIVAL.firePlaceDistance` is now 3 m, and must stay under
-`SURVIVAL.fireReach` 3.4 m, which campcheck asserts. Silent because
-`Soundscape.fireLit` was never written and `?.` swallowed it. Full trace:
-`FINDINGS.md` 2026-08-05 09:35.
+**The lesson from the resize one, worth keeping:** that queue entry inherited a
+RETRACTED symptom as its title (the fps/clock collapse — the tester withdrew it
+twice, it was the NaN yaw) and would have sent a fifth session hunting a stopped
+clock in the renderer. Re-measured here: `totalHours` moved 0.04 per 150 steps
+identically before, during and after two DPR flips. **When a queue entry names a
+symptom, check the symptom still stands before you go hunting its cause.**
 
 ## Things that will waste your time if you do not know them
 
@@ -86,18 +83,20 @@ Invisible because it was laid **below the frame** (1.6 m ahead projected to row
 - **The scatter collider field is `highlands.scatter.colliders`** — the other
   one's `.list` is empty, so a tree search against it silently finds nothing.
   **A creature's Object3D is `c.object`**, not `root`/`group`/`mesh`.
+  **Lit fires are `highlands.fires.active`** — there is no `.list`.
+  **`hud.heard` holds objects, not strings** — `.join()` gives you
+  `[object Object]`; read `h.text`.
 
 ## The game queue, ranked
 
-1. **Window resize wrecks the sim** — `setPixelRatio` set once at boot.
-2. **Goblins are unkillable in daylight** — flee 7.6 vs your sprint 8.6.
-3. **Companions do not exist in multiplayer** — `Companion` appears 0 times in
+1. **Goblins are unkillable in daylight** — flee 7.6 vs your sprint 8.6.
+2. **Companions do not exist in multiplayer** — `Companion` appears 0 times in
    `sim/world.js`.
-4. **A stranded glider cannot be recovered.**
-5. `glider.js` samples ridge lift upwind with `(−sin, −cos)` of `wind.angle`
+3. **A stranded glider cannot be recovered.**
+4. `glider.js` samples ridge lift upwind with `(−sin, −cos)` of `wind.angle`
    while integrating flight in `(+sin, +cos)`. Establish which way `wind.angle`
    points before touching it.
-6. Multiplayer carcass harvesting fills a LOCAL inventory only, and a mirrored
+5. Multiplayer carcass harvesting fills a LOCAL inventory only, and a mirrored
    animal's morale/`hurt` flags are never sent. Small and deliberate, for now.
 
 **Unmeasured, worth one run:** with 4 players the server's population drifted

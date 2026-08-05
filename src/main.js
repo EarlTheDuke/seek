@@ -2080,12 +2080,22 @@ function boot() {
   function syncSize() {
     const w = shotSize ? shotSize.w : Math.max(1, window.innerWidth);
     const h = shotSize ? shotSize.h : Math.max(1, window.innerHeight);
+    // The device pixel ratio is re-read every frame, not just at boot. Dragging
+    // the window to a monitor with different scaling — or a browser zoom —
+    // changes DPR while leaving the CSS size completely alone, so a guard on
+    // w/h only let that straight through and the renderer went on drawing at
+    // the backing-store scale it booted with, forever. No resize event can
+    // recover it, because the early return below fires first. Both directions
+    // hurt: too many pixels for the window and the framerate collapses, too few
+    // and the whole game goes soft.
+    const pr = Math.min(window.devicePixelRatio, POST.maxPixelRatio);
     renderer.getSize(_size);
-    if (_size.x === w && _size.y === h) return;
+    if (_size.x === w && _size.y === h && renderer.getPixelRatio() === pr) return;
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
+    renderer.setPixelRatio(pr);
     renderer.setSize(w, h);
-    composer.setSize(w, h);
+    composer.setSize(w, h, pr);
     viewmodel.setSize(w, h);
   }
   window.addEventListener('resize', syncSize);
