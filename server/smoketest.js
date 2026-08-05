@@ -109,6 +109,31 @@ async function main() {
   check('each sees the other join', alice.others.has(bob.id) && bob.others.has(alice.id),
         `Alice sees "${alice.others.get(bob.id)}", Bob sees "${alice.others.get(alice.id) ?? bob.others.get(alice.id)}"`);
 
+  // ── the spawn you are TOLD is the spawn you are ON ──
+  //
+  // `hello` used to answer with the world's base spawn — the one shore everyone
+  // shares — while `addPlayer` fans each arrival out around it so that two
+  // bodies do not open their eyes inside each other. So the number every client
+  // starts from was right for exactly one player and 3.30 m out for the next,
+  // and NOTHING afterwards ever revisits it: a browser teleports its body there
+  // once, an agent begins its dead reckoning there, and both are then quietly
+  // beside themselves for the rest of the session. It sat at the top of the
+  // queue for four sessions as "your body is not where the server thinks it is".
+  //
+  // Checked from BOTH ends, because they travel by different routes and only
+  // one of them was ever wrong: Bob against his own `me`, Alice against the way
+  // Bob sees her. Read before anybody walks, while both are still standing.
+  const bobMe = bob.lastSnapshot?.me;
+  const bobGap = bobMe
+    ? Math.hypot(bobMe.p[0] - bob.spawn.p[0], bobMe.p[2] - bob.spawn.p[2])
+    : Infinity;
+  check('the spawn Bob was told is the spawn Bob is on', bobGap < 0.05, `${bobGap.toFixed(2)} m apart`);
+  const aliceAtRest = bob.lastSnapshot?.pl.find((p) => p.id === alice.id);
+  const aliceGap = aliceAtRest
+    ? Math.hypot(aliceAtRest.p[0] - alice.spawn.p[0], aliceAtRest.p[2] - alice.spawn.p[2])
+    : Infinity;
+  check('the spawn Alice was told is where Bob sees Alice', aliceGap < 0.05, `${aliceGap.toFixed(2)} m apart`);
+
   // ── walking ──
   // Alice walks forward for two seconds; Bob stands still and watches.
   const startSnap = bob.lastSnapshot;

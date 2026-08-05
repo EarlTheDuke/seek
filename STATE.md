@@ -6,11 +6,15 @@ under a hundred lines. **Update it at the end of every run.** If it grows past
 that, cut the oldest resolved things rather than letting it become another
 archive.
 
-Last updated: 2026-08-05 13:15, by the session that gave the OWNER their animal's
-fight back — and found the client's body 417 m from the server's copy of it.
+Last updated: 2026-08-05 13:40, by the session that closed the 417 m — which was
+a staging flag and two small bugs, and never once was drift.
 
 ## What works right now
 
+- **Your body is where the server says it is.** 0.00 m apart on both join paths,
+  yaw agreeing. `netcheck` (**24/24**) guards it from both ends and those two
+  guards were watched failing on the old code at 4.10 m and 3.31 m. A staged
+  warband is finally VISIBLE: five goblins in `attack` at 0.45–1.64 m.
 - **A companion bites for its owner, everyone sees it — INCLUDING THE OWNER.**
   `npm run bitecheck` (**10/10**, spawns its own server) watches the whole thing
   from a second player's snapshot and then reads the owner's own stream for the
@@ -26,7 +30,7 @@ fight back — and found the client's body 417 m from the server's copy of it.
   breath doing it and goes to ground where you can reach it.
 - **Everyone hunts the same animals**, arrows hit players, wounds persist, the
   cull is per-player, standing orders are obeyed. All suites green
-  (`companioncheck` **45**, `campcheck` 36, `glidercheck` 32, `netcheck` **22**,
+  (`companioncheck` **45**, `campcheck` 36, `glidercheck` 32, `netcheck` **24**,
   `mindcheck` 21, `raidcheck`/`bookcheck`/`reportcheck` 18, `ordercheck` 17,
   `herdcheck`/`dangercheck`/`rendercheck` 12, `spreadcheck` 10, `shotcheck` 8,
   `arrowcheck`/`woundcheck` 7).
@@ -37,51 +41,70 @@ fight back — and found the client's body 417 m from the server's copy of it.
 
 ## Recently closed — details in `FINDINGS.md` under the dated heading
 
+- **"YOUR BODY IS NOT WHERE THE SERVER THINKS IT IS — 417 m"** (13:40), queue #1,
+  open four sessions. It was three things and none of them was drift:
+  - **The 417 m itself was `HOURS=1`.** `pickSpawn` stands you on the shore
+    OPPOSITE THE SUN, by design. The client runs it against its own clock, the
+    server against the server's — so a night-staged server and a client drawing
+    its own morning choose opposite shores of a 235 m-radius lake. Reproduced
+    the old figures to the centimetre: (−27.81, 82.07) vs (279.22, −198.56),
+    415.96 m. On a default 07:00 server the same page reads 3.31 m.
+  - **`highlands.join()` never took the server's spawn.** The handler block was
+    written twice and the console copy only toasted — no `teleport`. One
+    `netHandlers()` now, used by both `?join=` and `join()`.
+  - **`hello()` sent the world's base spawn**, not the spot `addPlayer` actually
+    put you on, so every arrival after the first began life a fixed distance
+    beside itself — 3.31 m for the second, 4.10 m for the third, growing.
+  Carry forward: **queue #2 is not the same bug.** With position shared, server
+  `me.h` read 89 while the local bar read 100 in the same instant.
 - **"The owner is the one person who cannot see their own animal fight"** (13:15),
-  queue #1. The snapshot's own `co` entry now carries **`g`**, the creature id its
-  animal is fighting, sent only while there is a fight; the owner's client looks
-  that mirrored body up in `wildlife.byServerId` and hands it to the real pet via
-  the new **`Companion.mirrorFight`**. Watched live: server said `attack` on goblin
-  #16 at 3.08 s, the LOCAL cub was in `attack` on the same mirrored goblin, 2.74 m
-  away closing to 0.40 m, toast "Fang goes for the goblin", target 34 → 19 hp.
-  Three things to carry forward:
+  earlier queue #1. The snapshot's own `co` entry now carries **`g`**, the
+  creature id its animal is fighting, sent only while there is a fight; the
+  owner's client looks that mirrored body up in `wildlife.byServerId` and hands
+  it to the real pet via the new **`Companion.mirrorFight`**. Two things to
+  carry forward:
   - **`defend` cannot be the line that does this.** It is a DECISION and it
     refuses on trust and standing orders — questions the server has already
     answered against the same digest. Asking twice can only disagree, and the
     disagreement IS this bug. `mirrorFight` delivers the outcome instead.
-  - **Local bite damage is suppressed while connected.** The server resolved the
-    bite; `c.hp = e.h` overwrites the local number a frame later anyway, and
-    applying it here could bury a goblin the server still has standing.
-  - **`mirrorFight` refuses a quarry beyond `giveUpRange`** — see the 417 m
-    finding below, which is what made that necessary.
-- **"Nobody has SEEN a companion bite over the wire"** (12:35), earlier queue #1.
-  Watched from a second player's stream, twice, agreeing to the tenth of a second.
-  Two things worth carrying forward:
+  - **Local bite damage is suppressed while connected**, and `mirrorFight`
+    refuses a quarry beyond `giveUpRange` — a guard added for the 417 m split,
+    harmless now that the two bodies agree, and worth keeping.
+- **"Nobody has SEEN a companion bite over the wire"** (12:35), **"a companion's
+  relationship does not cross the wire"** (12:05), **goblins unkillable in
+  daylight** (10:45), **window resize wrecking the sim** (10:15), **both fire
+  bugs** (09:35, 09:50). All in `FINDINGS.md`. The facts from them that still
+  bite, kept because they are still load-bearing:
   - **`HOURS=1 RAID=6` are knobs on `server.js`**, off by default, changing
-    nothing when off. They stage the night and the warband, because goblins are
-    night-only, a day is 26 real minutes, and a goblin arriving ALONE has morale
-    0.00 and runs — so a real fight costs more to wait for than to test.
+    nothing when off. Goblins are night-only, a day is 26 real minutes, and a
+    lone goblin has morale 0.00 and runs — waiting for a real fight costs more
+    than staging one. **But `HOURS` moves the spawn — see the list below.**
   - **Attach the witness before you start the fight.** The goblins cover 26 m and
     draw blood in three seconds; an observer that goes on late finds the evidence
     already spent, and reports the harness's fault as the game's.
-- **"A companion's relationship does not cross the wire"** (12:05). `C_PET` carries
-  the digest up. Four facts from it that still bite:
-  - **The rounding IS the rate limiter** — quantised to 2 dp, so a resting
-    animal sends nothing and a decaying one about a packet a second. No timer.
-  - **The server's copy is `mirrored`**, a flag that makes it heel regardless of
-    trust: two untamed copies wandering on two machines diverge without limit.
-    The trust is still real and `defend` still refuses on it — that is the gate.
-  - **`giveCompanion`'s trust 0.6 is a placeholder**, overwritten by the owner's
-    first packet, kept for ever only by agents, which never send one.
+  - **The rounding IS the rate limiter** for `C_PET` — quantised to 2 dp, so a
+    resting animal sends nothing and a decaying one about a packet a second.
+  - **The server's copy of a pet is `mirrored`**, which makes it heel regardless
+    of trust; `giveCompanion`'s trust 0.6 is a placeholder the owner's first
+    packet overwrites, kept for ever only by agents, which never send one.
   - **Your own animal IS in your own snapshot**, unlike `pl`; the browser skips
     its own by owner id — and now reads its own entry for the fight.
-- **Goblins unkillable in daylight** (10:45), **window resize wrecking the sim**
-  (10:15), **both fire bugs** (09:35, 09:50). The lesson that outlived them:
-  **check the symptom still stands, and check which game mode a number came
-  from, before you hunt a cause.**
+  - **Check the symptom still stands, and which game mode a number came from,
+    before you hunt a cause.**
 
 ## Things that will waste your time if you do not know them
 
+- **`HOURS=1` MOVES THE SPAWN TO THE OTHER SIDE OF THE LAKE.** `pickSpawn`
+  stands you on the shore opposite the sun, so the world's spawn point is a
+  function of the hour you start at — the staging flag does not just change the
+  light, it relocates everybody by up to ~420 m. Harmless now that clients take
+  the server's spawn, but any measurement that compares a staged server against
+  an unstaged one, or against a client's own `highlands.spawn`, is comparing two
+  different places. It cost four sessions once already.
+- **A number that reproduces exactly is a CONFIGURATION, not a drift.** 417 m,
+  twice, "deterministic, so not drift" — and the determinism was the clue that
+  it was an input, not an accumulation. Ask what was different about the
+  *launch* before you go looking for a leak.
 - **Your own source edit reloads the page out from under your measurement.**
   Editing `src/*` bounces the client through Vite: fresh world, mode back to
   **Survival**, `audio.ready` false, no fires — so the next reading throws, or
@@ -115,11 +138,10 @@ fight back — and found the client's body 417 m from the server's copy of it.
   `ctrl.position` every step, so step until `highlands.flight` is falsy before
   measuring. Refused in Survival (it *returns* the refusal as a string), and the
   server never hears it. Worthless for anything the server must agree about.
-- **NEVER believe a distance in multiplayer without comparing both bodies
-  first.** `Math.hypot(snapshotCreature.p − highlands.ctrl.position)` is a
-  distance between two different coordinate origins while queue #1 stands: it
-  was 417 m wrong. Print `highlands.ctrl.position` next to `snap.me.p` in the
-  same line before you use either. Aligning them by hand
+- **Still print both bodies on one line before believing a distance.** The two
+  origins agree now (0.00 m), and one line of output is what proved it — and
+  what would have saved four sessions if anyone had printed it sooner. Aligning
+  them by hand
   (`h.ctrl.position.set(...snap.me.p)`) is a valid way to test anything
   positional — it is LOCAL, so the server never hears it, but it puts your
   camera where the fight is.
@@ -127,9 +149,6 @@ fight back — and found the client's body 417 m from the server's copy of it.
   `alert` at arm's length for 25 s of stepping and never attacked, so no
   `resolveAttack`, so nothing for a companion to answer. If you need a fight,
   restart the server for a fresh `RAID` — do not wait on wounded ones.
-- **The client draws its own daylight.** Server clock 04:13, screen broad
-  daylight, twice now (12:25 and 13:00). The snapshot carries `c`; whether the
-  client applies it is STILL unchecked. Do not repeat a cause, there isn't one yet.
 - **Deer wander.** Reading a deer's position once and then stepping through a
   long scan aims you where it used to be — it cost a run two wrong readings.
 - **A long survival test measures FOOD, not what you think.** `dayMinutes: 26`,
@@ -160,31 +179,27 @@ fight back — and found the client's body 417 m from the server's copy of it.
 
 ## The game queue, ranked
 
-1. **YOUR BODY IS NOT WHERE THE SERVER THINKS IT IS — 417 m out, measured
-   twice.** In a browser joined to :8080, `highlands.ctrl.position` read
-   (−27.8, 82.1) while the same packet's `me.p` read (279.2, −198.6). Same
-   numbers on a fresh server and a fresh page, so it is deterministic, not drift.
-   Everything positional in multiplayer is downstream of this: the warband
-   staged "26 m from Claude" was 417 m from the Claude on screen, the goblins
-   that killed me were never visible, and the first honest version of the
-   companion fix produced five toasts about a fight over the horizon.
-   `snapshot()` says out loud that a browser ignores `me` and keeps its own —
-   correct for a body integrating its own intents, fiction if the two ever
-   started somewhere different. **Nobody has checked what the server does with a
-   joining client's spawn point.** Start there, and print both positions in the
-   first snapshot before theorising. Queue #2 below is the same bug wearing a
-   health bar.
-2. **The server killed me and respawned me and the browser never noticed.** The
+1. **The server killed me and respawned me and the browser never noticed.** The
    snapshot's `me.h` ran 12 → 0 → 89 → 34 → 1 → 0 → 100 while the local health
-   bar read 100 throughout — watched again at 13:00, 100 → 0 → 100 with the bar
-   flat at 100. Same family as #1: a browser keeps its own `me`.
+   bar read 100 throughout — watched again at 13:35, server 89 against a local
+   100 in the same instant. **This is now its OWN bug**: it used to be waved at
+   as "same family as the position split", and the position split is closed
+   while this stands unchanged. The client applying `me.h` while connected is
+   the obvious shape, and nobody has checked what that does to the death and
+   respawn path, which is local-only today.
+2. **The client draws its own daylight.** Broad daylight at server clock 01:00,
+   three times now (12:25, 13:00, 13:35). The snapshot carries `c` and nothing
+   applies it — the same root as the old 417 m, and now the only symptom of it
+   left. Promoted out of the time-wasters list because it is a real bug and it
+   is small: one number, arriving 20 times a second, that nothing reads.
 3. **A stranded glider cannot be recovered.**
 4. `glider.js` samples ridge lift upwind with `(−sin, −cos)` of `wind.angle`
    while integrating flight in `(+sin, +cos)`. Establish which way `wind.angle`
    points before touching it.
 5. **Arrows fired at ~0 m all miss.** Four full-charge shots at a motionless
    goblin standing on top of me did nothing. Same family as the
-   axe-misses-in-a-swarm note, probably. Unexamined.
+   axe-misses-in-a-swarm note, probably. Unexamined. Worth retrying now that a
+   goblin on screen is genuinely the goblin the server is holding.
 6. Multiplayer carcass harvesting fills a LOCAL inventory only, and a mirrored
    animal's morale/`hurt` flags are never sent. Small and deliberate, for now.
 7. **Nothing else comes back DOWN about your own animal.** The FIGHT now does
@@ -198,10 +213,10 @@ CONTINUOUSLY MOVING owner at about its own `runRange` — inside that range
 hippo sat 21.9 m behind her (`runRange` 22). Invisible in single player because
 people stop constantly; glaring with agents, which never do.
 
-**One of the two unexplained 12:25 readings now has a cause: queue #1.** The
-LOCAL cub reading 341.6 m away is the client/server body split — the animal was
-next to one of the two bodies. The other (the client drawing midday at server
-01:00) is still open and is now in the time-wasters list.
+**Both unexplained 12:25 readings now have causes.** The LOCAL cub reading
+341.6 m away was the client/server body split, now closed. The other — the
+client drawing midday at server 01:00 — is queue #2 above, and is the last
+surviving piece of the same root: the client never reads the server's clock.
 
 **Unmeasured, worth one run:** with 4 players the server's population drifted
 68 → 37 over ~24 game minutes (cap is 120, so not the cap), across 02:00–05:00.
@@ -238,10 +253,13 @@ is back. And **you can press keys**: `window.dispatchEvent(new KeyboardEvent(
 E / W / G / B without pointer lock, so walking, gathering, lighting, building
 and sprinting all work headlessly.
 
-*(This file is ~150 lines, not the 100 it asks for. The overflow is all in
-"things that will waste your time" — every line there is a measured fact that
-cost a run to learn, and deleting them to hit a count would cost the next
-session more than the reading does. Cut the closed-work section first.)*
+*(This file is ~260 lines, not the 100 it asks for, and the previous note here
+said "~150" when it was already 252 — so do not trust that estimate, run
+`wc -l`. The overflow is nearly all in "things that will waste your time":
+every line there is a measured fact that cost a run to learn, and deleting them
+to hit a count would cost the next session more than the reading does. Cut the
+closed-work section first — it was cut hard this run and can be cut again, since
+all of it is in `FINDINGS.md` under its dated heading.)*
 
 ## The trap this project falls into
 

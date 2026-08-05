@@ -803,16 +803,28 @@ export class SimWorld {
     if (this.events.length) this.events = [];
   }
 
-  /** Everything a client needs exactly once, on joining. */
+  /**
+   * Everything a client needs exactly once, on joining.
+   *
+   * THE SPOT THIS PLAYER WAS ACTUALLY PUT ON, not the shore everybody shares.
+   * `addPlayer` fans people out around `this.spawn` so that two bodies do not
+   * open their eyes inside each other — so the base spawn is the truth for
+   * exactly one player, the first, and is 3.3 m out for the second and further
+   * for the fourth. Everyone downstream starts from this number: a browser
+   * teleports its body to it, an agent begins its dead reckoning from it. So
+   * sending the shared shore made a PERMANENT offset between where you are and
+   * where the server says you are — measured at 3.30 m for player #2, and it
+   * never closed, because nothing afterwards ever revisits it.
+   */
   hello(id) {
+    const joiner = this.players.get(id);
+    const at = joiner ? joiner.ctrl.position : this.spawn.position;
+    const yaw = joiner ? joiner.ctrl.yaw : this.spawn.yaw;
     return {
       seed: this.seed,
       id,
       tick: this.tick,
-      spawn: {
-        p: [this.spawn.position.x, this.spawn.position.y, this.spawn.position.z],
-        y: this.spawn.yaw,
-      },
+      spawn: { p: [at.x, at.y, at.z], y: yaw },
       players: this.playersInOrder().map((p) => ({ id: p.id, n: p.name })),
     };
   }

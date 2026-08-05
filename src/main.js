@@ -296,8 +296,21 @@ function boot() {
   const petAvatars = new PetAvatars(scene);
   let net = null;
 
-  if (joinUrl) {
-    net = new NetClient({
+  /**
+   * The one set of handlers, for both ways of joining.
+   *
+   * WRITTEN TWICE ONCE, AND THE COPIES DRIFTED. There were two of these: this
+   * one, for `?join=`, and a second inside `highlands.join()` for joining from
+   * the console without reloading. The console copy toasted and did nothing
+   * else — no `teleport` — so a client that joined that way kept the body its
+   * own `pickSpawn` had chosen while the server walked a different one about,
+   * and every distance either of them measured was between two coordinate
+   * origins. Measured at 415.96 m against a server staged with `HOURS=1`, which
+   * is where "your body is not where the server thinks it is" came from. One
+   * function now, so the next thing added to it cannot land on only one path.
+   */
+  function netHandlers() {
+    return {
       onWelcome: (data) => {
         hud.toast(`joined — ${data.players.length + 1} here`, 3);
         // The server's spawn is authoritative; take it rather than the one
@@ -333,7 +346,11 @@ function boot() {
       },
       onError: (m) => hud.toast(`server: ${m}`, 5),
       onStatus: (s) => hud.toast(`network: ${s}`, 2),
-    });
+    };
+  }
+
+  if (joinUrl) {
+    net = new NetClient(netHandlers());
     // Whichever animal is at your heel walks onto the server with you.
     net.connect(joinUrl, params.get('name') ?? 'wanderer', chosenCompanion);
   }
@@ -2720,38 +2737,19 @@ function boot() {
     },
     avatars,
     petAvatars,
-    /** Connect to a server without reloading. */
+    /**
+     * Connect to a server without reloading.
+     *
+     * Identical to joining through `?join=` now, teleport included — see
+     * `netHandlers`. YOU WILL BE MOVED when the welcome lands: the server has
+     * already decided where your body stands, and the alternative to accepting
+     * it is not staying put, it is being desynced for the rest of the session.
+     */
     join: (url, name = 'wanderer') => {
       if (net) net.close();
       avatars.clear();
       petAvatars.clear();
-      net = new NetClient({
-        onWelcome: (d) => hud.toast(`joined — ${d.players.length + 1} here`, 3),
-        // Into the chat column, not the toast. A conversation needs several lines
-      // at once and time to read them; the toast gives you one for four seconds
-      // and the next speaker wipes the last.
-      onChat: (m) => hud.chat(m.system ? null : m.n, m.m),
-      // ── what just happened to somebody ──
-      // Until now none of these reached a screen. An arrow that hit, or that
-      // glanced off because you may not fight on settled ground, looked exactly
-      // like an arrow that sailed through — which is how "arrows do not hit
-      // people" was reported twice when the shot had in fact been refused, by a
-      // rule, for a stated reason nobody could read.
-      onEvent: (e) => {
-        const mine = net && e.id === net.id;
-        const byMe = net && e.by === net.id;
-        if (e.k === 'hit') {
-          if (mine) hud.chat(null, `an arrow hits you — ${e.dmg}`);
-          else if (byMe) hud.chat(null, `your arrow strikes home — ${e.dmg}`);
-        } else if (e.k === 'glance') {
-          if (mine || byMe) hud.chat(null, `the arrow glances off — ${e.why}`);
-        } else if (e.k === 'death') {
-          hud.chat(null, `${e.n} was killed by ${e.by} ${e.where ?? ''}`.trim());
-        }
-      },
-        onError: (m) => hud.toast(`server: ${m}`, 5),
-        onStatus: (s) => hud.toast(`network: ${s}`, 2),
-      });
+      net = new NetClient(netHandlers());
       net.connect(url, name, pet.species.id);
       return `connecting to ${url}`;
     },
