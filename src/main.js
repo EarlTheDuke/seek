@@ -353,12 +353,24 @@ function boot() {
       // it kept reading 100 through two deaths. See `Vitals.applyRemote`.
       onSnapshot: (snap) => {
         if (snap.me) vitals.applyRemote(snap.me.h);
+        // ── and what time it is ──
+        // Delivered RAW here rather than through the interpolator for the same
+        // reason as the health and the events: the buffer exists to smooth
+        // BODIES between two packets, and an hour that arrives 110 ms late is
+        // still the right hour. The client used to tick its own clock from
+        // whatever it started at, which is how a browser drew a blue midday sky
+        // while the server it was connected to was at 01:00 and sending so.
+        atmosphere.applyRemote(snap.c);
       },
       onError: (m) => hud.toast(`server: ${m}`, 5),
       onStatus: (s) => {
         hud.toast(`network: ${s}`, 2);
-        // Nobody is keeping your health for you once the socket is gone.
-        if (s !== 'connected') vitals.takeOverLocally();
+        // Nobody is keeping your health — or your hour — for you once the
+        // socket is gone.
+        if (s !== 'connected') {
+          vitals.takeOverLocally();
+          atmosphere.takeOverLocally();
+        }
       },
     };
   }
@@ -2030,12 +2042,22 @@ function boot() {
           hud.toast('the sun keeps its own hours', 1.6);
           break;
         }
+        // Scrubbing a clock the server owns lasts until the next packet — a
+        // tenth of a second — and looks like the key is broken. Say so instead.
+        if (atmosphere.remote) {
+          hud.toast('the server keeps the hours here', 1.6);
+          break;
+        }
         atmosphere.nudge(e.code === 'BracketLeft' ? -1 : 1);
         hud.toast(`${atmosphere.clockText} · sun ${atmosphere.elevation.toFixed(0)}°`, 1);
         break;
       case 'KeyT':
         if (!ruleset.allows('allowTimeControl')) {
           hud.toast('the sun keeps its own hours', 1.6);
+          break;
+        }
+        if (atmosphere.remote) {
+          hud.toast('the server keeps the hours here', 1.6);
           break;
         }
         hud.toast(atmosphere.toggleClock() ? 'time running' : `time frozen at ${atmosphere.clockText}`, 2);

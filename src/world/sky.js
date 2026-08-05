@@ -182,6 +182,13 @@ export class Atmosphere {
 
     this.hours = TIME.startHour;
     this.running = TIME.running;
+    /**
+     * True once somebody else is keeping the hour — see `applyRemote`. While it
+     * is set this clock does not advance itself: the server is already counting
+     * and a second clock running against the first can only disagree. Same flag,
+     * for the same reason, as `Vitals.remote`.
+     */
+    this.remote = false;
     /** Set from the weather system; 0 = clear sky, 1 = fully smothered. */
     this.cloudCover = 0;
     this.fogMul = 1;
@@ -408,8 +415,47 @@ export class Atmosphere {
     return this.running;
   }
 
+  /**
+   * Take the server's word for what hour it is.
+   *
+   * THE CLIENT DREW ITS OWN DAYLIGHT. The snapshot has carried the hour (`c`)
+   * for as long as there have been snapshots and nothing in the browser ever
+   * read one, so a client kept ticking the clock it started with: broad
+   * daylight, photographed, on a server whose own clock said 01:00 — the sky,
+   * the sun, the stars, the exposure and every wildlife rule keyed off the sun
+   * all belonging to a different time of day than the world everybody else was
+   * standing in. The goblins that only come out at night arrived at noon.
+   *
+   * Same shape as `Vitals.applyRemote` and the position fix before it: the
+   * server is the authority and the client's job is to agree, not to keep a
+   * second opinion. `apply()` runs from here, so the sun, the fog, the stars
+   * and the exposure all follow the number without anything else being told.
+   *
+   * Correcting at snapshot rate is not a jolt: a day is `TIME.dayMinutes` of
+   * real time, so a tenth of a second of drift is a few in-world seconds and
+   * about a thousandth of a degree of sun. It is a nudge, not a jump — except
+   * on the very first packet, which is where the whole error lives anyway.
+   */
+  applyRemote(hours) {
+    if (!Number.isFinite(hours)) return;
+    this.remote = true;
+    this.setHours(hours);
+  }
+
+  /**
+   * Nobody is keeping the hour for us any more — go back to running our own.
+   *
+   * Called when the socket drops. Without it a disconnected world would stop at
+   * whatever hour the last packet carried and the sun would never move again.
+   */
+  takeOverLocally() {
+    this.remote = false;
+  }
+
   /** Advance the clock. `dt` is real seconds. */
   tick(dt) {
+    // Somebody else owns the hour while we are connected — see `applyRemote`.
+    if (this.remote) return;
     if (!this.running) return;
     // 24 in-world hours per TIME.dayMinutes of real time.
     this.setHours(this.hours + (dt / 60 / TIME.dayMinutes) * 24);

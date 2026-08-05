@@ -20,6 +20,7 @@
     "bookcheck": "node server/bookcheck.js",
     "woundcheck": "node server/woundcheck.js",
     "deathcheck": "node server/deathcheck.js",
+    "clockcheck": "node server/clockcheck.js",
     "arrowcheck": "node server/arrowcheck.js",
     "shotcheck": "node server/shotcheck.js",
     "herdcheck": "node server/herdcheck.js",
