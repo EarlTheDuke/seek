@@ -12,7 +12,7 @@
 // trade.
 
 import * as THREE from 'three';
-import { SURVIVAL, WATER_LEVEL } from '../config.js';
+import { AUDIO, SURVIVAL, WATER_LEVEL } from '../config.js';
 import { heightAt, slopeAt, makeRandom } from './noise.js';
 import { clamp, lerp, smoothstep } from '../util/math.js';
 
@@ -170,6 +170,7 @@ export class Fires {
       lit: true,
       phase: this.rand() * 100,
       cookProgress: 0,
+      nextPop: 0, // countdown to the next crackle; see `update`
     };
     this.active.push(fire);
     this.deps.audio?.fireLit?.(group.position);
@@ -227,6 +228,21 @@ export class Fires {
       f.flame.visible = f.intensity > 0.02;
       f.flame.scale.setScalar(clamp(f.intensity, 0.15, 1) * flick);
       f.flame.rotation.y += dt * 1.7;
+
+      // ── crackle ──
+      // The interval is jittered by a HASH of the fire's own phase and the
+      // clock, not by `this.rand()`. Drawing from the seeded stream here would
+      // make the sequence depend on how many frames the client happened to
+      // render, and the headless sim — which has no audio at all — would fall
+      // out of step with it. A hash costs nothing and cannot drift.
+      if (f.intensity > 0.05) {
+        f.nextPop -= dt;
+        if (f.nextPop <= 0) {
+          const jitter = Math.abs(Math.sin(this.time * 37.13 + f.phase * 91.7));
+          f.nextPop = (0.4 + jitter * 1.2) / Math.max(0.2, AUDIO.fireCracklePerSec * f.intensity);
+          this.deps.audio?.fireCrackle?.(f.position, f.intensity);
+        }
+      }
 
       if (!f.lit && f.intensity < 0.03) this.extinguish(f);
     }

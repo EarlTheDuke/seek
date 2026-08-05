@@ -61,7 +61,7 @@ import { Avatars } from './net/avatars.js';
 import { sampleEnvironment } from './world/environment.js';
 import { insulationOf } from './items/registry.js';
 import { RECIPES, bestAvailable, craft } from './items/recipes.js';
-import { SURVIVAL } from './config.js';
+import { AUDIO, SURVIVAL } from './config.js';
 import { Wildlife } from './creatures/manager.js';
 import { Weather } from './world/weather.js';
 import { Rain } from './fx/rain.js';
@@ -1373,7 +1373,7 @@ function boot() {
    */
   function resolveInteraction() {
     const near = pickups.nearest; // set by pickups.update, carries .distance
-    const fire = fires.nearest(ctrl.position, 3.4);
+    const fire = fires.nearest(ctrl.position, SURVIVAL.fireReach);
     const fireDist = fire
       ? Math.hypot(fire.position.x - ctrl.position.x, fire.position.z - ctrl.position.z)
       : Infinity;
@@ -2119,8 +2119,10 @@ function boot() {
         hud.toast('you need a branch to build a fire', 2);
       } else {
         camera.getWorldDirection(_drop).setY(0).normalize();
-        const fx = ctrl.position.x + _drop.x * 1.6;
-        const fz = ctrl.position.z + _drop.z * 1.6;
+        // `SURVIVAL.firePlaceDistance`, not a literal: at the old 1.6 m the pit
+        // was laid below the bottom edge of the screen. See the note there.
+        const fx = ctrl.position.x + _drop.x * SURVIVAL.firePlaceDistance;
+        const fz = ctrl.position.z + _drop.z * SURVIVAL.firePlaceDistance;
         const result = fires.light(fx, fz);
         if (result.ok) {
           inventory.remove('wood', 1);
@@ -2166,6 +2168,16 @@ function boot() {
     // Sampled once per frame at the player, then handed to the body. Creatures
     // and, later, shelter placement will read the same query.
     fires.update(dt, weather);
+    // The fire bed follows whichever fire is nearest — the only one you could
+    // pick out anyway. `nearest` is given the audible range, not the warm one,
+    // because you hear a fire from a good deal further than you feel it.
+    const heardFire = fires.nearest(ctrl.position, AUDIO.fireRange);
+    audio.setFire(
+      heardFire
+        ? Math.hypot(heardFire.position.x - ctrl.position.x, heardFire.position.z - ctrl.position.z)
+        : Infinity,
+      heardFire ? heardFire.intensity : 0
+    );
     sites.update(dt, ctrl.position);
     caves.update(dt, ctrl.position, heightAt);
     const env = sampleEnvironment(ctrl.position, {

@@ -139,7 +139,122 @@ export class Soundscape {
     roar.connect(roarFilter).connect(roarGain).connect(this.rainGain);
     roar.start();
 
+    // ── fire: a low roar, band-limited and slowly breathing ──
+    // Built here with wind and rain rather than per-fire, for the same reason
+    // they are: this is a bed whose level gets nudged, not a sound that starts
+    // and stops. `setFire` moves it. One bed serves whichever fire is nearest,
+    // which is all you can hear anyway.
+    this.fireGain = ctx.createGain();
+    this.fireGain.gain.value = 0;
+    this.fireGain.connect(this.master);
+    this.fireGain.connect(this.reverbSend);
+
+    this.fireFilter = ctx.createBiquadFilter();
+    this.fireFilter.type = 'bandpass';
+    this.fireFilter.frequency.value = 340;
+    this.fireFilter.Q.value = 0.6;
+    this.fireFilter.connect(this.fireGain);
+
+    const fireSrc = ctx.createBufferSource();
+    fireSrc.buffer = this.noise;
+    fireSrc.loop = true;
+    fireSrc.playbackRate.value = 0.42;
+    fireSrc.connect(this.fireFilter);
+    fireSrc.start();
+
+    // The breath. Slower than the wind LFO so the two never lock into a beat.
+    const fireLfo = ctx.createOscillator();
+    fireLfo.frequency.value = 0.19;
+    const fireLfoDepth = ctx.createGain();
+    fireLfoDepth.gain.value = 120;
+    fireLfo.connect(fireLfoDepth).connect(this.fireFilter.frequency);
+    fireLfo.start();
+
     this.ready = true;
+  }
+
+  /**
+   * Level the fire bed by how far the nearest lit fire is and how hard it is
+   * burning. Called once a frame from the same place the fires are updated;
+   * passing `Infinity` (no fire) simply fades it out.
+   */
+  setFire(distance, intensity = 1) {
+    if (!this.ready) return;
+    const level = AUDIO.fireGain * intensity * (1 - smoothstep(1.5, AUDIO.fireRange, distance));
+    // Half a second, so walking away from a fire is a fade and not a switch.
+    this.fireGain.gain.setTargetAtTime(level, this.ctx.currentTime, 0.5);
+  }
+
+  /**
+   * Wood catching: a rising hiss with a soft thump under it. The whole point is
+   * that the moment you press the key you hear that it worked — until now the
+   * only confirmation a fire had lit was a line of text.
+   */
+  fireLit(pos) {
+    if (!this.running) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const out = this.spatial(pos, 1);
+
+    // The catch: noise swept up through a bandpass over about a third of a
+    // second, which is the sound of a flame taking hold rather than a match.
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.playbackRate.value = 1.1;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(320, now);
+    bp.frequency.exponentialRampToValueAtTime(1800, now + 0.34);
+    bp.Q.value = 1.1;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(0.3, now + 0.06);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+    src.connect(bp).connect(g).connect(out);
+    src.start(now);
+    src.stop(now + 0.48);
+
+    // A low thump — the weight of the wood settling.
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(120, now);
+    osc.frequency.exponentialRampToValueAtTime(52, now + 0.2);
+    const og = ctx.createGain();
+    og.gain.setValueAtTime(0.22, now);
+    og.gain.exponentialRampToValueAtTime(0.0001, now + 0.26);
+    osc.connect(og).connect(out);
+    osc.start(now);
+    osc.stop(now + 0.28);
+  }
+
+  /**
+   * One pop. Short, bright, and jittered hard in both pitch and level, because
+   * a fire that pops evenly is a metronome.
+   */
+  fireCrackle(pos, intensity = 1) {
+    if (!this.running) return;
+    if (this.distanceGain(pos) < 0.02) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.playbackRate.value = lerp(1.4, 2.8, this.rand());
+
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = lerp(900, 3200, this.rand());
+    bp.Q.value = lerp(2, 6, this.rand());
+
+    const dur = lerp(0.02, 0.07, this.rand());
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(AUDIO.fireCrackleGain * lerp(0.25, 1, this.rand()) * intensity, now + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    src.connect(bp).connect(g).connect(this.spatial(pos, 1));
+    src.start(now);
+    src.stop(now + dur + 0.02);
   }
 
   /** Rain level, 0..1, from the weather system. */

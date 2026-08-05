@@ -15,7 +15,9 @@ import { sampleEnvironment } from '../src/world/environment.js';
 import { ColliderField } from '../src/world/colliders.js';
 import { heightAt, slopeAt } from '../src/world/noise.js';
 import { regionAt } from '../src/world/regions.js';
-import { WATER_LEVEL, LOADOUT, STRUCTURES } from '../src/config.js';
+import { WATER_LEVEL, LOADOUT, STRUCTURES, FEEL, PLAYER, SURVIVAL } from '../src/config.js';
+import { Soundscape } from '../src/audio/soundscape.js';
+import { readFileSync } from 'node:fs';
 
 const results = [];
 const check = (name, pass, detail) => {
@@ -211,6 +213,63 @@ const tooClose = structures2.place('leanto', site.x + 0.2, site.z + 0.2, 0);
 check('structures refuse to overlap', !tooClose.ok, tooClose.why ?? 'it allowed a stack');
 const inWater = structures2.place('windbreak', 300, 130, 0);
 check('and refuse to stand in the lake', !inWater.ok, inWater.why ?? 'it built on water');
+
+// ── the fire you light has to be a fire you can SEE and HEAR ────────────────
+//
+// This is the geometry the queue's top item was about. A fire was laid 1.6 m in
+// front of you with your eye 1.72 m up, which puts the ground it sits on 45
+// degrees below level while the vertical half-FOV is 35 — so the pit was BELOW
+// THE BOTTOM EDGE OF THE SCREEN, and the only thing you ever saw of the first
+// thing you build in this world was the tip of the flame, behind the hotbar.
+//
+// Written as arithmetic on the config rather than a render, because that is the
+// part that can silently drift: any of eye height, FOV or place distance can be
+// tuned by someone who is not thinking about the other two.
+console.log('\n  The fire you just lit, from where you stand.\n');
+
+const HALF_FOV = (FEEL.fovBase / 2) * (Math.PI / 180); // three.js `fov` is vertical
+// The frame the shots are taken at, and the hotbar measured in the live DOM:
+// 54 px tall sitting 20 px off the bottom, centred on exactly the column a
+// fire lands in.
+const FRAME_H = 720;
+const HOTBAR_TOP = FRAME_H - 20 - 54;
+// Screen row, in a 720-high frame, of a point `up` metres above the fire's base.
+const rowOf = (up) => {
+  const drop = PLAYER.eyeHeight - up; // metres the point sits below the eye
+  const ndc = -Math.tan(Math.atan2(drop, SURVIVAL.firePlaceDistance)) / Math.tan(HALF_FOV);
+  return ((1 - ndc) / 2) * FRAME_H;
+};
+
+const baseRow = rowOf(0);
+const flameRow = rowOf(1); // the flame stands about a metre out of the pit
+check('the fire is laid where you can see it', baseRow < FRAME_H,
+  `the pit sits at row ${baseRow.toFixed(0)} of ${FRAME_H}` +
+    (baseRow < FRAME_H ? '' : ` — ${(baseRow - FRAME_H).toFixed(0)} px below the screen`));
+check('and its flame is not hidden behind the hotbar', flameRow < HOTBAR_TOP,
+  `flame from row ${flameRow.toFixed(0)}, hotbar starts at ${HOTBAR_TOP}`);
+check('you can still tend it without taking a step', SURVIVAL.firePlaceDistance < SURVIVAL.fireReach,
+  `laid at ${SURVIVAL.firePlaceDistance} m, E reaches ${SURVIVAL.fireReach} m`);
+check('and it warms you where you stood to light it', SURVIVAL.firePlaceDistance < SURVIVAL.fireWarmRadius,
+  `warm radius ${SURVIVAL.fireWarmRadius} m`);
+
+// ── every sound the fire asks for has to exist ──
+//
+// The reason a fire was silent for its entire life is that `fires.js` called
+// `this.deps.audio?.fireLit?.()` and no such method was ever written: the
+// optional call swallowed it without a murmur. That is this project's signature
+// failure — a name used and never defined — and it is checkable. Read the call
+// sites out of the source and confirm the soundscape answers to each one.
+const fireSrc = readFileSync(new URL('../src/world/fires.js', import.meta.url), 'utf8');
+const asked = [...fireSrc.matchAll(/audio\?\.(\w+)\?\./g)].map((m) => m[1]);
+const missing = asked.filter((name) => typeof Soundscape.prototype[name] !== 'function');
+check('the fire asks for sounds that exist', asked.length > 0 && missing.length === 0,
+  asked.length === 0
+    ? 'no audio call sites found — the pattern moved, fix this check'
+    : missing.length
+      ? `Soundscape has no ${missing.join(', ')}`
+      : `${asked.join(', ')} — all defined`);
+check('and something drives the fire bed', typeof Soundscape.prototype.setFire === 'function',
+  'Soundscape.setFire');
 
 const failed = results.filter((r) => !r).length;
 console.log(`\n  ${results.length - failed}/${results.length} passed\n`);

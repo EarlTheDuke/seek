@@ -326,6 +326,21 @@ export const AUDIO = {
   footstepGain: 0.3,
   birdCallGain: 0.1,
   birdCallChance: 0.0055, // per frame
+
+  // ── fire ──
+  // A fire had no sound of any kind: `fires.js` called `audio.fireLit?.()` and
+  // no such method has ever existed, so the optional call swallowed it and the
+  // first thing you build in this world was silent.
+  //
+  // Two layers, because a fire is not one sound either: a soft roar that tells
+  // you it is there while you are looking elsewhere, and the pops that make it
+  // a fire rather than a heater. The roar is deliberately below the water wash
+  // — at 0.11 the lake dominates a room, and a campfire should sit under it
+  // until you are close.
+  fireGain: 0.085, // the roar, at the fire's edge
+  fireRange: 14, // metres over which the roar fades out
+  fireCrackleGain: 0.16,
+  fireCracklePerSec: 3.4, // pops per second at full intensity
 };
 
 // ── Combat / items ──────────────────────────────────────────────────────────
@@ -1298,6 +1313,29 @@ export const SURVIVAL = {
   // else you built irrelevant.
   fireWarmthC: 13,
   fireWarmRadius: 6.5, // and the range over which that falls off
+
+  // How far in front of you a new fire is laid, in metres.
+  //
+  // MEASURED, not guessed. At the old 1.6 m the fire was under your chin: with
+  // an eye 1.72 m up, the ground 1.6 m ahead sits 47 degrees below level and
+  // the vertical half-FOV is 35, so the pit — stones, ash, logs, the light
+  // itself — was a metre BELOW the bottom edge of the screen. Projected onto a
+  // 1280x720 frame the base landed at y=927 of 720. The only part of the fire
+  // that was ever on screen was the top 40 cm of flame, at y=606, and the
+  // hotbar starts at y≈656 and is centred on exactly that column. You lit a
+  // fire and saw a sliver behind your inventory.
+  //
+  // In the real world you do not build a fire on your toes; you lay it a couple
+  // of paces out, far enough to sit around and not kick into. Three paces puts
+  // the whole flame in the lower middle of the view, clear of the hotbar, while
+  // staying inside the 3.4 m reach at which E feeds and cooks — so you can
+  // still tend it without taking a step. Raising this past that reach would
+  // mean lighting a fire you then cannot touch.
+  firePlaceDistance: 3,
+  // How near you must be for E to feed or cook at a fire. Was a bare 3.4 in
+  // main.js; it is here because `firePlaceDistance` has to stay under it and a
+  // relationship between two numbers cannot be checked while one is anonymous.
+  fireReach: 3.4,
   fireLightRange: 26,
   fireBurnPerSec: 0.34, // fuel units consumed
   fireFuelPerWood: 45, // seconds of burn per branch
