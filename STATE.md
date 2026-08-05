@@ -6,7 +6,7 @@ under a hundred lines. **Update it at the end of every run.** If it grows past
 that, cut the oldest resolved things rather than letting it become another
 archive.
 
-Last updated: 2026-08-05, by the session that set up the browser-client harness.
+Last updated: 2026-08-05 06:40, by the session that closed the arrow bug.
 
 ## What works right now
 
@@ -22,21 +22,62 @@ Last updated: 2026-08-05, by the session that set up the browser-client harness.
   the snapshot carries position, yaw, pitch, health, food, core temperature.
 - **The build chooser** — `B` opens a menu instead of always making a windbreak.
 
+## The arrow bug is CLOSED — do not chase it again
+
+**The server was loosing every arrow from the archer's ankles.**
+
+The title of this bug was wrong in its first four words. The shot always
+reached the server. `makeAimProxy` handed the weapons `ctrl.position`, which is
+the GROUND under you, while the browser's real camera sits `eyeHeight` (1.72 m)
+above it. So a server-side arrow spawned at ankle height, 0.55 m forward, flat,
+and buried itself on frame one:
+
+    archer standing on ground at 46.85 · arrow spawned 46.85 · landed 45.90
+
+A landed arrow is dropped from the snapshot's `pr`, so nobody ever saw one fly;
+it hit nothing, so there was no hit and no glance. From the client end that is
+indistinguishable from a press that never crossed the wire — which is why five
+theories reasoned from that end were all wrong.
+
+Fixed in `sim/world.js` and its twin in `sim/headless.js`. It applied to every
+remote player, every rival hunter and every agent, so weigh it against queue
+item 1: **the agents have been firing into the dirt at their own feet all
+along.**
+
+    npm run shotcheck        8/8, six consecutive runs
+
+That check is the one that was missing. It starts a real server, connects two
+real sockets, steers by look deltas, holds the trigger, and asks the SERVER what
+happened. `arrowcheck` calls `projectiles.spawn` directly and structurally
+cannot see this class of bug.
+
 ## The one open bug
 
-**An arrow fired from a real browser client produces no hit and no glance.**
+**In multiplayer, every player hunts a private herd the server knows nothing
+about.** `main.js` comments that "other people, creatures, arrows" are drawn
+from server snapshots. Only PEOPLE are. `avatars.update` consumes `snapshot.pl`
+and nothing anywhere consumes `snapshot.cr` or `snapshot.pr` — they are decoded,
+interpolated, and dropped. Meanwhile the client keeps running its own local
+`wildlife`. Measured, same instant, same client:
 
-Every link is verified individually: the intent carries `primary`, the wire
-preserves it, the server fires the bow from a remote intent (headless:
-`projectiles = 1`, `arrows left = 11`), the browser sends it (77 calls, all
-true), and events reach the client.
+    my local world:   24 creatures, nearest deer  20 m
+    the server's:     20 creatures, nearest deer 1390 m
 
-I have been confidently wrong about the cause **four times**: the intent, the
-rate limiter, the release, and "it is a ghost". Every one by reasoning from
-whichever end I was looking at.
+So kills are local fiction, other players' arrows are invisible, and two people
+standing together see different animals. This is the THIRD instance of one
+disease — the server sends it, the client decodes it, nobody consumes it (the
+first was `ev`, the second was this run's `pr`). Not attempted: making creatures
+server-authoritative is a real piece of work, not a slice, and half-wiring it is
+this project's classic failure.
 
-**Do this and nothing else first: print `p.connected`, `p.body.dead` and the
-player list SERVER-SIDE while a shot is fired.** Stop theorising.
+## Two sessions can be running at once — check before you edit
+
+This file and a source fix landed within seven minutes of each other on
+2026-08-05 from two different runs. Neither clobbered the other, but both were
+editing blind. Before touching source: `git log --oneline -3` AND `git pull`,
+not just the `SESSION.log` mtime check. A live browser client named `Ben` was
+also connected to :8080 throughout, so a source edit will have bounced it to the
+menu via Vite's reload.
 
 ## Known-bad state that corrupts tests
 
@@ -48,11 +89,19 @@ Until the roster is trustworthy, no multiplayer result is trustworthy.
 
 ## The game queue, ranked
 
-1. **The economy.** 8 deer, never closer than ~227 m, zero hides in 2.5 days.
-   Every session starves. The stalk is the stated best thing in this game and
-   nobody can find a deer.
+1. **The economy.** ~~Never closer than 227 m~~ — **that measurement was
+   wrong.** Walked one down on 2026-08-05: 116 m → 44 m before it noticed at
+   all, then crouched to 25 m with it still unalarmed and grazing. Deer are
+   findable and stalkable. What is missing is the KILL: three arrows at 20–25 m
+   all missed, because the herd sits uphill and the shot needs about 20° of
+   hold-over that nothing on screen tells you about. Aim at the animal and you
+   hit the hillside at 9.7 m. **Re-scope this item from "nobody can find a deer"
+   to "nobody is told how to aim at one".**
 2. **Refusals never state their condition** — "not steep enough" on a 258%
-   slope, "gather wood" while holding wood.
+   slope, "gather wood" while holding wood. New instance, 2026-08-05: standing
+   2.66 m from a visible tree, `E` says **"nothing in reach"**. The truth is
+   "you already cut this one and it has not regrown" — the refusal names neither
+   the reason nor the wait.
 3. **The fire is silent and invisible** — spawns at your feet, below the view,
    drawn under the hotbar.
 4. **A fire cannot save a soaked player in the rain** — 36.1 → 28.0 either way.
@@ -75,7 +124,14 @@ click a mode button, then drive with `window.highlands.stepWorld(1/60)`. For
 anything networked, drive in REAL time with `setTimeout` between steps.
 
 `highlands.capture('name')` writes a JPEG to `shots/` — **read those images**,
-it is the only way anyone sees this game.
+it is the only way anyone sees this game. It used to write ONE GREY PIXEL from a
+hidden pane (761 bytes, reported as saved) because `innerWidth` is 0 there and
+`syncSize` clamped the renderer to 1×1; fixed 2026-08-05, now ~120 KB and a real
+picture. If a shot ever comes back under about 5 KB, suspect this again.
+
+The HUD is DOM, so it can NEVER appear in a capture — `toDataURL` only sees the
+WebGL canvas. That settles the old "the HUD is gone from the screenshots" note:
+nothing is broken, it was never capturable.
 
 ## The trap this project falls into
 
