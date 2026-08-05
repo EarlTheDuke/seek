@@ -1779,25 +1779,28 @@ function boot() {
       e.preventDefault();
       return;
     }
+    // ── typing beats everything ──
+    // These come FIRST, above even the controls shortcut. `?` used to be
+    // checked before the say box got a look, so typing a question mark into a
+    // sentence toggled the controls panel over the top of it. Anything that
+    // reads a key before asking "is the player writing" will find a way to do
+    // that eventually, so nothing reads a key before this point.
+    if (hud.notesOpen) {
+      if (e.code === 'Escape') hud.closeNotes();
+      return;
+    }
+    // Handled before the Enter that OPENS it, or the first keystroke re-opens
+    // the box you are already typing in.
+    if (hud.sayKey(e)) return;
+    if (e.code === 'Enter' && !hud.menuOpen && !hud.bookOpen) {
+      hud.openSay();
+      return;
+    }
     // Match the CHARACTER as well as the physical key. On a non-US layout the
     // key at the `Slash` position is not `?` at all, so testing the code alone
     // leaves those keyboards with no way to open the controls.
     if (e.key === '?') {
       hud.toggleKeys();
-      return;
-    }
-    // The notes box owns the keyboard completely while it is up — you are
-    // typing prose, and every letter in this game is bound to something. W
-    // would walk you off the hill you are writing about. Escape shuts it.
-    if (hud.notesOpen) {
-      if (e.code === 'Escape') hud.closeNotes();
-      return;
-    }
-    // Same for the say line, and it must come BEFORE the Enter that opens it or
-    // the first keystroke re-opens the box you are already typing in.
-    if (hud.sayKey(e)) return;
-    if (e.code === 'Enter' && !hud.menuOpen && !hud.bookOpen) {
-      hud.openSay();
       return;
     }
     // Esc closes the book. Nothing else wants Escape while it is open, and a

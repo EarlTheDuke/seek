@@ -12,6 +12,21 @@
 import { PLAYER } from '../config.js';
 import { createIntent, clearIntent } from '../sim/intents.js';
 
+/**
+ * Is this key going into a text field rather than into the world?
+ *
+ * Asked of the event's target, so it is true for any input, textarea or
+ * contenteditable — including ones added long after this file was last read.
+ * The alternative is a "a panel is open" flag that every new panel has to
+ * remember to set, and the say box proved how that ends: it set one, main.js
+ * honoured it, and this listener never heard about it.
+ */
+function isTyping(el) {
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable === true;
+}
+
 export class PlayerInput {
   constructor(dom) {
     this.dom = dom;
@@ -64,6 +79,20 @@ export class PlayerInput {
     // stalk a deer for minutes at a time, and holding a key that long is a
     // chore rather than a decision.
     this.onKeyDown = (e) => {
+      // ── are you typing? ──
+      // This listener is on `window`, independently of the one in main.js, so a
+      // panel that "takes the keyboard" by returning early from ITS handler does
+      // nothing whatsoever to this one. Both fire. The say box was unusable
+      // because of it: every letter you typed also played the game — W walked,
+      // E picked things up — and Space did not reach the field at all, because
+      // of the preventDefault below that exists to stop the page scrolling.
+      //
+      // Asking the EVENT where it is going is the fix that keeps working. Any
+      // text field added later is covered without knowing this file exists,
+      // which is the opposite of the flag-per-panel arrangement that let this
+      // through in the first place.
+      if (isTyping(e.target)) return;
+
       // Meta and Alt belong to the OS. Ctrl no longer blanket-blocks — holding
       // it used to freeze every movement key the game reads.
       if (e.metaKey || e.altKey) return;
@@ -80,6 +109,9 @@ export class PlayerInput {
       if (e.code === 'KeyR') this.pressedEat = true;
       if (/^Digit[1-5]$/.test(e.code)) this.pendingSlot = Number(e.code.slice(5)) - 1;
     };
+    // Keyup is NOT gated on isTyping. If you hold W, then click into the say
+    // box, the keyup arrives with the field focused — gate it and the key stays
+    // latched down for ever and you walk north until you close the game.
     this.onKeyUp = (e) => this.keys.delete(e.code);
 
     this.onMouseMove = (e) => {
