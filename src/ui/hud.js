@@ -273,6 +273,21 @@ const CSS = `
 #hl-flight.bad b { color: #e8734f; }
 #hl-flight span { display: block; font-size: 11px; letter-spacing: .2em; opacity: .5; margin-top: 4px; }
 
+/* Saying something out loud.
+
+   The whole reason the party works: an agent already HEARS chat — it lands in
+   its brief as "You have heard: Ben: there is a troll on the ridge" — and until
+   now the browser could only receive. The listening half was built months ago
+   and nobody could talk into it. */
+#hl-say { position: absolute; left: 50%; bottom: 26%; transform: translateX(-50%);
+  width: min(520px, 80vw); opacity: 0; pointer-events: none; transition: opacity .14s; }
+#hl-say.show { opacity: 1; pointer-events: auto; }
+#hl-say input { width: 100%; box-sizing: border-box; font: inherit; font-size: 14px;
+  letter-spacing: .04em; padding: 9px 13px; color: #f3e6d4; outline: none;
+  background: rgba(12,14,11,.9); border: 1px solid rgba(255,217,160,.45); }
+#hl-say .who { font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+  opacity: .4; margin-bottom: 5px; }
+
 /* The notes box, and the tab that opens it.
 
    The TAB is not decoration. A keyboard shortcut is invisible to anything that
@@ -410,6 +425,8 @@ export class Hud {
       <div id="hl-menu"><h3></h3><div class="rows"></div><div class="foot"></div></div>
       <div id="hl-book"></div>
       <div id="hl-flight"></div>
+      <div id="hl-say"><div class="who">say to the others</div><input maxlength="160"
+        placeholder="there is a troll on the ridge — keep back and shoot it"></div>
       <button id="hl-notetab" title="write a note for the developer (O)"
         aria-label="write a note for the developer">✎ note</button>
       <div id="hl-notes">
@@ -821,6 +838,59 @@ export class Hud {
 
   clearFlight() {
     this.flightEl.classList.remove('show');
+  }
+
+  // ── saying something out loud ──────────────────────────────────────────────
+  //
+  // Enter opens it, Enter sends, Escape cancels. Deliberately the same shape as
+  // the notes box below, including taking the keyboard completely — every
+  // letter in this game is bound to something, and W would walk you off the
+  // ridge you are describing.
+  //
+  // What makes this worth its forty lines: an agent already hears chat and puts
+  // it in the brief it hands its mind. Speaking is the entire coordination
+  // channel, and it was one-way until now.
+
+  wireSay(send) {
+    this.sayEl = this.root.querySelector('#hl-say');
+    this.sayInput = this.sayEl.querySelector('input');
+    this.sendSay = send;
+    this.sayEl.addEventListener('click', (e) => e.stopPropagation());
+    this.sayEl.addEventListener('mousedown', (e) => e.stopPropagation());
+  }
+
+  get sayOpen() {
+    return !!this.sayEl?.classList.contains('show');
+  }
+
+  openSay() {
+    if (!this.sayEl) return;
+    this.sayEl.classList.add('show');
+    if (document.pointerLockElement) document.exitPointerLock();
+    this.sayInput.focus();
+  }
+
+  closeSay() {
+    this.sayEl?.classList.remove('show');
+    this.sayInput?.blur();
+  }
+
+  /** Returns true if it swallowed the key. */
+  sayKey(e) {
+    if (!this.sayOpen) return false;
+    if (e.code === 'Escape') {
+      this.sayInput.value = '';
+      this.closeSay();
+      return true;
+    }
+    if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+      const text = this.sayInput.value.trim();
+      this.sayInput.value = '';
+      this.closeSay();
+      if (text) this.sendSay?.(text);
+      return true;
+    }
+    return true; // everything else belongs to the box while it is open
   }
 
   // ── developer notes ────────────────────────────────────────────────────────

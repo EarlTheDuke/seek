@@ -17,6 +17,7 @@
     "mindcheck": "node server/mindcheck.js",
     "companioncheck": "node server/companioncheck.js",
     "bookcheck": "node server/bookcheck.js",
+    "woundcheck": "node server/woundcheck.js",
     "dangercheck": "node server/dangercheck.js",
     "reportcheck": "node server/reportcheck.js",
     "glidercheck": "node server/glidercheck.js",

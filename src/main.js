@@ -1532,6 +1532,21 @@ function boot() {
 
   hud.wireNotes(noteContext, sendNote);
 
+  // Speaking. The whole party mechanic rests on this one call: an agent already
+  // hears chat and hands it to its mind as "You have heard: …", so a sentence
+  // typed here is the only channel by which a person directs a company.
+  hud.wireSay((text) => {
+    if (!net) {
+      hud.toast('there is nobody to hear you — join a server with ?join=', 3.5);
+      return;
+    }
+    net.say(text);
+    // Shown locally too. The server echoes to everyone else, not to you, and a
+    // line you cannot see yourself having said reads as a dropped message.
+    hud.toast(`you: ${text}`, 3.5);
+    logEvent('SAID', `"${text}"`);
+  });
+
   // ── the flight recorder ───────────────────────────────────────────────────
   //
   // One line of state every few seconds into SESSION.log, so somebody on
@@ -1776,6 +1791,13 @@ function boot() {
     // would walk you off the hill you are writing about. Escape shuts it.
     if (hud.notesOpen) {
       if (e.code === 'Escape') hud.closeNotes();
+      return;
+    }
+    // Same for the say line, and it must come BEFORE the Enter that opens it or
+    // the first keystroke re-opens the box you are already typing in.
+    if (hud.sayKey(e)) return;
+    if (e.code === 'Enter' && !hud.menuOpen && !hud.bookOpen) {
+      hud.openSay();
       return;
     }
     // Esc closes the book. Nothing else wants Escape while it is open, and a

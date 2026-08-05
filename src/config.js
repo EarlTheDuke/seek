@@ -413,6 +413,12 @@ export const LOADOUT = {
 export const WILDLIFE = {
   spawnRadius: 320, // creatures exist within this range of you
   despawnRadius: 400, // and are removed past this (hysteresis, so no flicker)
+  // ...unless you have wounded it, in which case it stays loaded so the damage
+  // sticks. See the note in creatures/manager.js: a troll that leashes at 300 m
+  // and culls at 400 m came back whole, so a fight could never be finished.
+  // Long enough that walking away to re-arm does not reset the fight, short
+  // enough that the world is not full of limping survivors of old skirmishes.
+  woundForgetSeconds: 240,
   spawnCell: 110, // hash grid for deterministic herd sites
   // What fraction of cells are candidate sites at all. Raised from 0.42 once
   // the spawner started leaving thin sites genuinely empty (weight as absolute

@@ -345,10 +345,31 @@ export class Wildlife {
 
       // Cull far creatures. A corpse you have walked away from is gone for
       // good; a live one just leaves the simulation and its site can refill.
-      if (d > WILDLIFE.despawnRadius) {
+      //
+      // EXCEPT one you have wounded. A troll has 420 hit points, a 300 m leash
+      // and a 400 m cull: a tester put five arrows into one, watched it walk
+      // home, and found it whole again — because it left the simulation with
+      // its wounds and came back rebuilt from the species table. There was no
+      // way to bank damage on it, which made the fight not hard but impossible.
+      //
+      // So a hurt creature stays loaded. It is the only state in this world
+      // that cannot be recomputed from the seed — everything else here is a
+      // pure function of where you are standing, and that is exactly why this
+      // one had to be an exception rather than a bigger radius.
+      const wounded = c.hp < c.maxHp && c.state !== 'dead';
+      if (d > WILDLIFE.despawnRadius && !wounded) {
         if (c.state === 'dead' && c.siteKey) this.clearedSites.add(c.siteKey);
         this.remove(c);
         continue;
+      }
+      // A wound does not last for ever, or the world fills with limping
+      // survivors of fights you have forgotten. Out of sight and unhurt for a
+      // while, it heals and becomes cullable again like anything else.
+      if (wounded && d > WILDLIFE.despawnRadius) {
+        c.healingSince = (c.healingSince ?? 0) + dt;
+        if (c.healingSince > WILDLIFE.woundForgetSeconds) c.hp = c.maxHp;
+      } else {
+        c.healingSince = 0;
       }
 
       // Distance LOD: near = every frame, mid = 4/s, far = 2/s. The accumulator
