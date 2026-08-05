@@ -128,6 +128,49 @@ check('and grows back later', later?.tag === 'tree', `after ${STRUCTURES.regrowH
 const rock = harvest.nearestSource(field, { x: site.x - 3.5, z: site.z + 1 }, 3.2, 0);
 check('a boulder can be quarried', rock?.item === 'stone', rock ? `${rock.amount} stone` : 'none found');
 
+// ── a cut tree still answers you ──
+// The bug this pair replaces: `nearestSource` skipped the tree you had just
+// cut and returned null, so the prompt VANISHED where it had said something a
+// second earlier. Nothing told the player why, and the regrow hour was known.
+const stump = harvest.nearestTaken(field, { x: site.x + 2.6, z: site.z + 2 }, 3.2, 0);
+check('a cut tree is still findable, and says when it is back',
+  stump?.tag === 'tree' && Math.abs(stump.hoursLeft - STRUCTURES.regrowHours) < 0.01,
+  stump ? `${stump.hoursLeft} in-game hours to regrow, ${stump.distance.toFixed(2)} m away` : 'nothing found');
+check('and stops being "cut" once it has grown back',
+  harvest.nearestTaken(field, { x: site.x + 2.6, z: site.z + 2 }, 3.2, STRUCTURES.regrowHours + 1) === null,
+  'the two lookups are exact opposites');
+check('an untouched boulder is not reported as quarried',
+  harvest.nearestTaken(field, { x: site.x - 3.5, z: site.z + 1 }, 3.2, 0) === null,
+  'only worked ground answers');
+
+// ── a build refusal that names the shortfall ──
+// "nothing you can build — gather wood" was a guess, and wrong the moment the
+// thing you lacked was hide: it sent you for the one material you were holding.
+const poor = new Inventory(LOADOUT.slots, LOADOUT.equipped);
+poor.add('wood', 2);
+const short = Structures.shortfall(poor);
+check('a refusal names the cheapest next step',
+  short?.spec.id === 'windbreak' && short.missing.length === 1 && short.missing[0].item === 'wood'
+    && short.missing[0].n === 1,
+  short ? `${short.spec.name}: short ${short.missing.map((m) => `${m.n} ${m.item}`).join(', ')}` : 'null');
+
+// A windbreak costs nothing but wood, so `shortfall` can never be reduced to
+// "you lack hide" — but the per-thing answer it is built from can, and that is
+// the number the old message got wrong. Wood in hand, no hide: the lean-to is
+// short hide and NOT short wood.
+const woodOnly = new Inventory(LOADOUT.slots, LOADOUT.equipped);
+woodOnly.add('wood', 40);
+const leanto = Structures.missingFor('leanto', woodOnly);
+check('and names HIDE, not wood, when hide is what you lack',
+  leanto.length === 1 && leanto[0].item === 'hide' && leanto[0].n === 2,
+  leanto.map((m) => `${m.n} ${m.item}`).join(', ') || 'nothing missing');
+
+const rich = new Inventory(LOADOUT.slots, LOADOUT.equipped);
+rich.add('wood', 40);
+rich.add('hide', 20);
+check('and reports no shortfall when you can afford something',
+  Structures.shortfall(rich)?.missing.length === 0, 'nothing missing');
+
 // ── log off, come back ──
 const saved = JSON.parse(JSON.stringify({
   structures: structures.serialise(),

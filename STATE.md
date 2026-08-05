@@ -6,57 +6,51 @@ under a hundred lines. **Update it at the end of every run.** If it grows past
 that, cut the oldest resolved things rather than letting it become another
 archive.
 
-Last updated: 2026-08-05 08:40, by the session that turned the glider round.
+Last updated: 2026-08-05 08:45, by the session that closed queue item 1.
 
 ## What works right now
 
 - **Everyone hunts the same animals**, arrows hit players, wounds persist, the
   cull is per-player, standing orders are obeyed. All twelve suites green this
-  run (`herdcheck` 12, `arrowcheck` 7, `ordercheck` 17, `glidercheck` 32,
-  `netcheck` 12, `mindcheck` 21, `campcheck` 20, `companioncheck` 29 …).
-- **You can see where your arrow will land** (`weapons/aimMark.js`, the run
-  before: predicted impact agrees with a loosed arrow to 1–2 cm), and **the
-  glider now flies where you are looking** — see below.
+  run (`campcheck` now 26, `glidercheck` 32, `companioncheck` 29, `mindcheck`
+  21, `bookcheck`/`reportcheck` 18, `ordercheck` 17, `netcheck`/`herdcheck` 12,
+  `dangercheck` 12, `arrowcheck`/`woundcheck` 7).
+- **You can see where your arrow will land** (`weapons/aimMark.js`: predicted
+  impact agrees with a loosed arrow to 1–2 cm), and **the glider flies where you
+  are looking**.
 - The client reads world events; chat is a column on the right; `B` opens a
-  build chooser; `E` obeys one distance rule; captures are real pictures.
+  build chooser; `E` obeys one distance rule and now **always answers** —
+  gather, build and launch refusals all state their condition.
 
-## CLOSED: the glider launched, checked and looked backwards
+## CLOSED: queue item 1, "refusals never state their condition" — all three
 
-Queue item 1's headline example — "not steep enough" on a 258% slope — was
-**not a wording bug.** The message was honest; it described the hill behind you.
-Walking forward is `(−sin yaw, −cos yaw)` (measured at three yaws; the camera's
-`matrixWorld` agrees) but `glider.js` integrates `(+sin h, +cos h)`, and
-`main.js` handed it a raw `ctrl.yaw`. So `canLaunch` probed **behind** you,
-`launch()` flew you that way, and `ctrl.yaw = flight.heading` aimed the camera
-back down the track — which is why the wing is in none of the old in-flight
-captures: it is behind the eye. Flown, not argued: from a spot the OLD check
-accepted, looking toward −x, the glide carried me 45 m toward **+x** (alignment
-with gaze **−1.0**; after the fix **+0.995**). Compare
-`shots/launch-view-before.jpg` — a hillside rising to a ridge, the view the game
-called a good launch — with `launch-view-after-fix.jpg`.
+- **The glider** (run before) launched, checked and *looked* backwards: forward
+  is `(−sin yaw, −cos yaw)` but `glider.js` integrates `(+sin h, +cos h)` and
+  `main.js` handed it a raw `ctrl.yaw`, so the check probed **behind** you.
+  Fixed at the seam (`flightHeading` / `viewYaw`), so the module keeps its
+  convention and its 32 checks keep their meaning.
+- **"gather wood" while holding wood** (this run): `bestToBuild` returns null
+  when nothing is affordable and the caller *guessed* a material — wrong the
+  moment you lack hide. New `Structures.shortfall` / `missingFor` say it:
+  *"nothing you can build yet — the windbreak is nearest: you need 1 branch"*.
+- **"nothing in reach" at a tree you just cut** (this run) — worse than
+  reported: the prompt did not say that, it **vanished**. `nearestSource` skips
+  a taken source, `setPrompt(null)` wipes the line, and you are told nothing at
+  all one metre from a tree. New `Harvest.nearestTaken` (the exact mirror,
+  sharing one `scanFor` so they cannot drift): *"this tree is already cut —
+  about a day until it regrows"*. It deliberately does NOT enter the distance
+  race — checked only where the answer would otherwise be null, so it can never
+  take the key off a fire you could feed. Verified by lighting one.
 
-Fixed at the seam, not in the module: `flightHeading` / `viewYaw` in `main.js`
-at all three crossings, so `glider.js` keeps its convention and its 32 checks
-keep their meaning. **The refusal now states its condition** too — the slope
-measured, the slope needed, and a twelve-bearing sweep (refusal path only) for
-which way to turn: "the ground ahead of you climbs at 2% and a launch needs 70%
-— it falls 93% about 90° to your left". Verified by turning, not by trusting the
-derivation. Numbers in `FINDINGS.md` 2026-08-05 08:35.
-
-## Two ways a measurement silently lies to you
-
-- **`warp` does not cancel a glide.** `updateFlight` rewrites `ctrl.position`
-  from the flight state every step, so a warp issued while airborne is gone on
-  the next `stepWorld`. It cost this run a full set of four readings: I asked
-  for (−20, −160) and measured at (−226, −270), 235 m away, and the messages
-  looked wrong when they were right for where I actually was. **Step until
-  `highlands.flight` is falsy before measuring after a flight.**
-- **`warp(x, z)` used to NaN the camera** (fixed the run before: `yaw` had no
-  default). If you are re-reading an old number in the notes, check whether it
-  warped first.
+Numbers for all three in `FINDINGS.md`, 2026-08-05 08:35 and 08:45.
 
 ## Things that will waste your time if you do not know them
 
+- **`warp` does not cancel a glide** — `updateFlight` rewrites `ctrl.position`
+  every step, so a warp issued airborne is gone on the next `stepWorld`. Step
+  until `highlands.flight` is falsy before measuring after a flight. And `warp`
+  is refused in Survival (it *returns* the refusal as a string); in multiplayer
+  the server never hears it, so any networked measurement after one is worthless.
 - **A fresh server does NOT clear the duplicate roster.** `[#1 Eachann, #4
   Eachann, #5 Morag]` is a name collision between the server's own rival hunters
   and the `agents.js` name pool, not stale state. Restarting to fix it is waste.
@@ -68,17 +62,20 @@ derivation. Numbers in `FINDINGS.md` 2026-08-05 08:35.
   `wmic process where "name='node.exe'" get processid,commandline` — the port
   check does not see the agents at all — and **kill them at the end of your own
   run**, not just the start.
-- **`warp` is refused in Survival** (it *returns* the refusal as a string), and
-  in multiplayer the server never hears about it: a browser sends intents, not
-  positions. Any multiplayer measurement after a warp is worthless.
 - **A creature's Object3D is `c.object`** — not `root`/`group`/`mesh`.
 - **Deer wander.** Capturing a deer's position once and then stepping the world
-  through a long scan aims you at where it used to be. It cost this run two
-  wrong readings — "0 of 72 stands work", actually 39. Re-read it every stand.
+  through a long scan aims you at where it used to be. It cost a run two wrong
+  readings — "0 of 72 stands work", actually 39. Re-read it every stand.
 - **`highlands.report({steps})` wants an ARRAY.** Pass a string and it throws
   `steps.map is not a function` and files nothing.
 - **`agentcheck` is 16/17**, failing "they build memories from what they see".
   Pre-existing — confirmed by stashing this run's changes and re-running.
+- **`netcheck` needs a server up.** Run it in a bare loop with the other suites
+  and it prints "could not run" and no score, which reads as a hang or a pass
+  depending on how you grep. Start `server.js` first, then it is 12/12.
+- **The scatter collider field is `highlands.scatter.colliders`**, not
+  `highlands.colliders` — that one has `.scatter`/`.static` sub-fields and its
+  own `.list` is empty, so a tree search against it silently finds nothing.
 
 ## Two sessions can be running at once — check before you edit
 
@@ -89,24 +86,15 @@ land underneath it mid-session; re-read `STATE.md` before rewriting it.
 
 ## The game queue, ranked
 
-1. **Refusals never state their condition** — glider DONE (above); two left,
-   both reproduced this run, so it is a short job:
-   - `main.js:1205` "nothing you can build — gather wood" while holding wood.
-     `bestToBuild` returns null only when *nothing* is affordable; the message
-     should name the cheapest shortfall, which `Structures.affordable` already
-     computes and throws away.
-   - "nothing in reach" 2.00 m from a tree you just cut (stand at a trunk, press
-     E twice). `nearestSource` skips `isTaken` and returns null, so
-     `hud.setPrompt(null)` makes the prompt *vanish* — the player is told
-     nothing at all. `harvest.taken` holds the exact regrow hour.
-2. **The fire is silent and invisible** — spawns at your feet, below the view,
-   drawn under the hotbar.
-3. **A fire cannot save a soaked player in the rain** — 36.1 → 28.0 either way.
-4. **Window resize wrecks the sim** — `setPixelRatio` set once at boot.
-5. **Goblins are unkillable in daylight** — flee 7.6 vs your sprint 8.6.
-6. **Companions do not exist in multiplayer** — `Companion` appears 0 times in
+1. **The fire is silent and invisible** — spawns at your feet, below the view,
+   drawn under the hotbar. Now photographed as well as reported: it is the
+   sliver at the bottom edge of `shots/spent-source-fire.jpg`.
+2. **A fire cannot save a soaked player in the rain** — 36.1 → 28.0 either way.
+3. **Window resize wrecks the sim** — `setPixelRatio` set once at boot.
+4. **Goblins are unkillable in daylight** — flee 7.6 vs your sprint 8.6.
+5. **Companions do not exist in multiplayer** — `Companion` appears 0 times in
    `sim/world.js`.
-7. **A stranded glider cannot be recovered.**
+6. **A stranded glider cannot be recovered.**
 
 **Unmeasured, seen in passing, worth one run:** over ~24 game minutes with 4
 players the server's population drifted 68 → 37 (cap 120, so not the cap) across
@@ -148,7 +136,13 @@ and check `highlands.ruleset.current.id` before trusting anything.
 
 `highlands.capture('name')` writes a JPEG to `shots/` — **read those images**,
 it is the only way anyone sees this game. Under ~5 KB means the blind-pane bug
-is back. The HUD is DOM and can NEVER appear in a capture.
+is back. The HUD is DOM and can NEVER appear in a capture — to check a prompt,
+read `document` text instead.
+
+**You can press keys.** `window.dispatchEvent(new KeyboardEvent('keydown',
+{code:'KeyE'}))`, one `stepWorld`, then the matching `keyup`, works for E / G /
+B without pointer lock — so gathering, lighting and building are all drivable
+headlessly. `highlands.whatWouldEDo()` returns the prompt without pressing.
 
 ## The trap this project falls into
 

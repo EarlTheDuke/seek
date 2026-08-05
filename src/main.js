@@ -1233,7 +1233,17 @@ function boot() {
     const z = ctrl.position.z - Math.cos(ctrl.yaw) * STRUCTURES.placeRange;
     const spec = kind ? BUILDABLE[kind] : structures.bestToBuild(inventory, x, z);
     if (!spec) {
-      hud.toast('nothing you can build — gather wood', 2.2);
+      // A refusal that states its condition. "gather wood" was a guess, and it
+      // was wrong whenever the thing you were short of was hide or stone — you
+      // could be holding six branches and be told to go and get branches.
+      const want = Structures.shortfall(inventory);
+      hud.toast(
+        want
+          ? `nothing you can build yet — the ${want.spec.name.toLowerCase()} is nearest: ` +
+            `you need ${want.missing.map((m) => amountText(m.item, m.n)).join(' and ')}`
+          : 'nothing you can build',
+        3.4
+      );
       return null;
     }
 
@@ -1485,7 +1495,31 @@ function boot() {
       const label = `<b>E</b>  pick up ${itemName(near.item)}${near.count > 1 ? ` ×${near.count}` : ''}`;
       return { label, run: () => pickups.collect() };
     }
-    if (!fire) return null;
+
+    // ── a tree you already cut ──
+    // Only where the answer would otherwise be NOTHING. This deliberately does
+    // not enter the distance race: a spent tree is not something you can do,
+    // and it must never take the key off a fire you could feed. But vanishing
+    // is the worst possible answer, and vanishing is what used to happen —
+    // standing 2 m from the trunk you cut a second ago, `nearestSource` skips
+    // a taken source, `setPrompt(null)` wiped the line, and the player was told
+    // nothing at all where they had been told something a moment before. The
+    // regrow hour was sitting in `harvest.taken` the whole time.
+    if (!fire) {
+      const spent = harvest.nearestTaken(scatterColliders, ctrl.position, STRUCTURES.useRange, totalHours);
+      if (spent) {
+        const left = spent.hoursLeft;
+        const when =
+          left >= 20 ? 'about a day' : left >= 1.5 ? `about ${Math.round(left)} hours` : 'less than an hour';
+        const state = spent.tag === 'tree' ? 'cut' : 'quarried out';
+        const back = spent.tag === 'tree' ? 'it regrows' : 'there is more to take';
+        return {
+          label: `<b>E</b>  this ${spent.tag} is already ${state} — ${when} until ${back}`,
+          run: () => null,
+        };
+      }
+      return null;
+    }
 
     // A fire burning down is the urgent thing; otherwise it is a workbench.
     if (inventory.countOf('wood') > 0 && fire.fuel < fire.maxFuel * 0.35) {

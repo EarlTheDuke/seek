@@ -398,6 +398,20 @@ function addParts(group, key) {
 // rounded coordinates with an expiry — which is the same "the world is free,
 // the diffs are not" trick the saves and the loot use.
 
+/** One workable collider, said in the game's own words. */
+function describeSource(c, distance) {
+  return {
+    tag: c.tag,
+    x: c.x,
+    z: c.z,
+    distance,
+    item: c.tag === 'tree' ? 'wood' : 'stone',
+    amount: c.tag === 'tree' ? STRUCTURES.chopYield : STRUCTURES.quarryYield,
+    seconds: c.tag === 'tree' ? STRUCTURES.chopSeconds : STRUCTURES.quarrySeconds,
+    verb: c.tag === 'tree' ? 'cut' : 'quarry',
+  };
+}
+
 export class Harvest {
   constructor() {
     this.taken = new Map(); // key -> in-game hour it becomes available again
@@ -409,6 +423,30 @@ export class Harvest {
 
   /** The nearest tree or rock you could work on, from the collision field. */
   nearestSource(field, pos, range = STRUCTURES.useRange, hours = 0) {
+    const best = this.scanFor(field, pos, range, (c) => !this.isTaken(c.x, c.z, hours));
+    return best ? describeSource(best.collider, best.distance) : null;
+  }
+
+  /**
+   * The nearest tree or rock in reach that you have ALREADY worked.
+   *
+   * The mirror of `nearestSource`, and the reason it exists: standing at the
+   * trunk you cut two seconds ago, `nearestSource` skipped it and returned
+   * null, so the prompt VANISHED. The player is told nothing at all, one metre
+   * from a tree, having just been told something — which reads as the game
+   * breaking rather than as the tree being spent. The regrow hour was in
+   * `taken` the whole time; this hands it back so the refusal can state its
+   * condition instead of going quiet.
+   */
+  nearestTaken(field, pos, range = STRUCTURES.useRange, hours = 0) {
+    const best = this.scanFor(field, pos, range, (c) => this.isTaken(c.x, c.z, hours));
+    if (!best) return null;
+    const until = this.taken.get(Harvest.key(best.collider.x, best.collider.z));
+    return { ...describeSource(best.collider, best.distance), until, hoursLeft: until - hours };
+  }
+
+  /** Nearest workable collider passing `accept`. Shared by both lookups. */
+  scanFor(field, pos, range, accept) {
     if (!field?.list) return null;
     let best = null;
     let bestD = range;
@@ -419,21 +457,11 @@ export class Harvest {
       if (c.tag === 'tree' && c.kind !== 1) continue;
       const d = Math.hypot(c.x - pos.x, c.z - pos.z);
       if (d >= bestD) continue;
-      if (this.isTaken(c.x, c.z, hours)) continue;
+      if (!accept(c)) continue;
       bestD = d;
       best = c;
     }
-    if (!best) return null;
-    return {
-      tag: best.tag,
-      x: best.x,
-      z: best.z,
-      distance: bestD,
-      item: best.tag === 'tree' ? 'wood' : 'stone',
-      amount: best.tag === 'tree' ? STRUCTURES.chopYield : STRUCTURES.quarryYield,
-      seconds: best.tag === 'tree' ? STRUCTURES.chopSeconds : STRUCTURES.quarrySeconds,
-      verb: best.tag === 'tree' ? 'cut' : 'quarry',
-    };
+    return best ? { collider: best, distance: bestD } : null;
   }
 
   /**
@@ -655,6 +683,38 @@ export class Structures {
       fallback ??= spec;
     }
     return fallback;
+  }
+
+  /**
+   * The thing you are CLOSEST to being able to build, and what you are short of.
+   *
+   * `bestToBuild` returns null when nothing at all is affordable, and the
+   * caller then guessed: "gather wood". It is a guess, and it is wrong the
+   * moment you are standing there holding six branches and short of a hide —
+   * the game tells you to go and get the one thing you already have. Every
+   * number needed to say it properly was computed by `affordable` on the way
+   * past and thrown away.
+   *
+   * "Closest" is by total missing units, so it names the cheapest next step
+   * rather than the grandest thing you cannot have. Returns `{ spec, missing,
+   * total }` with `missing` empty when something IS affordable, and null only
+   * if there is nothing buildable in the game at all.
+   */
+  static missingFor(kind, inventory) {
+    return Object.entries(BUILDABLE[kind]?.cost ?? {})
+      .map(([item, n]) => ({ item, n: n - inventory.countOf(item) }))
+      .filter((m) => m.n > 0);
+  }
+
+  static shortfall(inventory) {
+    let best = null;
+    for (const spec of Object.values(BUILDABLE)) {
+      const missing = Structures.missingFor(spec.id, inventory);
+      if (!missing.length) return { spec, missing: [], total: 0 };
+      const total = missing.reduce((sum, m) => sum + m.n, 0);
+      if (!best || total < best.total) best = { spec, missing, total };
+    }
+    return best;
   }
 
   /** Kept for callers that only want to know if anything is affordable. */
