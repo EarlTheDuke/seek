@@ -15,41 +15,29 @@ Last updated: 2026-08-05 06:40, by the session that closed the arrow bug.
 - **The client reads world events.** Deaths, hits and glances reach the chat
   column. Verified live: "Eachann was killed by Troll 366 m south-east of Wolf
   Cleugh".
-- **Chat is a column on the right**, six lines, fifteen seconds each.
-- **Wounds persist** — a hurt creature no longer despawns and heal. 7/7.
-- **Standing orders** — `follow` / `guard`, both obedience modes. 17/17.
-- **Agents know where they are** and what their body is doing. The `me` block in
-  the snapshot carries position, yaw, pitch, health, food, core temperature.
-- **The build chooser** — `B` opens a menu instead of always making a windbreak.
+- **Chat is a column on the right**; **wounds persist** (7/7); **standing
+  orders** `follow`/`guard` (17/17); **agents know where they are** (the `me`
+  block); **`B` opens a build chooser** instead of always making a windbreak.
+- **`E` obeys one distance rule.** The pet used to win against a tree it was
+  never racing; it now competes on distance like everything else.
+
+- **A browser client's shot works.** `npm run shotcheck` 8/8 — a real server, two
+  real sockets, steered by look deltas, asks the SERVER what happened.
 
 ## The arrow bug is CLOSED — do not chase it again
 
-**The server was loosing every arrow from the archer's ankles.**
+**The server loosed every arrow from the archer's ankles.** `makeAimProxy` gave
+the weapons `ctrl.position` — the GROUND under you — where the browser's camera
+sits `eyeHeight` above it. So the arrow spawned at ankle height and buried
+itself on frame one (`spawned 46.85, landed 45.90`), never appeared in `pr`, and
+hit nothing. From the client that is indistinguishable from a press that never
+crossed the wire, which is why five theories reasoned from that end were wrong.
+Fixed in `sim/world.js` and its twin in `sim/headless.js`.
 
-The title of this bug was wrong in its first four words. The shot always
-reached the server. `makeAimProxy` handed the weapons `ctrl.position`, which is
-the GROUND under you, while the browser's real camera sits `eyeHeight` (1.72 m)
-above it. So a server-side arrow spawned at ankle height, 0.55 m forward, flat,
-and buried itself on frame one:
-
-    archer standing on ground at 46.85 · arrow spawned 46.85 · landed 45.90
-
-A landed arrow is dropped from the snapshot's `pr`, so nobody ever saw one fly;
-it hit nothing, so there was no hit and no glance. From the client end that is
-indistinguishable from a press that never crossed the wire — which is why five
-theories reasoned from that end were all wrong.
-
-Fixed in `sim/world.js` and its twin in `sim/headless.js`. It applied to every
-remote player, every rival hunter and every agent, so weigh it against queue
-item 1: **the agents have been firing into the dirt at their own feet all
-along.**
-
-    npm run shotcheck        8/8, six consecutive runs
-
-That check is the one that was missing. It starts a real server, connects two
-real sockets, steers by look deltas, holds the trigger, and asks the SERVER what
-happened. `arrowcheck` calls `projectiles.spawn` directly and structurally
-cannot see this class of bug.
+It applied to every remote player, rival hunter and agent — so weigh it against
+queue item 1: **the agents have been firing into the dirt at their feet all
+along.** `arrowcheck` calls `projectiles.spawn` directly and structurally cannot
+see this class of bug; `shotcheck` exists to cover exactly that gap.
 
 ## The one open bug
 
