@@ -6,10 +6,29 @@ under a hundred lines. **Update it at the end of every run.** If it grows past
 that, cut the oldest resolved things rather than letting it become another
 archive.
 
-Last updated: 2026-08-05 15:45, by the session that closed queue #1 — a fire is
-now one fire, in one world, that everybody can see, feel and feed.
+Last updated: 2026-08-05 16:05, by the session that closed queue #1 — how cold
+you are is now the world's answer, not your browser's.
 
 ## What works right now
+
+- **HOW COLD YOU ARE IS THE SERVER'S NUMBER.** `me.c` was the last of the four
+  fields in `me` that nothing read, and the reason it could not be read — the
+  server's copy of you standing in a world with no fire in it — closed at 15:40.
+  `Body.applyRemoteCore` + a `remoteCore` flag + a `takeOverLocally` override,
+  delivered RAW from `onSnapshot` like `me.h` and `snap.c`. **Only the ten lines
+  that integrate `coreC` stand aside**; everything upstream (`feltC`,
+  `effectiveC`, wetness, the environment sample) still runs locally because that
+  is what the HUD *explains* you with, and everything downstream (`shivering`,
+  `conditions`, `speedScale`, `warmthFraction`) still runs because that is what
+  you see. Watched in a browser on a `HOURS=1` server, on a hillside at 02:30:
+  no fire, `effectiveC` 6.29, core **−0.168 °C/min**; fire 3.00 m away,
+  `fireWarmth` 4.78, `effectiveC` 11.88, core **−0.096 °C/min** — heat loss cut
+  to 57%, and the falling number was the server's on every sample. Forced by
+  hand to 30.0 mid-session, it read the server's 36.92 two seconds later.
+  Photographed: `shots/fire-pitch-a.jpg`. `npm run warmthcheck` (**20/20**, new,
+  needs no server) drives both ends; its headline is the divergence it kills —
+  two bodies from 34.0 °C, three minutes, **34.93 beside its fire vs 32.83 in
+  the dark**, then 0.00 apart one packet later.
 
 - **EVERYBODY SEES THE SAME FIRE, AND IT WARMS THEM.** The snapshot carries `fi`
   (position + fuel; no height, the client has the same terrain from the same
@@ -69,14 +88,15 @@ now one fire, in one world, that everybody can see, feel and feed.
 - **You can fight a goblin in daylight.** It routs on sight, but now spends its
   breath doing it and goes to ground where you can reach it.
 - **Everyone hunts the same animals**, arrows hit players, wounds persist, the
-  cull is per-player, standing orders are obeyed. All suites green
-  (`firecheck` **57**, `companioncheck` 45, `campcheck` 36, `glidercheck` 32,
-  `netcheck` 24, `mindcheck`/`clockcheck` 21, `deathcheck` 19,
-  `raidcheck`/`bookcheck`/`reportcheck` 18, `ordercheck` 17,
-  `herdcheck`/`dangercheck`/`rendercheck` 12, `spreadcheck` 10, `shotcheck` 8,
-  `arrowcheck`/`woundcheck` 7). **`deathcheck`, `clockcheck` and `firecheck` are
-  still not in the standing check list in this file's own instructions — run
-  them anyway.** None of the three needs a server.
+  cull is per-player, standing orders are obeyed. All suites green, re-run this
+  run on a quiet box (`firecheck` **57**, `companioncheck` 45, `campcheck` 36,
+  `glidercheck` 32, `netcheck` 24, `mindcheck`/`clockcheck` 21,
+  `warmthcheck` **20**, `deathcheck` 19, `raidcheck`/`bookcheck`/`reportcheck`
+  18, `ordercheck` 17, `herdcheck`/`dangercheck`/`rendercheck` 12,
+  `spreadcheck` 10, `shotcheck` 8, `arrowcheck`/`woundcheck` 7).
+  **`deathcheck`, `clockcheck`, `firecheck` and `warmthcheck` are still not in
+  the standing check list in this file's own instructions — run them anyway.**
+  None of the four needs a server.
 - The picture fits the window at any scaling; a fire can be seen and heard; the
   arrow's predicted impact is within 1–2 cm of a loosed one; the glider flies
   where you look; the client reads world events; chat is a column on the right;
@@ -84,8 +104,17 @@ now one fire, in one world, that everybody can see, feel and feed.
 
 ## Recently closed — details in `FINDINGS.md` under the dated heading
 
-- **"NOBODY COULD SEE ANYBODY ELSE'S FIRE"** (15:40). Queue #1, closed both
-  directions. Carry forward, all three still load-bearing:
+- **"YOUR CORE TEMPERATURE WAS YOUR OWN OPINION"** (15:55). Queue #1. The one
+  fact worth carrying forward, because it is the fifth time it has been true:
+  **the fix for two-copies-of-one-number is always the same four pieces** —
+  `applyRemote`, a `remote` flag that stands aside *only the integration*, a
+  `takeOverLocally` for when the socket drops, and a guard that ignores a
+  non-finite value rather than obeying it. Position, health, hour, fuel, warmth.
+  Weather is the sixth and it is queue #1 now. **Stand aside as narrowly as you
+  can**: everything upstream of the owned number is local presentation of a local
+  world and must keep running, or the HUD stops explaining anything.
+- **"NOBODY COULD SEE ANYBODY ELSE'S FIRE"** (15:40). Carry forward, all three
+  still load-bearing:
   - **Reconciled by POSITION, not by id.** The server's fire ids are built from
     a rounded position and the length of its own list, so they are not stable
     across two worlds and matching on them would spawn a duplicate every packet.
@@ -98,18 +127,11 @@ now one fire, in one world, that everybody can see, feel and feed.
     was the case in point: feeding a fire would have silently done nothing. When
     you make the server the authority on something, grep for every local writer
     of it before you call the fix done.
-- **"THE FIX IS ONE LINE" WAS WRONG** (14:55), and the line would have starved
-  everybody. Queue #1 said food and core temperature were one line beside
-  `vitals.applyRemote(snap.me.h)`. Measured, it is not: the server's copy of you
-  has never had a fire and can never be fed. The fire half is now done both
-  ways, so **`me.c` is unblocked**; `me.f` is still blocked on the old #6.
-- **"THE CLIENT DREW ITS OWN DAYLIGHT"** (15:00). The browser never read
-  `snap.c`, so it ticked the clock it booted with for ever. Fixed like the health
-  and the position: `applyRemote`, a `remote` flag, `takeOverLocally`. Carry
-  forward: **delivered RAW from `onSnapshot`, not through the interpolator** —
-  the buffer is for smoothing BODIES, and an hour that arrives 110 ms late is
-  still the right hour. Same call, same reason, as `me.h` and the events, **and
-  the same rule for the fires that go down next.**
+- **"THE CLIENT DREW ITS OWN DAYLIGHT"** (15:00) and **"THE FIX IS ONE LINE" WAS
+  WRONG** (14:55). Both closed. The one rule left over from them: **everything in
+  `me` and `snap` is delivered RAW from `onSnapshot`, not through the
+  interpolator** — the buffer is for smoothing BODIES, and an hour, a health, a
+  temperature or a fire that arrives 110 ms late is still the right one.
 - **"THE SERVER KILLED ME AND RESPAWNED ME AND THE BROWSER NEVER NOTICED"**
   (14:20). Nothing read `me.h`; `stepPlayer` ticked the body TWICE per step; the
   server revived you where you fell. Carry forward: **a bare `Body.update` runs
@@ -240,6 +262,17 @@ now one fire, in one world, that everybody can see, feel and feed.
   stamina never move and any endurance number taken there is meaningless.
   `spawnPack` needs Sandbox and stamina needs Survival, so: click Sandbox,
   spawn, then set `highlands.ruleset.current.survival = true` in place.
+- **NEGATIVE `ctrl.pitch` LOOKS DOWN.** Aiming the camera at something on the
+  ground is `-atan2(eyeY - targetY, distance)` — at a fire 3.00 m away and 1.92 m
+  below the eye that is −0.57, and it put the fire in the middle of the frame
+  first try. A capture taken at +0.15 "looking at the fire" is a photograph of
+  the sky, which is how this run nearly filed a shot with no fire in it.
+- **A backgrounded `server.js` can be reported as EXITED while it is still
+  listening.** The wrapper said exit code 1; the log ended mid-tick with no
+  stack; the process was alive and holding 8080 the whole time. Do not trust the
+  wrapper's verdict — `netstat -ano | grep ":8080.*LISTENING"` is the fact. Same
+  family as the stale-process note below, and the reason to kill by PID at the
+  END of a run rather than assuming the wrapper did it.
 - **`ctrl.pitch` is damped back to `ctrl.targetPitch` every step** — writing
   `pitch` alone is erased before the next frame, and you will miss a stationary
   target at point blank and blame the arrows. Set BOTH (`targetYaw`/`yaw` too).
@@ -274,14 +307,18 @@ now one fire, in one world, that everybody can see, feel and feed.
 
 ## The game queue, ranked
 
-1. **YOUR CORE TEMPERATURE IS NOW SAFE TO READ, AND STILL IS NOT READ.** This is
-   the top of the queue and it is genuinely small: `me.c` is in every snapshot,
-   and the one thing that made it a lie — the server's copy of you standing in a
-   world with no fire in it — is fixed in both directions as of 15:40. Give
-   `Body` the same `applyRemote`/`takeOverLocally` treatment for `coreC` that it
-   has for `health`, and check what else writes `coreC` locally before calling it
-   done (that is the lesson the fuel taught this run). **`me.f` is NOT part of
-   this** — see below.
+1. **THE WEATHER IS STILL YOUR BROWSER'S INVENTION, AND IT IS THE NEXT ONE IN
+   THIS FAMILY.** Found while closing the core temperature, unfixed, and it is
+   now the smallest real thing on the list. The snapshot has carried `snap.w` —
+   `{s, n, b, a}`: the state, the next state, the blend and the wind angle —
+   since there have been snapshots, and nothing in the browser reads any of it,
+   exactly as nothing read `snap.c` or `me.h` before them. So your temperature
+   is now the server's while the wind chill and rain your client *explains* it
+   with are your own: `effectiveC` on your screen can be a fair-weather number
+   while the server is freezing you in a gale, and the picture agrees with the
+   wrong one. Same fix, one class over — `Weather.applyRemote`, a `remote` flag,
+   `takeOverLocally`, called RAW from `onSnapshot`. Unlike the last four, this
+   one is NOT blocked on anything.
 2. **Your food is still your own opinion, and the fix is NOT one line.** Blocked
    on #6: nothing can ever feed the server's copy of you. `intent.eat` is on the
    wire and no handler reads it, and the server's `p.inventory` is not your
@@ -348,9 +385,11 @@ is back. And **you can press keys**: `window.dispatchEvent(new KeyboardEvent(
 E / W / G / B without pointer lock, so walking, gathering, lighting, building
 and sprinting all work headlessly.
 
-*(This file is 328 lines by `wc -l`, not the 100 it asks for, and the note here
-has twice been an estimate that was already wrong — so do not trust it, run
-`wc -l`. The overflow is nearly all in "things that will waste your time":
+*(This file is 401 lines by `wc -l`, not the 100 it asks for, and the note here
+has three times been an estimate that was already wrong — so do not trust it,
+run `wc -l`. It grew this run despite the closed section being cut again; the
+next session should cut harder than it adds. The overflow is nearly all in
+"things that will waste your time":
 every line there is a measured fact that cost a run to learn, and deleting them
 to hit a count would cost the next session more than the reading does. Cut the
 closed-work section first — it was cut hard this run and can be cut again, since

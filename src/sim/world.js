@@ -884,8 +884,10 @@ export class SimWorld {
       },
       pl: players,
       // You. Position, health, food and core temperature — the four things you
-      // cannot work out for yourself without running the simulation. A browser
-      // ignores this and keeps its own; an agent needs every one of them.
+      // cannot work out for yourself without running the simulation. Three of
+      // the four are now read by the browser too: the position, the health and
+      // (see `Body.applyRemoteCore`) the warmth. Only `f` is still ignored, and
+      // only because nothing can yet feed the body this is taken from.
       me,
       cr: creatures,
       co: companions,

@@ -353,6 +353,15 @@ function boot() {
       // it kept reading 100 through two deaths. See `Vitals.applyRemote`.
       onSnapshot: (snap) => {
         if (snap.me) vitals.applyRemote(snap.me.h);
+        // ── and how cold the world has made you ──
+        // `me.c` has been in every snapshot as long as `me.h` has, and was left
+        // unread for a real reason rather than an oversight: until the fire you
+        // light reached the server, the server's copy of you stood in a world
+        // with nothing burning in it, and taking its temperature would have told
+        // you that you were freezing beside a fire you could see. Both halves of
+        // that landed at 15:40. See `Body.applyRemoteCore` — and note `me.f` is
+        // deliberately still NOT read, because nothing can yet feed that body.
+        if (snap.me) vitals.applyRemoteCore(snap.me.c);
         // ── and what time it is ──
         // Delivered RAW here rather than through the interpolator for the same
         // reason as the health and the events: the buffer exists to smooth

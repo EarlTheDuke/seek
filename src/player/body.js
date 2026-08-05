@@ -38,6 +38,14 @@ export class Body extends Vitals {
     // Rate-limited so warnings never spam.
     this._lastWarning = '';
     this._warningCooldown = 0;
+
+    /**
+     * True once somebody else is keeping the core temperature — see
+     * `applyRemoteCore`. Separate from `Vitals.remote` on purpose: health and
+     * warmth arrive in the same packet today, but a snapshot that omits `c`
+     * must not freeze the thermal model at whatever it last held.
+     */
+    this.remoteCore = false;
   }
 
   reset() {
@@ -161,7 +169,15 @@ export class Body extends Vitals {
     if (this.effectiveC < SURVIVAL.neutralC) drive = this.effectiveC - SURVIVAL.neutralC;
     else if (this.effectiveC > upper) drive = this.effectiveC - upper;
 
-    if (drive !== 0) {
+    // ...unless somebody else is doing this sum. Everything above stays — the
+    // felt temperature and the effective one are what the HUD explains you
+    // WITH, and they are local presentation of a local environment — but the
+    // one number the server also keeps is only written in one place. Two clocks
+    // integrating the same quantity is the whole family of bugs this project
+    // keeps finding: the position, the health, the hour, the fire's fuel.
+    if (this.remoteCore) {
+      // no-op: `applyRemoteCore` owns `coreC` while connected
+    } else if (drive !== 0) {
       this.coreC = clamp(
         this.coreC + drive * SURVIVAL.thermalRate * dt,
         SURVIVAL.coreMinC,
@@ -222,6 +238,51 @@ export class Body extends Vitals {
       this.damage(SURVIVAL.hungerDamagePerSec * dt, { kind: 'hunger' });
       this.warn('you are starving');
     }
+  }
+
+  /**
+   * Take the server's word for how warm you are.
+   *
+   * The snapshot has carried `me.c` for as long as it has carried `me.h`, and
+   * nothing in the browser has ever read one. That was defensible for exactly
+   * as long as the server's copy of you stood in a world with no fire in it:
+   * reading it then would have told you that you were freezing beside a fire
+   * you could see burning. Both halves of that are fixed — the fire you light
+   * reaches the server, and everybody's fires come back down — so the server's
+   * number is now the true one, and the client's is a second opinion with no
+   * fires, no wind chill from the server's weather and no idea whose camp it
+   * is standing in.
+   *
+   * Same shape as `Vitals.applyRemote` and `Atmosphere.applyRemote` before it,
+   * and delivered RAW from `onSnapshot` for the same reason: the interpolation
+   * buffer exists to smooth BODIES between two packets, and a temperature that
+   * arrives 110 ms late is still the right temperature.
+   *
+   * NOT the same as hunger. `me.f` stays unread until something can feed the
+   * server's copy of you — read today it would overwrite every mouthful five
+   * times a second. Warmth has no such hole: a fire IS the way you push on it,
+   * and a fire now goes up the wire.
+   */
+  applyRemoteCore(coreC) {
+    // A single undefined on the path of every packet would poison the model for
+    // the rest of the session — `clamp` of `undefined` is `NaN` and every
+    // comparison against it is silently false, so you would neither shiver nor
+    // freeze nor ever warm up again. Same guard, same reason, as the hour's.
+    if (!Number.isFinite(coreC)) return;
+    this.remoteCore = true;
+    this.coreC = clamp(coreC, SURVIVAL.coreMinC, SURVIVAL.coreMaxC);
+  }
+
+  /**
+   * Nobody is keeping our warmth for us any more — go back to running it.
+   *
+   * Without this a disconnected body would hold the last temperature the server
+   * ever sent for ever: you could walk into a blizzard at a comfortable 37.0
+   * and never feel it.
+   */
+  takeOverLocally() {
+    super.takeOverLocally();
+    this.remoteCore = false;
   }
 
   /** Emit a warning at most once every eight seconds, and never repeat back to back. */
