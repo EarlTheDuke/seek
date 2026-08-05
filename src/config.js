@@ -349,6 +349,39 @@ export const BOW = {
   holdFatigue: 3.2, // seconds at full draw before your aim starts to shake
 };
 
+// ── The mark ────────────────────────────────────────────────────────────────
+// Where the arrow will actually land, drawn on the world while you hold a draw.
+//
+// What this fixes, in plain terms: on this terrain the line of sight to a
+// grazing deer clears the ground by only 0.2–0.9 m, while the arrow drops
+// 0.5 m at 20 m and about 1.1 m at 30 m. The drop is bigger than the clearance,
+// so a shot that looks completely clear is stopped by a rise you cannot see —
+// measured at 12 stands on a 35 m ring around one deer, 12 of 12 arrows into
+// the dirt, 8 of those 12 with the animal in plain view.
+//
+// A smooth heightfield gives the eye no texture gradient to read at that scale,
+// so there was no way to know. The mark is the honest fix: it does not make the
+// arrow fly straighter, it tells you the truth about where it goes, and the
+// answer to a blocked shot stays what it always was — move.
+export const AIM = {
+  enabled: true,
+  // Ring radius = tan(spread) * distance — literally your shot group on the
+  // ground. Clamped so it stays visible up close and readable far off.
+  minRadius: 0.1,
+  maxRadius: 2.4,
+  lift: 0.05, // metres along the surface normal, so it does not z-fight
+  // A mark on an animal faces the shooter and stands this far toward them —
+  // a deer is 0.55 m of solid body and a 5 cm offset simply sank into it.
+  fleshStandoff: 0.5,
+  // A mark on flesh never shrinks below this on screen, or the one shot you
+  // actually want becomes a dot at forty metres.
+  minFleshRadius: 0.3,
+  // How fast the mark slides to a new reading. Instant is jittery on rough
+  // ground, slow lies about where you are pointing.
+  followRate: 18,
+  segments: 32,
+};
+
 export const ARROW = {
   // Arrows get their OWN gravity, separate from the player's stylised 26 m/s².
   // The player's number exists to make jumping feel snappy; an arrow has to

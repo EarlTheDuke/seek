@@ -17,6 +17,12 @@ const _right = new THREE.Vector3();
 const _up = new THREE.Vector3();
 const _vel = new THREE.Vector3();
 const _origin = new THREE.Vector3();
+// The preview keeps its own scratch. It runs in the render loop and `fire`
+// runs off input; sharing would work today and break the first time one of
+// them moves.
+const _aimFwd = new THREE.Vector3();
+const _aimVel = new THREE.Vector3();
+const _aimOrigin = new THREE.Vector3();
 
 const IDLE = 'idle';
 const DRAWING = 'drawing';
@@ -96,6 +102,54 @@ export class Bow extends Weapon {
     return smoothstep(BOW.holdFatigue, BOW.holdFatigue + 3.5, this.holdTime);
   }
 
+  /**
+   * The half-angle of the shot cone right now, in radians.
+   *
+   * Tight at full draw, loose at a snatched half-draw, worse while moving,
+   * worse again if you have been straining at full draw for a while. `fire`
+   * scatters the arrow by exactly this, and the aim mark draws a ring of
+   * exactly this — which is what makes the ring an honest promise rather than
+   * a decoration.
+   */
+  get spread() {
+    const moveTerm =
+      BOW.spreadMovePenalty * clamp(this.ctx.controller.horizontalSpeed / PLAYER.sprintSpeed, 0, 1);
+    return (
+      lerp(BOW.spreadLoose, BOW.spreadFull, this.charge) +
+      moveTerm +
+      this.fatigue * BOW.spreadLoose * 0.8
+    );
+  }
+
+  /** Launch speed for the current draw. */
+  get launchSpeed() {
+    return lerp(BOW.minSpeed, BOW.maxSpeed, this.charge);
+  }
+
+  /**
+   * Where this shot would actually end up if loosed this instant — the centre
+   * of the group, before spread scatters it.
+   *
+   * Null unless you are actually drawing: the mark is a thing you get for
+   * taking your time, not a permanent overlay on the world.
+   *
+   * The returned record is shared scratch owned by `Projectiles` — read it now,
+   * do not keep it.
+   */
+  previewShot() {
+    if (this.state !== DRAWING) return null;
+    const { camera, controller, projectiles } = this.ctx;
+    if (!projectiles?.predict) return null;
+
+    camera.getWorldDirection(_aimFwd).normalize();
+    // Same origin and the same inherited motion as `fire`, or the preview would
+    // quietly promise a shot the bow does not take.
+    _aimOrigin.copy(camera.position).addScaledVector(_aimFwd, 0.55);
+    _aimVel.copy(_aimFwd).multiplyScalar(this.launchSpeed).add(controller.velocity);
+
+    return projectiles.predict('arrow', _aimOrigin, _aimVel, this.ctx.ownerId ?? null);
+  }
+
   fire() {
     const { camera, controller, inventory, projectiles, audio, rand } = this.ctx;
 
@@ -109,22 +163,15 @@ export class Bow extends Weapon {
     _up.crossVectors(_right, _fwd).normalize();
 
     // ── spread ──
-    // Tight at full draw, loose at a snatched half-draw, worse while moving,
-    // worse again if you have been straining at full draw for a while.
-    const moveTerm =
-      BOW.spreadMovePenalty * clamp(controller.horizontalSpeed / PLAYER.sprintSpeed, 0, 1);
-    const spread =
-      lerp(BOW.spreadLoose, BOW.spreadFull, this.charge) +
-      moveTerm +
-      this.fatigue * BOW.spreadLoose * 0.8;
+    // One definition, shared with the aim mark — see the `spread` getter.
+    const spread = this.spread;
 
     // Gaussian-ish scatter in the plane perpendicular to aim, so error clusters
     // near the centre instead of spreading evenly over a disc.
     const gauss = () => (rand() + rand() + rand() - 1.5) * 0.9;
     _fwd.addScaledVector(_right, gauss() * spread).addScaledVector(_up, gauss() * spread).normalize();
 
-    const speed = lerp(BOW.minSpeed, BOW.maxSpeed, this.charge);
-    _vel.copy(_fwd).multiplyScalar(speed);
+    _vel.copy(_fwd).multiplyScalar(this.launchSpeed);
     // Inherit the archer's motion — a shot taken at a run genuinely drifts.
     _vel.add(controller.velocity);
 

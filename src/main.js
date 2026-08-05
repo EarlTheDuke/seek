@@ -33,6 +33,7 @@ import { LOADOUT, LAKE, PLAYER, WATER_LEVEL, WEATHER, WILDLIFE, SITES, STRUCTURE
 import { Inventory } from './items/inventory.js';
 import { getItem } from './items/registry.js';
 import { WeaponHost } from './weapons/index.js';
+import { AimMark } from './weapons/aimMark.js';
 import { Projectiles } from './world/projectiles.js';
 import { Pickups } from './world/pickups.js';
 import { ColliderField, addStaticGroup } from './world/colliders.js';
@@ -421,6 +422,10 @@ function boot() {
       }
     },
   });
+
+  // Where the arrow would actually land, drawn on the world while you draw.
+  // Reads the bow and the world; writes neither.
+  const aimMark = new AimMark(scene);
 
   /**
    * Put a herd on the waterline in front of the spawn point.
@@ -2252,6 +2257,8 @@ function boot() {
     );
     reportPlace(dt);
     viewmodel.update(dt, ctrl, weaponState, atmosphere.sun, camera.quaternion);
+    // After the viewmodel, so it reads the camera the frame will actually use.
+    aimMark.update(dt, vitals.dead ? null : weapons.current, camera);
 
     audio.update(dt, ctrl, ctrl.position.y);
 
@@ -2309,6 +2316,7 @@ function boot() {
     scene, camera, renderer, ctrl, input, feel, atmosphere, terrain, scatter, lake,
     composer, life, audio, hud, spawn, landmarks, stepWorld, heightAt,
     inventory, weapons, projectiles, pickups, viewmodel, wildlife, stealth, weather, rain,
+    aimMark,
     /**
      * Pin the weather. `highlands.setWeather('rain')`, or omit the argument to
      * hand control back to the state machine.
@@ -2731,8 +2739,18 @@ function boot() {
      */
     capture: (name, quality) => captureFrame(name, quality),
 
-    /** Jump somewhere and have the world fully present, for tests and photos. */
-    warp(x, z, yaw, pitch = 0, y = null) {
+    /**
+     * Jump somewhere and have the world fully present, for tests and photos.
+     *
+     * `yaw` defaults to the facing you already had. It used to have no default
+     * at all, sitting between two parameters that did, so the obvious
+     * `warp(x, z)` set yaw to `undefined` — which NaN'd the camera quaternion,
+     * then the camera's world position, and then everything downstream that
+     * read it. The first symptom was an unrelated-looking throw from
+     * `Soundscape.spatial` ("non-finite AudioParam") on the next arrow impact,
+     * with the real cause three calls and one silent `undefined` away.
+     */
+    warp(x, z, yaw = ctrl.yaw, pitch = 0, y = null) {
       if (!ruleset.allows('allowWarp')) return 'teleporting is disabled in Survival';
       ctrl.flying = y !== null;
       ctrl.position.set(x, y ?? heightAt(x, z), z);
