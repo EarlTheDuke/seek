@@ -18,8 +18,9 @@ const URL = process.argv[2] ?? 'ws://127.0.0.1:8080';
 
 /** A player with no eyes: it sends intents and remembers what it is told. */
 class HeadlessClient {
-  constructor(name) {
+  constructor(name, pet = null) {
     this.name = name;
+    this.pet = pet;
     this.id = null;
     this.seed = null;
     this.others = new Map();
@@ -37,7 +38,7 @@ class HeadlessClient {
       this.ws = new WebSocket(url);
       this.ws.onerror = (e) => reject(new Error(`${this.name}: ${e.message ?? 'socket error'}`));
       this.ws.onopen = () => {
-        this.send(C_HELLO, { name: this.name, version: PROTOCOL_VERSION });
+        this.send(C_HELLO, { name: this.name, version: PROTOCOL_VERSION, pet: this.pet ?? undefined });
       };
       this.ws.onmessage = (ev) => {
         this.bytesIn += ev.data.length;
@@ -97,7 +98,9 @@ const check = (name, pass, detail) => {
 async function main() {
   console.log(`\n  connecting two players to ${URL}\n`);
 
-  const alice = await new HeadlessClient('Alice').connect(URL);
+  // Alice brings an animal. Bob brings none — which is half the test: a
+  // companion has to belong to somebody rather than appear for everybody.
+  const alice = await new HeadlessClient('Alice', 'wolfcub').connect(URL);
   const bob = await new HeadlessClient('Bob').connect(URL);
   await sleep(300);
 
@@ -110,6 +113,7 @@ async function main() {
   // Alice walks forward for two seconds; Bob stands still and watches.
   const startSnap = bob.lastSnapshot;
   const aliceStart = startSnap?.pl.find((p) => p.id === alice.id);
+  const cubStart = startSnap?.co?.find((c) => c.o === alice.id);
   alice.intent.forward = 1;
   alice.intent.sprint = true;
   const t0 = Date.now();
@@ -130,6 +134,36 @@ async function main() {
   check('Bob sees Alice move', moved > 8, `${moved.toFixed(1)} m in 2 s`);
   check('the server did not obey a lie', moved < 30,
         `${moved.toFixed(1)} m — a sprint is ~8.6 m/s, so 2 s cannot exceed ~18 m`);
+
+  // ── somebody else's animal ──
+  //
+  // The thing this pair of checks exists for: a companion used to be a purely
+  // local object, so Bob could stand next to Alice all day and never see the
+  // wolf cub at her heel. `Companion` appeared nowhere in `sim/world.js` and
+  // nothing about it crossed the wire.
+  const cubEnd = bob.lastSnapshot?.co?.find((c) => c.o === alice.id);
+  check('Bob can see Alice\'s animal at all', !!cubEnd && cubEnd.k === 'wolfcub',
+        cubEnd ? `a ${cubEnd.k} belonging to #${cubEnd.o}` : 'no companion in the snapshot');
+  // Counted per OWNER, never as a total: this runs against whatever server is
+  // already up, and a fleet of agents with `PET=` set will legitimately have
+  // animals of their own. Asserting "exactly one companion in the world" failed
+  // the moment two hippos were watching.
+  const co = bob.lastSnapshot?.co ?? [];
+  check('and only hers — Bob brought none',
+        co.filter((c) => c.o === alice.id).length === 1 && !co.some((c) => c.o === bob.id),
+        `${co.length} companions in the world, ${co.filter((c) => c.o === bob.id).length} of them Bob's`);
+
+  const cubMoved = cubStart && cubEnd
+    ? Math.hypot(cubEnd.p[0] - cubStart.p[0], cubEnd.p[2] - cubStart.p[2]) : 0;
+  const cubBehind = cubEnd && aliceEnd
+    ? Math.hypot(cubEnd.p[0] - aliceEnd.p[0], cubEnd.p[2] - aliceEnd.p[2]) : Infinity;
+  check('it went with her', cubMoved > 4, `${cubMoved.toFixed(1)} m while Alice ran ${moved.toFixed(1)} m`);
+  // Measured at 11.8 m after a 17.4 m sprint. A sprint (8.6 m/s) is faster
+  // than a wolf cub (7.2), and below `runRange` it only walks, so it loses
+  // ground the whole way — the threshold is what it must not exceed, not what
+  // it should hit. Anything under `runRange` (20 m) is still a chase; standing
+  // still would show as ~17.
+  check('and stayed at her heel', cubBehind < 16, `${cubBehind.toFixed(1)} m behind her`);
 
   // ── the world, which nobody downloaded ──
   const snap = bob.lastSnapshot;

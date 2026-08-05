@@ -58,6 +58,7 @@ import { DANGER_LEVELS, bannedSpecies, readDanger, writeDanger, getDangerLevel }
 import { GLIDER } from './config.js';
 import { NetClient } from './net/client.js';
 import { Avatars } from './net/avatars.js';
+import { PetAvatars } from './net/petavatars.js';
 import { sampleEnvironment } from './world/environment.js';
 import { insulationOf } from './items/registry.js';
 import { RECIPES, bestAvailable, craft } from './items/recipes.js';
@@ -290,6 +291,9 @@ function boot() {
   const params = new URLSearchParams(location.search);
   const joinUrl = params.get('join');
   const avatars = new Avatars(scene);
+  // Their animals as well as them. Six months of otter and nobody but its owner
+  // could see it; this is the group that fixes that.
+  const petAvatars = new PetAvatars(scene);
   let net = null;
 
   if (joinUrl) {
@@ -330,7 +334,8 @@ function boot() {
       onError: (m) => hud.toast(`server: ${m}`, 5),
       onStatus: (s) => hud.toast(`network: ${s}`, 2),
     });
-    net.connect(joinUrl, params.get('name') ?? 'wanderer');
+    // Whichever animal is at your heel walks onto the server with you.
+    net.connect(joinUrl, params.get('name') ?? 'wanderer', chosenCompanion);
   }
 
   const vitals = new Body({
@@ -2307,6 +2312,12 @@ function boot() {
       net.sendIntent(intent, performance.now());
       const world = net.interpolated(performance.now());
       avatars.update(dt, world, net.others);
+      // ── and their animals ──
+      // Skipping our own owner id: the snapshot carries every companion
+      // including ours, and the one at OUR heel is the real one, with the trust
+      // we earned and the tricks it knows. Drawing the server's copy as well
+      // would put a second otter half a metre behind the first.
+      petAvatars.update(dt, world, net.id);
       // ── and the animals, from the same packet ──
       // The comment at the top of this section has claimed since the day it was
       // written that creatures are drawn from server snapshots. Until now only
@@ -2660,10 +2671,12 @@ function boot() {
       return net;
     },
     avatars,
+    petAvatars,
     /** Connect to a server without reloading. */
     join: (url, name = 'wanderer') => {
       if (net) net.close();
       avatars.clear();
+      petAvatars.clear();
       net = new NetClient({
         onWelcome: (d) => hud.toast(`joined — ${d.players.length + 1} here`, 3),
         // Into the chat column, not the toast. A conversation needs several lines
@@ -2691,7 +2704,7 @@ function boot() {
         onError: (m) => hud.toast(`server: ${m}`, 5),
         onStatus: (s) => hud.toast(`network: ${s}`, 2),
       });
-      net.connect(url, name);
+      net.connect(url, name, pet.species.id);
       return `connecting to ${url}`;
     },
     say: (text) => (net ? (net.say(text), 'sent') : 'not connected'),
@@ -2703,6 +2716,9 @@ function boot() {
             seed: net.seed,
             others: [...net.others.values()].map((o) => o.name),
             avatars: avatars.count,
+            // Other people's animals, drawn. Yours is not counted: it is the
+            // local one, standing behind you, and never came off the wire.
+            theirPets: petAvatars.count,
             pingMs: +net.ping.toFixed(1),
             snapshotsBuffered: net.buffer.length,
           }

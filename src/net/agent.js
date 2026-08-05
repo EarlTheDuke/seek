@@ -79,12 +79,16 @@ export class Agent {
    * Both exist because they answer different questions and the author wanted
    * the option. Neither is a fallback for the other.
    */
-  constructor({ name, provider, rand, onLog = null, orders = 'decides' }) {
+  constructor({ name, provider, rand, onLog = null, orders = 'decides', pet = null }) {
     this.name = name;
     this.provider = provider;
     this.rand = rand;
     this.onLog = onLog;
     this.orders = orders;
+    // An animal at its heel, if it was given one. The agent's mind knows
+    // nothing about it — it is the server's copy that walks, and this is here
+    // so a fleet can be watched with something at its side.
+    this.pet = pet;
 
     this.id = null;
     this.seed = null;
@@ -126,7 +130,8 @@ export class Agent {
       this.ws = new WebSocket(url);
       const fail = (e) => reject(new Error(`${this.name}: ${e?.message ?? 'socket error'}`));
       this.ws.onerror = fail;
-      this.ws.onopen = () => this.send(C_HELLO, { name: this.name, version: PROTOCOL_VERSION });
+      this.ws.onopen = () =>
+        this.send(C_HELLO, { name: this.name, version: PROTOCOL_VERSION, pet: this.pet ?? undefined });
       this.ws.onclose = () => {
         this.connected = false;
       };

@@ -6,51 +6,51 @@ under a hundred lines. **Update it at the end of every run.** If it grows past
 that, cut the oldest resolved things rather than letting it become another
 archive.
 
-Last updated: 2026-08-05 10:55, by the session that made goblins killable in daylight.
+Last updated: 2026-08-05 11:45, by the session that put companions in multiplayer.
 
 ## What works right now
 
+- **Your animal comes with you onto a server, and other people can see it.**
+  The server keeps its own copy, walks it, and puts it in every snapshot.
 - **You can fight a goblin in daylight.** It routs on sight as before, but it
   now spends its breath doing it and then goes to ground where you can reach it.
 - **Everyone hunts the same animals**, arrows hit players, wounds persist, the
   cull is per-player, standing orders are obeyed. All suites green
-  (`raidcheck` **18**, `campcheck` 36, `glidercheck` 32, `companioncheck` 29,
-  `mindcheck` 21, `bookcheck`/`reportcheck` 18, `ordercheck` 17,
-  `netcheck`/`herdcheck` 12, `dangercheck` 12, `rendercheck` 12,
-  `spreadcheck` 10, `shotcheck` 8, `arrowcheck`/`woundcheck` 7).
-- **The picture fits the window** at any monitor scaling or browser zoom; **a
-  fire is something you can see and hear** (`shots/fire-at-3m-night.jpg`); **you
-  can see where your arrow will land** (predicted impact within 1–2 cm of a
-  loosed one); **the glider flies where you are looking**.
-- The client reads world events; chat is a column on the right; `B` opens a
-  build chooser; `E` obeys one distance rule and **always answers** — gather,
-  build and launch refusals all state their condition.
+  (`campcheck` 36, `glidercheck` 32, `companioncheck` 29, `mindcheck` 21,
+  `raidcheck`/`bookcheck`/`reportcheck` 18, `ordercheck` 17, `netcheck` **16**,
+  `herdcheck`/`dangercheck`/`rendercheck` 12, `spreadcheck` 10, `shotcheck` 8,
+  `arrowcheck`/`woundcheck` 7).
+- The picture fits the window at any scaling; a fire can be seen and heard; the
+  arrow's predicted impact is within 1–2 cm of a loosed one; the glider flies
+  where you look; the client reads world events; chat is a column on the right;
+  `B` opens a build chooser; `E` obeys one distance rule and always answers.
 
 ## Recently closed — details in `FINDINGS.md` under the dated heading
 
+- **"Companions do not exist in multiplayer"** (11:45), queue #1. `SimWorld` now
+  owns a `Companion` per player: `C_HELLO` carries `pet`, `giveCompanion` makes
+  the server's copy, `stepCompanion` walks it, `snapshot().co` carries it to
+  everybody, and `src/net/petavatars.js` draws other people's (a real
+  `Companion` with `think`/`move` never called, so `animate` works off the wire).
+  Two things a future session will otherwise trip on: **your own animal IS in
+  your own snapshot**, unlike `pl` — a watcher with no local pet would otherwise
+  be missing exactly the one it brought, so the browser skips its own by owner
+  id; and the server's copy **arrives already tame**, because below `tame` the
+  brain wanders and it would trot off in front of the whole server while your
+  real one heeled. Trust, tricks and feeding stay owner-local — see queue #1.
+  By `netcheck`, now **16**, four of them new.
 - **"Goblins are unkillable in daylight"** (10:45). The broken branch of
-  `thinkPack` was the ONLY flight in `creature.js` that never spent stamina (the
-  prey bolt and the bear break-off both do `stamina -= dt` then drop to `trot`),
-  so it held `flee` 7.6 m/s for ever and `goblin.stamina: 14` was dead data.
-  Against a 9-second sprint that is invulnerability, not escape: in Survival,
-  5.9 m behind one became **159 m** in 55 s, still opening. Now it tires, and
-  **in daylight a blown goblin goes to ground** (`goneToGround`, speed 0), so
-  they are avoidable rather than unreachable. Killed one at noon. Night is
-  untouched. Guarded by `raidcheck`, 18/18.
-- **"Window resize wrecks the sim"** (10:15). `setPixelRatio` ran once at boot
-  and `syncSize` early-returned on CSS size alone, so a DPR change never reached
-  the renderer. `EffectComposer` already sizes every pass by its cached ratio,
-  so the wrapper's extra `bloom.setSize` re-shrank bloom. By `rendercheck`.
-- **Both fire bugs** (09:35, 09:50) — laid below the frame, `Soundscape.fireLit`
-  never written and `?.` ate it, and a roofed fire still rained on. Guarded by
-  `campcheck`.
+  `thinkPack` was the only flight in `creature.js` that never spent stamina, so
+  it held `flee` 7.6 m/s for ever. Now it tires and a blown one goes to ground
+  in daylight (`goneToGround`). Night untouched. By `raidcheck`.
+- **Window resize wrecking the sim** (10:15) and **both fire bugs** (09:35,
+  09:50). By `rendercheck` and `campcheck`.
 
 **Two lessons worth keeping, both about trusting a queue entry's own words.**
-The resize entry inherited a RETRACTED symptom as its title and would have sent
-a fifth session hunting a stopped clock: **check the symptom still stands before
-you hunt its cause.** The goblin entry carried a measured *number* that was
-taken in the wrong game mode and pointed the opposite way: **check which mode a
-number was measured in** — Sandbox has no hunger, no stamina, and no thirst.
+The resize entry inherited a RETRACTED symptom as its title: **check the symptom
+still stands before you hunt its cause.** The goblin entry carried a number
+measured in the wrong game mode that pointed the opposite way: **check which
+mode a number came from** — Sandbox has no hunger, no stamina, no thirst.
 
 ## Things that will waste your time if you do not know them
 
@@ -69,10 +69,12 @@ number was measured in** — Sandbox has no hunger, no stamina, and no thirst.
 - **A fresh server does NOT clear the duplicate roster.** `[#1 Eachann, #4
   Eachann, #5 Morag]` is a name collision between the server's rival hunters and
   the `agents.js` pool, not stale state. Restarting to fix it is waste.
-- **`warp` does not cancel a glide** — `updateFlight` rewrites `ctrl.position`
-  every step. Step until `highlands.flight` is falsy before measuring. `warp` is
-  refused in Survival (it *returns* the refusal as a string) and the server
-  never hears it, so any networked measurement after one is worthless.
+- **`warp` is LOCAL, and it does not cancel a glide.** `updateFlight` rewrites
+  `ctrl.position` every step, so step until `highlands.flight` is falsy before
+  measuring. It is refused in Survival (it *returns* the refusal as a string),
+  and the server never hears it — after one, your server body is where you left
+  it. Fine for looking at things, worthless for anything the server must agree
+  about.
 - **Deer wander.** Reading a deer's position once and then stepping through a
   long scan aims you where it used to be — it cost a run two wrong readings.
 - **A long survival test measures FOOD, not what you think.** `dayMinutes: 26`,
@@ -101,11 +103,17 @@ number was measured in** — Sandbox has no hunger, no stamina, and no thirst.
   **Lit fires are `highlands.fires.active`** — there is no `.list`.
   **`hud.heard` holds objects, not strings** — `.join()` gives you
   `[object Object]`; read `h.text`.
+- **`const` in the browser console leaks into global scope between calls**, so a
+  second `javascript_tool` call reusing the same name dies on "Identifier 'g'
+  has already been declared". Wrap every one in `(async()=>{ ... })()`.
 
 ## The game queue, ranked
 
-1. **Companions do not exist in multiplayer** — `Companion` appears 0 times in
-   `sim/world.js`.
+1. **A companion's RELATIONSHIP does not cross the wire.** The body does now;
+   the trust, the tricks and the standing orders do not, so the server's copy is
+   permanently at trust 0.6 with no tricks and `guard` off. Feeding and training
+   still happen only on the owner's machine. `defend` and the bite are wired and
+   waiting on a `guard` toggle nothing can currently set over the wire.
 2. **A stranded glider cannot be recovered.**
 3. `glider.js` samples ridge lift upwind with `(−sin, −cos)` of `wind.angle`
    while integrating flight in `(+sin, +cos)`. Establish which way `wind.angle`
@@ -115,6 +123,13 @@ number was measured in** — Sandbox has no hunger, no stamina, and no thirst.
    axe-misses-in-a-swarm note. Unexamined.
 5. Multiplayer carcass harvesting fills a LOCAL inventory only, and a mirrored
    animal's morale/`hurt` flags are never sent. Small and deliberate, for now.
+
+**Measured 11:40, not a regression, worth a decision:** a companion trails a
+CONTINUOUSLY MOVING owner at about its own `runRange` — inside that range
+`think` only walks it (`d > runRange ? runSpeed : walkSpeed`) and every species
+walks slower than a person. Morag's hippo sat 21.9 m behind her (`runRange` 22).
+This is the single-player tuning untouched; it is invisible there because people
+stop constantly and glaring with agents, which never do.
 
 **Unmeasured, worth one run:** with 4 players the server's population drifted
 68 → 37 over ~24 game minutes (cap is 120, so not the cap), across 02:00–05:00.
@@ -126,8 +141,11 @@ sterilising ground. Nobody tested which — do not repeat it as fact.
 ```
 npx vite --port 5173 --strictPort
 DANGER=no-bears node server/server.js 8080
-ORDERS=obeys node server/agents.js 2
+PET=hippo ORDERS=obeys node server/agents.js 2
 ```
+
+`PET=<species>` gives every agent an animal — the only way to SEE another
+player's companion without a second human. The mind is not told it exists.
 
 Join at `http://localhost:5173/?join=ws://127.0.0.1:8080&name=Claude&danger=no-bears`,
 click a mode button (**Sandbox** if you need `warp` or `spawnPack`), then drive

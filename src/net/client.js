@@ -49,7 +49,8 @@ export class NetClient {
     this.onStatus = onStatus;
   }
 
-  connect(url, name) {
+  connect(url, name, pet = null) {
+    this.pet = pet;
     this.status('connecting');
     try {
       this.ws = new WebSocket(url);
@@ -61,7 +62,10 @@ export class NetClient {
 
     this.ws.onopen = () => {
       this.connected = true;
-      this.send(C_HELLO, { name, version: PROTOCOL_VERSION });
+      // The animal you walked in with. Said once, on the way in: the server
+      // makes its own copy of it and everybody else's snapshots carry it from
+      // then on. Before this, a companion was a thing only its owner could see.
+      this.send(C_HELLO, { name, version: PROTOCOL_VERSION, pet: this.pet ?? undefined });
       this.pingTimer = setInterval(() => this.send(C_PING, { t: performance.now() }), 2000);
     };
 
@@ -235,7 +239,21 @@ function blendSnapshots(a, b, t) {
     };
   });
 
-  return { ...b, pl, cr };
+  // Companions, keyed by their owner — an animal belongs to exactly one person,
+  // so the owner id is its identity and no separate one is sent.
+  const coById = new Map();
+  for (const c of a.co ?? []) coById.set(c.o, c);
+  const co = (b.co ?? []).map((c) => {
+    const prev = coById.get(c.o);
+    if (!prev) return c;
+    return {
+      ...c,
+      p: [lerp(prev.p[0], c.p[0], t), lerp(prev.p[1], c.p[1], t), lerp(prev.p[2], c.p[2], t)],
+      y: lerpAngle(prev.y, c.y, t),
+    };
+  });
+
+  return { ...b, pl, cr, co };
 }
 
 const lerp = (a, b, t) => a + (b - a) * t;

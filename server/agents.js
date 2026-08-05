@@ -58,6 +58,11 @@ const NAMES = [
 //
 //   ORDERS=obeys npm run agents -- 2
 const ORDERS = process.env.ORDERS === 'obeys' ? 'obeys' : 'decides';
+// PET=wolfcub npm run agents — every agent walks in with one. Only useful for
+// watching: the mind is not told the animal exists and cannot ask it for
+// anything. It is here because a fleet with dogs is how you SEE that other
+// people's companions are in the world now.
+const PET = process.env.PET ?? null;
 
 const useModel = (process.env.MINDS_PROVIDER ?? 'scripted') === 'claude';
 const hasKey = !!process.env.MINDS_API_KEY;
@@ -107,6 +112,7 @@ async function main() {
       rand: makeRandom(`agentbody:${i}`),
       onLog: log,
       orders: ORDERS,
+      pet: PET,
     });
     try {
       await a.connect(URL);

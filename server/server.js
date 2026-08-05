@@ -41,6 +41,7 @@ import {
   pickIntent,
   cleanName,
   cleanChat,
+  cleanPet,
 } from '../src/net/protocol.js';
 
 const args = process.argv.slice(2);
@@ -141,10 +142,17 @@ wss.on('connection', (ws, req) => {
         }
         client.id = nextId++;
         client.name = cleanName(msg.data.name);
-        world.addPlayer(client.id, client.name);
+        // The animal they brought with them. A claim about what you OWN rather
+        // than about the world, so it is allowed — same class of assertion as
+        // your name, and sanitised the same way.
+        const pet = cleanPet(msg.data.pet);
+        world.addPlayer(client.id, client.name, { pet });
         ws.send(encode(S_WELCOME, world.hello(client.id)));
         broadcast(S_JOIN, { id: client.id, n: client.name }, ws);
-        console.log(`  + ${client.name} (#${client.id}) from ${where} — ${clients.size} here`);
+        console.log(
+          `  + ${client.name} (#${client.id}) from ${where} — ${clients.size} here` +
+            (pet ? ` · with a ${world.players.get(client.id).companion.species.name.toLowerCase()}` : '')
+        );
         break;
       }
 

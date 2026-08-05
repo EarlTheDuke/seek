@@ -22,7 +22,7 @@
 
 import * as THREE from 'three';
 import { SEED, WATER_LEVEL, LOADOUT, TIME, SOCIAL } from '../config.js';
-import { placeStrangeness } from '../world/strangeness.js';
+import { placeStrangeness, darkness } from '../world/strangeness.js';
 import { describePosition } from '../world/placenames.js';
 import { findRegion } from '../world/regions.js';
 
@@ -37,6 +37,7 @@ import { ColliderField } from '../world/colliders.js';
 import { Weather } from '../world/weather.js';
 import { solarPosition } from '../world/sky.js';
 import { Wildlife, segmentCylinder } from '../creatures/manager.js';
+import { Companion } from '../creatures/companion.js';
 
 // A person, as something an arrow can hit. The controller has no collider of
 // its own — it is a capsule in the movement code and nothing anywhere else —
@@ -77,6 +78,9 @@ class Player {
     this.primaryWasHeld = false;
     this.connected = true;
     this.party = null;
+    // The animal that came with you. Null for anyone who brought none — most
+    // of the world, including every rival hunter.
+    this.companion = null;
     // Rising every time anything about this player changes in a way another
     // client needs to know. Lets the server skip players who did nothing.
     this.dirty = true;
@@ -219,7 +223,7 @@ export class SimWorld {
 
   // ── players ───────────────────────────────────────────────────────────────
 
-  addPlayer(id, name) {
+  addPlayer(id, name, { pet = null } = {}) {
     // Everyone opens their eyes on the same shore, spread just enough that two
     // people do not spawn inside each other.
     const spot = this.spawn.position.clone();
@@ -237,10 +241,51 @@ export class SimWorld {
       projectiles: this.projectiles,
     });
     this.players.set(id, p);
+    if (pet) this.giveCompanion(id, pet);
     return p;
   }
 
+  /**
+   * The animal that walked in with somebody.
+   *
+   * WHY THE SERVER KEEPS ITS OWN COPY. A companion used to be a purely local
+   * object: `Companion` appeared nowhere in this file, so you could train an
+   * otter for an hour, walk it onto a shared server, and be the only person
+   * alive who could see it. It was not in the world — it was in your browser.
+   * Now it is a thing standing on the hillside that everyone's snapshot
+   * mentions, which is the difference between a pet and a picture of one.
+   *
+   * WHY IT ARRIVES ALREADY TAME. The relationship — feeding, playing, the
+   * tricks, the trust — is kept by the owner's own client, where the hands
+   * are. This copy is the body other people see. An untamed body wanders off
+   * on its own (that is what `think` does below `tame`), so a server-side copy
+   * that had to be re-earned from zero would trot away from its owner in front
+   * of the whole server while the real animal heeled perfectly on their screen.
+   * It starts at the trust that makes it follow, and is fed and played enough
+   * that a session's decay does not drop it back out of that.
+   *
+   * What this copy deliberately does NOT do is train: asking it for a trick
+   * happens on the owner's machine. Syncing the relationship both ways is a
+   * separate job and is not pretended at here.
+   */
+  giveCompanion(id, speciesId) {
+    const p = this.players.get(id);
+    if (!p) return null;
+    const at = p.ctrl.position.clone();
+    at.x += 1.2;
+    at.y = heightAt(at.x, at.z);
+    const c = new Companion(speciesId, at, makeRandom(`pet:${id}:${speciesId}`));
+    c.trust = Math.max(c.care_.tameAt + 0.3, 0.6);
+    c.fed = c.played = 0.85;
+    p.companion = c;
+    p.dirty = true;
+    return c;
+  }
+
   removePlayer(id) {
+    // The animal goes with its person. It lives on the Player, so this is the
+    // whole of it — but stated out loud, because a companion left ticking for
+    // an owner who is no longer in the Map would follow a corpse for ever.
     this.players.delete(id);
   }
 
@@ -361,6 +406,10 @@ export class SimWorld {
     if (!victim) return;
 
     creature.targetId = victim.id;
+    // Whatever just hit you now has your animal's attention — if you ever
+    // taught it to guard. `defend` refuses on its own when the order is off or
+    // the trust is not there, so this is one line and no conditions.
+    victim.companion?.defend(creature);
     victim.body.damage(creature.species.aggression?.damage ?? 0, creature);
     victim.dirty = true;
     if (victim.body.dead) this.onPlayerDied(victim, creature);
@@ -478,6 +527,7 @@ export class SimWorld {
     // will diverge within seconds.
     for (const p of this.playersInOrder()) {
       this.stepPlayer(p, dt, worldCtx);
+      if (p.companion) this.stepCompanion(p, dt, worldCtx);
     }
 
     // ── the shared world ──
@@ -538,6 +588,38 @@ export class SimWorld {
 
     const after = p.ctrl.position.x + p.ctrl.position.z + p.ctrl.yaw;
     if (after !== before) p.dirty = true;
+  }
+
+  /**
+   * One person's animal, one tick.
+   *
+   * The weather is sampled at the ANIMAL's feet rather than its owner's — it is
+   * standing somewhere else, and being cold is the thing that sends it home. No
+   * structures on a server yet, so shelter is whatever the ground gives.
+   */
+  stepCompanion(p, dt, worldCtx) {
+    const c = p.companion;
+    const env = sampleEnvironment(c.position, { ...worldCtx, fires: this.fires });
+    const before = c.position.x + c.position.z;
+    c.update(dt, { position: p.ctrl.position }, this, {
+      airC: env.airC,
+      nearFire: !!env.nearFire,
+      shelter: 0,
+      night: darkness(worldCtx.sunAltitude),
+      dayMinutes: TIME.dayMinutes,
+    });
+
+    // ── it bites for you ──
+    // Only under a standing `guard` order, which is off until its owner turns
+    // it on — so this is dead quiet for an animal nobody has trained, and a
+    // real participant for one somebody has.
+    if (c.pendingBite) {
+      const victim = c.pendingBite;
+      c.pendingBite = null;
+      const zone = victim.species?.hitZones?.find((z) => z.name === 'body') ?? null;
+      victim.applyDamage?.(c.care_.biteDamage, zone, c.position);
+    }
+    if (c.position.x + c.position.z !== before) p.dirty = true;
   }
 
   updateWildlife(dt, worldCtx) {
@@ -602,6 +684,31 @@ export class SimWorld {
       players.push(p.snapshot());
     }
 
+    // ── everybody's animals ──
+    //
+    // Sent for EVERY player including the one asking, which is the opposite of
+    // how `pl` works, and deliberate. Your own body is drawn from your own
+    // simulation because you are running it; your own companion is too. But a
+    // client that is watching rather than playing — the smoketest, a spectator,
+    // an agent — has no local pet at all, so leaving yours out would mean the
+    // only animal missing from the snapshot is the one you brought. The owner
+    // id is on every entry; a browser skips its own.
+    const companions = [];
+    for (const p of this.playersInOrder()) {
+      const c = p.companion;
+      if (!c) continue;
+      companions.push({
+        o: p.id,
+        k: c.species.id,
+        n: c.name,
+        p: [round2(c.position.x), round2(c.position.y), round2(c.position.z)],
+        y: round3(c.yaw),
+        s: c.state,
+        q: c.pose ?? null,
+        v: round2(c.speed),
+      });
+    }
+
     const creatures = [];
     for (const c of this.wildlife.creatures) {
       creatures.push({
@@ -638,6 +745,7 @@ export class SimWorld {
       // ignores this and keeps its own; an agent needs every one of them.
       me,
       cr: creatures,
+      co: companions,
       pr: projectiles,
       // Drained by the caller, not here — snapshot() is called once per client
       // and clearing inside it would deliver each event to exactly one person.
@@ -668,6 +776,7 @@ export class SimWorld {
     return {
       tick: this.tick,
       players: this.players.size,
+      companions: this.playersInOrder().filter((p) => p.companion).length,
       creatures: this.wildlife.creatures.length,
       projectiles: this.projectiles.items.length,
       hours: round2(this.clock.hours),
