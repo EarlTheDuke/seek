@@ -2158,11 +2158,18 @@ function boot() {
     stealth.update(dt, ctrl);
     // The sun is handed to the wildlife because it is no longer scenery — it
     // decides which species are allowed to exist here at all.
-    wildlife.update(dt, ctrl.position, stealth, {
-      hours: atmosphere.hours,
-      sunAltitude: atmosphere.elevation,
-      weather,
-    });
+    //
+    // Unless somebody else is deciding. On a connected client the animals are
+    // the SERVER's, mirrored below from the same interpolated snapshot the
+    // other players are drawn from — see wildlife.applySnapshot. Running both
+    // is what gave every player a private herd nobody else could see.
+    if (!(net && net.connected)) {
+      wildlife.update(dt, ctrl.position, stealth, {
+        hours: atmosphere.hours,
+        sunAltitude: atmosphere.elevation,
+        weather,
+      });
+    }
 
     // ── the lake ──
     // Fish read the same stealth noise the deer do, so wading in loudly
@@ -2199,7 +2206,22 @@ function boot() {
     // simulation: the avatars are pure presentation, exactly like the terrain.
     if (net) {
       net.sendIntent(intent, performance.now());
-      avatars.update(dt, net.interpolated(performance.now()), net.others);
+      const world = net.interpolated(performance.now());
+      avatars.update(dt, world, net.others);
+      // ── and the animals, from the same packet ──
+      // The comment at the top of this section has claimed since the day it was
+      // written that creatures are drawn from server snapshots. Until now only
+      // PEOPLE were: `cr` was decoded, interpolated and dropped. This is the
+      // line that makes the claim true.
+      if (net.connected && world) {
+        wildlife.applySnapshot(world.cr, dt, {
+          hours: atmosphere.hours,
+          sunAltitude: atmosphere.elevation,
+          weather,
+        });
+      }
+      // Dropped the connection: the world is ours again, and repopulates.
+      if (!net.connected && wildlife.remote) wildlife.setRemote(false);
     }
     projectiles.update(dt);
 

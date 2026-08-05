@@ -87,6 +87,10 @@ export class Creature {
     this.wanderTarget = null;
     this.home = position.clone();
     this.dead = false;
+    // True only for a body mirrored from a server snapshot — see manager
+    // applySnapshot. A remote body is drawn, never simulated and never damaged.
+    this.remote = false;
+    this.serverId = undefined;
     this.deathTime = 0;
     // Where the body sits when alive, so the death pose can settle back to it.
     this.restBodyY = this.parts.body.position.y;
@@ -893,6 +897,16 @@ export class Creature {
    *                                animal can orient on its attacker
    */
   applyDamage(amount, zone, from = null) {
+    // ── not our animal to kill ──
+    // On a connected client this body is a mirror of one on the server, and the
+    // server is already running this same shot from the same intent. Letting
+    // the local copy take the damage too is how you get an animal that dies on
+    // your screen, stays alive on everyone else's, and then stands back up when
+    // the next snapshot arrives. One guard here covers arrows, the axe and the
+    // pet, because all three come through this door.
+    // The zone still comes back, so "hit — shoulder" stays true: the arrow did
+    // strike there. Only what it COST is withheld, because we do not know yet.
+    if (this.remote) return { killed: false, damage: 0, zone: zone?.name, remote: true };
     if (this.state === DEAD) return { killed: false, damage: 0 };
     const dealt = amount * (zone?.multiplier ?? 1);
     this.hp -= dealt;

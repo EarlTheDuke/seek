@@ -13,9 +13,9 @@
 import * as THREE from 'three';
 import { WILDLIFE, WATER_LEVEL, ALARM } from '../config.js';
 import { heightAt, slopeAt, clumpAt, makeRandom } from '../world/noise.js';
-import { hash2i, lerp } from '../util/math.js';
+import { hash2i, lerp, damp } from '../util/math.js';
 import { SPECIES, getSpecies } from './registry.js';
-import { Creature } from './creature.js';
+import { Creature, DEAD, GRAZE } from './creature.js';
 import { strangenessAt, darkness, inBand } from '../world/strangeness.js';
 import { caveAt } from '../world/caves.js';
 import { updateMorale, reportDeath } from './morale.js';
@@ -72,6 +72,11 @@ export class Wildlife {
     // tick; empty in the browser, where there is only ever one of you.
     this.extraAnchors = [];
     this.anchors = new Map(); // key -> last position we spawned around
+    // ── whose animals are these? ──
+    // False everywhere except a connected multiplayer client, where this
+    // manager stops being a simulation and becomes a mirror. See setRemote.
+    this.remote = false;
+    this.byServerId = new Map(); // server creature id -> our local Creature
   }
 
   /**
@@ -296,11 +301,130 @@ export class Wildlife {
     const i = this.creatures.indexOf(c);
     if (i >= 0) this.creatures.splice(i, 1);
     this.accum.delete(c.id);
+    // Mirrored bodies are also indexed by the server's id. Dropping one without
+    // clearing that would leave applySnapshot handing out a corpse that is no
+    // longer in the scene, and the animal would never reappear.
+    if (c.serverId !== undefined) this.byServerId.delete(c.serverId);
+  }
+
+  // ── somebody else's animals ───────────────────────────────────────────────
+
+  /**
+   * Stop simulating, and start mirroring — or the other way round.
+   *
+   * THE BUG THIS EXISTS FOR. A connected client ran its own full wildlife
+   * simulation while the server ran another one, and the server's — the only
+   * one anybody else could see — was decoded by `client.js`, interpolated, and
+   * then dropped on the floor. Measured on one client at one instant:
+   *
+   *     my local world:   24 creatures, nearest deer   20 m
+   *     the server's:     20 creatures, nearest deer 1390 m
+   *
+   * So every kill was private fiction, other people's arrows flew at nothing,
+   * and two players standing shoulder to shoulder hunted different herds. The
+   * fix is not to make the client's simulation agree with the server's — two
+   * simulations never agree for long — it is to have only one, and draw it.
+   *
+   * Switching either way empties the list, because a local animal and a remote
+   * one are not the same object and pretending otherwise would leave ghosts
+   * standing on the hill. Going back to local also forgets which sites have
+   * been used, so single-player repopulates instead of waking up empty.
+   */
+  setRemote(on) {
+    if (this.remote === !!on) return;
+    this.remote = !!on;
+    for (const c of [...this.creatures]) this.remove(c);
+    this.byServerId.clear();
+    if (!this.remote) {
+      this.spawnedSites.clear();
+      this.clearedSites.clear();
+      this.reconsiderSites();
+    }
+  }
+
+  /**
+   * Draw the server's animals, from one interpolated snapshot.
+   *
+   * The snapshot carries only what cannot be recomputed: id, species, position,
+   * yaw, state and hit points. Everything else an animal needs to LOOK alive —
+   * stride phase, head carriage, tail nerves, the way a carcass settles — is
+   * derived here, because sending it would triple the packet to say things the
+   * client can work out for itself.
+   *
+   * Speed in particular is MEASURED from how far the body actually travelled,
+   * not sent. That keeps the gait honest against a late packet: an animal that
+   * did not move does not paddle its legs, and one that was culled and replaced
+   * elsewhere is clamped rather than sprinting across the map at 400 m/s.
+   */
+  applySnapshot(list, dt, ctx = null) {
+    if (ctx) this.ctx = ctx;
+    if (!this.remote) this.setRemote(true);
+    if (!Array.isArray(list)) return;
+
+    const seen = new Set();
+    for (const e of list) {
+      if (!e || e.i === undefined) continue;
+      let c = this.byServerId.get(e.i);
+      if (!c) {
+        // `spawn` needs an x/z it can put on the ground; the exact height is
+        // overwritten from the snapshot one line later, so it does not matter.
+        c = this.spawn(e.k, e.p[0], e.p[2]);
+        if (!c) continue; // a species this build does not know — skip, quietly
+        c.serverId = e.i;
+        c.remote = true;
+        c.position.set(e.p[0], e.p[1], e.p[2]);
+        this.byServerId.set(e.i, c);
+      }
+      seen.add(e.i);
+
+      const travelled = Math.hypot(e.p[0] - c.position.x, e.p[2] - c.position.z);
+      const ceiling = (c.species.speeds?.trot ?? 4) * 3;
+      c.speed = dt > 1e-4 ? Math.min(travelled / dt, ceiling) : 0;
+
+      c.position.set(e.p[0], e.p[1], e.p[2]);
+      c.yaw = e.y;
+      c.object.rotation.y = e.y;
+      c.hp = e.h;
+
+      if (e.s !== c.state) {
+        // `die()` rather than `setState(DEAD)`: the death pose is a handful of
+        // rolled numbers that animate() reads, and without them a carcass lies
+        // perfectly flat with its legs out like a toppled toy.
+        if (e.s === DEAD) c.die();
+        else c.setState(e.s);
+      }
+      if (c.state === DEAD) c.deathTime += dt;
+
+      // Head down to graze, up for everything else. Damped rather than snapped,
+      // or a deer that notices you flicks its head like a switch.
+      c.headDown = damp(c.headDown, e.s === GRAZE ? 1 : 0, 3.5, dt);
+      // The only thing awareness drives in animate() is how fast the tail goes.
+      c.awareness = e.s === GRAZE || e.s === 'wander' ? 0 : 1;
+
+      c.animate(dt);
+      // Still give it a voice. Vocalising is driven off the same state the
+      // snapshot carries, so it survives the move to a mirror almost intact —
+      // and a multiplayer world where the bear charges you in total silence
+      // would be a worse game than the one with the private herd.
+      if (c.state !== DEAD) this.vocalise(c, dt);
+    }
+
+    // Anything the server has stopped mentioning is gone — killed and cleared,
+    // culled, or simply too far from anyone to be worth simulating.
+    for (const [id, c] of this.byServerId) {
+      if (seen.has(id)) continue;
+      this.remove(c);
+      this.byServerId.delete(id);
+    }
   }
 
   // ── per frame ─────────────────────────────────────────────────────────────
 
   update(dt, playerPos, stealth, ctx = null) {
+    // A mirror has nothing to think about. Guarded here as well as at the call
+    // site, because one stray update() would restart local spawning and put the
+    // private herd straight back.
+    if (this.remote) return;
     _player.copy(playerPos);
     if (ctx) this.ctx = ctx;
 
