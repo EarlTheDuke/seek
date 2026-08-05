@@ -344,15 +344,23 @@ function boot() {
           hud.chat(null, `${e.n} was killed by ${e.by} ${e.where ?? ''}`.trim());
         }
       },
+      // ── what is true of YOU ──
+      // The server has always sent this and the browser has never read it, on
+      // the reasoning that a client running the whole simulation locally
+      // already knows. It knows where it is walking. It does not know what the
+      // world did to it: the goblins on the server take your health off the
+      // server's copy of you, and this client's own copy was never touched, so
+      // it kept reading 100 through two deaths. See `Vitals.applyRemote`.
+      onSnapshot: (snap) => {
+        if (snap.me) vitals.applyRemote(snap.me.h);
+      },
       onError: (m) => hud.toast(`server: ${m}`, 5),
-      onStatus: (s) => hud.toast(`network: ${s}`, 2),
+      onStatus: (s) => {
+        hud.toast(`network: ${s}`, 2);
+        // Nobody is keeping your health for you once the socket is gone.
+        if (s !== 'connected') vitals.takeOverLocally();
+      },
     };
-  }
-
-  if (joinUrl) {
-    net = new NetClient(netHandlers());
-    // Whichever animal is at your heel walks onto the server with you.
-    net.connect(joinUrl, params.get('name') ?? 'wanderer', chosenCompanion);
   }
 
   const vitals = new Body({
@@ -375,7 +383,20 @@ function boot() {
       shoot('death');
     },
     onRespawn: () => {
-      ctrl.teleport(spawn.position, spawn.yaw);
+      // WHERE YOU WAKE IS THE SERVER'S CALL when there is a server. Its copy of
+      // you has already stood up somewhere — see `world.addPlayer`'s `home` —
+      // and teleporting to the shore THIS client picked would put the two
+      // bodies in different places again the instant you died. That is the
+      // 417 m bug, which took four sessions, and death is exactly the moment it
+      // would come back: the same rule as the welcome, applied to the second
+      // time you open your eyes.
+      const home = net?.connected ? net.buffer.at(-1)?.snap?.me : null;
+      if (home) {
+        ctrl.teleport(new THREE.Vector3(home.p[0], home.p[1], home.p[2]), home.y);
+        terrain.buildImmediate(ctrl.position.x, ctrl.position.z);
+      } else {
+        ctrl.teleport(spawn.position, spawn.yaw);
+      }
       // Wake up unhunted — otherwise the bear is simply waiting for you.
       for (const c of wildlife.creatures) {
         c.awareness = 0;
@@ -385,6 +406,16 @@ function boot() {
       hud.toast('you wake at the lake, shaken', 3);
     },
   });
+
+  // Joined here rather than the moment the URL was read, because every handler
+  // above talks about the world — your health, your body, your animal — and a
+  // socket that opens before those exist calls back into names that do not.
+  // `connect` reports its status SYNCHRONOUSLY, so this is not theoretical.
+  if (joinUrl) {
+    net = new NetClient(netHandlers());
+    // Whichever animal is at your heel walks onto the server with you.
+    net.connect(joinUrl, params.get('name') ?? 'wanderer', chosenCompanion);
+  }
 
   // How much of the world is hunting you. Read from `?danger=` or from what you
   // chose last time, and applied to the manager below before anything spawns —

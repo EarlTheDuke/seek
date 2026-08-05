@@ -19,6 +19,7 @@
     "bitecheck": "node server/bitecheck.js",
     "bookcheck": "node server/bookcheck.js",
     "woundcheck": "node server/woundcheck.js",
+    "deathcheck": "node server/deathcheck.js",
     "arrowcheck": "node server/arrowcheck.js",
     "shotcheck": "node server/shotcheck.js",
     "herdcheck": "node server/herdcheck.js",

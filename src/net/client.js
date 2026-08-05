@@ -34,7 +34,7 @@ import {
 import { NET } from '../config.js';
 
 export class NetClient {
-  constructor({ onWelcome, onChat, onError, onStatus, onEvent } = {}) {
+  constructor({ onWelcome, onChat, onError, onStatus, onEvent, onSnapshot } = {}) {
     this.ws = null;
     this.id = null;
     this.seed = null;
@@ -46,6 +46,7 @@ export class NetClient {
     this.onWelcome = onWelcome;
     this.onChat = onChat;
     this.onEvent = onEvent;
+    this.onSnapshot = onSnapshot;
     this.onError = onError;
     this.onStatus = onStatus;
   }
@@ -106,6 +107,15 @@ export class NetClient {
           // buffer — an event is a fact about the past, not a thing to draw
           // 110 ms late.
           for (const e of msg.data.ev ?? []) this.onEvent?.(e);
+          // ── things that are TRUE OF YOU ──
+          // Delivered raw and immediately, for the same reason as events and
+          // for the opposite reason to `interpolated()`. Your health is not a
+          // thing to draw a tenth of a second late and it is certainly not a
+          // thing to blend: being half dead and half alive between two
+          // snapshots is not a state, and a death arriving late is a death you
+          // watched somebody else have. The interpolator exists to make OTHER
+          // people move smoothly; this is the channel for facts about you.
+          this.onSnapshot?.(msg.data);
           // Keep a second of history; anything older can never be drawn.
           const cutoff = performance.now() - 1000;
           while (this.buffer.length > 2 && this.buffer[0].at < cutoff) this.buffer.shift();

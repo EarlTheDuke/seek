@@ -68,12 +68,14 @@ import { createIntent, sanitiseIntent, IDLE_INTENT } from './intents.js';
  * with one player in it, running in the same process".
  */
 class Player {
-  constructor(id, { name = 'someone', spawn, scene, projectiles, inventory } = {}) {
+  constructor(id, { name = 'someone', spawn, scene, projectiles, inventory, onRespawn } = {}) {
     this.id = id;
     this.name = name;
     this.ctrl = new Controller();
     this.stealth = new StealthProfile();
-    this.body = new Body({});
+    this.body = new Body({ onRespawn });
+    /** The spot this player wakes on — the first time and every time after. */
+    this.home = spawn ? { position: spawn.position.clone(), yaw: spawn.yaw } : null;
     this.inventory = inventory ?? new Inventory(LOADOUT.slots, LOADOUT.equipped);
     this.intent = createIntent();
     this.primaryWasHeld = false;
@@ -240,6 +242,29 @@ export class SimWorld {
       spawn: { position: spot, yaw: this.spawn.yaw },
       scene: this.scene,
       projectiles: this.projectiles,
+      /**
+       * YOU WAKE ON THE SHORE, NOT WHERE YOU FELL.
+       *
+       * The server used to revive a body exactly where it died, because
+       * `Vitals.revive` restores the health and nothing here ever moved the
+       * feet. Standing in a warband, that is a loop rather than a respawn: a
+       * player was watched dying every eight seconds, for ever, and the drop
+       * from `onPlayerDied` piled up on the same square metre. It was invisible
+       * until now only because the browser was not reading its own health.
+       *
+       * It also makes the death rule mean what it says. Dropping your gear
+       * where you fell is "a problem with a location" — and there is no problem
+       * and no location if you stand back up on top of it.
+       */
+      onRespawn: () => {
+        // Looked up rather than closed over: `p` is still being assigned while
+        // this function is being written, and a name used before it exists is
+        // this project's most expensive recurring mistake.
+        const self = this.players.get(id);
+        if (!self?.home) return;
+        self.ctrl.teleport(self.home.position, self.home.yaw);
+        self.dirty = true;
+      },
     });
     this.players.set(id, p);
     if (pet) this.giveCompanion(id, pet);
@@ -616,7 +641,13 @@ export class SimWorld {
     p.ctrl.update(dt, p.body.dead ? IDLE_INTENT : intent);
     p.stealth.setWeather(this.weather);
     p.stealth.update(dt, p.ctrl);
-    p.body.update(dt);
+    // THE BODY IS TICKED ONCE, ABOVE. There was a second `p.body.update(dt)`
+    // here, with no context, and a bare `Body.update` still runs the whole of
+    // `Vitals.update` inside it — so on the server every regen tick counted
+    // twice and every death was half as long as it says on the tin. Measured
+    // against a warband: a player who died at tick 2046 stood up at 2142, 1.6
+    // seconds, where `VITALS.respawnDelay` is 3.4. Single player has always
+    // called it once; this is the server agreeing with it.
 
     const after = p.ctrl.position.x + p.ctrl.position.z + p.ctrl.yaw;
     if (after !== before) p.dirty = true;

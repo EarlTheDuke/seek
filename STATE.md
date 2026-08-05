@@ -6,11 +6,18 @@ under a hundred lines. **Update it at the end of every run.** If it grows past
 that, cut the oldest resolved things rather than letting it become another
 archive.
 
-Last updated: 2026-08-05 13:40, by the session that closed the 417 m — which was
-a staging flag and two small bugs, and never once was drift.
+Last updated: 2026-08-05 14:25, by the session that closed "the server killed me
+and the browser never noticed" — which was three bugs stacked, two of them under
+the one in the title.
 
 ## What works right now
 
+- **Your health is the server's health.** The bar empties as the goblins take it
+  off you, stays up while you are dead and refills when you stand — watched, on
+  screen, `#hl-health` 89% → 0% → hidden → 89%. Before this the browser read 100
+  through two deaths. `npm run deathcheck` (**19/19**, new) guards it from both
+  ends and needs no server. Death lasts what the config says (3.42 s against a
+  configured 3.4, was 1.6) and **you wake on the shore, not where you fell**.
 - **Your body is where the server says it is.** 0.00 m apart on both join paths,
   yaw agreeing. `netcheck` (**24/24**) guards it from both ends and those two
   guards were watched failing on the old code at 4.10 m and 3.31 m. A staged
@@ -31,9 +38,10 @@ a staging flag and two small bugs, and never once was drift.
 - **Everyone hunts the same animals**, arrows hit players, wounds persist, the
   cull is per-player, standing orders are obeyed. All suites green
   (`companioncheck` **45**, `campcheck` 36, `glidercheck` 32, `netcheck` **24**,
-  `mindcheck` 21, `raidcheck`/`bookcheck`/`reportcheck` 18, `ordercheck` 17,
-  `herdcheck`/`dangercheck`/`rendercheck` 12, `spreadcheck` 10, `shotcheck` 8,
-  `arrowcheck`/`woundcheck` 7).
+  `mindcheck` 21, `deathcheck` **19**, `raidcheck`/`bookcheck`/`reportcheck` 18,
+  `ordercheck` 17, `herdcheck`/`dangercheck`/`rendercheck` 12, `spreadcheck` 10,
+  `shotcheck` 8, `arrowcheck`/`woundcheck` 7). **`deathcheck` is new and is not
+  in the standing check list yet — run it.** It needs no server.
 - The picture fits the window at any scaling; a fire can be seen and heard; the
   arrow's predicted impact is within 1–2 cm of a loosed one; the glider flies
   where you look; the client reads world events; chat is a column on the right;
@@ -41,40 +49,41 @@ a staging flag and two small bugs, and never once was drift.
 
 ## Recently closed — details in `FINDINGS.md` under the dated heading
 
-- **"YOUR BODY IS NOT WHERE THE SERVER THINKS IT IS — 417 m"** (13:40), queue #1,
-  open four sessions. It was three things and none of them was drift:
-  - **The 417 m itself was `HOURS=1`.** `pickSpawn` stands you on the shore
-    OPPOSITE THE SUN, by design. The client runs it against its own clock, the
-    server against the server's — so a night-staged server and a client drawing
-    its own morning choose opposite shores of a 235 m-radius lake. Reproduced
-    the old figures to the centimetre: (−27.81, 82.07) vs (279.22, −198.56),
-    415.96 m. On a default 07:00 server the same page reads 3.31 m.
-  - **`highlands.join()` never took the server's spawn.** The handler block was
-    written twice and the console copy only toasted — no `teleport`. One
-    `netHandlers()` now, used by both `?join=` and `join()`.
-  - **`hello()` sent the world's base spawn**, not the spot `addPlayer` actually
-    put you on, so every arrival after the first began life a fixed distance
-    beside itself — 3.31 m for the second, 4.10 m for the third, growing.
-  Carry forward: **queue #2 is not the same bug.** With position shared, server
-  `me.h` read 89 while the local bar read 100 in the same instant.
-- **"The owner is the one person who cannot see their own animal fight"** (13:15),
-  earlier queue #1. The snapshot's own `co` entry now carries **`g`**, the
-  creature id its animal is fighting, sent only while there is a fight; the
-  owner's client looks that mirrored body up in `wildlife.byServerId` and hands
-  it to the real pet via the new **`Companion.mirrorFight`**. Two things to
-  carry forward:
-  - **`defend` cannot be the line that does this.** It is a DECISION and it
-    refuses on trust and standing orders — questions the server has already
-    answered against the same digest. Asking twice can only disagree, and the
-    disagreement IS this bug. `mirrorFight` delivers the outcome instead.
-  - **Local bite damage is suppressed while connected**, and `mirrorFight`
-    refuses a quarry beyond `giveUpRange` — a guard added for the 417 m split,
-    harmless now that the two bodies agree, and worth keeping.
-- **"Nobody has SEEN a companion bite over the wire"** (12:35), **"a companion's
-  relationship does not cross the wire"** (12:05), **goblins unkillable in
-  daylight** (10:45), **window resize wrecking the sim** (10:15), **both fire
-  bugs** (09:35, 09:50). All in `FINDINGS.md`. The facts from them that still
-  bite, kept because they are still load-bearing:
+- **"THE SERVER KILLED ME AND RESPAWNED ME AND THE BROWSER NEVER NOTICED"**
+  (14:20), queue #1. Three bugs, and only the first is the one in the title:
+  - **Nothing in the browser ever read `me.h`.** The client buffered every
+    snapshot for the interpolator and pulled `ev` out of it; `me` was untouched.
+    Now `Vitals.applyRemote` takes the number, and an `onSnapshot` handler
+    delivers it RAW rather than through the interpolator — the same call as
+    events, for the same reason: half-dead-half-alive between two snapshots is
+    not a state, and a death drawn 110 ms late is somebody else's death.
+  - **`stepPlayer` ticked the body TWICE per step** — a bare `p.body.update(dt)`
+    sixty lines under the real one, and a bare `Body.update` still runs the whole
+    of `Vitals.update`. Every regen tick counted twice and every death was half
+    its configured length: died tick 2046, up at 2142, 1.6 s against a
+    `respawnDelay` of 3.4. Single player always called it once.
+  - **The server revived you where you fell**, so a player in a warband was
+    farmed on one square metre for ever, on top of the gear `onPlayerDied` had
+    just dropped there. Players now carry `home` — the fanned-out spot
+    `addPlayer` stood them on, the same number `hello()` sends — and wake on it.
+  Carry forward: **the client's respawn must never use its own `spawn`.** It
+  teleports to `me.p` instead. On a `HOURS=1` server the client's own shore is
+  the far side of the lake, so the naive version of this fix would have
+  recreated the 417 m split on every death, one session after it was closed.
+- **"YOUR BODY IS NOT WHERE THE SERVER THINKS IT IS — 417 m"** (13:40),
+  **"the owner cannot see their own animal fight"** (13:15), **the companion bite
+  over the wire** (12:35), **the relationship over the wire** (12:05), **goblins
+  unkillable in daylight** (10:45), **window resize wrecking the sim** (10:15),
+  **both fire bugs** (09:35, 09:50). All in `FINDINGS.md` under their dated
+  headings. The facts from them that still bite, kept because they are still
+  load-bearing:
+  - **Do not ask a question the server has already answered.** `defend` refuses
+    on trust and standing orders — the server checked both against the same
+    digest — so the owner's client takes the OUTCOME (`mirrorFight`) rather than
+    re-deciding. `Vitals.applyRemote` is the same shape for health. Every bug in
+    this family has been two copies of one number.
+  - **Local bite damage is suppressed while connected**, as is local health
+    damage now. Same rule, same reason.
   - **`HOURS=1 RAID=6` are knobs on `server.js`**, off by default, changing
     nothing when off. Goblins are night-only, a day is 26 real minutes, and a
     lone goblin has morale 0.00 and runs — waiting for a real fight costs more
@@ -176,22 +185,38 @@ a staging flag and two small bugs, and never once was drift.
   read `h.text`.
 - **`const` in the browser console leaks into global scope between calls.** Wrap
   every `javascript_tool` call in `(async()=>{ ... })()`.
+- **`javascript_tool` gives up at 30 SECONDS** and returns nothing at all, though
+  the world keeps running behind it. Any observation longer than that has to be
+  split, or taken as a reading afterwards rather than a trace during.
+- **The socket keeps delivering while `stepWorld` is not running.** `onmessage`
+  is not driven by your loop, so between two tool calls the client is frozen but
+  the server is not: deaths, respawns and teleports all land in the gap. Twice
+  this run a measurement opened 50 m from where the previous one closed, and the
+  first reading of the next cell was the mystery. **Do the whole observation in
+  one cell**, and never compare a position across two.
+- **Pace `stepWorld` to the WALL CLOCK for anything networked.** Twelve steps per
+  60 ms of real time is 3.3× speed, and the server does not come with you: it
+  showed up as a 28.34 m position split that looked exactly like a regression in
+  the fix that had just closed one. Accumulate real elapsed time and step
+  `while (carry >= 1/60)`. Under that rule the same walk read 0.11 m.
 
 ## The game queue, ranked
 
-1. **The server killed me and respawned me and the browser never noticed.** The
-   snapshot's `me.h` ran 12 → 0 → 89 → 34 → 1 → 0 → 100 while the local health
-   bar read 100 throughout — watched again at 13:35, server 89 against a local
-   100 in the same instant. **This is now its OWN bug**: it used to be waved at
-   as "same family as the position split", and the position split is closed
-   while this stands unchanged. The client applying `me.h` while connected is
-   the obvious shape, and nobody has checked what that does to the death and
-   respawn path, which is local-only today.
-2. **The client draws its own daylight.** Broad daylight at server clock 01:00,
-   three times now (12:25, 13:00, 13:35). The snapshot carries `c` and nothing
-   applies it — the same root as the old 417 m, and now the only symptom of it
-   left. Promoted out of the time-wasters list because it is a real bug and it
-   is small: one number, arriving 20 times a second, that nothing reads.
+1. **The client draws its own daylight.** Broad daylight at server clock 01:00,
+   four times now (12:25, 13:00, 13:35, and photographed at 14:05 — a capture
+   taken with the player DEAD at server 01:29 shows a blue midday sky). The
+   snapshot carries `c` and nothing applies it. It is now the last surviving
+   piece of "the client keeps its own copy of a number the server owns", and the
+   pattern to copy is one commit old: `onSnapshot` already delivers the whole
+   snapshot to `main.js` for `me.h`, so this is `clock.hours` and one line in the
+   same handler. Check what it does to the sun, the fires and `stepWorld` before
+   assuming it is free.
+2. **Your food and your core temperature are still your own opinion.** `me` has
+   always carried `f` and `c` alongside `h`, and only `h` is now read. Nothing
+   has been seen to go wrong with them, so this is a loose end rather than a
+   bug — but a body that starves on the server while the browser draws a full
+   belly is the exact shape of the one just closed, and the fix is one line
+   beside `vitals.applyRemote(snap.me.h)`.
 3. **A stranded glider cannot be recovered.**
 4. `glider.js` samples ridge lift upwind with `(−sin, −cos)` of `wind.angle`
    while integrating flight in `(+sin, +cos)`. Establish which way `wind.angle`
@@ -215,7 +240,7 @@ people stop constantly; glaring with agents, which never do.
 
 **Both unexplained 12:25 readings now have causes.** The LOCAL cub reading
 341.6 m away was the client/server body split, now closed. The other — the
-client drawing midday at server 01:00 — is queue #2 above, and is the last
+client drawing midday at server 01:00 — is **queue #1** above, and is the last
 surviving piece of the same root: the client never reads the server's clock.
 
 **Unmeasured, worth one run:** with 4 players the server's population drifted
@@ -253,7 +278,7 @@ is back. And **you can press keys**: `window.dispatchEvent(new KeyboardEvent(
 E / W / G / B without pointer lock, so walking, gathering, lighting, building
 and sprinting all work headlessly.
 
-*(This file is ~260 lines, not the 100 it asks for, and the previous note here
+*(This file is 294 lines by `wc -l`, not the 100 it asks for, and the note here
 said "~150" when it was already 252 — so do not trust that estimate, run
 `wc -l`. The overflow is nearly all in "things that will waste your time":
 every line there is a measured fact that cost a run to learn, and deleting them
