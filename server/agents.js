@@ -34,6 +34,7 @@ import { makeRandom } from '../src/world/noise.js';
 import { assignPersonas, PERSONA_IDS } from '../src/minds/personas.js';
 import { AGENTS } from '../src/config.js';
 import { buildReport, summarise } from './playreport.js';
+import { boardState, serveBoard, boardPortFromEnv } from './board.js';
 import { appendNote, NOTES_FILE } from './notes.js';
 
 const args = process.argv.slice(2);
@@ -77,6 +78,19 @@ const PET = process.env.PET ?? null;
 // carcass". Off by default: a world that narrates itself unasked is one nobody
 // can play straight.
 const NARRATE = /^(on|yes|1|true)$/i.test(process.env.NARRATE ?? '');
+
+// ── BOARD: the second mile — a board, not a column ──
+//
+//   BOARD=on npm run agents         http://127.0.0.1:8090
+//   BOARD=8090 npm run agents
+//
+// NARRATE puts each change of mind into the chat, and chat scrolls: six minds
+// narrating push each other off the top in seconds, and three of the four
+// things every agent records — what it DID, every arrow, and every shot it
+// refused — never appear anywhere at all. The board is one card per mind,
+// repainting once a second, with all four threads under it. Off by default and
+// loopback only. See server/board.js.
+const BOARD_PORT = boardPortFromEnv(process.env);
 
 // ── A FLEET OF DIFFERENT MINDS, not N copies of one ──
 //
@@ -172,6 +186,10 @@ console.log('');
 
 const agents = [];
 const log = (m) => console.log(`  ${m}`);
+// Module scope so the board can read it. The board is served from a callback
+// that fires whenever a browser asks, which is not on the fleet's own clock.
+let elapsed = 0;
+let board = null;
 
 async function main() {
   for (let i = 0; i < COUNT; i++) {
@@ -202,10 +220,31 @@ async function main() {
     // tick, which would spike both the server and the bill.
     await sleep(120);
   }
+
+  // ── the board ──
+  // Stood up after everybody is in, so the first page a watcher loads already
+  // has a fleet on it. Built fresh on every request rather than kept and
+  // mutated: `boardState` is pure and the agents are the only source of truth,
+  // so there is no second copy to go stale.
+  if (BOARD_PORT) {
+    board = await serveBoard({
+      port: BOARD_PORT,
+      log: console.log,
+      state: () => boardState(agents, {
+        seconds: elapsed,
+        minds: anyModel ? 'model' : 'scripted',
+        model: anyModel
+          ? [...new Set(providers.filter((p) => p.name !== 'scripted').map((p) => p.model))].join(', ')
+          : null,
+        spend: anyModel ? budget.spent : null,
+        url: URL,
+      }),
+    });
+    if (board) console.log(`  board: ${board.url} — one card per mind, what it means, does, shoots and refuses`);
+  }
   console.log('');
 
   const STEP = 1 / 30; // agents think at half the sim rate; nothing needs more
-  let elapsed = 0;
   let reported = 0;
 
   const timer = setInterval(() => {
@@ -278,6 +317,9 @@ async function main() {
     }
 
     for (const a of agents) a.close();
+    // The board outlives nothing. Closed here so a run that ends stops holding
+    // the port — the next fleet wants it back.
+    board?.close();
     setTimeout(() => process.exit(0), 300);
   }
 
