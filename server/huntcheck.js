@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { Agent } from '../src/net/agent.js';
 import { makeRandom } from '../src/world/noise.js';
-import { AGENTS, BOW } from '../src/config.js';
+import { AGENTS, BOW, PLAYER } from '../src/config.js';
 import { requireFreePort } from './freeport.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -139,10 +139,30 @@ async function main() {
     if (agent.intent.primary) sawShot = true;
     let deerN = 0;
     let nearest = Infinity;
+    // ── THE QUARRY'S OWN RANGE, and the SLANT of it ──
+    //
+    // `nearest` is the closest deer of any, measured horizontally, and for two
+    // runs it was the number reported as "inside shootRange — the only seconds a
+    // shot was on the table". It is neither of the things `aimAt` actually
+    // tests. `aimAt` refuses on the SLANT to the LOCKED QUARRY, and this run
+    // measured why that matters: 9 of 9 `too far` refusals were a deer 6-18 m
+    // above or below the eye, where slant runs metres longer than ground range.
+    // A body 23 m from its quarry with the animal 12.6 m up is 26 m from it as
+    // the arrow flies, and the old line counted that second as a shot available.
+    let qd = null;
+    let qs = null;
     for (const c of agent.snapshot?.cr ?? []) {
       if (c.k !== 'deer') continue;
       deerN++;
       nearest = Math.min(nearest, Math.hypot(c.p[0] - agent._x, c.p[2] - agent._z));
+      if (agent.target?.quarry === true && c.i === agent.target.id) {
+        qd = Math.hypot(c.p[0] - agent._x, c.p[2] - agent._z);
+        // The same two corrections `aimAt` makes: aim at the middle of the
+        // animal, and measure from the eye the body is ACTUALLY looking from,
+        // which is the crouched one while it stalks.
+        const dy = (c.p[1] + AGENTS.aimAboveFeet) - (agent._y + (agent.eye ?? PLAYER.eyeHeight));
+        qs = Math.hypot(qd, dy);
+      }
       const was = deerHp.get(c.i);
       if (was !== undefined && c.h < was) lowest = Math.min(lowest, c.h);
       deerHp.set(c.i, c.h);
@@ -155,6 +175,10 @@ async function main() {
         t: Math.round(now / 1000),
         n: deerN,
         d: nearest === Infinity ? null : Math.round(nearest),
+        // Range to the animal it actually chose, on the ground and as the arrow
+        // flies. Null whenever nothing is locked on.
+        qd: qd === null ? null : Math.round(qd),
+        qs: qs === null ? null : Math.round(qs),
         // ── three states, and lumping them was the instrument's first lie ──
         // "not locked on" read as "could not find a deer" on the first run of
         // this block, and 14 of its 131 samples were nothing of the kind:
@@ -522,7 +546,67 @@ async function main() {
     console.log(`        hunting but NO deer found${String(roamed.length).padStart(3)}/${trace.length} — \`resolve\` fell through to roam() with a hunt goal` +
       (notHunting.length ? ` (and ${notHunting.length} not hunting at all)` : ''));
     console.log(`        inside shootRange ${AGENTS.shootRange} m    ${String(inRange.length).padStart(3)}/${trace.length} samples (${pc(inRange.length)})` +
-      ' — the only seconds in which a shot was ever on the table');
+      ' — nearest deer, on the GROUND. Read the next two lines before quoting it');
+
+    // ── ...AND THE NUMBER `aimAt` ACTUALLY TESTS ──
+    //
+    // The line above has been quoted as "the only seconds in which a shot was
+    // on the table" for three runs, and it is neither of the things the body
+    // tests. `aimAt` refuses on the SLANT to the LOCKED QUARRY; that line is the
+    // GROUND range to the NEAREST deer, which is a different animal whenever
+    // `resolve` has not picked the closest one, and a shorter distance always.
+    //
+    // This run measured the size of the second error: 9 of 9 `too far` refusals
+    // were a deer 6-18 m above or below the eye. A body 23 m from its quarry
+    // with the animal 12.6 m up is 26 m away as the arrow flies — in range on
+    // the old line, refused by the code.
+    //
+    // Both are printed. The GAP between them is the point, and if it is large
+    // then every "in range" share this project has quoted is an overstatement.
+    const onQ = trace.filter((s) => s.qd != null);
+    if (onQ.length) {
+      const byGround = onQ.filter((s) => s.qd <= AGENTS.shootRange).length;
+      const bySlant = onQ.filter((s) => s.qs <= AGENTS.shootRange).length;
+      const climbs = onQ.map((s) => s.qs - s.qd).sort((a, b) => a - b);
+      console.log(`        ...the QUARRY on the ground ${String(byGround).padStart(3)}/${trace.length} samples (${pc(byGround)})`);
+      console.log(`        ...the QUARRY by SLANT      ${String(bySlant).padStart(3)}/${trace.length} samples (${pc(bySlant)})` +
+        '  <- THIS is what `aimAt` tests');
+      console.log(`        the climb costs a median ${climbs[Math.floor(climbs.length / 2)].toFixed(1)} m of range ` +
+        `(worst ${climbs.at(-1).toFixed(1)} m) — ${byGround - bySlant} seconds that look like a shot and are not`);
+
+      // ── AND THE ONE THAT IS LEFT: WHERE DOES THE APPROACH GO? ──
+      //
+      // Everything above is about the moment of the shot. This is about the
+      // 80%+ of a run that is not one. The body locks on for ~90% of a run and
+      // is in range for under a fifth of it, so it spends most of a hunt walking
+      // toward an animal it has already chosen — and nothing has ever measured
+      // whether that walk CLOSES.
+      //
+      // Second by second on the same quarry: did the range fall, hold or grow?
+      // A body that closes steadily and still cannot shoot is a range problem; a
+      // body whose range holds flat is a body the deer is walking away from at
+      // its own speed, and those want completely different answers.
+      //
+      // 1 m of dead-band, because these are metres rounded to the metre and a
+      // ±0.5 m rounding flutter would otherwise read as motion.
+      let closing = 0;
+      let holding = 0;
+      let opening = 0;
+      for (let k = 1; k < trace.length; k++) {
+        const a = trace[k - 1];
+        const b = trace[k];
+        // Same animal, both seconds, or the comparison is between two deer.
+        if (a.qd == null || b.qd == null || a.qid == null || a.qid !== b.qid) continue;
+        const dd = b.qd - a.qd;
+        if (dd <= -1) closing++; else if (dd >= 1) opening++; else holding++;
+      }
+      const steps = closing + holding + opening;
+      if (steps) {
+        const share = (n) => `${String(n).padStart(3)} s (${Math.round((n / steps) * 100)}%)`;
+        console.log(`        on the SAME deer, second to second: closing ${share(closing)} · ` +
+          `holding ${share(holding)} · opening ${share(opening)}`);
+      }
+    }
 
     // ── DID IT KEEP THE SAME DEER? ──
     //
