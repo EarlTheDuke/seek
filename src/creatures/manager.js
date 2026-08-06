@@ -325,6 +325,51 @@ export class Wildlife {
     return out;
   }
 
+  /**
+   * THE LAST ANIMAL OUT OF A SITE DECIDES WHAT HAPPENS TO THE GROUND.
+   *
+   * The cull above has always said, in its own comment, that "a corpse you have
+   * walked away from is gone for good; a live one just leaves the simulation and
+   * its site can refill". Only the first half was ever implemented. `refresh`
+   * skips any key in `spawnedSites`, nothing ever took a key back out, so every
+   * site a player had once been near was burned for the rest of the session.
+   *
+   * MEASURED, one player, one 645 m round trip of four minutes: the hillside he
+   * came home to held 1 animal where it had held 18, and NOTHING within 320 m of
+   * him. It is also why a long-lived server drifts down (68 -> 37 with four
+   * players) and why `netcheck` intermittently found an empty `cr` — not a
+   * snapshot bug, a world that had genuinely emptied.
+   *
+   * Two rules, and the reason they are both here rather than at the cull site is
+   * that both are really one question — what was the LAST creature from this
+   * herd, and how did it go?
+   *
+   *   * Left alive  -> release the site. The herd moved on; the ground is good
+   *     again and re-rolls from the same hashes, so what comes back is the same
+   *     species and the same size. Deterministic, like everything else here.
+   *   * Died there  -> `clearedSites`, gone for good. You hunted it out.
+   *
+   * WHILE ANY OF THE HERD IS STILL LOADED, NEITHER FIRES. That is the other half
+   * of the old behaviour worth correcting: one deer shot out of five used to
+   * clear the whole site permanently the moment its corpse was culled, so an
+   * evening of successful hunting emptied the map faster than a failed one.
+   *
+   * Cull is 400 m and spawn is 320 m, so a released site cannot repopulate under
+   * the player who just left it — the hysteresis that stopped flicker still does.
+   */
+  releaseSite(c) {
+    const key = c.siteKey;
+    if (!key) return; // hand-placed herd, or a site-less spawn — nothing to own
+    // A scan rather than a running count: `remove` is called from several paths
+    // and a counter that drifts would either strand a site for ever or refill
+    // one that is still occupied. The population is capped in the low hundreds.
+    for (const other of this.creatures) {
+      if (other !== c && other.siteKey === key) return; // the herd is still here
+    }
+    if (c.state === 'dead') this.clearedSites.add(key);
+    else this.spawnedSites.delete(key);
+  }
+
   remove(c) {
     this.scene.remove(c.object);
     const i = this.creatures.indexOf(c);
@@ -537,7 +582,7 @@ export class Wildlife {
       // one had to be an exception rather than a bigger radius.
       const wounded = c.hp < c.maxHp && c.state !== 'dead';
       if (d > WILDLIFE.despawnRadius && !wounded) {
-        if (c.state === 'dead' && c.siteKey) this.clearedSites.add(c.siteKey);
+        this.releaseSite(c);
         this.remove(c);
         continue;
       }

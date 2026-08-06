@@ -45,7 +45,8 @@
     "scarcecheck": "node server/scarcecheck.js",
     "personacheck": "node server/personacheck.js",
     "watchcheck": "node server/watchcheck.js",
-    "rostercheck": "node server/rostercheck.js"
+    "rostercheck": "node server/rostercheck.js",
+    "refillcheck": "node server/refillcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",
