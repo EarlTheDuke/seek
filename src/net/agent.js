@@ -187,6 +187,22 @@ export class Agent {
               this.food = msg.data.me.f;
               this.coreC = msg.data.me.c;
             }
+            // ── remember what HAPPENED, not only what you noticed while thinking ──
+            //
+            // Memory was written in exactly one place: `deliberate`, from the
+            // contacts in the brief. So a mind only remembered the world at the
+            // instants it happened to be thinking about it, and everything
+            // between two thoughts — every arrow it loosed and every arrow that
+            // hit it — was gone before the next one. `agentcheck` recorded that
+            // as "0/0/0 memories" and it was read for a while as the check
+            // being impatient. It was not: nothing was being remembered.
+            //
+            // These are the events a mind can actually LEARN from. A miss with
+            // a distance on it is the difference between "I keep failing to
+            // hunt" and "my arrows are burying themselves at 38 m while the
+            // deer stands at 25, so there is ground in the way" — and the
+            // second is a thought that can change what it does next.
+            for (const e of msg.data.ev ?? []) this.remember(e);
             break;
           case S_JOIN:
             this.others.set(msg.data.id, msg.data.n);
@@ -214,6 +230,48 @@ export class Agent {
     });
   }
 
+  /**
+   * Turn one thing the world just did into one line this mind can read later.
+   *
+   * Written in the FIRST PERSON and in plain words, because it is going into a
+   * prompt beside "I decided to hunt" and "Morag said follow me". A mind reads
+   * its own memory as a story about itself; a JSON blob in the middle of that
+   * is a different kind of sentence and reads as noise.
+   *
+   * Only what happened to THIS agent, or what it would have seen happen. The
+   * server sends every event to everyone, and a mind that remembers every arrow
+   * anyone anywhere ever loosed has a memory full of other people's afternoons.
+   */
+  remember(e) {
+    if (!e) return;
+    const mine = e.by === this.id;
+    const atMe = e.id === this.id;
+    switch (e.k) {
+      case 'miss':
+        // The one event that carries a lesson in a number. Kept with the range
+        // so a mind can compare it against how far off the quarry was.
+        if (mine) this.memory.add(this.hours, `my arrow hit ${e.hit} ${e.d} m away — a miss`);
+        break;
+      case 'hit':
+        if (mine) this.memory.add(this.hours, `my arrow struck someone for ${e.dmg}`);
+        else if (atMe) this.memory.add(this.hours, `an arrow hit me for ${e.dmg}`);
+        break;
+      case 'glance':
+        if (mine || atMe) this.memory.add(this.hours, `an arrow was refused — ${e.why}`);
+        break;
+      case 'kill':
+        // Not gated on `mine`: the server does not say who killed an animal,
+        // and a carcass on the ground is worth knowing about however it got
+        // there. This is the entry that makes scavenging somebody else's kill
+        // a thing a mind can decide to do.
+        this.memory.add(this.hours, `a ${e.n.toLowerCase()} went down near ${Math.round(e.at[0])},${Math.round(e.at[2])}`);
+        break;
+      case 'death':
+        this.memory.add(this.hours, `${e.n} was killed by ${e.by} ${e.where ?? ''}`.trim());
+        break;
+    }
+  }
+
   send(type, data) {
     if (this.ws?.readyState === 1) this.ws.send(encode(type, data));
   }
@@ -226,6 +284,26 @@ export class Agent {
 
   update(dt) {
     if (!this.connected || !this.snapshot) return;
+
+    // ── noticing runs on its own clock, faster than thinking ──
+    //
+    // Deliberation costs a model call, so it is deliberately slow. Noticing
+    // costs nothing, and tying the two together meant a mind's whole record of
+    // the world was a series of stills taken seconds apart — a deer that walked
+    // past between two thoughts was never there at all.
+    //
+    // `Memory.add` drops a line identical to the one before it, so standing
+    // still and staring at the same deer writes one entry rather than a
+    // hundred. That is what makes this safe to run at this rate.
+    this.noticing = (this.noticing ?? 0) + dt;
+    if (this.noticing >= AGENTS.noticeSeconds) {
+      this.noticing = 0;
+      try {
+        const seen = this.brief().contacts.slice(0, 2);
+        for (const c of seen) this.memory.add(this.hours, `${c.what} ${c.distance}, ${c.doing}`);
+      } catch { /* a brief we cannot build is not worth a crash */ }
+    }
+
     this.since += dt;
     if (!this.thinking && this.since >= AGENTS.cadenceSeconds) {
       this.since = 0;

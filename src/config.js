@@ -789,6 +789,13 @@ export const OTTER = {
 // enough that a slow or absent model costs nothing but initiative.
 export const AGENTS = {
   cadenceSeconds: 8, // how often an agent reconsiders
+  // How often it LOOKS, which is a different and much cheaper thing than
+  // reconsidering. Memory used to be written only while deliberating, so a mind
+  // remembered the world as a handful of stills taken eight seconds apart and
+  // anything that walked past between two thoughts had never happened. Two
+  // seconds is often enough to keep a story continuous and slow enough that
+  // `Memory.add`'s repeat-drop does the rest of the work.
+  noticeSeconds: 2,
   retargetSeconds: 2.5,
   arriveWithin: 6,
   roamDistance: 60,
