@@ -314,6 +314,34 @@ async function main() {
       const where = e.outs.length ? `, obstruction ${Math.min(...e.outs)}-${Math.max(...e.outs)} m out` : '';
       console.log(`        ${String(e.n).padStart(3)} x  ${kind}  (deer at ${Math.min(...e.ranges)}-${Math.max(...e.ranges)} m${where})`);
     }
+    // ── `too far` AT TWENTY METRES, WITH A TWENTY-SIX METRE BOW ──
+    //
+    // The open question this run left. `too far` ended detours with the deer
+    // standing at 20-23 m, which is comfortably inside `AGENTS.shootRange`, and
+    // two different mechanisms produce that with neither visible from a count:
+    // the CLIMB (`dist` is horizontal, the arrow flies the slant, and a deer up
+    // a crag is further than it looks) and the LEAD (`dist` is measured to where
+    // the animal WILL BE, so a deer running away earns metres of range the body
+    // does not actually have to shoot across).
+    //
+    // They want opposite fixes. Printed one refusal per line rather than
+    // averaged, because a mean of the two is a number describing neither — that
+    // is precisely how the miss table lied for three sessions.
+    const far = (agent.refusals ?? []).filter((r) => r.slant != null);
+    if (far.length) {
+      console.log(`\n      ...and the ${far.length} \`too far\` refusals, broken into their parts ` +
+        `(shootRange ${AGENTS.shootRange} m):`);
+      for (const r of far) {
+        // A refusal is `too far` because slant > shootRange. `dy` is how much of
+        // that is the climb; `leadBy` is how much the body added by aiming ahead.
+        const blame = Math.abs(r.dy) > Math.abs(r.leadBy) ? 'THE CLIMB' : 'THE LEAD';
+        console.log(`        deer ${String(r.d).padStart(3)} m away, arrow must fly ${String(r.slant).padStart(5)} m  ` +
+          `(${r.dy >= 0 ? '+' : ''}${r.dy} m of climb, ${r.leadBy} m of lead)  -> mostly ${blame}`);
+      }
+      const climb = far.filter((r) => Math.abs(r.dy) > Math.abs(r.leadBy)).length;
+      console.log(`        ${climb} of ${far.length} are mostly the climb, ${far.length - climb} mostly the lead` +
+        ` — and a refusal whose slant is UNDER ${AGENTS.shootRange} m is neither, and means this instrument is wrong`);
+    }
   }
 
   // ── DID STEPPING ASIDE EVER WORK? ──

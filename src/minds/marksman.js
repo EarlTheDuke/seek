@@ -429,7 +429,35 @@ export function aimAt(
   // hill and came down two hundred and forty-one metres out. A bow is not a
   // mortar; the range that matters is the one the arrow flies.
   const slant = Math.hypot(dist, target.y - eyeY);
-  if (slant > maxRange) return { shoot: false, yaw, pitch: 0, dist, why: 'too far' };
+  if (slant > maxRange) {
+    // ── WHY a shot is out of range, because `too far` at 20 m makes no sense ──
+    //
+    // MEASURED AND UNEXPLAINED. `too far` ended detours with the deer standing
+    // at 20-23 m against a `shootRange` of 26, and there are two ways that can
+    // happen with neither visible from the outside:
+    //
+    //   THE CLIMB. `dist` is horizontal and `slant` is what the arrow flies, so
+    //   a deer 20 m out and 17 m up a crag is 26 m away. The comment below this
+    //   block is about exactly that case.
+    //
+    //   THE LEAD. `dist` is measured to `aim`, not to the animal — where it
+    //   will BE, not where it is. A deer running flat out away from the archer
+    //   at 20 m earns roughly 6 m of lead at this flight time, and the range
+    //   test then refuses a shot the body currently has.
+    //
+    // The two want opposite fixes and an aggregate of refusals cannot tell them
+    // apart, which is the shape of every wrong diagnosis this project has made.
+    // So all three inputs come back with the refusal and the next run reads them
+    // instead of arguing. Nothing acts on these yet — see huntcheck.
+    return {
+      shoot: false, yaw, pitch: 0, dist, why: 'too far',
+      slant: +slant.toFixed(1),
+      // How much of the range is the CLIMB rather than the ground.
+      dy: +(target.y - eyeY).toFixed(1),
+      // ...and how much of it we added ourselves by aiming ahead of the animal.
+      leadBy: +Math.hypot(aim.x - target.x, aim.z - target.z).toFixed(1),
+    };
+  }
 
   // Solve the arc BEFORE asking whether the ground is in the way, because the
   // arc is what has to clear it. The old order asked the chord first and threw

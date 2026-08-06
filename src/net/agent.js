@@ -1763,7 +1763,17 @@ export class Agent {
         // refusals" and "eighteen refusals, all of them ground at 1 m while the
         // deer stood at 24" are different bugs.
         this.refusals ??= [];
-        this.refusals.push({ d: Math.round(dist), why: shot.why });
+        // `d` is the range to the ANIMAL, horizontally. `slant`/`dy`/`leadBy`
+        // come back only from `too far`, and they are the three numbers that
+        // say why a deer standing at 20 m was out of range of a 26 m bow: how
+        // far the arrow actually has to fly, how much of that is the climb, and
+        // how much of it the body added itself by aiming ahead of a running
+        // animal. Recorded, not acted on.
+        this.refusals.push({
+          d: Math.round(dist),
+          why: shot.why,
+          ...(shot.slant != null ? { slant: shot.slant, dy: shot.dy, leadBy: shot.leadBy } : {}),
+        });
         if (this.refusals.length > AGENTS.logSize) this.refusals.shift();
       }
       return;
