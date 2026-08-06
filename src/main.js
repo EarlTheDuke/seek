@@ -93,6 +93,7 @@ const camera = new THREE.PerspectiveCamera(
 
 const hud = new Hud();
 const _drop = new THREE.Vector3(); // scratch: which way a dropped item is tossed
+const _kill = new THREE.Vector3(); // scratch: where the server says an animal fell
 const _lootRand = makeRandom('drops');
 
 /**
@@ -342,6 +343,20 @@ function boot() {
           if (mine || byMe) hud.chat(null, `the arrow glances off — ${e.why}`);
         } else if (e.k === 'death') {
           hud.chat(null, `${e.n} was killed by ${e.by} ${e.where ?? ''}`.trim());
+        } else if (e.k === 'kill') {
+          // ── an animal went down somewhere, and left something behind ──
+          //
+          // The server rolled the carcass (see `onCreatureHit` in world.js) and
+          // we lay it out where it says. We do NOT roll our own: the whole point
+          // of doing it up there is that everybody standing round the same deer
+          // sees the same meat on the same ground.
+          //
+          // Laid out for anyone who walks up, not reserved for the shooter —
+          // which is how a carcass has always worked on your own, and the
+          // simplest thing that is not a lie about who owns it.
+          _kill.set(e.at[0], e.at[1], e.at[2]);
+          for (const d of e.d ?? []) pickups.drop(d.item, d.count, _kill, _drop.set(0, 0, 0));
+          hud.toast(`${e.n} down`, 2.2);
         }
       },
       // ── what is true of YOU ──
@@ -2440,6 +2455,17 @@ function boot() {
     // Intent up, interpolated world down. Nothing here writes to the local
     // simulation: the avatars are pure presentation, exactly like the terrain.
     if (net) {
+      // WHERE WE ARE ACTUALLY POINTING, attached here and nowhere else.
+      //
+      // Set AFTER `ctrl.update` has already consumed this intent, so the local
+      // controller never sees it and keeps integrating the mouse the way it
+      // always did — single player is byte-identical. `PlayerInput.poll` clears
+      // both fields at the top of the next frame, so they cannot go stale.
+      //
+      // This is the whole fix for arrows that pass through people: the server
+      // was integrating look deltas and only ever received half of them.
+      intent.aimYaw = ctrl.yaw;
+      intent.aimPitch = ctrl.pitch;
       net.sendIntent(intent, performance.now());
       const world = net.interpolated(performance.now());
       avatars.update(dt, world, net.others);

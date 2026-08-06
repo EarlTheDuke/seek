@@ -174,8 +174,42 @@ export class SimWorld {
       wildlife: this.wildlife,
       onLanded: (p) => this.pickups.registerRecoverable(p),
       onRemoved: (p) => this.pickups.forgetProjectile(p),
-      onCreatureHit: () => {},
+      // ── killing an animal has to leave an animal behind ──
+      //
+      // This was `() => {}` — an explicit no-op — and everything downstream of
+      // it followed. On a connected client every creature is a MIRROR, and
+      // `Creature.applyDamage` returns `{ killed: false }` for a remote body on
+      // purpose, because the server owns the kill. So the browser's own loot
+      // path (`dropLootFor`, reached from `onCreatureHit`) could never fire in
+      // multiplayer, and the server that DID own the kill dropped nothing.
+      //
+      // The result: you could hunt a deer down, watch it fall, and walk away
+      // with no meat, no hide and not even your arrow back. Single player was
+      // fine throughout, which is why it survived so long.
+      //
+      // Rolled HERE rather than on each client, because two players rolling
+      // their own carcass would disagree about what came off it. The server
+      // rolls once and says what it found.
+      onCreatureHit: (creature, result) => {
+        if (!result?.killed) return;
+        const drops = [];
+        for (const d of creature.species.drops ?? []) {
+          const n = Math.round(d.min + this._lootRand() * (d.max - d.min));
+          if (n > 0) drops.push({ item: d.item, count: n });
+        }
+        const at = creature.position;
+        this.events.push({
+          k: 'kill',
+          sp: creature.species.id,
+          n: creature.species.name,
+          at: [round2(at.x), round2(at.y), round2(at.z)],
+          d: drops,
+        });
+      },
     });
+    // Its own stream, so the order animals happen to die in is the only thing
+    // that moves it — matching how the browser names this stream.
+    this._lootRand = makeRandom('drops');
     this.pickups.deps.projectiles = this.projectiles;
 
     // ── arrows can hit people ─────────────────────────────────────────────
