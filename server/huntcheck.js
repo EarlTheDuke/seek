@@ -148,6 +148,15 @@ async function main() {
         q: agent.target?.quarry === true,
         roam: !!agent.target && agent.target.quarry !== true,
         goal: agent.goal?.kind ?? '?',
+        // ── WHICH deer, not just whether there was one ──
+        // `resolve` re-runs every `AGENTS.retargetSeconds` and picks the
+        // NEAREST match, and there are eighteen to twenty-six of them milling
+        // about. Two animals at similar range swap places and the body drops a
+        // stalk it has spent twenty seconds on to start again on the other one
+        // — which would throttle the shot rate exactly as observed while every
+        // instrument here reported a deer present, locked on, and in range.
+        // The id is the only thing that can see it.
+        qid: agent.target?.quarry ? agent.target.id : null,
       });
     }
     if (agent.memory.entries.some((e) => e.text.includes('went down'))) anyDeerDown = true;
@@ -275,6 +284,95 @@ async function main() {
     }
   }
 
+  // ── DID STEPPING ASIDE EVER WORK? ──
+  //
+  // The other instrument gap, and the same shape as the refusal log before
+  // somebody built it: `clearSpotNear` exists to answer "ground in the way",
+  // it writes a line into memory when it fires, and NOTHING counted whether it
+  // was tried or whether trying it produced a shot. A body walking sideways for
+  // ever and a body that never stepped aside at all both read as silence.
+  //
+  // `walked` against `net` is the number to read. The spot is re-solved every
+  // tick from wherever the body now stands, six metres perpendicular to a line
+  // of sight that ROTATES as it moves — so a detour that never arrives shows up
+  // as tens of metres walked to end up a few metres from where it started.
+  // See `Agent.openDetour`.
+  const detours = agent.detours ?? [];
+  // Asked per TICK, not per episode: how often the body wanted a way round the
+  // obstruction, and how often `clearSpotNear` had nothing to offer. A high
+  // `nowhere` share means the six candidate spots it tries are the wrong six —
+  // they are all across the line of sight at whatever height the ground there
+  // happens to be, and against a crest that is the one direction that does not
+  // help. Closing is then the body's only remaining answer, and closing on a
+  // crest walks you onto the animal.
+  const asked = agent.detourAsked ?? { ground: 0, timber: 0 };
+  const none = agent.detourNone ?? { ground: 0, timber: 0 };
+  if (asked.ground + asked.timber > 0) {
+    console.log('\n      when the line was blocked, was there anywhere to step to?');
+    for (const k of ['ground', 'timber']) {
+      if (!asked[k]) continue;
+      const pcNone = Math.round((none[k] / asked[k]) * 100);
+      console.log(`        ${k.padEnd(6)}  asked ${String(asked[k]).padStart(4)} times, ` +
+        `NOWHERE to go ${String(none[k]).padStart(4)} (${pcNone}%)`);
+    }
+  }
+  if (detours.length) {
+    const done = detours.filter((e) => e.outcome);
+    const by = new Map();
+    for (const e of done) by.set(e.outcome, (by.get(e.outcome) ?? 0) + 1);
+    const open = detours.length - done.length;
+    const cleared = by.get('a shot came on') ?? 0;
+    const sum = (k, rows = done) => rows.reduce((a, e) => a + (e[k] ?? 0), 0);
+    console.log('\n      when it stepped aside for a clear line — did it work?');
+    console.log(`        ${detours.length} detours attempted, ${cleared} ended with a shot on ` +
+      '(read the walk beside it — a shot after 0 m is the line clearing on its own, not the step)');
+    for (const [outcome, n] of [...by].sort((a, b) => b[1] - a[1])) {
+      console.log(`          ${String(n).padStart(3)} x  ${outcome}`);
+    }
+    if (open) console.log(`          ${String(open).padStart(3)} x  still walking when the run ended`);
+    // The arithmetic that proves the instrument is not lying: every episode
+    // opened must have exactly one outcome or still be open. Three instruments
+    // in this project have reported confidently on something they could not
+    // measure; this one says so out loud if the books do not balance.
+    const balanced = done.length + open === detours.length;
+    console.log(`        (${done.length} closed + ${open} open = ${detours.length} opened${balanced ? '' : ' — THE TALLY DOES NOT BALANCE, distrust this block'})`);
+    if (done.length) {
+      const walked = sum('walked');
+      const net = sum('net');
+      console.log(`        it walked ${walked} m in total to end up ${net} m from where each detour began ` +
+        `(${(walked / done.length).toFixed(0)} m per detour, net ${(net / done.length).toFixed(0)} m), ` +
+        `over ${sum('secs').toFixed(0)} s`);
+      console.log(`        ${sum('flips')} times it reversed the side it was stepping to — an oscillation, not a walk`);
+      const worked = done.filter((e) => e.outcome === 'a shot came on');
+      const failed = done.filter((e) => e.outcome !== 'a shot came on');
+      const line = (label, rows) => rows.length
+        ? `        ${label}: ${rows.length}, ${(sum('secs', rows) / rows.length).toFixed(1)} s and ` +
+          `${(sum('walked', rows) / rows.length).toFixed(0)} m each, deer ` +
+          `${Math.min(...rows.map((e) => e.d0))}-${Math.max(...rows.map((e) => e.d0))} m at the start`
+        : null;
+      for (const l of [line('the ones that worked', worked), line('the ones that did not', failed)]) {
+        if (l) console.log(l);
+      }
+      // ── every detour, one line, because the AVERAGES hid the mechanism ──
+      //
+      // "2 m per detour toward a spot 6 m away" says it was abandoned; it does
+      // not say what abandoned it. The range at the start against the range at
+      // the end does, and it is one number: stepping sideways does not close
+      // the distance, so if the animal drifts at all the slant crosses
+      // `AGENTS.shootRange` and `aimAt` answers `too far` — which carries no
+      // `blockedBy`, so the detour branch stops firing and the body turns and
+      // walks straight back at the obstruction it just left.
+      console.log('        each one, and what it cost:');
+      for (const e of detours) {
+        console.log(`          deer ${String(e.d0).padStart(3)} m -> ${String(e.d).padStart(3)} m  ` +
+          `${String(Math.abs(e.step)).padStart(2)} m aside, walked ${String(e.walked).padStart(3)} m ` +
+          `in ${e.secs.toFixed(1)} s  (${e.why})  ${e.outcome ?? 'still walking'}`);
+      }
+    }
+  } else {
+    console.log('\n      it never once stepped aside for a clear line');
+  }
+
   // ── THE HILLSIDE, and it is the verdict on any run that killed nothing ──
   //
   // Read this before the arrow table on a red run. The tables above only exist
@@ -304,6 +402,58 @@ async function main() {
       (notHunting.length ? ` (and ${notHunting.length} not hunting at all)` : ''));
     console.log(`        inside shootRange ${AGENTS.shootRange} m    ${String(inRange.length).padStart(3)}/${trace.length} samples (${pc(inRange.length)})` +
       ' — the only seconds in which a shot was ever on the table');
+
+    // ── DID IT KEEP THE SAME DEER? ──
+    //
+    // A stalk is a twenty-second investment and `resolve` re-runs every 2.5 s
+    // on the NEAREST match. Everything above reports a body locked on a quarry
+    // for 90% of a run without ever asking whether it was the SAME quarry, so a
+    // body that swapped animals every few seconds and never finished an
+    // approach reads identically to one patiently working a single deer.
+    const onSomething = trace.filter((s) => s.qid != null);
+    let swaps = 0;
+    let longest = 0;
+    let runLen = 0;
+    for (let k = 0; k < trace.length; k++) {
+      const id = trace[k].qid;
+      const prev = k ? trace[k - 1].qid : null;
+      if (id != null && prev != null && id !== prev) swaps++;
+      if (id != null && id === prev) runLen++; else runLen = id != null ? 1 : 0;
+      longest = Math.max(longest, runLen);
+    }
+    const distinct = new Set(onSomething.map((s) => s.qid)).size;
+    console.log(`        it changed its mind about WHICH deer  ${swaps} times in ${onSomething.length} s ` +
+      `on a quarry — ${distinct} different animals, longest unbroken stalk ${longest} s`);
+
+    // ── DID IT FINISH WHAT IT HIT? ──
+    //
+    // The shape every red run in this session has: arrows that go HOME, wounds
+    // spread across two or three animals, and nothing dead. A wounded deer runs
+    // — so it is no longer the NEAREST one, and `resolve` picks the nearest.
+    // The body then starts again on a fresh healthy animal and banks another
+    // wound, for ever. Every green run, by contrast, put one arrow into one
+    // deer and ate.
+    //
+    // The wound event now carries the individual's id, so this is answerable
+    // for the first time: after hurting THAT one, was it ever the quarry again?
+    const wounded = agent.wounds ?? [];
+    if (wounded.length) {
+      console.log('\n      after it wounded an animal, did it stay on that animal?');
+      const afterFirst = (id, atHour) => trace.filter((s) => s.qid === id).length;
+      for (const w of wounded) {
+        const secondsOnIt = afterFirst(w.id, w.h);
+        console.log(`        the ${w.what.toLowerCase()} it hit for ${w.dmg} (left at ${w.hp} hp, id ${w.id ?? '?'}) — ` +
+          `it was the quarry for ${secondsOnIt} s of the run in total`);
+      }
+      const finished = wounded.filter((w) => (agent.kills ?? []).length && w.id != null).length;
+      console.log(`        ${wounded.length} wounded, ${(agent.kills ?? []).length} killed` +
+        (wounded.length && !(agent.kills ?? []).length
+          ? ' — every arrow that went home was spent on an animal it then walked away from'
+          : ''));
+      if (finished === 0 && wounded.length && !(agent.kills ?? []).length) {
+        console.log('        (a deer takes two arrows. Spread over two deer, that is two wounds and no dinner.)');
+      }
+    }
 
     if (!killed) {
       // SIX failures, and they are NOT interchangeable: an empty hillside is a

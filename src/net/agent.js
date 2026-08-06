@@ -380,7 +380,11 @@ export class Agent {
         // and a kill was announced; an arrow that went home and left the animal
         // on its feet sounded exactly like never having fired.
         if (mine) {
-          this.wounds.push({ h: +this.hours.toFixed(2), what: e.n, dmg: e.dmg, hp: e.hp });
+          // `id` is the individual, not the species — see the wound event in
+          // world.js. Recorded whether or not anything acts on it yet, because
+          // the question "did this body go back and finish what it hit" cannot
+          // be asked at all without it.
+          this.wounds.push({ h: +this.hours.toFixed(2), what: e.n, dmg: e.dmg, hp: e.hp, id: e.i });
           this.lastShot = null; // it hit; there is no miss to measure
           this.memory.add(this.hours,
             `my arrow went into the ${e.n.toLowerCase()} — ${e.dmg} damage, it is still up with ${e.hp} left`);
@@ -900,6 +904,11 @@ export class Agent {
       this.trackSelf(dt, i.forward ? (i.crouch ? 2.1 : 4.1) : 0);
       return;
     }
+    // Not on a quarry any more, so a step-aside in progress is over and it did
+    // not end in a shot. Closed HERE rather than left dangling, or the outcome
+    // tally silently stops adding up to the number of detours attempted — which
+    // is the one arithmetic that proves this instrument is not lying.
+    this.endDetour('lost the quarry');
 
     if (this.target) {
       const dx = this.target.x - this._x;
@@ -1357,6 +1366,101 @@ export class Agent {
     return this._timber;
   }
 
+  /**
+   * A step aside has begun. Everything after this is measurement.
+   *
+   * WHY THIS EXISTS. `ground in the way` is the commonest refusal a hunting
+   * body produces — twenty-four of them in one run, against a single arrow
+   * loosed in two and a half minutes — and `clearSpotNear` was built precisely
+   * to answer it. Nothing anywhere counted whether the answer was ever TRIED,
+   * and nothing counted whether trying it ever produced a shot. So the fix and
+   * the failure were indistinguishable: a body walking sideways for ever and a
+   * body that never considered walking sideways both show up as silence.
+   *
+   * Worse, the detour branch RETURNS before the refusal log is written. Every
+   * second spent stepping aside is therefore missing from the refusal table
+   * too, which is why "24 x ground in the way" was only ever the refusals with
+   * NO detour available — a different and much smaller thing than it read as.
+   *
+   * The episode is the unit, not the tick: one obstruction, one decision to go
+   * round it, one outcome. See `endDetour` for the outcomes and `walkDetour`
+   * for the number that matters.
+   */
+  openDetour(dist, step, blockedBy) {
+    this.detours ??= [];
+    this._detour = {
+      at: this.hours,
+      d0: Math.round(dist),          // range to the quarry when we set off
+      d: Math.round(dist),           // ...and at the last tick
+      why: blockedBy ?? '?',         // ground or timber
+      step,                          // the offset it first chose
+      x0: this._x, z0: this._z,
+      lx: this._x, lz: this._z,
+      lastStep: step,
+      flips: 0,                      // sign changes: +6, then -6, then +6 again
+      ticks: 0,
+      secs: 0,
+      walked: 0,                     // ground actually covered, integrated
+      net: 0,                        // ...and how far that got us from where we began
+      outcome: null,
+    };
+    this.detours.push(this._detour);
+    if (this.detours.length > AGENTS.logSize) this.detours.shift();
+  }
+
+  /**
+   * One tick of walking sideways, measured.
+   *
+   * THE NUMBER THIS IS FOR IS `walked` AGAINST `net`. `clearSpotNear` is
+   * re-solved every tick from wherever the body now stands, and its nearest
+   * candidate is always six metres PERPENDICULAR to the current line of sight —
+   * a line that rotates as the body moves. A spot six metres away that is still
+   * six metres away after four seconds of walking is not a destination, it is an
+   * orbit, and the body would circle the animal at constant range until the
+   * check timed out. Path length over straight-line displacement says which of
+   * those happened; neither number alone can.
+   *
+   * `flips` is the same failure seen from the other side: step right, re-solve,
+   * find the best spot is now to the left, step back. That oscillation holds
+   * `net` near zero while `walked` climbs.
+   */
+  walkDetour(dt, dist, step) {
+    const ep = this._detour;
+    if (!ep) return;
+    ep.ticks++;
+    ep.secs += dt;
+    ep.walked += Math.hypot(this._x - ep.lx, this._z - ep.lz);
+    ep.lx = this._x;
+    ep.lz = this._z;
+    ep.net = Math.hypot(this._x - ep.x0, this._z - ep.z0);
+    ep.d = Math.round(dist);
+    if (Math.sign(step) !== Math.sign(ep.lastStep)) ep.flips++;
+    ep.lastStep = step;
+  }
+
+  /**
+   * The step aside is over — and this is the half nobody had.
+   *
+   * `cleared the line` is the only outcome that means it worked. Everything
+   * else is the body having walked for nothing, and they are worth telling
+   * apart: still blocked by the same thing is a `clearSpotNear` that cannot
+   * find a spot, `stood up instead` is the crouch fix getting there first, and
+   * `lost the quarry` is the deer leaving while we walked — which on a long
+   * enough orbit is what SHOULD happen.
+   *
+   * Idempotent, because it is called from four places and three of them are on
+   * paths that also run when no detour was ever open.
+   */
+  endDetour(outcome) {
+    const ep = this._detour;
+    if (!ep) return;
+    this._detour = null;
+    ep.outcome = outcome;
+    ep.walked = Math.round(ep.walked);
+    ep.net = Math.round(ep.net);
+    ep.secs = Math.round(ep.secs * 10) / 10;
+  }
+
   act_shoot(dt, i) {
     const t = this.target;
     const dx = t.x - this._x;
@@ -1431,6 +1535,7 @@ export class Agent {
         i.sprint = false;
         i.primary = false;
         this.drawFor = 0;
+        this.endDetour('stood up instead');
         if (this.shotWhy !== 'stand') {
           this.shotWhy = 'stand';
           this.memory.add(this.hours, `standing up to see over the ground at ${Math.round(dist)} m`);
@@ -1473,6 +1578,22 @@ export class Agent {
                         { x: t.x, y: t.y + AGENTS.aimAboveFeet, z: t.z }, heightAt,
                         { solidAt: this.timber() })
         : null;
+      // ── WAS THERE ANYWHERE TO GO? ──
+      //
+      // Twenty-three ground refusals against two detours in one measured run
+      // implies this returns null almost every time — but that is arithmetic on
+      // two transition counts, and inferring a mechanism from two counts is how
+      // three separate instruments in this project came to lie. So it is
+      // counted where it happens, per tick, with the blocker named: `asked` is
+      // how often the body wanted a way round and `none` is how often there was
+      // not one. The RATIO is the finding. See huntcheck.
+      if (shot.blockedBy) {
+        this.detourAsked ??= { ground: 0, timber: 0 };
+        this.detourNone ??= { ground: 0, timber: 0 };
+        const k = shot.blockedBy === 'timber' ? 'timber' : 'ground';
+        this.detourAsked[k]++;
+        if (!detour) this.detourNone[k]++;
+      }
       if (detour) {
         const bx = detour.x - this._x;
         const bz = detour.z - this._z;
@@ -1486,9 +1607,12 @@ export class Agent {
         if (this.shotWhy !== 'detour') {
           this.shotWhy = 'detour';
           this.memory.add(this.hours, `stepping ${Math.abs(detour.step)} m aside for a clear line`);
+          this.openDetour(dist, detour.step, shot.blockedBy);
         }
+        this.walkDetour(dt, dist, detour.step);
         return;
       }
+      this.endDetour(shot.why);
       i.forward = dist > AGENTS.standOff ? 1 : 0;
       i.sprint = false;
       i.crouch = dist < AGENTS.stalkWithin; // stop spooking it
@@ -1509,6 +1633,13 @@ export class Agent {
     }
 
     // ── a shot is on ──
+    // ...and if we were stepping aside, the step is over. NOT "the detour
+    // worked": the first live reading of this ended two episodes with a shot
+    // after 0 m and 1 m of walking, which is the line clearing on its own while
+    // a detour happened to be open. An outcome that names a CAUSE it cannot
+    // observe is how `hit` and `along` both lied, so this one names only what
+    // it saw — the walk is printed beside it and the reader can judge.
+    this.endDetour('a shot came on');
     this.shotWhy = null;
     i.aimPitch = shot.pitch;
     i.forward = 0;            // spread opens up if you are moving; stand still

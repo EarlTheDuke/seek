@@ -241,6 +241,20 @@ export class SimWorld {
           this.events.push({
             k: 'wound',
             by: byId,
+            // ── WHICH animal, and the comment above has wanted this all along ──
+            //
+            // "It is also the only signal that says 'keep after THAT one'" —
+            // except that it named a SPECIES and never an individual, so there
+            // was no THAT one to keep after. A body could hear that it had hurt
+            // "a deer" while eighteen to twenty-six of them stood on the same
+            // hillside, and `resolve` went straight back to picking the NEAREST
+            // one. Measured over four red huntcheck runs: two wounds spread
+            // across three different animals and nothing killed, while every
+            // green run put its one arrow into one deer and ate.
+            //
+            // Same field name as the snapshot's `c.i`, so the two can be
+            // compared without a translation nobody would remember to write.
+            i: creature.id,
             sp: creature.species.id,
             n: creature.species.name,
             dmg: Math.round(result.damage),
