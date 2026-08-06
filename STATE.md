@@ -5,76 +5,71 @@ more context than the work does. This file is the current state. **Update it at
 the end of every run**, and cut the closed section rather than letting this
 become another archive.
 
-Last updated: 2026-08-05, by the run that finished the ladder.
+Last updated: 2026-08-06, by the run that stopped the world emptying.
+
+## THE WORLD USED TO EMPTY UNDER YOU. It does not any more.
+
+The queue's number 1, and it earned its place. **One player, one 645 m round
+trip of four minutes: he came home to ONE animal where he had left EIGHTEEN, and
+nothing within 320 m of him.** The ground never came back.
+
+`refresh` skips any site key in `spawnedSites` and NOTHING EVER TOOK A KEY BACK
+OUT, so every herd site a player had once been near was dead ground for the rest
+of the session. The cull's own comment had claimed otherwise since the day it
+was written — "a corpse you have walked away from is gone for good; a live one
+just leaves the simulation and its site can refill" — and only the corpse half
+was ever implemented.
+
+The last animal out of a herd now decides what happens to the ground: **left
+alive, the site is released** and re-rolls from the same hashes, so the same cast
+comes back; **died there, it is cleared for good** — you hunted it out. While any
+of the herd is still loaded, neither fires: one deer shot out of five used to
+clear the whole site the moment its corpse was culled, so a good night's hunting
+emptied the map faster than a bad one. Cull is 400 m and spawn 320 m, so a
+released site cannot repopulate under the player who just left it — the old
+hysteresis holds, and the per-player budget still bounds the world.
+
+`refillcheck` **9/9, and it discriminates — 5/9 with the fix reverted**, same
+seed, same 641 m walk. Half drives the real cull inside the simulation for the
+three-way rule; half walks a body over a socket and asserts the OUTCOME: 0 near
+home at the far end, 18 again when he gets back. This also closes `netcheck`'s
+intermittent empty `cr` — never a snapshot fault, a world that had genuinely
+emptied. Single-player gets it free; it is the same manager.
+
+**What it did NOT explain, and THE COMMIT MESSAGE OVERREACHES HERE.** It claims
+the 68 -> 37 drift is the same root cause. Measured after: four bodies milling
+in one valley, identical seeded paths — **peak 44 -> 27 without the fix, 46 -> 25
+with it.** No difference. See the drift entry in the queue for what the numbers
+actually say.
 
 ## THE LADDER IS DONE. All six rungs green.
 
-**1. SURVIVE — green.** `survivalcheck` 7/7. Unchanged this run.
+Detail on how each one was won is in FINDINGS.md; what is still worth knowing:
 
-**2. HUNT — GREEN, and it was the big one.** `huntcheck` 7/7 on **six of seven
-runs, ONE arrow each, kills at 59, 61, 61, 71, 72 and 109 s**. It was 1-of-4 at
-103-150 s. The seventh run never got a shot at all — its only refusal was "too
-far", so on the evidence the hillside simply had no deer inside `shootRange` (26
-m) in 150 s, not that the body failed one. Worth one instrumented look if it
-recurs; do not tune anything on one run. Three separate things fixed, each found
-by instrumenting rather than reasoning:
+**1. SURVIVE** `survivalcheck` 7/7 — forage, light, cook, eat, live the night.
+**2. HUNT** `huntcheck` six of seven runs, one arrow, kills at 59-109 s. The
+seventh is the marksmanship tail, not an empty hillside. DO NOT TUNE CONSTANTS
+ON ONE RUN — three passes of that moved the failure around without fixing it.
+**3. MINDS & PROVIDERS** `providercheck` 25/25. One OpenAI-compatible provider
+plus Anthropic; `MINDS_PROVIDER/BASE_URL/MODEL/API_KEY`, per-agent overrides in
+a roster file. Proved against a local fake endpoint — no key needed to test.
+**4. PERSONAS** `personacheck` 21/21. `PERSONAS=off|on|hoarder,liar,…`; OFF is
+byte-identical to the old prompt and the check asserts the BYTES. Who was who
+lands in the console header, the summary and the report. Scarcity is the half
+that makes character mean anything: `SCARCE=on` (or `0.5,0.8`) feeds one
+richness field into both firewood and herds. **`SCARCE=0.7,0.5` is the gentler
+setting if a full roster starves** — at full strength a spawning player's 18
+animals become 4.
+**5. WATCHABLE — first mile.** `NARRATE=on` makes each mind say its goal, its
+reason and its persona into the chat column. `watchcheck` 10/10. The second
+mile is item 1 in the queue.
+**6. A FULL ROSTER** `MAX_PLAYERS` 16 (`MAX_PLAYERS=` to change), measured
+rather than assumed with every body hunting: 60 Hz tick unmoved at both 12 and
+16, 56-65 KB/s per client. The TICK is not the ceiling, the WIRE is — everybody
+is in everybody's snapshot, so the total grows with the SQUARE of the roster.
+`node server/rostercheck.js 8091 24` before anybody promises thirty-two.
 
-- **The check was passing on kills the agent did not make.** Nothing on the wire
-  said WHO killed an animal, so a wolf eating a deer read as a hunt. The baseline
-  run this session was 5/6 green — "AND IT BROUGHT ONE DOWN" included — from a
-  body that loosed ZERO arrows. `kill` events now carry `by`.
-- **It fired more arrows by accident than on purpose.** The server edge-detects
-  `intent.primary`, so ANY true→false is an arrow: every path that stopped
-  drawing (lost quarry, a re-solve, standing up, hunger taking the tick) shot the
-  hillside at a third of the solver's speed. 5 strays to 2 aimed in one run.
-  `letdown` is now an intent, resolved BEFORE the trigger edge.
-- **TREES WERE INVISIBLE TO EVERY SHOT CHECK.** Both aimed arrows of a run ended
-  `hit tree`. `src/world/timber.js` states the placement as arithmetic both ends
-  run — `Scatter` now draws that answer instead of owning it. `timbercheck` 17/17
-  matches all 2149 trunks, crowns and boulders against the world's own collider
-  field, both directions.
-- Bonus, from the same thread: **the server's solid world was one patch around
-  player #1**, so everybody else shot through a forest their own browser was
-  drawing. `SimWorld.refreshTimber` covers every player.
-- Also new: a `wound` event. An arrow that landed and left the deer standing used
-  to be indistinguishable from never firing.
-
-**3. MANY MINDS, MANY PROVIDERS — green.** `providercheck` 25/25. Untouched.
-
-**4. PERSONAS — GREEN, both halves.**
-- `src/minds/personas.js`: six dispositions, `PERSONAS=off|on|hoarder,liar,…`.
-  Off is BYTE-IDENTICAL to the old prompt and `personacheck` asserts the bytes
-  against a hand-written baseline. On deals from a shuffled deck, seeded.
-- Who was who is in the console header, the end-of-run summary and the report.
-- **Scarcity**, the half that makes character mean anything: `SCARCE=on` (or
-  `0.5,0.8`). One low-frequency richness field feeds BOTH firewood and herd
-  density, so the valley with the deer has the wood to cook them. Measured: 52%
-  of the firewood gone, 3 branches in the barest 100 m against 47 in the richest,
-  18 animals near a spawning player down to 4. **That last number is worth an
-  eye — `SCARCE=0.7,0.5` is the gentler setting if a full roster starves.**
-  It rides in the welcome, because the client draws firewood itself.
-
-**5. WATCHABLE — first mile green.** `systemPrompt` has asked every model for
-`"why"` since minds existed and `sanitiseGoal` dropped it on the floor. Kept now,
-and `NARRATE=on` makes each mind say its goal, reason and persona into the chat
-column as it changes its mind — no protocol, no view code, the HUD already draws
-chat. `watchcheck` 10/10, asserted from the watcher's seat.
-
-**6. A FULL ROSTER — green.** `MAX_PLAYERS` 8 → 16 (`MAX_PLAYERS=` to change).
-`rostercheck` measures rather than assumes, with every body hunting (the
-heaviest thing one does):
-
-| house | tick | snapshots | wire per client | total |
-|-------|------|-----------|-----------------|-------|
-| 12    | 60.0 Hz | 20.0 /s | 56.3 KB/s | 675 KB/s |
-| 16    | 60.0 Hz | 20.0 /s | 64.8 KB/s | 1.0 MB/s |
-
-Nobody dropped, everybody in the same world. The tick does not budge; the WIRE is
-where the ceiling will be, and every player is in everybody else's snapshot, so
-the total grows with the SQUARE of the roster. `node server/rostercheck.js 8091 24`
-before anybody promises thirty-two.
-
-## For tomorrow night
+## For the evening itself
 
 ```
 DANGER=no-bears SCARCE=on node server/server.js 8080
@@ -94,21 +89,27 @@ scripted. Read it. Other knobs, all off by default: `HOURS=1`, `RAID=6`,
 `mindcheck`/`clockcheck` 21 · `warmthcheck` 20 · `deathcheck` 19 ·
 `bookcheck`/`reportcheck`/`raidcheck` 18 · `timbercheck` 17 · `agentcheck` 17 ·
 `ordercheck` 17 · `dangercheck`/`herdcheck`/`rendercheck` 12 · `bitecheck` 10 ·
-`spreadcheck` 10 · `watchcheck` 10 · `scarcecheck` 9 · `shotcheck` 8 ·
-`survivalcheck`/`huntcheck` 7 · `arrowcheck`/`woundcheck` 7 · `rostercheck` 6.
+`spreadcheck` 10 · `watchcheck` 10 · `refillcheck` 9 · `scarcecheck` 9 ·
+`shotcheck` 8 · `survivalcheck`/`huntcheck` 7 · `arrowcheck`/`woundcheck` 7 ·
+`rostercheck` 6.
 
 Ports: rostercheck **8091**, watchcheck **8092**, scarcecheck **8094**,
-survivalcheck 8095, huntcheck 8096, herdcheck 8098, shotcheck/bitecheck 8099.
+survivalcheck 8095, huntcheck 8096, **refillcheck 8097**, herdcheck 8098,
+shotcheck/bitecheck 8099. `refillcheck` walks a real body about 1.3 km and
+takes roughly four minutes — the distances ARE the test, there is no shortcut.
 `netcheck` and `survivalcheck` want a quiet box.
 
 ## Known red, and honestly so
 
-- **`netcheck` "creatures are shared — 0 creatures" fails intermittently.**
-  Confirmed NOT a regression from this run's work — it fails identically with
-  everything stashed. Bob's snapshot has no creatures in it at all, which if it
-  is real is a bug worth having. Nobody has instrumented it.
+- ~~`netcheck` "creatures are shared — 0 creatures"~~ **CLOSED — it was the
+  world emptying, not the snapshot.** See the top of this file. netcheck now
+  green three times running on fresh servers (18 creatures each).
 - `netcheck` "it went with her" (a companion trailing a continuously moving
   owner) is the long-known load-sensitive one.
+- `huntcheck` is still the documented six-of-seven. Today: 7/7 (a kill inside
+  65 s), then 6/7 — 4 aimed shots, a deer taken to 17 hp, no kill in 150 s.
+  That is the marksmanship tail, not an empty hillside; the refill fix neither
+  helped nor hurt it.
 
 ## The queue, ranked
 
@@ -116,21 +117,43 @@ survivalcheck 8095, huntcheck 8096, herdcheck 8098, shotcheck/bitecheck 8099.
    actually were during it. It may be nothing — a thin hillside and a 150 s
    budget — but "no shot in 150 s" and "a shot it could not take" are different
    answers and only the refusal log can tell them apart.
-1. **Instrument the empty `cr` list above.** Two players, one snapshot, no
-   animals — that is either a culling bug or a snapshot-budget cut nobody
-   documented, and it would gut an evening.
-2. **A live board, not a chat column** (rung 5's second mile). `intentions`,
+1. **A live board, not a chat column** (rung 5's second mile). `intentions`,
    `deeds`, `refusals` and `shots` are all kept and only the first is surfaced,
-   through chat.
-3. `glider.js` samples ridge lift upwind with `(−sin, −cos)` while integrating
-   flight in `(+sin, +cos)`. Establish which way `wind.angle` points first.
-4. **Arrows fired at ~0 m all miss.** Unexamined since the aim fix.
-5. **Nothing comes back DOWN about your own animal** — hurt, fed, killed.
-6. **Crouch is a uniform Y squash of the whole avatar.**
-7. With 4 players the server's population drifted 68 → 37 over ~24 game minutes
-   (cap 120). Still unmeasured; may be the same thing as (1).
+   through chat. Now the top of the queue.
+2. `glider.js` samples ridge lift upwind with `(−sin, −cos)` while integrating
+   flight in `(+sin, +cos)`. **Half answered: a BODY walks along `(−sin yaw,
+   −cos yaw)`, measured on the server four ways.** So `(−sin, −cos)` is this
+   project's forward and the glider's integration is the odd one out — but
+   whether `wind.angle` means "blowing toward" or "coming from" is still
+   unestablished, and that is the half that decides the sign.
+3. **Arrows fired at ~0 m all miss.** Unexamined since the aim fix.
+4. **Nothing comes back DOWN about your own animal** — hurt, fed, killed.
+5. **Crouch is a uniform Y squash of the whole avatar.**
+6. **The 68 → 37 drift — measured now, and it looks BENIGN.** Four bodies
+   milling in one valley for four minutes: peak 44 → final 27, and the fix above
+   changes nothing (46 → 25 on identical seeded paths). The total is not a leak,
+   it tracks HOW SPREAD OUT PEOPLE ARE — `addPlayer` fans arrivals out by about
+   3.3 m, so four bodies on one shore have almost entirely overlapping 320 m
+   circles and draw one valley's worth between them, not 4 × 26. The number that
+   matters held all run: **11–19 animals within 320 m of EVERY body, both arms.**
+   Worth one more look only if somebody sees a hillside go quiet in play.
 
 ## Things that will waste your time if you do not know them
+
+- **`git stash push <file>` AFTER YOU HAVE COMMITTED STASHES NOTHING**, and it
+  does not fail loudly. A counterfactual run done that way is the fixed code
+  twice: this run got two "identical" drift traces out of it and nearly wrote up
+  "the fix makes no difference". Use `git checkout <old-sha> -- <file>`, and
+  PRINT SOMETHING FROM THE FILE (`grep -c releaseSite`) to prove which arm is
+  actually loaded before you believe a single number.
+- **FORWARD IS `(−sin yaw, −cos yaw)`.** Measured on the server four ways, not
+  assumed. Walking a body with `(+sin, +cos)` marches it briskly in the opposite
+  direction and yields a beautifully consistent set of numbers about a journey it
+  never made — which is how the first refill trace "showed" the world emptying on
+  the way home while the body was still walking away.
+- **A probe that never revisits ground cannot see a refill bug.** Four bodies
+  walking outward in straight lines gave identical numbers with the bug and
+  without it. The movement has to come BACK.
 
 - **CHECK YOUR INSTRUMENT BEFORE BELIEVING IT.** timbercheck's first pass
   compared collider positions at 1e-6 and reported 2048 of 2149 trees "wrong".
