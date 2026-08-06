@@ -50,7 +50,8 @@
     "boardcheck": "node server/boardcheck.js",
     "ballisticscheck": "node server/ballisticscheck.js",
     "detourcheck": "node server/detourcheck.js",
-    "avatarcheck": "node server/avatarcheck.js"
+    "avatarcheck": "node server/avatarcheck.js",
+    "rangecheck": "node server/rangecheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",
