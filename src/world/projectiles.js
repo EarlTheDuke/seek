@@ -457,7 +457,15 @@ export class Projectiles {
     // hit the ground 8 m in front of your own feet" are different lessons.
     // A creature or a player hit never reaches here — this branch is only ever
     // terrain, a tree or a rock.
-    this.deps.onMiss?.(p, surface, p.pos.distanceTo(p.origin));
+    // ONCE PER ARROW, not once per frame it spends settling. An arrow reaches
+    // here again as it beds into the slope, and the first version reported the
+    // same shot three times at descending heights — which reads to a mind as
+    // three separate misses and would teach it to give up on a shot that only
+    // ever happened once.
+    if (!p.missReported) {
+      p.missReported = true;
+      this.deps.onMiss?.(p, surface, p.pos.distanceTo(p.origin));
+    }
     if (type.recover) this.deps.onLanded?.(p);
     this.enforceLimit(type);
     return false;

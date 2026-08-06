@@ -52,6 +52,13 @@ export function createIntent() {
     drop: false, // edge-triggered: drop equipped
     place: false, // edge-triggered: light a fire (later: build)
     eat: false, // edge-triggered: eat the best food you carry
+    // Edge-triggered: "I meant the OTHER thing here." E resolves by distance
+    // and urgency; this takes the runner-up. Deliberately NOT in the protocol's
+    // INTENT_KEYS: the actions it picks between — cooking, crafting — are
+    // resolved in the browser, so the server has nothing to do with it. That is
+    // also a standing limit on agents, which cannot cook at all for the same
+    // reason.
+    alternate: false,
     selectSlot: -1, // -1 = no change
   };
 }
@@ -72,6 +79,7 @@ export function clearIntent(i) {
   i.drop = false;
   i.place = false;
   i.eat = false;
+  i.alternate = false;
   i.selectSlot = -1;
   return i;
 }
@@ -92,6 +100,7 @@ export function copyIntent(to, from) {
   to.drop = from.drop;
   to.place = from.place;
   to.eat = from.eat;
+  to.alternate = from.alternate;
   to.selectSlot = from.selectSlot;
   return to;
 }
@@ -132,6 +141,7 @@ export function sanitiseIntent(i, maxLookPerTick = 0.35) {
   i.drop = !!i.drop;
   i.place = !!i.place;
   i.eat = !!i.eat;
+  i.alternate = !!i.alternate;
   i.selectSlot = Number.isInteger(i.selectSlot) ? i.selectSlot : -1;
   return i;
 }

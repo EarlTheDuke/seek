@@ -1813,36 +1813,40 @@ function boot() {
       return null;
     }
 
+    // ── a fire is two things at once, and you get to say which ──
+    //
     // A fire burning down is the urgent thing; otherwise it is a workbench.
-    if (inventory.countOf('wood') > 0 && fire.fuel < fire.maxFuel * 0.35) {
-      return {
-        label: '<b>E</b>  feed the fire',
-        run: () => {
-          inventory.remove('wood', 1);
-          return feedFire(fire);
-        },
-      };
-    }
+    // That ordering is right and it stays. What was wrong is that it was the
+    // ONLY thing you could do: standing at a low fire holding raw venison, two
+    // presses of E burned two branches before it would cook, and nothing on
+    // screen offered the other action or admitted it existed.
+    //
+    // So both are built, the urgent one goes on E, and the other goes on F.
+    // Whichever is offered, the label names both — a key you are not told about
+    // is a key nobody presses.
+    const feeding = inventory.countOf('wood') > 0
+      ? {
+          label: 'feed the fire',
+          run: () => { inventory.remove('wood', 1); return feedFire(fire); },
+        }
+      : null;
     const recipe = bestAvailable('fire', inventory);
-    if (recipe) {
-      return {
-        label: `<b>E</b>  ${recipe.verb} · ${recipe.name.toLowerCase()}`,
-        run: () => {
-          const made = craft(recipe, inventory);
-          return made ? `${recipe.verb} — ${made}` : null;
-        },
-      };
-    }
-    if (inventory.countOf('wood') > 0) {
-      return {
-        label: '<b>E</b>  feed the fire',
-        run: () => {
-          inventory.remove('wood', 1);
-          return feedFire(fire);
-        },
-      };
-    }
-    return { label: '<b>E</b>  nothing to work with', run: () => null };
+    const cooking = recipe
+      ? {
+          label: `${recipe.verb} · ${recipe.name.toLowerCase()}`,
+          run: () => { const made = craft(recipe, inventory); return made ? `${recipe.verb} — ${made}` : null; },
+        }
+      : null;
+
+    const urgent = feeding && fire.fuel < fire.maxFuel * 0.35;
+    const first = urgent ? feeding : cooking ?? feeding;
+    const second = first === feeding ? cooking : feeding;
+    if (!first) return { label: '<b>E</b>  nothing to work with', run: () => null };
+    return {
+      label: `<b>E</b>  ${first.label}` + (second ? `　　<b>F</b>  ${second.label}` : ''),
+      run: first.run,
+      alt: second?.run ?? null,
+    };
   }
   let interaction = null;
 
@@ -2427,6 +2431,12 @@ function boot() {
 
     if (intent.interact && interaction) {
       const msg = interaction.run();
+      if (msg) hud.toast(msg, 1.6);
+    }
+    // The runner-up, for whatever you are standing at. Only a fire offers one
+    // today; anything else simply has no `alt` and F does nothing.
+    if (intent.alternate && interaction?.alt) {
+      const msg = interaction.alt();
       if (msg) hud.toast(msg, 1.6);
     }
 

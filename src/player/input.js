@@ -41,6 +41,7 @@ export class PlayerInput {
     this.pressedDrop = false;
     this.pressedPlace = false;
     this.pressedEat = false;
+    this.pressedAlternate = false;
     this.pendingSlot = -1;
     // Crouch is a state, not a held key. See the note on `onKeyDown`.
     this.crouchToggled = false;
@@ -105,6 +106,13 @@ export class PlayerInput {
       if (e.code === 'KeyC') this.crouchToggled = !this.crouchToggled;
       if (e.code === 'KeyE') this.pressedInteract = true;
       if (e.code === 'KeyQ') this.pressedDrop = true;
+      // "I meant the OTHER one." E resolves by distance and urgency, which is
+      // the right default and was previously the only option: standing at a
+      // fire holding raw meat, two presses of E silently burned two branches
+      // feeding the fire before it would cook anything, because a fire below
+      // 35% fuel outranks a workbench. That rule is correct. Being unable to
+      // overrule it is not.
+      if (e.code === 'KeyF') this.pressedAlternate = true;
       if (e.code === 'KeyG') this.pressedPlace = true;
       if (e.code === 'KeyR') this.pressedEat = true;
       if (/^Digit[1-5]$/.test(e.code)) this.pendingSlot = Number(e.code.slice(5)) - 1;
@@ -211,11 +219,13 @@ export class PlayerInput {
     i.drop = this.pressedDrop;
     i.place = this.pressedPlace;
     i.eat = this.pressedEat;
+    i.alternate = this.pressedAlternate;
     i.selectSlot = this.pendingSlot;
     this.pressedInteract = false;
     this.pressedDrop = false;
     this.pressedPlace = false;
     this.pressedEat = false;
+    this.pressedAlternate = false;
     this.pendingSlot = -1;
 
     return i;

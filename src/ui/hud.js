@@ -398,6 +398,7 @@ const KEYS = [
   ['C', 'crouch — a toggle, not a hold'],
   ['Mouse 1', 'draw the bow — hold to aim, release to loose'],
   ['E', 'pick up · cut · quarry · cook · use · take bearings'],
+  ['F', 'the other thing — at a fire, cook instead of feed it, or the reverse'],
   ['G', 'light a fire (costs a branch)'],
   ['B', 'build — whatever your camp is still missing'],
   ['Shift + B', 'what you can build and make, and what you are short of'],
