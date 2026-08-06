@@ -1,212 +1,160 @@
 # State of play — read this first, it is short on purpose
 
-`FINDINGS.md` is 3300 lines and `DEV-NOTES.md` is 2900. Reading either cold costs
+`FINDINGS.md` is 3400 lines and `DEV-NOTES.md` is 2900. Reading either cold costs
 more context than the work does. This file is the current state. **Update it at
 the end of every run**, and cut the closed section rather than letting this
 become another archive — all of it is in `FINDINGS.md` under its dated heading.
 
-Last updated: 2026-08-05 16:25, by the session that closed queue #1 — the
-weather. **The two-copies-of-one-number family is now finished: all six.**
+Last updated: 2026-08-05 17:35, by the session that closed queue #2 — the
+stranded wing. The applyRemote family (all six) is finished and its section has
+been cut; it is in `FINDINGS.md` under 2026-08-05.
 
 ## What works right now
 
-- **EVERYBODY IS UNDER THE SAME SKY.** The last of the six. `snap.w`
-  (`{s, n, b, a}` — state, next state, blend, wind angle) has been on the wire
-  since there have been snapshots and nothing read it; now `Weather.applyRemote`
-  does, RAW from `onSnapshot`. The divergence was **phase, not seed** — two
-  clients booted together agree exactly, but your front starts when your browser
-  does, so the error grows with server uptime. Watched on a real socket: a front
-  arriving over the wire, `clear → rain`, twelve samples across 24 s with the
-  client's blend and wind angle equal to the server's on every one (b 0.905 →
-  1.000, cloud 0.05 → 0.95, rain 0 → 1.00, wind ×0.70 → ×1.90) and the picture
-  following. Forced to `rain` by hand, it read the server's `clear` back 1.5 s
-  later. Photographed: `shots/rain-came-from-the-server.jpg`. `npm run
-  weathercheck` (**27/27**, new, needs no server) drives both ends.
-  **Why it mattered more than it looks:** your temperature became the server's an
-  hour earlier, and the HUD explains a falling temperature with the wind chill and
-  rain it can SEE. Measured at one spot in one minute — felt **8.87 °C** under the
-  server's rain against **19.50 °C** under the sky the browser was inventing.
-- **HOW COLD YOU ARE IS THE SERVER'S NUMBER.** `Body.applyRemoteCore` +
-  `remoteCore` + `takeOverLocally`, delivered RAW. Only the ten lines that
-  integrate `coreC` stand aside; `feltC`, `effectiveC`, wetness and the
-  environment sample still run locally because that is what the HUD *explains*
-  you with. Watched at 02:30: no fire, core −0.168 °C/min; fire 3.00 m away,
-  −0.096 °C/min. `npm run warmthcheck` (**20/20**, needs no server).
-- **EVERYBODY SEES THE SAME FIRE, AND IT WARMS THEM.** `fi` in the snapshot,
-  `Fires.applyRemote` mirroring it, the fuel clock standing aside while remote.
-  Feeding a fire goes up the wire too — a `C_FIRE` claim landing ON a fire is
-  fuel for it, one packet doing both. Watched: their fire on my screen 6.68 m
-  away one packet after they lit it; 3 m from it, `fireWarmth` 5.46 °C. `npm run
-  firecheck` (**57/57**, needs no server).
-- **It is the same time of day for everybody.** `Atmosphere.applyRemote` takes
-  `snap.c`; the local clock stands aside while remote. Agreeing to 3 dp against a
-  server staged at 01:00 where the same client used to draw a blue midday sky.
-  `npm run clockcheck` (**21/21**, needs no server).
-- **Your health is the server's health.** `#hl-health` 89% → 0% → hidden → 89%,
-  watched; before this the browser read 100 through two deaths. Death lasts what
-  the config says and **you wake on the shore, not where you fell**. `npm run
-  deathcheck` (**19/19**).
-- **Your body is where the server says it is.** 0.00 m on both join paths, yaw
-  agreeing. `netcheck` (**24/24**) guards it from both ends.
-- **A companion bites for its owner, everyone sees it — including the owner.**
-  `bitecheck` (10/10). Your animal comes with you onto a server with its name,
-  trust, tricks and standing orders. `guard` can be switched on from a client.
-- **You can fight a goblin in daylight.** Everyone hunts the same animals, arrows
-  hit players, wounds persist, the cull is per-player, standing orders are obeyed.
-- The picture fits the window at any scaling; a fire can be seen and heard; the
-  arrow's predicted impact is within 1–2 cm; the glider flies where you look; the
-  client reads world events; chat is a column; `B` opens a build chooser; `E`
-  obeys one distance rule and always answers.
+- **A WING CAN BE PICKED BACK UP.** Queue #2, closed. Landing somewhere you
+  cannot take off from was permanent: ten hides and fourteen branches — the most
+  expensive thing in the game by its own config comment — became scenery, because
+  the only verb a glider had was *fly* and the answer was no. `E` on a wing that
+  refuses now says **`shoulder the wing — <the refusal, in full>`**, and while it
+  is on your shoulders the prompt becomes `set the wing down — ground that falls
+  95% is 30 m straight ahead`. Played end to end: built on flat ground → refused
+  → shouldered → **carried 26.8 m while the hint tracked me** (30 m ahead → 15 m
+  ahead → 15 m 38° left) → `E run — 84% downhill ahead of you` → flew **90 m for
+  17 m of drop** → landed → and the landing spot was flat, so it offered to
+  shoulder it again. The trap is now a loop. Photographed:
+  `shots/wing-carried.jpg`.
+  - `nearestLaunchable` / `carryReport` are pure and live in `glider.js` with the
+    rest of the model — no THREE, no DOM. **`npm run glidercheck` is 42/42** (was
+    32), ten of them new and none needing a server.
+  - Carrying costs you `GLIDER.carrySpeed` = 0.55 of your pace, outside survival
+    too — it is the size of the object, not a hardship rule.
+  - **A save taken while carrying sets it down first**, the same way `saveNow`
+    already landed you before saving, and for the same reason: a wing on your
+    shoulder is not in the structure list either. Verified — the wing is in the
+    save file.
+- **`STATE.md` no longer bounces a player to the menu.** It was the one root
+  document the rules require every run to write and the one still missing from
+  the Vite watcher's ignore list. One line in `vite.config.js:209`.
+- **The wire says WHERE you are pointing** (`aimYaw`/`aimPitch`, absolute, not
+  deltas) and **killing an animal leaves an animal behind** — the server rolls
+  the carcass now instead of `onCreatureHit: () => {}`. Both landed at 17:00–17:01
+  from the previous run; `shotcheck` 2/8 → 8/8, aim error 3.81° → 0.00°.
+- **An agent's `gather` no longer walks to the same branch for ever.** The
+  `taken` Set thread that sat uncommitted in `pickups.js` for two runs is
+  finished and committed — `agent.js:125,460,545,553`. Nothing is uncommitted now.
+- **Everybody is under the same sky, and the same clock, fire, warmth, health and
+  position.** The six-for-six applyRemote family. `weathercheck` 27,
+  `firecheck` 57, `warmthcheck` 20, `clockcheck` 21, `deathcheck` 19, `netcheck` 24.
+- A companion bites for its owner; arrows hit players; wounds persist; standing
+  orders are obeyed; `B` opens a build chooser; `E` obeys one distance rule.
 
-**All suites green this run** on a quiet box: `firecheck` 57, `companioncheck` 45,
-`campcheck` 36, `glidercheck` 32, **`weathercheck` 27**, `netcheck` 24,
-`mindcheck`/`clockcheck` 21, `warmthcheck` 20, `deathcheck` 19,
+**All suites green this run, on a quiet box:** `firecheck` 57,
+`companioncheck` 45, **`glidercheck` 42**, `campcheck` 36, `weathercheck` 27,
+`netcheck` 24, `mindcheck`/`clockcheck` 21, `warmthcheck` 20, `deathcheck` 19,
 `bookcheck`/`reportcheck` 18, `ordercheck` 17, `dangercheck` 12,
 `arrowcheck`/`woundcheck` 7. **`deathcheck`, `clockcheck`, `firecheck`,
 `warmthcheck` and `weathercheck` are not in the standing check list in the run
-instructions — run them anyway.** None of the five needs a server.
+instructions — run them anyway.** Only `netcheck` needs a server.
 
-## The one rule the whole family came down to
+## The rules the last several runs came down to
 
-**Two copies of one number is the bug, and the fix is always the same four
-pieces**: `applyRemote`, a `remote` flag that stands aside *only the
-integration*, a `takeOverLocally` for when the socket drops, and a guard that
-ignores a bad value rather than obeying it. Position, health, hour, fuel,
-warmth, weather — six for six.
-
-- **Stand aside as NARROWLY as you can.** Everything upstream of the owned number
-  is local presentation of a local world and must keep running, or the HUD stops
-  explaining anything. In `Weather` that is two things only: the state machine
-  and the one line that integrates `windAngle`. The blended values are
-  *derivation*, not opinion — same arithmetic on both ends — so they keep running.
-- **Owning a number on the server breaks whatever wrote it locally.** Grep for
-  every local writer before calling the fix done, and make it SAY so rather than
-  silently doing nothing (`setWeather` now returns a refusal, as `warp` does).
-- **Everything in `me` and `snap` is delivered RAW from `onSnapshot`**, not
-  through the interpolator — that buffer is for smoothing BODIES.
-- **Do not ask a question the server has already answered.** Take the OUTCOME.
+- **Two copies of one number is the bug**, and the fix is always four pieces:
+  `applyRemote`, a `remote` flag that stands aside *only the integration*, a
+  `takeOverLocally`, and a guard that ignores a bad value rather than obeying it.
+  **Stand aside as NARROWLY as you can** — everything upstream is local
+  presentation and must keep running or the HUD stops explaining anything.
+- **An accumulating value cannot cross a rate-limited channel.** Look deltas at
+  60 Hz down a 30 Hz wire lost half of every turn. Found three times now
+  (`lightFire`, `syncCompanion`, aim) and patched locally twice. Send the
+  ABSOLUTE and set from it.
+- **A refusal that carries what it measured stops being a wall.** `launchRefusal`
+  already said the slope it got, the slope it needed and which way to turn; this
+  run gave it a verb to go with it. If you are about to write a message that only
+  says no, ask what the code already knows.
 
 ## Things that will waste your time if you do not know them
 
+- **`highlands.capture()` RUNS A FRAME.** Anything the sim writes every tick —
+  a carried wing's transform, a position, a rotation — is overwritten between
+  your console assignment and the shot, and three captures with three different
+  values came back byte-identical. **Tune in the source, not the console.**
 - **`ctrl.yaw = x` IS THE SAME TRAP AS `ctrl.position.set` AND `warp`.** The
-  intent carries `lookYaw`/`lookPitch` as DELTAS (`controller.js:97`), never an
-  absolute — so a hand-assigned yaw is invisible to the server and it walks your
-  body along the yaw it still holds. Cost this run **83.67 m** of split and a
-  refused fire (*"too far from you to be yours"*), which looks exactly like the
-  fire fix being broken. Untouched, the same 5 s walk splits **0.07 m**. To aim a
-  headless body, re-align with `ctrl.position.set(...snap.me.p)` and `ctrl.yaw =
-  snap.me.y`, or feed `lookYaw` deltas — and **print the split before believing
-  anything positional**. `snap` is live at `highlands.net.buffer[len-1].snap`.
-- **Sandbox pins `feltC`/`effectiveC`/`wetness` while `coreC` keeps falling.**
-  `effectiveC` read exactly 19.00 in a gale and full rain — the local thermal
-  model is frozen by `ruleset.current.survival === false` while `coreC` still
-  moves because it is the server's number. It looks precisely like a new fix
-  failing to reach the body. Set `highlands.ruleset.current.survival = true` in
-  place (`spawnPack` needs Sandbox, stamina needs Survival).
-- **`netcheck` on a loaded box fails the COMPANION line too, not just the budget
-  line** — 22/24 with a browser connected (121.7 KB/s, and "it went with her" at
-  3.6 m), **24/24** with the server to itself. Quieten the box and re-run before
-  believing either failure.
-- **A number the server refuses is invisible from both ends unless it is
-  printed.** The server logs every fire claim it takes or drops, with the reason.
-  That one line turned a wrong guess into an answer in a single run. Log at the
-  RECEIVING end before theorising about the sending end.
-- **`HOURS=1` MOVES THE SPAWN TO THE OTHER SIDE OF THE LAKE** (~420 m) —
-  `pickSpawn` stands you on the shore opposite the sun. Any measurement comparing
-  a staged server against an unstaged one is comparing two different places.
-- **A number that reproduces exactly is a CONFIGURATION, not a drift.** Ask what
-  was different about the *launch* before looking for a leak.
-- **Your own source edit reloads the page out from under your measurement.**
-  Fresh world, mode back to Survival, no fires. Re-click the mode button and
-  re-check `highlands.ruleset.current.id`. `git log --oneline -3` and `git pull`
-  first too — a second session can be live on :8080.
-- **Stale processes: kill them at the END of your run, not just the start.**
-  `server.js` survives its wrapper, holds 8080 and ticks into a closed pipe. Find
-  with `wmic process where "name='node.exe'" get processid,commandline` and grep
-  for `server.js`/`agents.js` — **not** the project path. **A backgrounded
-  `server.js` can be reported EXITED while still listening**; `netstat -ano |
-  grep ":8080.*LISTENING"` is the fact.
-- **A KEY RELEASE YOU DO NOT STEP IS NEVER SENT**, and the server holds
-  `forward: 1` for ever — 36.1 m of split with the client stationary. After a
-  keyup, keep stepping for at least `1000/NET.intentHz` ms of REAL time.
-- **Keys must be dispatched on `window`, not `document`.** A `document` keydown
-  moves nothing and throws nothing — 0.00 m against 1.66 m.
-- **Pace `stepWorld` to the WALL CLOCK for anything networked.** Twelve steps per
-  60 ms is 3.3× speed and the server does not come with you: it showed up as a
-  28.34 m split that looked like a regression. Accumulate real elapsed time.
-- **The socket keeps delivering while `stepWorld` is not running** — deaths,
-  respawns and teleports all land between two tool calls. **Do the whole
-  observation in one cell**, and never compare a position across two.
-- **`javascript_tool` gives up at 30 SECONDS** and returns nothing, though the
-  world keeps running behind it. **`const` in the console leaks between calls** —
+  intent carries look as DELTAS, so a hand-assigned yaw is invisible to the
+  server. Cost 83.67 m of split once. Re-align with `ctrl.position.set(...snap.me.p)`
+  and print the split before believing anything positional.
+- **Sandbox pins `feltC`/`effectiveC`/`wetness` while `coreC` keeps falling** —
+  the local thermal model is frozen by `ruleset.current.survival === false`. Looks
+  exactly like a new fix failing to reach the body. Set it true in place.
+- **`highlands.build()` takes NO argument** — it builds the best thing you can
+  afford, so `build('glider')` cheerfully gives you a windbreak. To place a
+  specific one: `structures.place('glider', x, z, yaw)`.
+- **`netcheck` on a loaded box fails the COMPANION line too**, not just the
+  budget line. Quieten the box and re-run before believing either failure.
+- **`HOURS=1` MOVES THE SPAWN TO THE OTHER SIDE OF THE LAKE** (~420 m).
+- **A number that reproduces exactly is a CONFIGURATION, not a drift.**
+- **Stale processes: kill them at the END of your run, not just the start.** A
+  backgrounded `server.js` can be reported EXITED while still listening;
+  `netstat -ano | grep ":8080.*LISTENING"` is the fact. This run found one on
+  **8099** left from an earlier session.
+- **A KEY RELEASE YOU DO NOT STEP IS NEVER SENT.** After a keyup, keep stepping
+  for at least `1000/NET.intentHz` ms of REAL time.
+- **Keys must be dispatched on `window`, not `document`.**
+- **Pace `stepWorld` to the WALL CLOCK for anything networked.**
+- **The socket keeps delivering while `stepWorld` is not running.** Do the whole
+  observation in one cell.
+- **`javascript_tool` gives up at 30 SECONDS**, and `const` leaks between calls —
   wrap every call in `(async()=>{ ... })()`.
-- **NEGATIVE `ctrl.pitch` LOOKS DOWN**, and `pitch` is damped back to
-  `targetPitch` every step — set BOTH. Aiming at something on the ground is
-  `-atan2(eyeY - targetY, distance)` using the CAMERA's y, not `ctrl.position.y`
-  (which is feet: getting that wrong gave +0.44 and photographed the sky).
-- **The player's yaw is the OPPOSITE convention to a companion's** — aiming the
-  body at something is `atan2(dx, dz) + PI`.
-- **Two check harnesses run back to back collide.** `spreadcheck` then
-  `shotcheck` gave 4/8; `shotcheck` alone gives 8/8. Re-run the loser on its own.
+- **NEGATIVE `ctrl.pitch` LOOKS DOWN**, and pitch is damped back every step — set
+  both. The player's yaw is the OPPOSITE convention to a companion's, and
+  `flightHeading(yaw) = yaw + PI` is the seam between walking and flying.
+- **Two check harnesses run back to back collide.** Re-run the loser on its own.
 - **A fresh server does NOT clear the duplicate roster** — it is a name collision
-  between the server's rival hunters and the `agents.js` pool. Restarting is waste.
-- **`HOURS=1 RAID=6` are knobs on `server.js`**, off by default. Goblins are
-  night-only, a day is 26 real minutes, and a lone goblin has morale 0.00 and
-  runs. **Attach the witness before you start the fight** — goblins cover 26 m and
-  draw blood in three seconds. **A goblin on 4 hp standing 0.1 m away does not
-  swing**; restart for a fresh `RAID` rather than waiting on wounded ones.
-- **A long survival test measures FOOD, not what you think** — 40 real minutes is
-  32 in-world hours and a shivering body starves first. Pin `hunger`, or keep to
-  one night (8.7 min). **Deer wander** — read a position once and you aim where it
-  used to be.
-- **`highlands.report({steps})` wants an ARRAY.** `agentcheck` is 16/17,
-  pre-existing. `netcheck` needs a server up.
+  between the server's rival hunters and the `agents.js` pool.
+- **`HOURS=1 RAID=6` are knobs on `server.js`.** Attach the witness before the
+  fight; goblins cover 26 m in three seconds.
+- **A long survival test measures FOOD, not what you think.** Pin `hunger`.
+- **`highlands.report({steps})` wants an ARRAY.** `agentcheck` is 16/17, pre-existing.
 - **The scatter collider field is `highlands.scatter.colliders`**; a creature's
   Object3D is `c.object`; lit fires are `highlands.fires.active`; `hud.heard`
-  holds objects — read `h.text`.
+  holds objects and is NOT an array — read `h.text`.
 
 ## The game queue, ranked
 
 1. **Your food is still your own opinion, and the fix is NOT one line.** Blocked
-   on #5: nothing can ever feed the server's copy of you. `intent.eat` is on the
+   on #4: nothing can ever feed the server's copy of you. `intent.eat` is on the
    wire and no handler reads it, and the server's `p.inventory` is not your
    inventory — so reading `me.f` today means eating does nothing (overwritten
-   ~5×/s) and everybody starves on a schedule they cannot touch. The route in is
-   an `intent.eat` handler plus a server-side inventory, not a read. **This is
-   the first thing on the list that is NOT in the applyRemote family** — do not
-   reach for those four pieces here, they will not fit.
-2. **A stranded glider cannot be recovered.**
-3. `glider.js` samples ridge lift upwind with `(−sin, −cos)` of `wind.angle`
+   ~5×/s). The route in is an `intent.eat` handler plus a server-side inventory.
+   **This is NOT in the applyRemote family** — those four pieces will not fit.
+2. `glider.js` samples ridge lift upwind with `(−sin, −cos)` of `wind.angle`
    while integrating flight in `(+sin, +cos)`. Establish which way `wind.angle`
-   points before touching it.
-4. **Arrows fired at ~0 m all miss.** Four full-charge shots at a motionless
-   goblin standing on top of me did nothing. Unexamined.
-5. Multiplayer carcass harvesting fills a LOCAL inventory only, and a mirrored
-   animal's morale/`hurt` flags are never sent.
-6. **Nothing else comes back DOWN about your own animal.** The fight now does
+   points before touching it. *(`nearestLaunchable` added this run uses the
+   `(+sin, +cos)` convention and is consistent with `canLaunch`; the lift sampler
+   is the one still in doubt.)*
+3. **Arrows fired at ~0 m all miss.** Four full-charge shots at a motionless
+   goblin standing on top of me did nothing. Unexamined — **and the aim fix at
+   `f3cf877` may have changed it, so re-measure before theorising.**
+4. Multiplayer carcass harvesting fills a LOCAL inventory only, and a mirrored
+   animal's morale/`hurt` flags are never sent. **Half of this was done at
+   `6cc22ff`** (the server rolls the carcass now); re-check what is left.
+5. **Nothing else comes back DOWN about your own animal.** The fight does
    (`g` + `mirrorFight`); the server still cannot say the pet was hurt, fed by
    somebody else, or killed. `g` is the pattern to copy.
-
-**UNCOMMITTED IN THE WORKING TREE — decide, do not just inherit it.**
-`src/world/pickups.js` carries an unfinished thread from an earlier run: a
-`taken` Set parameter on `deadfallNear`/`nearestDeadfall`, so a caller can
-exclude branches it has already carried away. **It is inert** — it defaults to
-`null` and no caller passes it — and the real bug it was written for is still
-open: `src/net/agent.js:527,535` calls `nearestDeadfall` with no memory, so an
-agent's `gather` walks to the same branch for ever. Driven by hand this run with
-a `taken` set it worked exactly as advertised (four different branches, 16.2,
-15.1 and 14.1 m apart, instead of standing still). Finishing it is: give the
-agent a Set, add the key on pickup, pass it. Small, and worth one run.
-
-**Measured 11:40, not a regression, worth a decision:** a companion trails a
-CONTINUOUSLY MOVING owner at about its own `runRange` — inside that range
-`think` only walks it and every species walks slower than a person. Invisible in
-single player because people stop constantly; glaring with agents, which never do.
+6. **Crouch is a uniform Y squash of the whole avatar** — a person of identical
+   proportions, 72% as tall, nameplate and all. Reads as "the model glitched",
+   which is the report we got. The fix is small and the parts exist: bend the
+   legs (`parts.legs[i].rotation.x` is already driven) and drop `body.position.y`
+   instead of scaling the group. `FINDINGS.md`, 2026-08-05 16:40.
 
 **Unmeasured, worth one run:** with 4 players the server's population drifted
 68 → 37 over ~24 game minutes (cap is 120, so not the cap), across 02:00–05:00.
 Daybreak retiring the night shift would explain it; so would `clearedSites`
 sterilising ground. Nobody tested which — do not repeat it as fact.
+
+**Measured, not a regression, worth a decision:** a companion trails a
+CONTINUOUSLY MOVING owner at about its own `runRange` — inside that range
+`think` only walks it and every species walks slower than a person. Invisible in
+single player because people stop constantly; glaring with agents, which never do.
 
 ## How to play it
 

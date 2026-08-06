@@ -15,6 +15,7 @@
 
 import {
   launch, stepGlide, canLaunch, liftCoefficient, dragCoefficient, glideRatio, flightReport, ridgeLift,
+  nearestLaunchable, carryReport,
 } from '../src/world/glider.js';
 import { GLIDER } from '../src/config.js';
 
@@ -188,6 +189,58 @@ check('a lip that flattens out again will not',
 // down.
 check('the same slope facing uphill will not',
   !canLaunch(0, 0, Math.PI, ridge).ok, 'steep enough, wrong way — checked ahead, not underfoot');
+
+// ── and if you cannot, you can pick it up and walk ──
+// The stranded wing. Everything above can only ever say no; these say where.
+console.log('');
+
+// The ridge again, but you are standing 90 m back from the lip on the flat top.
+// This is the shape of the trap exactly: a hill is RIGHT THERE and the spot you
+// are on refuses, for ever, with no verb that changes anything.
+const plateau = (x, z) => 200 - Math.max(0, z - 90) * 0.9;
+check('standing on flat ground you are told there is no edge here',
+  !canLaunch(0, 0, 0, plateau).ok, `"${canLaunch(0, 0, 0, plateau).why}"`);
+
+const found = nearestLaunchable(0, 0, plateau);
+check('but the wing is told where the edge IS',
+  found && found.distance > 0 && found.distance <= 105,
+  found ? `${found.distance} m away, ${(found.drop * 100).toFixed(0)}% downhill` : 'nothing found');
+// It has to be a real launch site, not merely a place the search liked — so
+// re-ask the question the game will ask when you get there.
+check('and standing there with that heading really does fly',
+  found && canLaunch(found.x, found.z, found.heading, plateau).ok);
+// Nearest, not merely valid: a carry is walking, and it must not send you
+// past a good edge to a better one.
+const finer = nearestLaunchable(0, 0, plateau, { step: 5 });
+check('it is the nearest edge, not just an edge',
+  finer && finer.distance <= found.distance && found.distance - finer.distance < 15,
+  `${found.distance} m on 15 m rings, ${finer?.distance} m on 5 m rings — the same edge`);
+
+// The sentence. `carryReport` is what the prompt says, and a direction you
+// cannot act on is the failure mode the refusal message was already fixed for
+// once — see launchRefusal.
+const facingEdge = carryReport(0, 0, 0, plateau);
+const facingAway = carryReport(0, 0, Math.PI, plateau);
+check('it says the edge is ahead when you are facing it',
+  /straight ahead/.test(facingEdge.text), `"${facingEdge.text}"`);
+check('and behind you when you turn your back on it',
+  /behind you/.test(facingAway.text), `"${facingAway.text}"`);
+check('standing ON an edge it says so instead of sending you away',
+  carryReport(0, 0, 0, ridge).here, `"${carryReport(0, 0, 0, ridge).text}"`);
+check('and over a world with no hill in it, it admits that',
+  !nearestLaunchable(0, 0, flat) && /flat country/.test(carryReport(0, 0, 0, flat).text),
+  `"${carryReport(0, 0, 0, flat).text}"`);
+
+// A bowl: the ground falls away on EVERY bearing, so the answer must be the
+// one under your feet and the walk must be zero.
+const bowl = (x, z) => 200 - Math.hypot(x, z) * 0.9;
+check('on a summit the carry is zero metres — you are already there',
+  nearestLaunchable(0, 0, bowl)?.distance === 0);
+
+// Same seed, same hill, same answer. The search runs on the prompt path.
+const twice = [nearestLaunchable(0, 0, plateau), nearestLaunchable(0, 0, plateau)];
+check('the search is deterministic',
+  twice[0].x === twice[1].x && twice[0].z === twice[1].z && twice[0].heading === twice[1].heading);
 
 // ── soaring ──
 // The thing that makes it an aeroplane rather than a hop. A windward slope with
