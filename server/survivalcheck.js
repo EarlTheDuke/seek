@@ -198,6 +198,57 @@ async function main() {
     !fed.some((d) => d.id === 'arrow') && fake.acted.gather === 5,
     `twelve arrows arrived and two branches were burnt; ${fake.acted.gather} items counted as gathered`);
 
+  // ── A CRAFT THE SERVER REFUSED MUST NOT READ AS A CRAFT ──
+  //
+  // The live half of this cannot prove it. `World.update` drops a craft when
+  // the fire is out of its reach, when the inputs have gone, or when `maxHeld`
+  // is already met, and it drops it IN SILENCE — no event, no reply, nothing on
+  // the wire. So a body pressing at a dead fire all night used to fill its deed
+  // log with cooking it never did, and no live run arranges that failure on
+  // purpose. Fed in, the same way the coalescing above is.
+  //
+  // (The thing this was originally opened for turned out not to exist: two
+  // identical craft lines at the same hour were `STOCK=venison:2` — two real
+  // steaks — not one press counted twice. `craftTried` is in the tally beside
+  // `craft` now so that question never has to be reasoned about again.)
+  // It starts at the PRESS, because that is where the old version wrote its
+  // deed and that is the line this discriminates against: a body standing at a
+  // fire with a workable recipe must set the intent, count the attempt, and
+  // claim NOTHING.
+  // Built on the REAL prototype and given invented state, rather than a plain
+  // object with the two methods borrowed: `notePack` now calls `noteMake`,
+  // which calls `did`, and a hand-rolled stand-in that happens to be missing
+  // the third of those tests nothing but itself.
+  const pot = Object.assign(Object.create(Agent.prototype), {
+    hours: 9, deeds: [], acted: {}, memory: { add() {} },
+    food: 100, eatCooling: 0, coreC: 37,        // neither hungry nor cold: only the craft branch runs
+    carrying: { venison: 1 }, _hadPack: true,
+    count: () => 1,
+    recipeToWork: () => 'cook_venison',
+    nearestFire: () => ({ d: 1, x: 0, z: 0 }),  // standing right at one
+  });
+  const i = {};
+  pot.upkeep(1 / 30, i);
+  const pressed = i.craft === 'cook_venison' && pot.acted.craftTried === 1 && pot.deeds.length === 0;
+
+  const pack = (iv) => pot.notePack(iv);
+  pack({ venison: 1 });            // pressed, and nothing came of it
+  pack({ venison: 1, wood: 1 });   // a branch arrives mid-window — still suppressed
+  const refused = pot.deeds.length === 0;
+  pack({ venison_cooked: 1 });     // ...and now the steak actually lands
+  const landed = pot.deeds.length === 1 && /I made a cooked venison at the fire/.test(pot.deeds[0]?.text ?? '');
+  pack({ venison_cooked: 2 });     // a second rise is NOT a second make
+  check('...and a craft the server silently refused is not reported as a meal',
+    pressed && refused && landed && pot.deeds.length === 1 && pot.acted.craft === 1,
+    !pressed
+      ? `the press alone wrote ${pot.deeds.length} deed(s) — a keypress is not a meal: ` +
+        pot.deeds.map((d) => `"${d.text}"`).join(' · ')
+      : !refused
+        ? `${pot.deeds.length} deed(s) written for a craft that produced nothing`
+        : landed
+          ? `1 attempt, nothing claimed until the output arrived, then exactly one: "${pot.deeds[0].text}"`
+          : `the steak landed and was recorded as ${JSON.stringify(pot.deeds.map((d) => d.text))}`);
+
   check('it lit a fire', sawFire, sawFire ? 'flames in the snapshot' : 'no fire ever burned');
 
   check('IT COOKED', sawCooked,

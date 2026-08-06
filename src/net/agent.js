@@ -518,7 +518,13 @@ export class Agent {
     // `notePack`. Counted in REAL seconds off `dt`, because the game clock
     // wraps at 24 and a body that cannot attribute a meal between 23:59 and
     // 00:01 would be wrong at exactly the hour it is most likely to be eating.
-    if (this._made > 0) this._made = Math.max(0, this._made - dt);
+    if (this._made > 0) {
+      this._made = Math.max(0, this._made - dt);
+      // The window closed without the recipe's output ever arriving, so that
+      // make never happened — forget it rather than let a stale recipe claim
+      // the next thing that rises. `noteMake`.
+      if (this._made === 0) this._making = null;
+    }
 
     // ── noticing runs on its own clock, faster than thinking ──
     //
@@ -1006,7 +1012,27 @@ export class Agent {
       i.sprint = i.crouch = false;
       if (recipe) {
         i.craft = recipe;
-        this.did('craft', `I worked ${RECIPES[recipe].name.toLowerCase()} at the fire`);
+        // ── A PRESS IS NOT A MAKE ──
+        //
+        // This used to write the deed right here, and the deed was a keypress
+        // wearing an outcome's clothes — the same mistake `arriveWithin` vs
+        // `PICKUP.radius` made one method down, and it went the same way. The
+        // server resolves a craft INSTANTLY but the pack comes back at 20 Hz
+        // against a body running at 30, so `recipeToWork` still sees the raw
+        // venison for a tick or two and presses again at a fire that has
+        // already cooked it. Measured live: `craft: 2` and two identical lines
+        // stamped 1.27h for ONE steak, in a column five deep that a watcher
+        // reads — which is the kill and the fire pushed off the end of it.
+        //
+        // And the duplicate was the mild half. The server refuses a craft with
+        // no station in reach, no inputs, or `maxHeld` already met, and it
+        // refuses silently: a body could stand at a cold fire pressing all
+        // night and the report would say it cooked. So the deed moved to where
+        // the gather deed already is — the pack RISING on the server's own
+        // snapshot, which is a thing that happened rather than a thing wanted.
+        // See `noteMake`.
+        this.acted.craftTried = (this.acted.craftTried ?? 0) + 1;
+        this._making = recipe;
         // ── this make owns the next change to the pack ──
         // A cook turns venison into venison_cooked and the cooked line RISES,
         // which is indistinguishable from picking one up if you only watch the
@@ -1164,7 +1190,11 @@ export class Agent {
     // shape it takes. Conservative on purpose: the cost is a pickup that goes
     // unrecorded while standing at a fire, and the alternative is a cooked
     // steak announced as something the body found lying about.
-    if ((this._made ?? 0) > 0) return;
+    //
+    // It is also the ONLY window in which a make can be confirmed, so the
+    // craft's own deed is written here on the way past — see `noteMake`. The
+    // suppression stays whether or not that fires.
+    if ((this._made ?? 0) > 0) { this.noteMake(before, iv); return; }
 
     for (const [id, n] of Object.entries(iv)) {
       const gained = n - (before?.[id] ?? 0);
@@ -1192,6 +1222,52 @@ export class Agent {
       this.memory.add(this.hours, text);
       this.deeds.push({ h: +this.hours.toFixed(2), what: 'gather', id, n: gained, text });
       if (this.deeds.length > AGENTS.logSize) this.deeds.shift();
+    }
+  }
+
+  /**
+   * A make CONFIRMED — the thing the recipe promised, arriving in the pack.
+   *
+   * ── why this is not written where the button is pressed ──
+   *
+   * `notePack` already refuses to call a pickup a pickup unless the server's
+   * own snapshot says the number went up. The craft deed had no such rule: it
+   * was written the instant `i.craft` was set, so it counted presses. Two facts
+   * make that wrong rather than merely untidy.
+   *
+   * A PRESS REPEATS. The pack arrives at 20 Hz and this body runs at 30, so
+   * after the server has already cooked the steak `recipeToWork` still sees the
+   * raw venison and asks again. One cook, two identical lines, same hour, in a
+   * column five deep.
+   *
+   * A PRESS CAN FAIL IN SILENCE. `World.update` drops the craft if the fire is
+   * out of its reach, if the inputs have gone, or if `maxHeld` is already met,
+   * and says nothing to anybody. A body pressing at a dead fire all night read
+   * as a body that cooked all night.
+   *
+   * So the recipe's own `outputs` are the test, and they run inside the window
+   * the make already owns. Anything else that rises in that window stays
+   * suppressed exactly as before — the conservative rule is untouched, this
+   * only puts a name to the one rise it can actually account for.
+   *
+   * `_making` is cleared and `_made` is NOT: the window still has to swallow
+   * whatever else the same snapshot brought, or the steak's own arrival could
+   * be reported twice, once as a make and once as a find.
+   */
+  noteMake(before, iv) {
+    const r = RECIPES[this._making ?? ''];
+    if (!r) return;
+    for (const id of Object.keys(r.outputs)) {
+      const gained = (iv[id] ?? 0) - (before?.[id] ?? 0);
+      if (gained <= 0) continue;
+      this._making = null;
+      const noun = (getItem(id)?.name ?? id).toLowerCase();
+      // "I made", not the recipe's verb: the table's verbs are cook, fletch and
+      // stitch, and conjugating them is a English problem this does not need to
+      // have. What matters is that it does not read like "I picked up".
+      const what = gained > 1 ? `${gained} ${Agent.plural(noun, gained)}` : `a ${noun}`;
+      this.did('craft', `I made ${what} at the fire`);
+      return;
     }
   }
 
