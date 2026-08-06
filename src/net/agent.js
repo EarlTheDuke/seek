@@ -43,11 +43,13 @@ import { createIntent } from '../sim/intents.js';
 import { sanitiseGoal, describeGoal, GOAL_IDS } from '../minds/goals.js';
 import { Memory } from '../minds/mind.js';
 import { nearestDeadfall } from '../world/pickups.js';
+import { heightAt } from '../world/noise.js';
+import { aimAt, sightline } from '../minds/marksman.js';
 // For `guard`: what counts as a threat is read off the species table rather
 // than listed here, so a wolf added later is guarded against without an edit.
 import { SPECIES } from '../creatures/registry.js';
 import { bearingName, describePosition } from '../world/placenames.js';
-import { AGENTS } from '../config.js';
+import { AGENTS, BOW, PLAYER } from '../config.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -178,6 +180,10 @@ export class Agent {
             // measured from here. Snap to the truth whenever it arrives.
             if (msg.data.me) {
               this._x = msg.data.me.p[0];
+              // Height too, and only because of the bow: an arc is solved against
+              // how far ABOVE or BELOW you the animal stands, and a body that
+              // does not know how high it is standing cannot solve one.
+              this._y = msg.data.me.p[1];
               this._z = msg.data.me.p[2];
               // Heading too. Position without facing is half a fix: a body that
               // integrates its own yaw against a server integrating it
@@ -329,9 +335,20 @@ export class Agent {
     // `where` is the compass bearing, and it is not optional: without it every
     // contact read "a little way off to the undefined", which is both useless
     // to a model and the single most obvious sign nobody had read the output.
-    const add = (what, x, z, doing, condition) => {
+    const add = (what, x, z, doing, condition, y = null) => {
       const d = Math.hypot(x - this.x, z - this.z);
       if (d > AGENTS.noticeRange) return;
+      // ── can it actually be shot, or is there a hill in the way? ──
+      //
+      // "A deer, close to the north-west" was the truth and was not enough. Six
+      // arrows went into a slope at an animal that was in range, in the open and
+      // unaware, standing 12.7 m above the archer over a crest — and nothing in
+      // the brief distinguished that from a clear shot across a meadow.
+      //
+      // A mind that cannot tell those apart is not choosing between them, it is
+      // guessing. One word fixes it.
+      const clear = y === null ? null
+        : !sightline(this.x, this._y + PLAYER.eyeHeight, this.z, x, y + AGENTS.aimAboveFeet, z, heightAt).blocked;
       contacts.push({
         what,
         how: 'seen',
@@ -339,6 +356,10 @@ export class Agent {
         distance: howFar(d),
         doing,
         condition,
+        // Only stated when it MATTERS — inside bow range. At 120 m "you have a
+        // clear line" is not information, it is noise in the prompt.
+        sight: clear === null || d > AGENTS.shootRange ? null
+          : clear ? 'a clear line' : 'no clear line — ground in the way',
         _m: d,
       });
     };
@@ -354,11 +375,12 @@ export class Agent {
         this.others.get(p.id) ?? 'someone',
         p.p[0], p.p[2],
         p.c ? 'crouched' : p.s > 5 ? 'running' : 'walking',
-        p.x ? 'down' : p.h < 45 ? 'badly hurt' : 'unhurt'
+        p.x ? 'down' : p.h < 45 ? 'badly hurt' : 'unhurt',
+        p.p[1]
       );
     }
     for (const c of s?.cr ?? []) {
-      add(`a ${c.k}`, c.p[0], c.p[2], c.s, c.h < 30 ? 'wounded' : 'unhurt');
+      add(`a ${c.k}`, c.p[0], c.p[2], c.s, c.h < 30 ? 'wounded' : 'unhurt', c.p[1]);
     }
     contacts.sort((a, b) => a._m - b._m);
 
@@ -496,6 +518,7 @@ export class Agent {
     i.aimYaw = this.yaw;
 
     this._x ??= 0;
+    this._y ??= 0;
     this._z ??= 0;
 
     const g = this.goal;
@@ -509,6 +532,23 @@ export class Agent {
       i.forward = 0;
       i.sprint = i.crouch = false;
       this.trackSelf(dt, 0);
+      return;
+    }
+
+    // ── a quarry is not a destination, it is a shot ──
+    //
+    // Everything else in this method is "walk there and use your hands". This
+    // is the one target you are supposed to STOP short of, and before today
+    // there was no code anywhere in this project that made an agent draw a bow:
+    // `primary` appeared in neither agent.js nor hunter.js, so `hunt` meant
+    // "follow the deer" and meant it for ever.
+    //
+    // The judgement stays upstairs — the mind chose the quarry. Everything from
+    // here down is reflex: where the ground is, what the arc has to be, whether
+    // to shoot at all or close the range first. See minds/marksman.js.
+    if (this.target?.quarry) {
+      this.act_shoot(dt, i);
+      this.trackSelf(dt, i.forward ? (i.crouch ? 2.1 : 4.1) : 0);
       return;
     }
 
@@ -544,6 +584,90 @@ export class Agent {
     }
 
     this.trackSelf(dt, i.forward ? (i.sprint ? 8.4 : 4.1) * (i.crouch ? 0.5 : 1) : 0);
+  }
+
+  /**
+   * Stalk, draw, loose. The body's half of hunting.
+   *
+   * The draw is a HELD state and the loose is its release: the server edge-
+   * detects `intent.primary`, so an arrow leaves at the moment this goes from
+   * true to false and at no other time. That makes the whole shot a small timer
+   * rather than an event to schedule.
+   *
+   * `aimYaw`/`aimPitch` and not look deltas, for the reason in intents.js — an
+   * agent is a network client and its deltas were being eaten by the send
+   * throttle, so it believed it was facing its quarry while the server had it
+   * pointing somewhere else. Absolute aim is what makes this possible at all.
+   */
+  act_shoot(dt, i) {
+    const t = this.target;
+    const dx = t.x - this._x;
+    const dz = t.z - this._z;
+    const dist = Math.hypot(dx, dz);
+
+    // Aim at the middle of the animal rather than the ground it stands on. Its
+    // feet are a legal target and a wasted arrow.
+    const shot = aimAt(
+      { x: this._x, y: this._y, z: this._z },
+      { x: t.x, y: t.y + AGENTS.aimAboveFeet, z: t.z },
+      heightAt,
+      { maxRange: AGENTS.shootRange }
+    );
+
+    // Turn to it either way: walking toward something you are not facing is how
+    // an agent ends up orbiting it.
+    i.aimYaw = shot.yaw;
+    this.yaw = shot.yaw;
+
+    if (!shot.shoot) {
+      // Not a shot yet — so close the range, quietly. Whatever the reason is,
+      // the answer is the same and it is the answer a person would reach for.
+      this.drawFor = 0;
+      i.primary = false;
+      i.aimPitch = 0;
+      // ── and never closer than this, however tempting ──
+      //
+      // Without a floor it walks until the sightline clears, and on rolling
+      // ground that means walking onto the animal: measured misses reading "my
+      // arrow hit ground 2 m away", which is an archer standing over a deer
+      // shooting almost straight down at it while it bolts. A deer that lets
+      // you get to 3 m has already decided to leave.
+      //
+      // If the line is still blocked at the stand-off, the honest answer is
+      // that this is a bad place to shoot from. Holding here lets the animal
+      // graze on, the ground change, or the mind pick another quarry — all of
+      // which are better than closing until it runs.
+      i.forward = dist > AGENTS.standOff ? 1 : 0;
+      i.sprint = false;
+      i.crouch = dist < AGENTS.stalkWithin; // stop spooking it
+      if (this.shotWhy !== shot.why) {
+        this.shotWhy = shot.why;
+        this.memory.add(this.hours, `no shot at ${Math.round(dist)} m — ${shot.why}`);
+      }
+      return;
+    }
+
+    // ── a shot is on ──
+    this.shotWhy = null;
+    i.aimPitch = shot.pitch;
+    i.forward = 0;            // spread opens up if you are moving; stand still
+    i.sprint = false;
+    i.crouch = true;
+
+    this.drawFor = (this.drawFor ?? 0) + dt;
+    if (this.drawFor < 0) { i.primary = false; return; } // still recovering
+
+    // Past a full draw and comfortably under BOW.holdFatigue, where the aim
+    // starts to shake.
+    if (this.drawFor < BOW.drawTime + AGENTS.drawMargin) {
+      i.primary = true;
+      return;
+    }
+    i.primary = false; // release: THIS is the arrow
+    this.arrows = (this.arrows ?? 0) + 1;
+    this.memory.add(this.hours, `I loosed at ${Math.round(dist)} m`);
+    // Negative, so the next few ticks are a pause rather than an instant redraw.
+    this.drawFor = -(BOW.cooldown + AGENTS.betweenShots);
   }
 
   /** Dead reckoning. Good enough to navigate by; the server is still the truth. */
@@ -611,6 +735,14 @@ export class Agent {
       for (const p of s?.pl ?? []) if (pred(this.others.get(p.id) ?? 'someone', p)) return { x: p.p[0], z: p.p[2] };
       return null;
     };
+    // The same search, keeping the height. Anything that is going to be SHOT at
+    // needs it; anything that is only going to be walked to does not, and the
+    // ground answers for itself on the way.
+    const findFull = (pred) => {
+      for (const c of s?.cr ?? []) if (pred(`a ${c.k}`, c)) return { x: c.p[0], y: c.p[1], z: c.p[2] };
+      for (const p of s?.pl ?? []) if (pred(this.others.get(p.id) ?? 'someone', p)) return { x: p.p[0], y: p.p[1], z: p.p[2] };
+      return null;
+    };
     switch (g.kind) {
       // Walk to the nearest branch and PRESS E when you get there.
       //
@@ -669,8 +801,15 @@ export class Agent {
         if (d < AGENTS.followWithin) return null; // close enough; hold station
         return { x: who.x - (dx / d) * AGENTS.followWithin, z: who.z - (dz / d) * AGENTS.followWithin };
       }
-      case 'hunt':
-        return find((label) => label === (g.quarry ?? '')) ?? this.roam();
+      // ── the only goal that ends in a shot ──
+      // Carries `y` and a `quarry` flag, which nothing else does. Height is not
+      // decoration here: the whole difference between a shot and an arrow in a
+      // hillside is how far above or below you the animal is standing, and
+      // `find` throws that away. See `act` for what is done with it.
+      case 'hunt': {
+        const q = findFull((label) => label === (g.quarry ?? ''));
+        return q ? { x: q.x, y: q.y, z: q.z, quarry: true } : this.roam();
+      }
       case 'approach':
         return find((label) => label === (g.target ?? '')) ?? this.roam();
       case 'avoid': {

@@ -187,6 +187,11 @@ export function briefToText(b) {
       const bits = [`  - ${c.what}, ${c.how}, ${c.distance} to the ${c.where}`];
       if (c.doing) bits.push(`, ${c.doing}`);
       if (c.condition) bits.push(` (${c.condition})`);
+      // Whether it can actually be SHOT, and only close enough for that to be a
+      // real question. "A deer, close to the north-west" was true of an animal
+      // standing over a crest with a hillside between you, and six arrows went
+      // into that hillside before anybody worked out why.
+      if (c.sight) bits.push(` — ${c.sight}`);
       lines.push(bits.join(''));
     }
   } else {

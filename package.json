@@ -37,7 +37,8 @@
     "glidercheck": "node server/glidercheck.js",
     "audit": "node server/audit.js",
     "agents": "node server/agents.js",
-    "agentcheck": "node server/agentcheck.js"
+    "agentcheck": "node server/agentcheck.js",
+    "huntcheck": "node server/huntcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

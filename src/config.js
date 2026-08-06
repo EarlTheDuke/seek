@@ -797,6 +797,23 @@ export const AGENTS = {
   // `Memory.add`'s repeat-drop does the rest of the work.
   noticeSeconds: 2,
   retargetSeconds: 2.5,
+
+  // ── drawing a bow ──
+  // The numbers the reflex layer hunts by. Judgement stays with the mind, which
+  // only ever says WHICH animal; everything here is the body's half.
+  //
+  // 45 m and not `noticeRange`: an agent can see a deer at 120 m and has no
+  // business shooting at one. Past about 60 m the hold-over is 4°+ and the arc
+  // spends long enough in the air that a grazing animal has moved out from
+  // under it — see the drop table in ARROW.
+  shootRange: 45,
+  aimAboveFeet: 0.75, // the middle of a deer, not the ground it stands on
+  // How close it will walk while trying to get a clear line. A bow is not a
+  // spear: past this the shot is a steep plunge onto an animal that is already
+  // running, and the measured result was arrows landing 2 m from the archer.
+  standOff: 12,
+  drawMargin: 0.35,   // held past BOW.drawTime, well under BOW.holdFatigue
+  betweenShots: 1.1,  // a pause after loosing, so it does not machine-gun
   arriveWithin: 6,
   roamDistance: 60,
   stalkWithin: 45,
