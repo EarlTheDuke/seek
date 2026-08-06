@@ -135,6 +135,15 @@ b.collided)` — a flag set on the line AFTER the dead call, unconditionally, wi
 no way to fail. Now it asserts the cylinder itself, tagged, at the spec's radius.
 **A flag that says work happened is not the work.**
 
+**5. ...AND MAKING THE WALL REAL MADE IT IMMORTAL.** Caught by asking what
+else changed, not by a check. `Structures.remove` knew nothing about the
+collider and `ColliderField` had no way to remove one, so a wall you built and
+took down would stop arrows for the rest of the run — impossible before, because
+no wall was ever solid. Colliders are now RETIRED, not spliced: `grid` holds
+INDICES into `list`, so removing an entry would renumber every solid after it.
+campcheck asserts it through a LIVE SEGMENT QUERY, because a retired collider is
+still in the list by design and a check that counted would pass on a live wall.
+
 ### `avatarcheck` — 11/11, no port, no server, no wall clock
 
 Drives the REAL `Avatar.apply`. The only fake is a DOM stub for the nameplate
@@ -284,7 +293,7 @@ sidestepping in place. It did not raise the kill rate; nothing yet has.
 
 ## Checks
 
-`firecheck` 57 · `companioncheck` 45 · `glidercheck` 42 · `campcheck` 36 ·
+`firecheck` 57 · `companioncheck` 45 · `glidercheck` 42 · **`campcheck` 38** ·
 `boardcheck` 35 · `weathercheck` 27 · `providercheck` 25 · `netcheck` 24 ·
 `personacheck` 21 · **`avatarcheck` 11** · `mindcheck`/`clockcheck` 21 · `warmthcheck` 20 ·
 `deathcheck` 19 · `bookcheck`/`reportcheck`/`raidcheck` 18 · **`detourcheck` 18** ·
