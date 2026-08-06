@@ -216,7 +216,27 @@ export class SimWorld {
       // Rolled HERE rather than on each client, because two players rolling
       // their own carcass would disagree about what came off it. The server
       // rolls once and says what it found.
-      onCreatureHit: (creature, result) => {
+      onCreatureHit: (creature, result, _at, byId = null) => {
+        // ── an arrow that DID land is news too ──
+        //
+        // Only a miss was ever announced, so hitting an animal and killing it
+        // outright were the only two things an archer could hear about. A shaft
+        // that went home and left the deer running produced silence — the same
+        // silence as a shot that never happened — and a mind reading its own
+        // memory afterwards had no way to know it had ever connected. It is
+        // also the only signal that says "keep after THAT one".
+        if (!result?.killed && result?.damage > 0 && byId != null) {
+          this.events.push({
+            k: 'wound',
+            by: byId,
+            sp: creature.species.id,
+            n: creature.species.name,
+            dmg: Math.round(result.damage),
+            // What is left in it, so a body can tell a graze from a mortal hit.
+            hp: Math.max(0, Math.round(creature.hp)),
+            at: [round2(creature.position.x), round2(creature.position.y), round2(creature.position.z)],
+          });
+        }
         if (!result?.killed) return;
         const drops = [];
         for (const d of creature.species.drops ?? []) {
@@ -239,6 +259,15 @@ export class SimWorld {
           n: creature.species.name,
           at: [round2(at.x), round2(at.y), round2(at.z)],
           d: drops,
+          // ── and WHOSE it was ──
+          //
+          // The carcass stays public — anyone who walks up can take from it,
+          // which is how it has always worked — but the announcement now names
+          // the archer. It was anonymous, and that one gap made "can an agent
+          // kill a deer" a question nothing could answer: huntcheck watched hit
+          // points fall and a carcass appear, and both are equally true when a
+          // wolf did it. Null for anything a person did not shoot.
+          by: byId ?? null,
         });
       },
     });
@@ -726,6 +755,16 @@ export class SimWorld {
 
   stepPlayer(p, dt, worldCtx) {
     const intent = p.intent;
+
+    // ── letting the string down, BEFORE the trigger edge is read ──
+    //
+    // Order is the whole point. A caller that has decided not to shoot sets
+    // `letdown` and drops `primary` in the same tick — the natural way to spell
+    // "stop" — and if the edge below ran first that would loose the arrow it
+    // was trying not to loose. Cancelling first leaves the bow out of DRAWING,
+    // so `endPrimary` finds nothing to release and the arrow stays in the
+    // quiver. See the note on `letdown` in intents.js.
+    if (intent.letdown) p.weapons.cancel?.();
 
     // Edge-detected FROM THE INTENT rather than from an input event, so this
     // path is byte-identical in the browser, in Node, and over a socket.

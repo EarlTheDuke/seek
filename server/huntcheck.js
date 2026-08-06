@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { Agent } from '../src/net/agent.js';
 import { makeRandom } from '../src/world/noise.js';
+import { BOW } from '../src/config.js';
 import { requireFreePort } from './freeport.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -77,12 +78,23 @@ async function main() {
   // The server ticks on a wall clock and rate-limits intents; stepping this in
   // a tight loop sends a thousand packets describing one second and teaches us
   // nothing about what a real agent does.
+  // ── WHOSE KILL? ──
+  //
+  // This check used to watch deer hit points fall and a carcass be announced,
+  // and call either one proof. Neither is: nothing on the wire said who did it,
+  // so a wolf eating a deer read as an agent hunting one. It passed a run in
+  // which the agent loosed ZERO arrows — 5/6, with "AND IT BROUGHT ONE DOWN"
+  // green — which is the exact shape of a green check that lies.
+  //
+  // The kill event now carries `by`, and `agent.kills` holds only the ones with
+  // this agent's id on them. Hit points and carcasses are still watched, but as
+  // CONTEXT printed at the end, never as the verdict.
   const deerHp = new Map();
   let lowest = Infinity;
   let sawShot = false;
-  let killed = false;
+  let anyDeerDown = false;
   const t0 = Date.now();
-  while (Date.now() - t0 < 150_000 && !killed) {
+  while (Date.now() - t0 < 150_000 && !agent.kills.length) {
     agent.update(1 / 30);
     if (agent.intent.primary) sawShot = true;
     for (const c of agent.snapshot?.cr ?? []) {
@@ -90,24 +102,44 @@ async function main() {
       const was = deerHp.get(c.i);
       if (was !== undefined && c.h < was) lowest = Math.min(lowest, c.h);
       deerHp.set(c.i, c.h);
-      if (c.h <= 0) killed = true;
+      if (c.h <= 0) anyDeerDown = true;
     }
-    // A carcass is the other way a kill shows: the server drops the creature
-    // from `cr` and announces it. Either is proof.
-    if (agent.memory.entries.some((e) => e.text.includes('went down'))) killed = true;
+    if (agent.memory.entries.some((e) => e.text.includes('went down'))) anyDeerDown = true;
     await sleep(1000 / 30);
   }
+  const killed = agent.kills.length > 0;
   const secs = ((Date.now() - t0) / 1000).toFixed(0);
 
   check('it drew the bow at all', sawShot,
     sawShot ? 'held `primary` — which no agent in this project had ever done' : 'never once held the trigger');
 
-  check('it loosed arrows', (agent.arrows ?? 0) > 0, `${agent.arrows ?? 0} loosed in ${secs} s`);
+  check('it loosed arrows', (agent.arrows ?? 0) > 0, `${agent.arrows ?? 0} aimed shots in ${secs} s`);
 
-  check('a deer actually lost hit points', lowest < Infinity,
-    lowest < Infinity ? `down to ${lowest} hp` : 'nothing was ever hurt');
+  // ── every release of the string, meant or not ──
+  //
+  // The server edge-detects `intent.primary`: any true -> false is an arrow, so
+  // a body that changes its mind mid-draw fires one without deciding to. Those
+  // shots leave at as little as a third of the solver's launch speed, in
+  // whatever direction it was turning, and NOTHING counted them — `arrows` only
+  // ever counted the deliberate ones. If these outnumber the aimed shots, the
+  // body is spraying the hillside while believing it has not fired.
+  const rel = agent.releases ?? [];
+  const stray = rel.filter((r) => r.loosed && r.why !== 'aimed');
+  check('it does not fire arrows it never meant to', stray.length === 0,
+    `${rel.filter((r) => r.why === 'aimed').length} aimed, ${stray.length} loosed by letting go mid-draw`);
+  if (stray.length) {
+    const held = stray.map((r) => r.held);
+    console.log(`      strays held ${Math.min(...held).toFixed(2)}-${Math.max(...held).toFixed(2)} s ` +
+      `(full draw is ${BOW.drawTime} s, so they left at a fraction of the speed the solver assumed)`);
+  }
 
-  check('AND IT BROUGHT ONE DOWN', killed, killed ? `inside ${secs} s` : `not in ${secs} s`);
+  check("its own arrows drew blood", (agent.wounds?.length ?? 0) + (agent.kills?.length ?? 0) > 0,
+    `${agent.wounds?.length ?? 0} wounds, ${agent.kills?.length ?? 0} kills` +
+    (lowest < Infinity ? ` · some deer went to ${lowest} hp (whoever did it)` : ''));
+
+  check('AND IT BROUGHT ONE DOWN', killed,
+    killed ? `${agent.kills.map((k) => k.what).join(', ')} inside ${secs} s`
+      : `not in ${secs} s${anyDeerDown ? ' — a deer did die, but not by this agent\'s hand' : ''}`);
 
   // The bit that makes a miss worth having: an agent that shot and missed
   // should be able to say so afterwards, in a sentence with a number in it.

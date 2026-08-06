@@ -142,6 +142,24 @@ export class Agent {
     // id -> count, straight off the snapshot. Empty until the first one lands.
     this.carrying = {};
     this.hours = 0;
+    // Animals this body shot itself, off the `by` on the kill event. NOT the
+    // ones it watched die.
+    this.kills = [];
+    // ...and the ones it hurt without putting down. See the 'wound' event.
+    this.wounds = [];
+    // ── every time the string went slack, meant or not ──
+    //
+    // `arrows` counts the shots the body DECIDED to take. The server does not
+    // care what we decided: it edge-detects `intent.primary`, so ANY true ->
+    // false looses an arrow, including the ones where the body changed its mind
+    // mid-draw and quietly dropped the trigger on its way to doing something
+    // else. Those fire at whatever charge had built — as low as `BOW.minCharge`,
+    // which is a third of the launch speed the solver assumed — in whatever
+    // direction the body happened to be facing, and nothing recorded them at
+    // all. Counted HERE, at the edge, because that is where the arrow leaves.
+    this.releases = [];
+    this._held = 0;      // real seconds the trigger has been down
+    this._looseWhy = null; // set by whoever meant it
     this.spoke = -999;
     this.tokensIn = 0;
     this.tokensOut = 0;
@@ -338,15 +356,33 @@ export class Agent {
         if (mine) this.memory.add(this.hours, `my arrow struck someone for ${e.dmg}`);
         else if (atMe) this.memory.add(this.hours, `an arrow hit me for ${e.dmg}`);
         break;
+      case 'wound':
+        // The one thing a hunting body could never hear. A miss was announced
+        // and a kill was announced; an arrow that went home and left the animal
+        // on its feet sounded exactly like never having fired.
+        if (mine) {
+          this.wounds.push({ h: +this.hours.toFixed(2), what: e.n, dmg: e.dmg, hp: e.hp });
+          this.lastShot = null; // it hit; there is no miss to measure
+          this.memory.add(this.hours,
+            `my arrow went into the ${e.n.toLowerCase()} — ${e.dmg} damage, it is still up with ${e.hp} left`);
+        }
+        break;
       case 'glance':
         if (mine || atMe) this.memory.add(this.hours, `an arrow was refused — ${e.why}`);
         break;
       case 'kill':
-        // Not gated on `mine`: the server does not say who killed an animal,
-        // and a carcass on the ground is worth knowing about however it got
-        // there. This is the entry that makes scavenging somebody else's kill
-        // a thing a mind can decide to do.
+        // Not gated on `mine`: a carcass on the ground is worth knowing about
+        // however it got there. This is the entry that makes scavenging
+        // somebody else's kill a thing a mind can decide to do.
         this.memory.add(this.hours, `a ${e.n.toLowerCase()} went down near ${Math.round(e.at[0])},${Math.round(e.at[2])}`);
+        // ...but WHOSE it was is now on the event, and a body should know the
+        // difference between meat it earned and meat it found. Everything that
+        // asks "can this thing hunt" has to read this rather than the sentence
+        // above, which is equally true when a wolf did the work.
+        if (mine) {
+          this.kills.push({ h: +this.hours.toFixed(2), what: e.n, at: e.at });
+          this.did('killed', `I brought down a ${e.n.toLowerCase()}`);
+        }
         break;
       case 'death':
         this.memory.add(this.hours, `${e.n} was killed by ${e.by} ${e.where ?? ''}`.trim());
@@ -448,7 +484,34 @@ export class Agent {
       this.since = 0;
       this.deliberate();
     }
+    // ── THE ARROW LEAVES HERE, whatever the body thought it was doing ──
+    // The trigger as the server will read it: held last tick, not held this
+    // one, is an arrow. See `releases`.
+    const heldBefore = this.intent.primary;
     this.act(dt);
+    if (heldBefore && !this.intent.primary) {
+      // ── if we did not MEAN this one, ease the string down ──
+      //
+      // One choke point for every path that stops drawing — a lost quarry, a
+      // re-solve that now refuses the shot, standing up to see over a crest,
+      // hunger taking the tick. Each of those simply drops the trigger, and
+      // each of them was an arrow. `letdown` is resolved on the server before
+      // the trigger edge, so the shaft stays in the quiver.
+      if (this._looseWhy !== 'aimed') this.intent.letdown = true;
+      this.releases.push({
+        h: +this.hours.toFixed(2),
+        held: +this._held.toFixed(2),
+        // Whether an arrow actually left. `BOW.minCharge` of `BOW.drawTime` is
+        // the point at which the string has enough tension to throw one — but a
+        // release we did not mean now carries `letdown`, which cancels the draw
+        // outright, so those keep their arrow whatever the charge.
+        loosed: this._looseWhy === 'aimed' || (!this.intent.letdown && this._held >= BOW.drawTime * BOW.minCharge),
+        why: this._looseWhy ?? 'let go without meaning to',
+      });
+      if (this.releases.length > AGENTS.logSize) this.releases.shift();
+      this._looseWhy = null;
+    }
+    this._held = this.intent.primary ? this._held + dt : 0;
     this.send(C_INTENT, { i: this.intent });
   }
 
@@ -645,7 +708,7 @@ export class Agent {
    */
   act(dt) {
     const i = this.intent;
-    i.interact = i.drop = i.place = i.eat = i.jump = false;
+    i.interact = i.drop = i.place = i.eat = i.jump = i.letdown = false;
     i.craft = '';
 
     // SAY WHERE WE ARE POINTING, not just how far we turned.
@@ -1099,6 +1162,7 @@ export class Agent {
       return;
     }
     i.primary = false; // release: THIS is the arrow
+    this._looseWhy = 'aimed';
     this.arrows = (this.arrows ?? 0) + 1;
     // ── what this shot was FOR, kept until we hear where it went ──
     // The instrument. An aggregate miss count cannot tell an over-lead from an

@@ -102,6 +102,10 @@ export function createSimWorld({ seed = SEED, hours = TIME.startHour } = {}) {
   function step(dt, rawIntent) {
     const intent = sanitiseIntent(rawIntent);
 
+    // Easing the string down, resolved before the trigger edge for the reason
+    // in intents.js — otherwise "stop drawing" and "shoot" are the same signal.
+    if (intent.letdown) weapons.cancel?.();
+
     // The trigger is edge-detected FROM THE INTENT, not from an input event, so
     // this path is identical in the browser and here.
     if (intent.primary !== primaryWasHeld) {

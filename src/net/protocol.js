@@ -81,6 +81,11 @@ const INTENT_KEYS = [
   // here at all — so a body on the far side of a socket could gather, light a
   // fire and eat, and still never turn raw meat into a meal.
   'craft',
+  // Easing the string down. The trigger is EDGE-DETECTED on the server, so
+  // until this existed there was no way to stop drawing that did not launch an
+  // arrow: a body that changed its mind mid-draw shot the hillside. Measured at
+  // five strays to two aimed shots in one huntcheck run.
+  'letdown',
   'selectSlot',
 ];
 

@@ -413,7 +413,12 @@ export class Projectiles {
       _from.copy(_probe).addScaledVector(_dir, -45);
       const result = struck.applyDamage(base, zone, _from);
       this.deps.audio?.impact?.('flesh', _probe);
-      this.deps.onCreatureHit?.(struck, result, _probe);
+      // WHO loosed it travels with the hit. Without it the world announces a
+      // dead animal and nobody can say whose it was — which made "can an agent
+      // kill a deer" unanswerable: a check watching hit points go down cannot
+      // tell an arrow from a wolf, and passed while the archer was still
+      // fumbling for its quiver.
+      this.deps.onCreatureHit?.(struck, result, _probe, p.ownerId);
       // Drop the arrow at the animal's feet rather than parenting it to a
       // bolting deer — recoverable, and it never floats in mid-air.
       pos.set(_probe.x, heightAt(_probe.x, _probe.z) + 0.05, _probe.z);

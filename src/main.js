@@ -348,6 +348,11 @@ function boot() {
             const what = e.hit === 'ground' ? 'the ground' : e.hit === 'tree' ? 'a tree' : `the ${e.hit}`;
             hud.chat(null, `your arrow strikes ${what}, ${e.d} m out`);
           }
+        } else if (e.k === 'wound') {
+          // Your arrow landed and the animal is still up. Said only to the
+          // archer, and it is the counterpart of "your arrow strikes a tree" —
+          // between them there is no longer a shot you hear nothing about.
+          if (byMe) hud.chat(null, `your arrow goes into the ${e.n.toLowerCase()} — it runs`);
         } else if (e.k === 'kill') {
           // ── an animal went down somewhere, and left something behind ──
           //

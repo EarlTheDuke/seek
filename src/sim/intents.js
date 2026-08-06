@@ -74,6 +74,23 @@ export function createIntent() {
     // could kill a deer and carry raw venison for ever: raw venison fills 16 and
     // cooked fills 34, and the gap between those two numbers is most of a night.
     craft: '',
+    // ── ease the string down without loosing ──
+    //
+    // Edge-triggered. The trigger above is EDGE-DETECTED — the shot happens on
+    // `primary` going true -> false — so "stop drawing" and "shoot" were the
+    // same signal, and a body that began a draw and then thought better of it
+    // had no way to say so. It fired. At half draw an arrow leaves at a third
+    // of the speed the solver assumed, in whatever direction the body had
+    // started turning, and nothing counted it: measured at FIVE such arrows to
+    // two aimed ones in a single huntcheck run, from a body whose own log said
+    // it had loosed twice.
+    //
+    // This is what a person does with a bow they have decided not to shoot, and
+    // the bow already knew how (`Bow.cancel`, which keeps the arrow). It just
+    // had no word on the wire. Resolved BEFORE the trigger edge, so sending
+    // `letdown` and dropping `primary` in the same tick is a let-down and not a
+    // shot — which is exactly how a caller wants to spell "stop".
+    letdown: false,
     // Edge-triggered: "I meant the OTHER thing here." E resolves by distance
     // and urgency; this takes the runner-up. Deliberately NOT in the protocol's
     // INTENT_KEYS: it picks between two LOCAL presentations of the same two
@@ -101,6 +118,7 @@ export function clearIntent(i) {
   i.place = false;
   i.eat = false;
   i.craft = '';
+  i.letdown = false;
   i.alternate = false;
   i.selectSlot = -1;
   return i;
@@ -123,6 +141,7 @@ export function copyIntent(to, from) {
   to.place = from.place;
   to.eat = from.eat;
   to.craft = from.craft;
+  to.letdown = from.letdown;
   to.alternate = from.alternate;
   to.selectSlot = from.selectSlot;
   return to;
@@ -168,6 +187,7 @@ export function sanitiseIntent(i, maxLookPerTick = 0.35) {
   // typo, a hallucinated recipe, a hostile string — becomes "nothing", which is
   // the same treatment `sanitiseGoal` gives a verb that does not exist.
   i.craft = typeof i.craft === 'string' && RECIPES[i.craft] ? i.craft : '';
+  i.letdown = !!i.letdown;
   i.alternate = !!i.alternate;
   i.selectSlot = Number.isInteger(i.selectSlot) ? i.selectSlot : -1;
   return i;
