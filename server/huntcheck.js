@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { Agent } from '../src/net/agent.js';
 import { makeRandom } from '../src/world/noise.js';
-import { BOW } from '../src/config.js';
+import { AGENTS, BOW } from '../src/config.js';
 import { requireFreePort } from './freeport.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -93,16 +93,62 @@ async function main() {
   let lowest = Infinity;
   let sawShot = false;
   let anyDeerDown = false;
+  // ── WHERE THE HERDS ACTUALLY WERE ──
+  //
+  // One run in seven ends with no kill and no arrows, and every instrument this
+  // check has is downstream of a shot: the arrow table needs a release and the
+  // refusal log needs a resolved quarry. Neither fires on the failure that
+  // matters, so "150 s and nothing died" has read the same whether the body was
+  // stalking a deer it could not shoot or walking an empty hillside.
+  //
+  // Those are different bugs. `resolve` falls through to `roam()` when nothing
+  // in the snapshot is labelled "a deer" — SILENTLY, and roaming looks exactly
+  // like stalking from outside. So sample the hillside once a second and keep
+  // the three facts that tell them apart: was there a deer in the snapshot at
+  // all, how far was the nearest one, and had the body actually locked onto one
+  // (`target.quarry`) or was it wandering for want of a quarry.
+  //
+  // `AGENTS.shootRange` is 26 m, so the count of samples INSIDE that is the
+  // number of seconds in which a shot was ever physically on the table. A run
+  // with zero of them was never a marksmanship failure whatever the miss table
+  // says.
+  const trace = [];
+  let sampleAt = 0;
   const t0 = Date.now();
   while (Date.now() - t0 < 150_000 && !agent.kills.length) {
     agent.update(1 / 30);
     if (agent.intent.primary) sawShot = true;
+    let deerN = 0;
+    let nearest = Infinity;
     for (const c of agent.snapshot?.cr ?? []) {
       if (c.k !== 'deer') continue;
+      deerN++;
+      nearest = Math.min(nearest, Math.hypot(c.p[0] - agent._x, c.p[2] - agent._z));
       const was = deerHp.get(c.i);
       if (was !== undefined && c.h < was) lowest = Math.min(lowest, c.h);
       deerHp.set(c.i, c.h);
       if (c.h <= 0) anyDeerDown = true;
+    }
+    const now = Date.now() - t0;
+    if (now >= sampleAt) {
+      sampleAt = now + 1000;
+      trace.push({
+        t: Math.round(now / 1000),
+        n: deerN,
+        d: nearest === Infinity ? null : Math.round(nearest),
+        // ── three states, and lumping them was the instrument's first lie ──
+        // "not locked on" read as "could not find a deer" on the first run of
+        // this block, and 14 of its 131 samples were nothing of the kind:
+        // `act` sets `this.target = null` the moment a non-quarry target is
+        // ARRIVED at, and `resolve` only re-runs every `retargetSeconds`, so a
+        // body between two targets has no target at all and is not roaming for
+        // want of anything. Only `roam` — a target that exists and carries no
+        // `quarry` flag while the goal IS hunt — is `resolve` failing to find a
+        // deer, which is the thing this check came here to measure.
+        q: agent.target?.quarry === true,
+        roam: !!agent.target && agent.target.quarry !== true,
+        goal: agent.goal?.kind ?? '?',
+      });
     }
     if (agent.memory.entries.some((e) => e.text.includes('went down'))) anyDeerDown = true;
     await sleep(1000 / 30);
@@ -205,6 +251,55 @@ async function main() {
     for (const [kind, e] of byReason) {
       const where = e.outs.length ? `, obstruction ${Math.min(...e.outs)}-${Math.max(...e.outs)} m out` : '';
       console.log(`        ${String(e.n).padStart(3)} x  ${kind}  (deer at ${Math.min(...e.ranges)}-${Math.max(...e.ranges)} m${where})`);
+    }
+  }
+
+  // ── THE HILLSIDE, and it is the verdict on any run that killed nothing ──
+  //
+  // Read this before the arrow table on a red run. The tables above only exist
+  // downstream of a shot; this one says whether a shot was ever available, and
+  // the last line names which of the four failures actually happened so nobody
+  // has to infer it from three sets of counts that all read "nothing happened".
+  if (trace.length) {
+    const withDeer = trace.filter((s) => s.n > 0);
+    const ranges = withDeer.map((s) => s.d).sort((a, b) => a - b);
+    const inRange = withDeer.filter((s) => s.d <= AGENTS.shootRange);
+    const locked = trace.filter((s) => s.q);
+    // `resolve` genuinely failing to find a deer: a hunting goal, a target that
+    // exists, and no quarry on it. Everything else that is "not locked on" is
+    // either between retargets or not hunting at all, and neither is a herd
+    // problem.
+    const roamed = trace.filter((s) => s.roam && s.goal === 'hunt');
+    const notHunting = trace.filter((s) => s.goal !== 'hunt');
+    const pc = (n) => `${Math.round((n / trace.length) * 100)}%`;
+    console.log('\n      where the herds actually were, sampled once a second:');
+    console.log(`        a deer in the snapshot   ${String(withDeer.length).padStart(3)}/${trace.length} samples (${pc(withDeer.length)})` +
+      (withDeer.length ? `, ${Math.min(...withDeer.map((s) => s.n))}-${Math.max(...withDeer.map((s) => s.n))} at a time` : ''));
+    if (ranges.length) {
+      console.log(`        the nearest one          closest ${ranges[0]} m · median ${ranges[Math.floor(ranges.length / 2)]} m · furthest ${ranges.at(-1)} m`);
+    }
+    console.log(`        a quarry was LOCKED ON   ${String(locked.length).padStart(3)}/${trace.length} samples (${pc(locked.length)})`);
+    console.log(`        hunting but NO deer found${String(roamed.length).padStart(3)}/${trace.length} — \`resolve\` fell through to roam() with a hunt goal` +
+      (notHunting.length ? ` (and ${notHunting.length} not hunting at all)` : ''));
+    console.log(`        inside shootRange ${AGENTS.shootRange} m    ${String(inRange.length).padStart(3)}/${trace.length} samples (${pc(inRange.length)})` +
+      ' — the only seconds in which a shot was ever on the table');
+
+    if (!killed) {
+      // Four failures, and they are NOT interchangeable: an empty hillside is a
+      // world bug, a herd that stays at 80 m is an approach bug, a refusal at
+      // 20 m is a sightline bug, and an arrow that leaves and misses is the
+      // only one that is marksmanship. Three sessions have read the fourth into
+      // evidence for one of the first three.
+      const why = withDeer.length === 0
+        ? 'NOT ONE DEER in the snapshot all run — an empty hillside, not an archer'
+        : locked.length === 0
+          ? `deer were in the snapshot but a quarry never resolved — ${withDeer.length} samples saw one and \`resolve\` still roamed ${roamed.length} of them`
+          : inRange.length === 0
+            ? `it never closed to ${AGENTS.shootRange} m — nearest all run was ${ranges[0]} m, so no shot was ever possible`
+            : (agent.arrows ?? 0) === 0
+              ? `it was inside ${AGENTS.shootRange} m for ${inRange.length} s and never loosed — read the refusal table above, not the ballistics`
+              : `it loosed ${agent.arrows} arrows from inside ${AGENTS.shootRange} m and none of them killed — this one IS marksmanship`;
+      console.log(`\n      so the reason nothing died: ${why}`);
     }
   }
 
