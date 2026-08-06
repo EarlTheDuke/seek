@@ -43,7 +43,8 @@
     "providercheck": "node server/providercheck.js",
     "timbercheck": "node server/timbercheck.js",
     "scarcecheck": "node server/scarcecheck.js",
-    "personacheck": "node server/personacheck.js"
+    "personacheck": "node server/personacheck.js",
+    "watchcheck": "node server/watchcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

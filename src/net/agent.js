@@ -94,7 +94,7 @@ export class Agent {
    * Both exist because they answer different questions and the author wanted
    * the option. Neither is a fallback for the other.
    */
-  constructor({ name, provider, rand, onLog = null, orders = 'decides', pet = null, persona = null }) {
+  constructor({ name, provider, rand, onLog = null, orders = 'decides', pet = null, persona = null, narrate = false }) {
     this.name = name;
     this.provider = provider;
     this.rand = rand;
@@ -137,6 +137,11 @@ export class Agent {
     // buffer. See `did`. This is the thread a watcher follows.
     this.deeds = [];
     this.said = [];
+    // What it MEANT, in order, with the reason it gave for it. See `narrate`.
+    this.intentions = [];
+    // Whether to say any of that out loud. Off unless somebody asks for it —
+    // it is a watching aid, not something the world does on its own.
+    this.narrating = narrate;
     this.startX = 0;
     this.startZ = 0;
     this.wanderAngle = rand() * Math.PI * 2;
@@ -702,7 +707,22 @@ export class Agent {
           this.goal = { kind: 'wander' };
         } else if (changed) {
           this.memory.add(this.hours, `I decided to ${describeGoal(goal)}`);
-          this.onLog?.(`${this.name}: ${describeGoal(goal)}`);
+          this.onLog?.(`${this.name}: ${describeGoal(goal)}${goal.why ? ` — ${goal.why}` : ''}`);
+          // ── the thread a watcher follows ──
+          // Kept out of `Memory`'s forty-entry ring buffer, which fills with
+          // noticing: an hour of walking past deer and a body has forgotten it
+          // ever decided anything. `intentions` is the log of what it MEANT,
+          // with the reason it gave, and it is what makes a session legible
+          // afterwards — "three models disagreed about a carcass" is a story
+          // you can only tell if each of them said why.
+          this.intentions.push({
+            h: +this.hours.toFixed(2),
+            goal: describeGoal(goal),
+            why: goal.why ?? null,
+            where: this.where(),
+          });
+          if (this.intentions.length > AGENTS.logSize) this.intentions.shift();
+          this.narrate(goal);
         }
       })
       .catch((err) => {
@@ -988,6 +1008,39 @@ export class Agent {
     this.eatCooling = AGENTS.swallowSeconds;
     this.did('eat', 'I ate what I had, raw');
     return true;
+  }
+
+  /**
+   * Say out loud what this mind is doing and why.
+   *
+   * ── the thing that turns NPCs into a broadcast ──
+   *
+   * Every agent has logged `{brief -> goal}` for replay since minds were added
+   * and NOBODY COULD SEE IT. A watcher standing on the hill saw three bodies
+   * walking and could not tell an ambush from a retreat from a wander, which
+   * makes six models on one server "some NPCs are about" rather than "watch
+   * three minds disagree about a carcass". Legibility matters more than
+   * headcount, and the reason matters more than the act: all three of them are
+   * hunting, and only the WHY tells them apart.
+   *
+   * Sent as ordinary chat, deliberately — it reaches every client and the HUD
+   * already draws it, so this needs no protocol and no view code. Gated off by
+   * default: it is a watching aid, and a world that narrates itself unasked is
+   * a world nobody can play straight.
+   *
+   * The persona rides along when there is one, because the whole point of the
+   * experiment is being able to attribute what you are watching.
+   */
+  narrate(goal) {
+    if (!this.narrating) return;
+    // Only when it CHANGES its mind — the caller has already established that —
+    // and never twice in the same breath, or a fleet of six drowns the chat
+    // column that people also talk in.
+    if (this.hours - (this._narrated ?? -999) < AGENTS.speakEveryHours) return;
+    this._narrated = this.hours;
+    const tag = this.persona ? ` [${this.persona.id}]` : '';
+    const why = goal.why ? ` — ${goal.why}` : '';
+    this.send(C_CHAT, { m: `${describeGoal(goal)}${why}${tag}` });
   }
 
   /**
@@ -1425,6 +1478,8 @@ export class Agent {
       id: this.id,
       provider: this.provider.name,
       persona: this.persona?.id ?? null,
+      // What it is doing AND WHY, for anything drawing a live board.
+      why: this.goal?.why ?? null,
       goal: describeGoal(this.goal),
       decisions: this.decisions,
       remembers: this.memory.entries.length,

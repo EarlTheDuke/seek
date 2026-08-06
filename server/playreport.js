@@ -106,6 +106,24 @@ export function buildReport(agents, meta = {}) {
     findings.push(`never used: ${never.join(', ')}`);
   }
 
+  // ── what they MEANT, in their own words ──
+  //
+  // The reasons, not the verbs. A tally of goals says a fleet hunted; a handful
+  // of stated reasons says WHY each of them hunted, which is the only thing
+  // that separates six models doing the same thing. Every mind has been asked
+  // for one in the system prompt since minds existed and the answer used to be
+  // dropped on arrival — see `sanitiseGoal`.
+  const reasoned = live.filter((a) => (a.intentions ?? []).some((i) => i.why));
+  if (reasoned.length) {
+    out.push('\n**What they said they were doing**\n');
+    for (const a of reasoned) {
+      for (const i of (a.intentions ?? []).filter((x) => x.why).slice(-3)) {
+        out.push(`- ${a.name}${a.persona ? ` (${a.persona.id})` : ''} — ${i.goal}: _${i.why}_` +
+          (i.where ? ` · ${i.where}` : ''));
+      }
+    }
+  }
+
   // ── stuck ──
   // Two different kinds of stuck, and they mean different things. Somebody who
   // decided a hundred times and went nowhere is being defeated by the world;

@@ -66,6 +66,18 @@ const ORDERS = process.env.ORDERS === 'obeys' ? 'obeys' : 'decides';
 // people's companions are in the world now.
 const PET = process.env.PET ?? null;
 
+// ── NARRATE: make it watchable ──
+//
+//   NARRATE=on npm run agents
+//
+// Every mind has logged what it decided since the day minds were added, and
+// nobody could ever see it. With this on, each one says what it is doing and
+// WHY into the world's chat as it changes its mind — which is the difference
+// between "some NPCs are wandering" and "watch three models disagree about a
+// carcass". Off by default: a world that narrates itself unasked is one nobody
+// can play straight.
+const NARRATE = /^(on|yes|1|true)$/i.test(process.env.NARRATE ?? '');
+
 // ── A FLEET OF DIFFERENT MINDS, not N copies of one ──
 //
 //   MINDS_ROSTER=roster.json npm run agents
@@ -153,6 +165,9 @@ if (cast.some(Boolean)) {
   console.log(`  personas: off — every mind gets the same prompt (the control).` +
     ` PERSONAS=on, or ${PERSONA_IDS.slice(0, 3).join(',')}…`);
 }
+if (NARRATE) {
+  console.log('  narrating: each mind says what it is doing and why, in the chat column');
+}
 console.log('');
 
 const agents = [];
@@ -172,6 +187,7 @@ async function main() {
       // The label, so the report can attribute what happened. The character
       // itself went into the provider above.
       persona: entry?.character ? null : cast[i],
+      narrate: NARRATE,
     });
     try {
       await a.connect(URL);
