@@ -197,7 +197,28 @@ class Avatar {
 
     // Crouched, the whole figure settles rather than the legs bending — at this
     // budget a believable crouch costs more than it returns.
-    this.object.scale.y = lerp(1, 0.72, this.crouch);
+    const squash = lerp(1, 0.72, this.crouch);
+    this.object.scale.y = squash;
+    // ── ...BUT NOT THE HEAD, AND NOT THE NAME ──
+    //
+    // A root Y-scale is a cheap and perfectly good crouch for a TORSO and LEGS:
+    // shorter legs and a settled body is roughly what crouching looks like, and
+    // it costs one multiply. It is not a good anything for the two parts of this
+    // figure that are not made of limbs. A head squashed to 72% is a head that
+    // has been stood on, and the nameplate is a TEXT SPRITE — squashing that
+    // squeezes the lettering itself, so the one thing on screen whose whole job
+    // is to be read gets 28% harder to read exactly when somebody is sneaking up
+    // on you and you most want to know who it is.
+    //
+    // So both are counter-scaled by the same factor. They still TRAVEL DOWN with
+    // the figure, because they hang off parts that moved and that is the half of
+    // the effect worth keeping; they just stop deforming. Two multiplies, and it
+    // leaves the deliberate cheapness of the crouch itself alone.
+    const unsquash = 1 / squash;
+    this.parts.headPivot.scale.y = unsquash;
+    // The sprite's own scale is (1.6, 0.4) — see `nameplate`. Only the Y is
+    // corrected, or the name gets wider as it gets lower.
+    this.parts.plate.scale.y = 0.4 * unsquash;
 
     const swing = clamp(speed / PLAYER.sprintSpeed, 0, 1.2);
     this.phase += speed * 1.35 * dt;

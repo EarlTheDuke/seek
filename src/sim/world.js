@@ -729,7 +729,17 @@ export class SimWorld {
       k: 'death',
       id: player.id,
       n: player.name,
-      by: killer?.species?.name ?? 'the cold',
+      // ── A PERSON HAS A NAME; A DEER HAS A SPECIES ──
+      //
+      // This read `killer?.species?.name ?? 'the cold'`, and the arrow path
+      // hands it a PLAYER — which carries `.name` and no `.species` at all. So
+      // every kill one player ever landed on another was announced, in the chat
+      // column and in the report, as "killed by the cold". The one death in this
+      // game that has a story behind it was the one death it could not tell.
+      //
+      // Creature first because that is the common case and a creature's own
+      // `.name` is its individual name, not its kind.
+      by: killer?.species?.name ?? killer?.name ?? 'the cold',
       at: [round2(at.x), round2(at.y), round2(at.z)],
       lost: dropped.length,
       where: describePosition(at.x, at.z).phrase,

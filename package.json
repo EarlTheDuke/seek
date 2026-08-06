@@ -49,7 +49,8 @@
     "refillcheck": "node server/refillcheck.js",
     "boardcheck": "node server/boardcheck.js",
     "ballisticscheck": "node server/ballisticscheck.js",
-    "detourcheck": "node server/detourcheck.js"
+    "detourcheck": "node server/detourcheck.js",
+    "avatarcheck": "node server/avatarcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",
