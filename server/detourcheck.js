@@ -193,13 +193,25 @@ function main() {
   // shape of lie four instruments in this project have already told, and the
   // counterfactual run is the only reason it was caught here.
   let heldTicks = 0;
+  // ── the SAME number off the EPISODE, which is the one huntcheck prints ──
+  //
+  // These two counters are written in different places and only one of them
+  // reaches a human. The first cut incremented the body-global one on the
+  // uncommitted path and not the episode's, so a live A/B printed "1.0 solves
+  // per detour" for an arm that re-solves thirty times a second — a number
+  // wrong in the direction that flattered the change. Asserting only the
+  // counter nobody reads is how that got out.
+  let epOff = 0;
+  let epOn = 0;
   for (const s of sites) {
     const off = makeBody(false, s.x, s.z);
     walk(off, mark(s.deer), 30);
     solvesOff += off._resolves;
+    epOff += off._detour.resolves;
     const on = makeBody(true, s.x, s.z);
     const { seen } = walk(on, mark(s.deer), 30);
     solvesOn += on._resolves;
+    epOn += on._detour.resolves;
     const first = seen.find(Boolean);
     // Held ticks must name the SAME PLACE. A commitment that returns a
     // different point every tick is the bug wearing the fix's clothes.
@@ -211,6 +223,11 @@ function main() {
   }
   check('committed, it asks once instead of thirty times a second', solvesOn < solvesOff / 4,
     `${solvesOn} solves committed against ${solvesOff} uncommitted, over ${sites.length} sites x 1 s`);
+  // `epOff` is seeded at 1 per episode by `openDetour`, so an arm that re-solves
+  // every tick reads as ticks, not ticks+1. What matters is that it TRACKS the
+  // body-global count instead of sitting at its seed.
+  check("and the episode's own counter says so too", epOff === solvesOff + sites.length && epOn < epOff / 4,
+    `episodes recorded ${epOn} solves committed against ${epOff} uncommitted — the number huntcheck prints`);
   check('and every held tick names the same place', stillEvery && heldTicks > 0,
     `${heldTicks} ticks walked to a remembered spot, all naming the same world coordinate` +
     (heldTicks ? '' : ' — NONE, so this assertion had nothing to be true of'));

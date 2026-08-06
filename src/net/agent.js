@@ -1513,6 +1513,14 @@ export class Agent {
       const spot = clearSpotNear(from, target, groundAt, { solidAt });
       if (spot) spot.held = false;
       this._resolves = (this._resolves ?? 0) + 1;
+      // ── AND COUNTED ON THE EPISODE TOO, which it was not for one whole run ──
+      // The first cut incremented only the body-global counter here, so every
+      // uncommitted episode printed the `resolves: 1` that `openDetour` seeds —
+      // "1.0 solves per detour" for an arm that re-solves thirty times a second.
+      // The number was wrong in the direction that flattered the change, which
+      // is the worst direction, and it is the fifth instrument in this project
+      // to report something it had not measured.
+      if (this._detour) this._detour.resolves = (this._detour.resolves ?? 0) + 1;
       return spot;
     }
 
