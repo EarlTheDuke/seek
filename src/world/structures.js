@@ -576,10 +576,26 @@ export class Structures {
     this.all.push(s);
 
     // Solid things get a collider, which is what makes a palisade a wall
-    // rather than a picture of one. The projectile system and the player
-    // collision both already read this field.
+    // rather than a picture of one. The projectile system reads this field.
+    //
+    // ── AND FOR MONTHS IT WAS `add?.()`, WHICH DOES NOT EXIST ──
+    //
+    // `ColliderField` has `addSphere`, `addCylinder` and `addBox`; it has never
+    // had an `add`. The optional-call swallowed that in total silence, so every
+    // palisade ever built was a picture of a wall after all — arrows flew
+    // straight through it — while `s.collided = true` on the next line went on
+    // announcing success to anyone who asked. That flag is what `campcheck`
+    // asserted, so the check agreed. A name used and never defined, invisible to
+    // the build, reported green by its own test: the exact trap this project
+    // falls into most, with `?.` holding the door open.
+    //
+    // The arguments were right all along — `addCylinder(x, y, z, r, h, tag)`
+    // takes precisely what was already being passed.
+    //
+    // `staticColliders` is deliberately a different field from the scatter's,
+    // which rebuilds itself every 55 m and would wipe this. See main.js.
     if (spec.solid && this.deps.colliders) {
-      this.deps.colliders.add?.(x, check.y, z, spec.solidRadius, spec.height);
+      this.deps.colliders.addCylinder(x, check.y, z, spec.solidRadius, spec.height, 'structure');
       s.collided = true;
     }
 

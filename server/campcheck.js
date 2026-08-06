@@ -102,8 +102,20 @@ check('the roof stops the rain', camped.rain === 0 && bare.rain > 0,
   `${bare.rain.toFixed(2)} -> ${camped.rain.toFixed(2)}`);
 check('shelter is high but never total', shelter > 0.8 && shelter < 1,
   `${shelter.toFixed(2)}`);
-check('the palisade is solid', colliders.list.some((c) => c.tag === undefined || c.tag === null) || built.some((b) => b.collided),
-  'a collider was added');
+// ── ASSERT THE COLLIDER, NOT THE FLAG THAT CLAIMS ONE ──
+//
+// This read `colliders.list.some(untagged) || built.some((b) => b.collided)`,
+// and the second half is a flag `Structures.place` sets on the line AFTER it
+// tries to add the collider — unconditionally, and with no way to fail. So the
+// check passed for months while `colliders.add?.()` silently did nothing,
+// because `ColliderField` has no `add` method and never has. The palisade was a
+// picture of a wall and its own test said it was a wall.
+//
+// Now it asserts the thing itself: a cylinder, in the field, tagged, at the
+// radius the spec asked for. A flag that says work happened is not the work.
+const wall = colliders.list.find((c) => c.tag === 'structure');
+check('the palisade is solid', !!wall && wall.r > 0 && wall.h > 0,
+  wall ? `a ${wall.r} m x ${wall.h} m cylinder is in the collider field` : 'NO collider was added');
 
 // ── storage ──
 const store = built.find((b) => b.kind === 'store');
