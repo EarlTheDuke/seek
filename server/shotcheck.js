@@ -29,6 +29,7 @@ import {
   encode, decode,
 } from '../src/net/protocol.js';
 import { PLAYER, BOW, ARROW } from '../src/config.js';
+import { requireFreePort } from './freeport.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.argv[2] ?? 8099);
@@ -111,6 +112,7 @@ async function driveFor(ms, clients) {
 
 async function main() {
   console.log('\n  A shot, over a real socket\n');
+  await requireFreePort(PORT, 'shotcheck');
 
   const server = spawn(process.execPath, [path.join(HERE, 'server.js'), String(PORT)], {
     env: { ...process.env, DANGER: 'none', MINDS_HUNTERS: '0' },

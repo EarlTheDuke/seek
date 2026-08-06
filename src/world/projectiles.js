@@ -127,6 +127,10 @@ export class Projectiles {
       landed: false,
       landedAt: 0,
       surface: null,
+      // Kept so a shot that ends in the dirt can say HOW FAR it got. A bare
+      // "you missed" is nearly useless for learning a bow; "into the slope at
+      // 21 m, and you were aiming at something 30 m away" is a lesson.
+      origin: origin.clone(),
     };
     this.aim(p);
     this.items.push(p);
@@ -436,6 +440,24 @@ export class Projectiles {
     p.normal = normal ? normal.clone() : null;
 
     this.deps.audio?.impact?.(surface, pos);
+    // ── a miss is a RESULT, and until now it was silence ──
+    //
+    // An arrow that buried itself in a hillside looked exactly like an arrow
+    // that never existed: no message, no sound you could place, nothing. That
+    // is the single worst thing in the game to learn from, because the bow is
+    // the one tool whose whole skill is judging drop and dead ground — and it
+    // was the only tool that answered a mistake with nothing at all.
+    //
+    // It cost the author four confident wrong diagnoses in one session, each
+    // starting from "the arrow did nothing, so the hit test must be broken".
+    // The hit test was fine every time. There was a hill in the way, and the
+    // game knew and did not say.
+    //
+    // Reported with the DISTANCE FLOWN, because "you hit the ground" and "you
+    // hit the ground 8 m in front of your own feet" are different lessons.
+    // A creature or a player hit never reaches here — this branch is only ever
+    // terrain, a tree or a rock.
+    this.deps.onMiss?.(p, surface, p.pos.distanceTo(p.origin));
     if (type.recover) this.deps.onLanded?.(p);
     this.enforceLimit(type);
     return false;

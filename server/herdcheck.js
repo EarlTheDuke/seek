@@ -32,6 +32,7 @@ import {
   encode, decode,
 } from '../src/net/protocol.js';
 import { Wildlife } from '../src/creatures/manager.js';
+import { requireFreePort } from './freeport.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.argv[2] ?? 8098);
@@ -126,6 +127,7 @@ async function driveFor(ms, clients) {
 
 async function main() {
   console.log('\n  One herd, seen by two people\n');
+  await requireFreePort(PORT, 'herdcheck');
 
   const server = spawn(process.execPath, [path.join(HERE, 'server.js'), String(PORT)], {
     env: { ...process.env, DANGER: 'no-bears', MINDS_HUNTERS: '0' },

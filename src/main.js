@@ -343,6 +343,13 @@ function boot() {
           if (mine || byMe) hud.chat(null, `the arrow glances off — ${e.why}`);
         } else if (e.k === 'death') {
           hud.chat(null, `${e.n} was killed by ${e.by} ${e.where ?? ''}`.trim());
+        } else if (e.k === 'miss') {
+          // Where it ACTUALLY went, in the words a person would use. `hit` is
+          // the surface the arrow found: ground, tree, rock.
+          if (byMe) {
+            const what = e.hit === 'ground' ? 'the ground' : e.hit === 'tree' ? 'a tree' : `the ${e.hit}`;
+            hud.chat(null, `your arrow strikes ${what}, ${e.d} m out`);
+          }
         } else if (e.k === 'kill') {
           // ── an animal went down somewhere, and left something behind ──
           //
@@ -498,6 +505,17 @@ function boot() {
     audio,
     onLanded: (p) => pickups.registerRecoverable(p),
     onRemoved: (p) => pickups.forgetProjectile(p),
+    // ── your shot ended in the dirt, and you deserve to be told ──
+    //
+    // Only when nobody else is going to say it. On a server the authoritative
+    // arrow is the SERVER'S, and it reports its own miss through the `miss`
+    // event; this browser flies a predicted copy of the same shot, so wiring
+    // both would say everything twice.
+    onMiss: (p, surface, flown) => {
+      if (net?.connected) return;
+      const what = surface === 'ground' ? 'the ground' : surface === 'tree' ? 'a tree' : `the ${surface}`;
+      hud.chat(null, `your arrow strikes ${what}, ${Math.round(flown)} m out`);
+    },
     onCreatureHit: (creature, result, point) => {
       if (result.killed) {
         hud.toast(`${creature.species.name} down — ${result.zone}`, 2.2);

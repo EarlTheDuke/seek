@@ -174,6 +174,26 @@ export class SimWorld {
       wildlife: this.wildlife,
       onLanded: (p) => this.pickups.registerRecoverable(p),
       onRemoved: (p) => this.pickups.forgetProjectile(p),
+      // ── tell the archer their shot ended in the dirt ──
+      //
+      // A browser can at least SEE the shaft standing in the hillside. An agent
+      // has no eyes at all: every miss was indistinguishable from every other
+      // miss, and from not having fired. A mind that cannot tell "short" from
+      // "wide" from "there was a hill there" cannot learn to hunt, and the
+      // whole point of the seam is that a mind gets senses.
+      //
+      // Only to the person who loosed it. Everyone else hearing about every
+      // arrow that ever hit a tree would be noise.
+      onMiss: (p, surface, flown) => {
+        if (p.ownerId == null) return;
+        this.events.push({
+          k: 'miss',
+          by: p.ownerId,
+          hit: surface,
+          d: Math.round(flown),
+          at: [round2(p.pos.x), round2(p.pos.y), round2(p.pos.z)],
+        });
+      },
       // ── killing an animal has to leave an animal behind ──
       //
       // This was `() => {}` — an explicit no-op — and everything downstream of

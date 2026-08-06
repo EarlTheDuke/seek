@@ -31,6 +31,7 @@ import {
   PROTOCOL_VERSION, C_HELLO, C_INTENT, C_PET,
   S_WELCOME, S_SNAPSHOT, encode, decode,
 } from '../src/net/protocol.js';
+import { requireFreePort } from './freeport.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.BITE_PORT ?? 8099);
@@ -102,6 +103,7 @@ function startServer() {
 }
 
 async function main() {
+  await requireFreePort(PORT, 'bitecheck');
   console.log('\n  Bitecheck — a warband, at night, watched from somebody else\'s machine\n');
   const server = await startServer();
 
