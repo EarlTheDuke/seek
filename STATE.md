@@ -5,54 +5,69 @@ more context than the work does. This file is the current state. **Update it at
 the end of every run**, and cut the closed section rather than letting this
 become another archive.
 
-Last updated: 2026-08-06, by the run that built the board — and caught it lying.
+Last updated: 2026-08-06, by the run that measured the bow and found the bug was
+in the ruler.
 
-## THERE IS A BOARD NOW. `BOARD=on npm run agents` -> http://127.0.0.1:8090
+## THE BOW IS UNDERSTOOD. Queue item 0 was the INSTRUMENT, not the ballistics.
 
-Rung 5's second mile, done. One card per mind, repainting once a second: who it
-is, what model, which persona (hover the tag for its disposition), what it is
-doing, WHY, how its body is, what is in its pack — and four threads underneath,
-of which only the first was ever visible, through chat:
+`npm run ballisticscheck` — **7/7**, port 8088. A real body on a real server, a
+staircase of six ranges from 15 m to 70 m, two shafts each, every one compared
+against `predictLanding`. **Median 0.17 m from where our own model said it would
+come down**, at landing distances out to 151 m. Six long, six short.
+
+### "arrows land LONG and the error grows with range" was geometry
+
+`howItMissed` measured the impact against the MARK, and the mark is a deer's
+chest 0.75 m above the ground the deer stands on. **An arrow that passes exactly
+through that chest does not stop there.** At 20 m the shaft is descending at
+barely two degrees, so shedding the last 0.75 m of height carries it another
+**fourteen metres**. A flawless archer reads "+14 m long" on that scale, and the
+sign is a foregone conclusion for every shot not stopped by a bank.
+
+So the board's *"3 m long at 20 m"* — eight of them from one body, written up
+here as a systematic bias whose magnitude grew with range — was an arrow landing
+**eleven metres SHORT of a perfect one**. The sign was inverted and the trend
+was an artifact. The very first live payload read the right way settled it:
+`along +2.8 m` against the deer, **`model 0.3 m`** against the bow.
+
+`vsModel` is the honest column now, and it is what the board, huntcheck and the
+agent's own MEMORY all report. That last one mattered: the mind was being told
+in its prompt that its arrow flew long when it had fallen short.
+
+### and there WAS a real bias underneath, ten times smaller
+
+Twelve arrows, twelve of them long of prediction, +0.05 to +0.91 m. A magnitude
+inside marksmanship and a sign that never flipped once — which is a bias.
+`Bow.fire` spawns the shaft **0.55 m along the aim line** so it clears the
+archer's own capsule; every model of the bow launched from the eye. Now
+`BOW.muzzle`, read by the bow and by all three integrators in marksman.js.
+
+Measured before and after on the same ground: median gap **0.18 → 0.11 m**, mean
+along error **+0.31 → +0.07 m**, signs **12/0 → 6/6**. It moves the solved pitch
+about 1.4 mrad and takes 1.5 cm at 10 m to 8.5 cm at 60 m off the top of the arc
+— under `BOW.spreadFull`, so a correction and not a transformation. **Do not
+expect it to make huntcheck seven-for-seven.** The browser's own aim mark was
+always right; `previewShot` had the offset all along.
+
+## THERE IS A BOARD. `BOARD=on npm run agents` -> http://127.0.0.1:8090
+
+One card per mind, repainting once a second: who it is, what model, which
+persona (hover the tag), what it is doing, WHY, how its body is, what is in its
+pack — and four threads of which only the first was ever visible, through chat:
 
   meant · did · went astray · would not shoot
 
 **"would not shoot" is the best line on the page.** A body that stalks for two
-minutes and never looses used to be indistinguishable from a broken one. First
-live fleet: *"101 m — too far"*, *"25 m — ground in the way 10 m out"*.
-
+minutes and never looses used to be indistinguishable from a broken one.
 Off by default, loopback only, cannot kill the run hosting it. `boardState` is
 pure (agents in, JSON out) so the check builds boards from invented agents too.
-`boardcheck` **34/34, and it discriminates — 27/31 with three fields broken**,
-red on the right lines including the live socket path.
+`boardcheck` **35/35, and it discriminates — 27/31 with three fields broken.**
 
-### THE BOARD'S FIRST VERSION LIED, AND ITS OWN CHECK AGREED WITH IT
-
-`Agent.shots` **is a log of MISSES and nothing else** — one writer, `howItMissed`
-off the `'miss'` event, where `hit` is NOT a boolean but the SURFACE the shaft
-buried itself in (`'ground'`, `'water'`, `'solid'`). projectiles.js says it
-outright: *"a creature or a player hit never reaches here"*. Read as a boolean, a
-truthy string turned seven straight misses into **"7 arrows, 7 hit"** on a live
-fleet — and it passed 31/31, because the fixture was written from the same wrong
-guess as the code. Arrows that go home are in `wounds` and `kills`; the honest
-denominator is `releases.filter(r => r.loosed)`.
-
-### AND IT EARNED ITS KEEP AT ONCE — READ THIS BEFORE TOUCHING RUNG 2
-
-Four bodies, one run, every stray **LONG**: eight at *"3 m long at 20 m"* from
-one body, *"5 m long at 26 m"* from another. Consistent sign, two independent
-bodies, error scaling with range — **a systematic ballistics bias, not
-marksmanship scatter.** Exactly the instrumented signal rung 2's brief asked for.
-Not chased; it is queue item 0. One run only — confirm it reproduces first.
-
-## THE WORLD USED TO EMPTY UNDER YOU — CLOSED last run
-
-A herd site a player had once been near was dead ground for the rest of the
-session (`refresh` skipped every key in `spawnedSites` and nothing took one back
-out). Now the last animal out of a herd decides: **left alive, the site is
-released** and re-rolls the same cast; **died there, it is cleared for good.**
-`refillcheck` **9/9, and it discriminates — 5/9 reverted.** This also closed
-netcheck's intermittent empty `cr`. Full write-up in FINDINGS.md. It did NOT
-explain the 68 -> 37 drift — see queue item 7, which says that plainly.
+**It has now lied twice and been caught twice** — `hit` read as a boolean when
+it is a SURFACE NAME (seven misses shown as "7 hit"), and `along` printed as
+marksmanship when it is geometry (above). Both times the fixture had been
+written from the same guess as the code and ratified it. Both are pinned by
+assertions in boardcheck now. Fixture values come out of REAL payloads.
 
 ## THE LADDER IS DONE. All six rungs green.
 
@@ -75,7 +90,7 @@ animals become 4.
 **5. WATCHABLE — both miles.** `NARRATE=on` makes each mind say its goal, its
 reason and its persona into the chat column (`watchcheck` 10/10); `BOARD=on`
 gives a watcher the whole fleet on one page, with the three threads chat never
-carried (`boardcheck` 34/34). See the top of this file.
+carried (`boardcheck` 35/35). See above.
 **6. A FULL ROSTER** `MAX_PLAYERS` 16 (`MAX_PLAYERS=` to change), measured
 rather than assumed with every body hunting: 60 Hz tick unmoved at both 12 and
 16, 56-65 KB/s per client. The TICK is not the ceiling, the WIRE is — everybody
@@ -103,44 +118,38 @@ scripted. Read it. Other knobs, all off by default: `HOURS=1`, `RAID=6`,
 ## Checks
 
 `firecheck` 57 · `companioncheck` 45 · `glidercheck` 42 · `campcheck` 36 ·
-**`boardcheck` 34** · `weathercheck` 27 · `providercheck` 25 · `netcheck` 24 · `personacheck` 21 ·
+**`boardcheck` 35** · `weathercheck` 27 · `providercheck` 25 · `netcheck` 24 · `personacheck` 21 ·
 `mindcheck`/`clockcheck` 21 · `warmthcheck` 20 · `deathcheck` 19 ·
 `bookcheck`/`reportcheck`/`raidcheck` 18 · `timbercheck` 17 · `agentcheck` 17 ·
 `ordercheck` 17 · `dangercheck`/`herdcheck`/`rendercheck` 12 · `bitecheck` 10 ·
 `spreadcheck` 10 · `watchcheck` 10 · `refillcheck` 9 · `scarcecheck` 9 ·
 `shotcheck` 8 · `survivalcheck`/`huntcheck` 7 · `arrowcheck`/`woundcheck` 7 ·
-`rostercheck` 6.
+**`ballisticscheck` 7** · `rostercheck` 6.
 
-Ports: **boardcheck 8093** (plus 8090 for its own board and 8089 for the
-fleet's), rostercheck **8091**, watchcheck **8092**, scarcecheck **8094**,
-survivalcheck 8095, huntcheck 8096, **refillcheck 8097**, herdcheck 8098,
-shotcheck/bitecheck 8099. The board's own default is **8090**. `refillcheck` walks a real body about 1.3 km and
-takes roughly four minutes — the distances ARE the test, there is no shortcut.
-`netcheck` and `survivalcheck` want a quiet box.
+Ports: **ballisticscheck 8088**, boardcheck 8093 (plus 8090 for its own board and
+8089 for the fleet's), rostercheck 8091, watchcheck 8092, scarcecheck 8094,
+survivalcheck 8095, huntcheck 8096, refillcheck 8097, herdcheck 8098,
+shotcheck/bitecheck 8099. The board's own default is **8090**. `refillcheck`
+walks a real body about 1.3 km and takes roughly four minutes — the distances
+ARE the test. `netcheck` and `survivalcheck` want a quiet box. **ballisticscheck
+spends the whole twelve-arrow quiver and takes about three minutes.**
 
 ## Known red, and honestly so
 
-- ~~`netcheck` "creatures are shared — 0 creatures"~~ **CLOSED — it was the
-  world emptying, not the snapshot.** See the top of this file. netcheck now
-  green three times running on fresh servers (18 creatures each).
 - `netcheck` "it went with her" (a companion trailing a continuously moving
   owner) is the long-known load-sensitive one.
-- `huntcheck` is still the documented six-of-seven. Today: 7/7 (a kill inside
-  65 s), then 6/7 — 4 aimed shots, a deer taken to 17 hp, no kill in 150 s.
-  That is the marksmanship tail, not an empty hillside; the refill fix neither
-  helped nor hurt it.
+- `huntcheck` is still the documented six-of-seven. Today, after the muzzle fix:
+  **7/7, a kill inside 80 s on two arrows** — but that is ONE run and the fix is
+  1.4 mrad, so it is not evidence of anything. Do not read it as a cure.
 
 ## The queue, ranked
 
-0. **ARROWS LAND LONG, AND THE ERROR GROWS WITH RANGE.** Measured off the new
-   board, one four-body run: every stray *"3 m long at 20 m"* (eight of them,
-   one body) and *"5 m long at 26 m"* (another body). Consistent sign, two
-   independent bodies, magnitude scaling with distance — that is a systematic
-   bias in the launch speed or the drag model, not scatter. **Do not tune a
-   constant to chase it.** Repeat the run first and confirm the sign holds, then
-   compare `marksman.solvePitch`'s predicted impact against where the arrow
-   actually lands — `shots` already carries `pred` and `model` for exactly this
-   and nothing has ever read them. This very likely IS the huntcheck tail.
+0. ~~ARROWS LAND LONG~~ **CLOSED — it was the instrument.** See the top of this
+   file and `ballisticscheck`. The bow is within 0.17 m of its own model out to
+   151 m, and the one real bias in there (the 0.55 m muzzle) is fixed. **So the
+   huntcheck tail is NOT ballistics** — whatever is left is the aim: the lead,
+   the mark, the spread, or the shot never being taken. Item 1 is now the live
+   lead, and the refusal log is the instrument for it.
 1. **The one huntcheck run in seven that finds no deer.** Log where the herds
    actually were during it. It may be nothing — a thin hillside and a 150 s
    budget — but "no shot in 150 s" and "a shot it could not take" are different
@@ -162,23 +171,46 @@ takes roughly four minutes — the distances ARE the test, there is no shortcut.
 4. **Arrows fired at ~0 m all miss.** Unexamined since the aim fix.
 5. **Nothing comes back DOWN about your own animal** — hurt, fed, killed.
 6. **Crouch is a uniform Y squash of the whole avatar.**
-7. **The 68 → 37 drift — measured now, and it looks BENIGN.** Four bodies
-   milling in one valley for four minutes: peak 44 → final 27, and the fix above
-   changes nothing (46 → 25 on identical seeded paths). The total is not a leak,
-   it tracks HOW SPREAD OUT PEOPLE ARE — `addPlayer` fans arrivals out by about
-   3.3 m, so four bodies on one shore have almost entirely overlapping 320 m
-   circles and draw one valley's worth between them, not 4 × 26. The number that
-   matters held all run: **11–19 animals within 320 m of EVERY body, both arms.**
-   Worth one more look only if somebody sees a hillside go quiet in play.
+7. **The 68 → 37 creature drift — measured, and BENIGN.** It is not a leak, it
+   tracks how spread out people are: four bodies on one shore have almost
+   entirely overlapping 320 m circles and draw one valley's worth between them.
+   **11–19 animals within 320 m of EVERY body, all run.** Only worth reopening
+   if somebody sees a hillside go quiet in play.
+8. **An arrow that outlives `ARROW.maxFlightTime` is spliced out with NO
+   `onMiss`** (projectiles.js:205). Nothing observed it — ballisticscheck waits
+   past 12 s so a silence there is real — but a mind that shoots into the sky
+   would never learn that it did.
 
 ## Things that will waste your time if you do not know them
 
-- **`git stash push <file>` AFTER YOU HAVE COMMITTED STASHES NOTHING**, and it
-  does not fail loudly. A counterfactual run done that way is the fixed code
-  twice: this run got two "identical" drift traces out of it and nearly wrote up
-  "the fix makes no difference". Use `git checkout <old-sha> -- <file>`, and
-  PRINT SOMETHING FROM THE FILE (`grep -c releaseSite`) to prove which arm is
-  actually loaded before you believe a single number.
+- **A GROUND IMPACT IS NOT A MISS DISTANCE.** The mark is a chest 0.75 m up; the
+  shaft lands on the dirt. At a two-degree descent that is **ten to fourteen
+  metres of overshoot built into every honest shot**, and it SHRINKS with range
+  as the descent steepens. Measuring the impact against the animal and reading
+  the sign cost this project a phantom bug at the top of the queue for a
+  session. Read `vsModel`. The yardstick is printed at the end of
+  `ballisticscheck` so nobody has to re-derive it.
+- **AN EMPTY QUIVER IS COMPLETELY SILENT.** The starting kit is twelve arrows,
+  and `Bow.fire` calls `cancel()` and returns when `consumeAmmo` fails: no
+  shaft, no event, no complaint on the wire. Twelve good shots followed by six
+  nothings looked exactly like long shots failing to report, and the ranges were
+  ordered ascending, which made it look causal. **Count your arrows before you
+  believe a range effect.**
+- **A TOLERANCE ON THE MEAN CANNOT SEE A BIAS.** ballisticscheck's first verdict
+  passed +0.31 m as "no systematic error" while every one of twelve arrows erred
+  the SAME WAY. Twelve heads in a row is the finding; the magnitude was never
+  the point. Test the SIGN SPLIT.
+
+- **PROVE WHICH ARM IS LOADED BEFORE YOU BELIEVE A NUMBER.** Two ways to think
+  you reverted something and not have: `git stash push <file>` AFTER committing
+  stashes nothing, and `git checkout -- <file>` on an UNTRACKED file restores
+  nothing. Both are silent, both exit 0, and both give you the same code twice
+  and a beautifully consistent counterfactual. Always `grep -c` the mutation
+  afterwards. **The counterfactual that works:** commit first, mutate, run,
+  `git checkout -- <file>`, then grep to prove the probe is gone AND the real
+  code is back. That is how ballisticscheck was shown to discriminate (5/7 with
+  the muzzle taken back out of `predictLanding`, red on the sign test at 10
+  long / 1 short).
 - **FORWARD IS `(−sin yaw, −cos yaw)`.** Measured on the server four ways, not
   assumed. Walking a body with `(+sin, +cos)` marches it briskly in the opposite
   direction and yields a beautifully consistent set of numbers about a journey it
@@ -188,12 +220,6 @@ takes roughly four minutes — the distances ARE the test, there is no shortcut.
   walking outward in straight lines gave identical numbers with the bug and
   without it. The movement has to come BACK.
 
-- **`git checkout -- <file>` ON AN UNTRACKED FILE RESTORES NOTHING**, silently
-  and with exit 0 — the same shape of trap as the `git stash push` one below it.
-  This run mutated a brand-new file to prove a check discriminated, "restored"
-  it that way, and only caught it because it printed `grep -c` of the mutation
-  afterwards. **Always print something out of the file to prove which arm is
-  loaded.** Copy it aside first if it is untracked.
 - **A `//` COMMENT PUT INSIDE `boardHtml()`'s TEMPLATE LITERAL IS NOT A COMMENT**
   — it is page text, and any backtick in it ENDS THE STRING. One sentence
   mentioning `` `did()` `` turned board.js into a syntax error. **And `npm run
