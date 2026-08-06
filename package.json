@@ -42,7 +42,8 @@
     "survivalcheck": "node server/survivalcheck.js",
     "providercheck": "node server/providercheck.js",
     "timbercheck": "node server/timbercheck.js",
-    "scarcecheck": "node server/scarcecheck.js"
+    "scarcecheck": "node server/scarcecheck.js",
+    "personacheck": "node server/personacheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

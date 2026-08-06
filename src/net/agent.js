@@ -94,12 +94,19 @@ export class Agent {
    * Both exist because they answer different questions and the author wanted
    * the option. Neither is a fallback for the other.
    */
-  constructor({ name, provider, rand, onLog = null, orders = 'decides', pet = null }) {
+  constructor({ name, provider, rand, onLog = null, orders = 'decides', pet = null, persona = null }) {
     this.name = name;
     this.provider = provider;
     this.rand = rand;
     this.onLog = onLog;
     this.orders = orders;
+    // ── WHO THIS ONE IS, kept where a report can read it ──
+    //
+    // The character itself goes into the provider's system prompt; this is the
+    // label. Without it a session ends with six transcripts and no way to say
+    // which of them was the liar, and the whole experiment is anecdote. Null
+    // when personas are off, which is the control.
+    this.persona = persona;
     // An animal at its heel, if it was given one. The agent's mind knows
     // nothing about it — it is the server's copy that walks, and this is here
     // so a fleet can be watched with something at its side.
@@ -1417,6 +1424,7 @@ export class Agent {
       name: this.name,
       id: this.id,
       provider: this.provider.name,
+      persona: this.persona?.id ?? null,
       goal: describeGoal(this.goal),
       decisions: this.decisions,
       remembers: this.memory.entries.length,

@@ -81,7 +81,7 @@ export function loadRoster(path) {
  * Reading the key by NAME out of `env` here is what keeps the roster file free
  * of secrets.
  */
-export function providerFor(entry, { env = process.env, budget = null, maxCalls, index = 0 } = {}) {
+export function providerFor(entry, { env = process.env, budget = null, maxCalls, index = 0, persona = null } = {}) {
   const scriptedRand = makeRandom(`agent:${entry.name}:${index}`);
   return makeProvider(
     scriptedRand,
@@ -91,7 +91,14 @@ export function providerFor(entry, { env = process.env, budget = null, maxCalls,
       MINDS_BASE_URL: entry.baseUrl,
       MINDS_API_KEY: entry.keyEnv ? env[entry.keyEnv] : undefined,
     },
-    { budget, maxCalls, character: entry.character, label: entry.name }
+    {
+      budget,
+      maxCalls,
+      // A hand-written character in the file always wins over one dealt by
+      // PERSONAS — somebody who typed it out meant it. See minds/personas.js.
+      character: entry.character ?? persona?.character ?? null,
+      label: entry.name,
+    }
   );
 }
 

@@ -45,6 +45,28 @@ export function buildReport(agents, meta = {}) {
     `${minutes < 1 ? `${Math.round(meta.seconds ?? 0)} seconds` : `${minutes.toFixed(0)} minutes`}, ` +
     `${meta.minds ?? 'scripted'} minds, ${totalDecisions} decisions between them.`);
 
+  // ── who was who ──
+  //
+  // Written down BEFORE anything they did, because it is the only thing that
+  // makes the rest attributable. Six transcripts with no cast list is anecdote:
+  // "somebody hoarded" is worth nothing next to "the hoarder hoarded, and the
+  // generous one gave its last branch away at 2 a.m.". Absent when personas are
+  // off, which is the control and should read as one.
+  const cast = live.filter((a) => a.persona);
+  if (cast.length) {
+    out.push('\n**Who was who**\n');
+    for (const a of live) {
+      // `persona` is the table entry, `provider` is the object that holds the
+      // model — both are more than a string and printing either raw gives you
+      // "[object Object]" in the file somebody reads tomorrow.
+      const who = a.persona ? `${a.persona.id} (${a.persona.name})` : 'no character — the control';
+      const brain = a.provider?.name && a.provider.name !== 'scripted'
+        ? ` · ${a.provider.name} ${a.provider.model ?? ''}`.trimEnd()
+        : ' · scripted';
+      out.push(`- ${a.name} — ${who}${brain}`);
+    }
+  }
+
   // ── what they reached for ──
   const tally = {};
   for (const a of live) {

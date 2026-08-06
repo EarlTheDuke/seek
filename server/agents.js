@@ -31,6 +31,7 @@ import { Agent } from '../src/net/agent.js';
 import { ScriptedProvider, makeProvider, Budget } from '../src/minds/providers.js';
 import { loadRoster, providerFor as providerForEntry, describeRoster } from './roster.js';
 import { makeRandom } from '../src/world/noise.js';
+import { assignPersonas, PERSONA_IDS } from '../src/minds/personas.js';
 import { AGENTS } from '../src/config.js';
 import { buildReport, summarise } from './playreport.js';
 import { appendNote, NOTES_FILE } from './notes.js';
@@ -76,6 +77,19 @@ const ROSTER = process.env.MINDS_ROSTER
   ? loadRoster(process.env.MINDS_ROSTER)
   : null;
 
+// ── PERSONAS: the experiment, and its control ──
+//
+//   PERSONAS=off                    (default) everybody gets the untouched
+//                                   baseline prompt, byte for byte. THE CONTROL.
+//   PERSONAS=on                     characters dealt from the seed, so a run
+//                                   reproduces and "player three was the liar"
+//                                   is still true tomorrow.
+//   PERSONAS=hoarder,liar,coward    explicit, in order, cycling.
+//
+// A roster entry's own `character` always wins: somebody who wrote the
+// character out by hand meant it. See src/minds/personas.js.
+const PERSONAS = process.env.PERSONAS ?? 'off';
+
 const useModel = (process.env.MINDS_PROVIDER ?? 'scripted') !== 'scripted';
 const hasKey = !!process.env.MINDS_API_KEY;
 
@@ -92,14 +106,24 @@ if (ROSTER) COUNT = ROSTER.players.length;
 // Built once, up front, so the console can say what is ACTUALLY about to play
 // rather than what was asked for. A player whose key is missing is scripted,
 // and finding that out from the header beats finding it out from the bill.
+// Dealt before anything is built, because a provider is told who it is when it
+// is constructed. Seeded by the roster file's name when there is one, so two
+// different fleets do not get the same casting.
+const cast = assignPersonas(PERSONAS, COUNT, process.env.MINDS_ROSTER ?? 'highlands');
+
 const providers = [];
 for (let i = 0; i < COUNT; i++) {
   providers.push(
     ROSTER
-      ? providerForEntry(ROSTER.players[i], { budget, maxCalls: AGENTS.maxCallsPerAgent, index: i })
+      ? providerForEntry(ROSTER.players[i], {
+          budget, maxCalls: AGENTS.maxCallsPerAgent, index: i,
+          // Only where the roster said nothing. Hand-written character wins.
+          persona: ROSTER.players[i]?.character ? null : cast[i],
+        })
       : makeProvider(makeRandom(`agent:${i}`), process.env, {
           budget,
           maxCalls: AGENTS.maxCallsPerAgent,
+          character: cast[i]?.character ?? null,
         })
   );
 }
@@ -121,6 +145,14 @@ if (ROSTER) {
 if (anyModel) {
   console.log(`  budget: ${budget.maxCalls} calls for the whole session, then scripted`);
 }
+// SAY WHO IS WHO, up front. A session that cannot name its own cast cannot
+// attribute anything that happens in it.
+if (cast.some(Boolean)) {
+  console.log(`  personas: ${cast.map((p, i) => `${i + 1}=${p?.id ?? 'plain'}`).join(' ')}`);
+} else {
+  console.log(`  personas: off — every mind gets the same prompt (the control).` +
+    ` PERSONAS=on, or ${PERSONA_IDS.slice(0, 3).join(',')}…`);
+}
 console.log('');
 
 const agents = [];
@@ -137,6 +169,9 @@ async function main() {
       onLog: log,
       orders: entry?.orders ?? ORDERS,
       pet: entry?.pet ?? PET,
+      // The label, so the report can attribute what happened. The character
+      // itself went into the provider above.
+      persona: entry?.character ? null : cast[i],
     });
     try {
       await a.connect(URL);
@@ -192,7 +227,8 @@ async function main() {
     for (const a of agents) {
       const s = a.status;
       console.log(
-        `    ${s.name.padEnd(12)} ${String(s.decisions).padStart(4)} decisions · ` +
+        `    ${s.name.padEnd(12)} ${(s.persona ?? '—').padEnd(9)} ` +
+          `${String(s.decisions).padStart(4)} decisions · ` +
           `${String(s.remembers).padStart(2)} memories · now: ${s.goal}`
       );
       if (s.lastError) console.log(`      last error: ${s.lastError}`);
