@@ -112,6 +112,25 @@ check('and one that did is counted where the key was pressed',
   /actually touched/i.test(withHands.text) && withHands.text.includes('interact — 9'),
   'decided 12 times, arrived 9 — the walk in between is the difference');
 
+// ── a REACH and a GATHER are not the same number ──
+//
+// `interact` is a keypress: the body arrived and pressed E. `arriveWithin` is
+// 6 m and `PICKUP.radius` is 2.2, so it can press at nothing, and a tally of
+// those has been read as gathering before. `gather` counts the items the
+// SERVER put in the pack. Sitting side by side they say something neither can
+// alone — and the report must spell that out, or the first reader adds them up.
+const grabby = [agent('Ailean', { gather: 20 }, { acted: { interact: 31, gather: 4 } })];
+const both = buildReport(grabby, { seconds: 600 });
+check('a run that grabbed at air says so — reaches against items in the pack',
+  /31 reaches produced 4 items/.test(both.text) && /keypress/.test(both.text),
+  'thirty-one presses, four things — the gap IS the finding');
+
+// And the line must not appear when there is nothing to compare it against,
+// or every scripted run grows a sentence about a number it does not have.
+check('...and it is silent when only one of the two numbers exists',
+  !/reaches produced/.test(withHands.text),
+  'nine reaches and no gather tally — no comparison to draw');
+
 // ── their own words ──
 const talkative = [agent('Beathag', { wander: 4 }, { said: ['have you seen the stones?'] })];
 const spoken = buildReport(talkative, { seconds: 300 });

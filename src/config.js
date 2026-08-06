@@ -867,6 +867,14 @@ export const AGENTS = {
   // the first mouthful is acknowledged — measured, two steaks, 44 to 100 with
   // the ceiling at 100 and most of a deer thrown away.
   swallowSeconds: 2.5,
+  // How long after a cook or a craft the pack's own changes belong to that make
+  // rather than to a pickup. `Agent.notePack` reads gathering off the inventory
+  // RISING on the server's snapshot — a confirmed outcome, unlike a keypress —
+  // and a cook makes the cooked line rise in exactly the same way. The server
+  // resolves the craft on its own tick, so the new item can land several
+  // snapshots after the intent went out; one snapshot of suppression is not
+  // enough. Seconds of real time, not game hours: the clock wraps at midnight.
+  makeOwnsPackFor: 1.5,
   // Core temperature, in degrees. `Body` starts shivering at 35.6; this is the
   // point at which warming up stops being something to fit around the day.
   warmBelow: 35.4,

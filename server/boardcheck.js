@@ -94,7 +94,12 @@ async function main() {
       thinking: false, lastError: null, remembers: 8, others: 2,
     },
     intentions: [{ h: 21.1, goal: 'gather wood', why: 'mine, not theirs', where: 'the black corrie' }],
-    deeds: [{ h: 21.2, what: 'interact', text: 'I picked up a branch' }],
+    // The real shape a pickup now takes: `what: 'gather'`, with the item and a
+    // running count, because consecutive pickups of the same thing grow ONE
+    // line rather than nine. `what: 'interact'` was invented here and the
+    // simulation never emitted it — the deed did not exist at all until the
+    // inventory delta started driving it. See `Agent.notePack`.
+    deeds: [{ h: 21.2, what: 'gather', id: 'wood', n: 3, text: 'I picked up 3 branches' }],
     // ── THE SHAPE, AS THE SIMULATION ACTUALLY EMITS IT ────────────────────
     //
     // `Agent.shots` IS A LOG OF MISSES AND NOTHING ELSE. It is filled from one

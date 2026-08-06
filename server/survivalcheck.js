@@ -133,6 +133,71 @@ async function main() {
   check('it foraged — wood reached the pack', sawWood > 0,
     sawWood ? `${sawWood} branch${sawWood > 1 ? 'es' : ''} carried` : 'never picked up a stick');
 
+  // ── AND IT CAN SAY THAT IT DID ──
+  //
+  // The pack going up and the body being ABLE TO SAY the pack went up are two
+  // different facts, and for a long time only the first was true: `did()` had
+  // five call sites and gathering was not one of them, so the board's "did"
+  // column read "nothing worth telling yet" beside a pack holding three
+  // branches. The commonest thing a body does all session was the one thing it
+  // could not report.
+  //
+  // Asserted against the SNAPSHOT above and not on its own: `sawWood > 0` is
+  // the server's word that wood arrived, and this line is only interesting
+  // because that one passed. A deed without the pack behind it would be the
+  // keypress lie all over again.
+  const gathers = agent.deeds.filter((d) => d.what === 'gather');
+  check('AND IT CAN SAY IT PICKED IT UP — the deed, not just the pack',
+    sawWood > 0 && gathers.length > 0,
+    gathers.length
+      ? `${gathers.length} gather deed${gathers.length > 1 ? 's' : ''}: ` +
+        gathers.map((d) => `"${d.text}"`).join(' · ')
+      : 'the pack filled up and the body had nothing to say about it');
+
+  // The one thing that must NOT be in there. A cook makes `venison_cooked`
+  // rise, which is indistinguishable from picking one up if all you watch is
+  // the number — so the cook owns the pack for `AGENTS.makeOwnsPackFor` and a
+  // steak must never be announced as something found lying about. This run
+  // COOKED (the check above), so the window was genuinely exercised.
+  const cookedAsGather = gathers.filter((d) => String(d.id).includes('cooked'));
+  check('...and the COOKED MEAL it made is not reported as something it found',
+    sawCooked && cookedAsGather.length === 0,
+    cookedAsGather.length
+      ? `${cookedAsGather.map((d) => d.text).join(' · ')} — the make window is too short`
+      : 'it cooked, and the craft owned its own change to the pack');
+
+  // ── and the coalescing, driven rather than hoped for ──
+  //
+  // A live forage cannot prove this: whether the world happens to hand a body
+  // two branches in a row is not something a check gets to decide, and an
+  // assertion that only holds when it does is the sort that passes by accident
+  // for a year. So the sequence is FED IN — the same trick `boardcheck` uses on
+  // `boardState`. `notePack` reads only the pack, the clock and the two logs,
+  // so it runs perfectly well against a body made of four fields.
+  //
+  // What it is guarding: `deeds` is `AGENTS.logSize` deep and it is the column
+  // a watcher reads. Nine branches one at a time must be ONE growing line, or
+  // they push the kill and the fire off the end of it.
+  const fake = { hours: 9, deeds: [], acted: {}, memory: { add() {} } };
+  const feed = (iv) => Agent.prototype.notePack.call(fake, iv);
+  feed({ arrow: 12 });                      // the starting kit — adopted in silence
+  feed({ arrow: 12, wood: 1 });
+  feed({ arrow: 12, wood: 2 });
+  feed({ arrow: 12, wood: 3 });
+  feed({ arrow: 12, wood: 3, stone: 1 });   // a different thing breaks the run
+  feed({ arrow: 12, wood: 4, stone: 1 });   // ...and wood starts a new line
+  feed({ arrow: 12, wood: 2, stone: 1 });   // burning two: a FALL is never a deed
+  const fed = fake.deeds;
+  check('...and a run of the same thing is ONE line, not one per branch',
+    fed.length === 3
+      && fed[0].id === 'wood' && fed[0].n === 3 && /3 branches/.test(fed[0].text)
+      && fed[1].id === 'stone' && fed[1].n === 1
+      && fed[2].id === 'wood' && fed[2].n === 1,
+    fed.map((d) => `"${d.text}"`).join(' · ') || 'nothing recorded at all');
+  check('...and the STARTING KIT is not a foraging triumph, nor is spending it',
+    !fed.some((d) => d.id === 'arrow') && fake.acted.gather === 5,
+    `twelve arrows arrived and two branches were burnt; ${fake.acted.gather} items counted as gathered`);
+
   check('it lit a fire', sawFire, sawFire ? 'flames in the snapshot' : 'no fire ever burned');
 
   check('IT COOKED', sawCooked,

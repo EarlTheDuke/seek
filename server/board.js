@@ -183,19 +183,19 @@ export function boardState(agents, meta = {}) {
 
         // ── the four threads, newest last ──
         intentions: (a.intentions ?? []).slice(-SHOW.intentions),
-        // WHAT REACHES `deeds`, exactly: killed, ate, ate raw, cooked, lit a
-        // fire. Those are the five `did()` calls in agent.js and there are no
-        // others — notably GATHERING IS NOT ONE. So a card can honestly read
-        // "nothing worth telling yet" beside a pack that has gained two wood,
-        // and the `carrying` line is the truthful record of that: it comes off
-        // the snapshot, which is the server's word.
+        // GATHERING REACHES IT NOW, and it is the commonest thing a body does
+        // all session. Driven off the inventory RISING on the server's own
+        // snapshot rather than off the keypress — `arriveWithin` is 6 m and
+        // `PICKUP.radius` is 2.2, so a body can press E thirty-five times at
+        // nothing, and a tally of intents was never evidence of an outcome.
+        // Consecutive pickups of the same thing grow ONE line ("I picked up 4
+        // branches") instead of nine, or a busy forager would push the kill and
+        // the fire off the end of a five-deep column. See `Agent.notePack`.
         //
-        // Recording a gather here from the keypress would be a LIE. The agent
-        // presses `interact` on arrival and `arriveWithin` is 6 m while
-        // `PICKUP.radius` is 2.2 — a body can press E thirty-five times at
-        // nothing, and a check has already been fooled by exactly that. The
-        // honest signal is the inventory going up. Wiring that into a deed is
-        // its own job; it is in STATE.md's queue rather than guessed at here.
+        // WHAT ELSE REACHES `deeds`, exactly: killed, ate, ate raw, cooked and
+        // lit a fire — the five `did()` calls in agent.js. Nothing here is
+        // inferred; every one of them is an outcome the server confirmed, and
+        // the `carrying` line beside them comes off the snapshot too.
         deeds: (a.deeds ?? []).slice(-SHOW.deeds),
         strays: strays.slice(-SHOW.strays).map((x) => ({ into: x.hit ?? null, text: strayWords(x) })),
         refusals: (a.refusals ?? []).slice(-SHOW.refusals),

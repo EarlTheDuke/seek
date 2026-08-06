@@ -251,7 +251,7 @@ export class Agent {
               // its own — the server's copy is the one that eats, cooks and
               // burns wood, so it is the only honest answer to "am I carrying
               // meat", and until it was sent nobody could ask.
-              if (msg.data.me.iv) this.carrying = msg.data.me.iv;
+              if (msg.data.me.iv) this.notePack(msg.data.me.iv);
               // Where the string actually is. Crouching drops it 0.67 m and the
               // solver has to know — see `aimAt`.
               this.eye = msg.data.me.e ?? PLAYER.eyeHeight;
@@ -513,6 +513,12 @@ export class Agent {
 
   update(dt) {
     if (!this.connected || !this.snapshot) return;
+
+    // The window in which a cook or a craft owns the pack's changes — see
+    // `notePack`. Counted in REAL seconds off `dt`, because the game clock
+    // wraps at 24 and a body that cannot attribute a meal between 23:59 and
+    // 00:01 would be wrong at exactly the hour it is most likely to be eating.
+    if (this._made > 0) this._made = Math.max(0, this._made - dt);
 
     // ── noticing runs on its own clock, faster than thinking ──
     //
@@ -1001,6 +1007,14 @@ export class Agent {
       if (recipe) {
         i.craft = recipe;
         this.did('craft', `I worked ${RECIPES[recipe].name.toLowerCase()} at the fire`);
+        // ── this make owns the next change to the pack ──
+        // A cook turns venison into venison_cooked and the cooked line RISES,
+        // which is indistinguishable from picking one up if you only watch the
+        // number. Held open for a second and a half of real time rather than
+        // one snapshot, because the server resolves the craft on its own tick
+        // and the new item can land several snapshots after the intent. See
+        // `notePack`.
+        this._made = AGENTS.makeOwnsPackFor;
       }
       // No recipe means we are here to get warm, so stand at it. Self-limiting:
       // the moment `coreC` climbs back over the line this returns false and the
@@ -1094,6 +1108,91 @@ export class Agent {
     this.memory.add(this.hours, text);
     this.deeds.push({ h: +this.hours.toFixed(2), what, text });
     if (this.deeds.length > AGENTS.logSize) this.deeds.shift();
+  }
+
+  /**
+   * The pack, as the server sends it — and WHAT JUST WENT INTO IT.
+   *
+   * ── why this is driven off the delta and not off the keypress ──
+   *
+   * Until now `did()` had exactly five call sites: killed, ate, ate raw,
+   * cooked, lit a fire. Gathering was not one of them, so the board's "did"
+   * column honestly read "nothing worth telling yet" beside a pack that had
+   * gained two branches, and the commonest thing a body does all session was
+   * the one thing it could not say it had done.
+   *
+   * The obvious fix is to record it when the body reaches — and it is wrong.
+   * `arriveWithin` is 6 m and `PICKUP.radius` is 2.2, so a body can press E
+   * thirty-five times at a branch it is nowhere near, and every check that
+   * counted intents read that as gathering. **The honest signal is the number
+   * going UP on the server's own snapshot**, which is a confirmed outcome and
+   * cannot be faked by wanting it.
+   *
+   * ── the two things that also make a number go up ──
+   *
+   * COOKING and CRAFTING. A cook turns venison into venison_cooked, and the
+   * cooked line rising is not a pickup; both already announce themselves
+   * through their own `did()`. So a make suppresses the next delta outright,
+   * rather than being disentangled item by item — a rule that cannot get the
+   * attribution subtly wrong.
+   *
+   * THE FIRST SNAPSHOT is the other one: `carrying` starts empty, so the whole
+   * starting kit — twelve arrows, a bow — arrives as one enormous delta. The
+   * first pack is adopted in silence.
+   */
+  /**
+   * "3 branches", "2 stones", "3 trout" — a count and a noun that reads right.
+   *
+   * `id + 's'` gives "branchs", and the item whose id is `wood` is called a
+   * Branch, so the naive version is wrong on the commonest pickup in the game.
+   * Meat and fish do not take a plural at all.
+   */
+  static plural(noun, n) {
+    if (n === 1) return noun;
+    if (/(venison|trout|fish)$/.test(noun)) return noun;
+    if (/(s|x|z|ch|sh)$/.test(noun)) return `${noun}es`;
+    if (/[^aeiou]y$/.test(noun)) return `${noun.slice(0, -1)}ies`;
+    return `${noun}s`;
+  }
+
+  notePack(iv) {
+    const before = this.carrying;
+    this.carrying = iv;
+    // The starting kit is not a foraging triumph.
+    if (!this._hadPack) { this._hadPack = true; return; }
+    // A cook or a craft owns every change for `AGENTS.makeOwnsPackFor`, whatever
+    // shape it takes. Conservative on purpose: the cost is a pickup that goes
+    // unrecorded while standing at a fire, and the alternative is a cooked
+    // steak announced as something the body found lying about.
+    if ((this._made ?? 0) > 0) return;
+
+    for (const [id, n] of Object.entries(iv)) {
+      const gained = n - (before?.[id] ?? 0);
+      if (gained <= 0) continue;
+      this.acted.gather = (this.acted.gather ?? 0) + gained;
+      const item = getItem(id);
+      const noun = (item?.name ?? id).toLowerCase();
+      // ── COALESCED, because a deed log is not a till roll ──
+      // `deeds` is a ring buffer `AGENTS.logSize` deep and it is what a watcher
+      // and the session report read. A body that picks up nine branches one at
+      // a time would push the kill and the fire off the end of it with nine
+      // near-identical lines. Consecutive pickups of the same thing grow one
+      // line instead — which is also what a person would say.
+      const last = this.deeds[this.deeds.length - 1];
+      if (last && last.what === 'gather' && last.id === id) {
+        last.n += gained;
+        last.h = +this.hours.toFixed(2);
+        last.text = `I picked up ${last.n} ${Agent.plural(noun, last.n)}`;
+        continue;
+      }
+      const text = `I picked up ${gained > 1 ? `${gained} ${Agent.plural(noun, gained)}` : `a ${noun}`}`;
+      // Memory only on the first of a run. It is a forty-entry ring shared with
+      // everything the body notices, and re-stating a growing tally into it
+      // would push out the deer and the wolf to say "and another branch".
+      this.memory.add(this.hours, text);
+      this.deeds.push({ h: +this.hours.toFixed(2), what: 'gather', id, n: gained, text });
+      if (this.deeds.length > AGENTS.logSize) this.deeds.shift();
+    }
   }
 
   /**

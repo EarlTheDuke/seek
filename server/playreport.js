@@ -169,6 +169,17 @@ export function buildReport(agents, meta = {}) {
     for (const [what, n] of touched.sort((x, y) => y[1] - x[1])) {
       out.push(`- ${what} — ${n} time${n === 1 ? '' : 's'}`);
     }
+    // ── the two numbers in here that are NOT the same kind of thing ──
+    // `interact` is a REACH: the body arrived and pressed. `arriveWithin` is
+    // 6 m and `PICKUP.radius` is 2.2, so it can press at nothing, and reading
+    // it as gathering has fooled a check before. `gather` is the ITEMS that
+    // actually landed in the pack, counted off the server's own snapshot.
+    // Reaches above items means it was grabbing at air.
+    if (hands.interact !== undefined && hands.gather !== undefined) {
+      out.push(`\n${hands.interact} reach${hands.interact === 1 ? '' : 'es'} produced ` +
+        `${hands.gather} item${hands.gather === 1 ? '' : 's'} in the pack — ` +
+        'a reach is a keypress, a gather is the server confirming something arrived.');
+    }
   } else if (totalDecisions > 0) {
     out.push('\n**They never touched anything**\n');
     out.push('Not one interact, place or eat in the whole run. Either nothing ' +
