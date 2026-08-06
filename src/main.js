@@ -31,7 +31,7 @@ import { Soundscape } from './audio/soundscape.js';
 import { Hud } from './ui/hud.js';
 import { LOADOUT, LAKE, PLAYER, WATER_LEVEL, WEATHER, WILDLIFE, SITES, STRUCTURES, TIME, OTTER, AXE, FISH } from './config.js';
 import { Inventory } from './items/inventory.js';
-import { getItem } from './items/registry.js';
+import { getItem, EDIBLE } from './items/registry.js';
 import { WeaponHost } from './weapons/index.js';
 import { AimMark } from './weapons/aimMark.js';
 import { Projectiles } from './world/projectiles.js';
@@ -103,9 +103,7 @@ const _lootRand = makeRandom('drops');
  * only thing anyone ever has to do. The alternative — a hand-written order
  * alongside the table — is what made trout inedible the moment they were added.
  */
-const EDIBLE = Object.entries(SURVIVAL.food)
-  .sort((a, b) => b[1].fills - a[1].fills)
-  .map(([id]) => id);
+
 // Its own stream, so poking at the sandbox tools never shifts the loot rolls.
 const sandboxRand = makeRandom('sandbox');
 /** Inclusive integer in [a, b], from the seeded drop stream. */

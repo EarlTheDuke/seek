@@ -52,7 +52,7 @@ import { StealthProfile } from '../player/stealth.js';
 import { Body } from '../player/body.js';
 import { Fires } from '../world/fires.js';
 import { sampleEnvironment } from '../world/environment.js';
-import { insulationOf } from '../items/registry.js';
+import { insulationOf, EDIBLE } from '../items/registry.js';
 import { Inventory } from '../items/inventory.js';
 import { WeaponHost } from '../weapons/index.js';
 import { pickSpawn, buildLandmarks } from '../world/landmarks.js';
@@ -723,6 +723,42 @@ export class SimWorld {
     if (intent.interact) {
       this.pickups.deps.inventory = p.inventory;
       this.pickups.collect();
+    }
+
+    // ── two intents that crossed the wire for a year and were never read ──
+    //
+    // `eat` and `place` are in the protocol's INTENT_KEYS, are sanitised on
+    // arrival, and are sent by every client. Nothing here ever looked at them.
+    // For a browser that did not matter, because the browser resolves both
+    // locally against its own inventory and its own fire.
+    //
+    // For an AGENT it mattered completely: it could hunt, gather and walk, and
+    // then starve holding venison and freeze beside branches it had carried all
+    // day. No amount of intelligence upstream can survive a body that cannot
+    // eat or make fire, so every model-driven player was playing a game it was
+    // not possible to win.
+    if (intent.eat) {
+      // Best meal first, from the shared table — the same order the browser
+      // uses, out of the same list, so nobody has to keep two in step.
+      const found = EDIBLE.find((id) => p.inventory.countOf(id) > 0);
+      if (found && p.body.eat(found) > 0) {
+        p.inventory.remove(found, 1);
+        p.dirty = true;
+      }
+    }
+
+    if (intent.place && p.inventory.countOf('wood') > 0) {
+      // In front of them, at the same reach the browser uses. Facing is
+      // (-sin, -cos) — the convention `yawTo` and the controller share.
+      const fx = p.ctrl.position.x - Math.sin(p.ctrl.yaw) * SURVIVAL.firePlaceDistance;
+      const fz = p.ctrl.position.z - Math.cos(p.ctrl.yaw) * SURVIVAL.firePlaceDistance;
+      // `lightFireFor` already does the whole job, including treating a claim
+      // that lands on an existing fire as fuel for it. This is simply its first
+      // caller that is not a packet from a browser.
+      if (this.lightFireFor(p.id, fx, fz).ok) {
+        p.inventory.remove('wood', 1);
+        p.dirty = true;
+      }
     }
 
     const env = sampleEnvironment(p.ctrl.position, {

@@ -12,6 +12,7 @@
 
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { SURVIVAL } from '../config.js';
 
 const WOOD = new THREE.Color(0x6f4c2b);
 const WOOD_DARK = new THREE.Color(0x46331f);
@@ -492,3 +493,20 @@ export function insulationOf(inventory) {
   }
   return total;
 }
+
+/**
+ * Everything you can eat, best meal first.
+ *
+ * Built from SURVIVAL.food so that adding a food to that table is the only
+ * thing anyone ever has to do. The alternative — a hand-written order alongside
+ * the table — is what made trout inedible the moment they were added: R said
+ * "nothing to eat" while you stood there holding one.
+ *
+ * IT LIVES HERE, not in main.js, because the browser is no longer the only
+ * thing that eats. The server now resolves `intent.eat` for agents, and a
+ * second copy of this list in a second file is the same bug again with a longer
+ * fuse — the first copy already went stale once.
+ */
+export const EDIBLE = Object.entries(SURVIVAL.food)
+  .sort((a, b) => b[1].fills - a[1].fills)
+  .map(([id]) => id);
