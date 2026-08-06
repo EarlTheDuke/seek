@@ -595,8 +595,13 @@ export class Structures {
     // `staticColliders` is deliberately a different field from the scatter's,
     // which rebuilds itself every 55 m and would wipe this. See main.js.
     if (spec.solid && this.deps.colliders) {
-      this.deps.colliders.addCylinder(x, check.y, z, spec.solidRadius, spec.height, 'structure');
-      s.collided = true;
+      // Held on the structure so taking the wall down takes the wall down. See
+      // `remove` — an invisible palisade that goes on stopping arrows after it
+      // is gone is a worse bug than the one this line fixed.
+      s.collider = this.deps.colliders.addCylinder(
+        x, check.y, z, spec.solidRadius, spec.height, 'structure'
+      );
+      s.collided = !!s.collider;
     }
 
     this.deps.audio?.impact?.('wood', { x, y: check.y + 1, z });
@@ -607,6 +612,14 @@ export class Structures {
     const i = this.all.indexOf(s);
     if (i < 0) return false;
     this.root.remove(s.object);
+    // ...and its collider, or the wall outlives the wall. Retired rather than
+    // spliced: the field's grid holds indices into its list, so removing an
+    // entry would renumber every solid after it. See `ColliderField.retire`.
+    if (s.collider) {
+      this.deps.colliders?.retire(s.collider);
+      s.collider = null;
+      s.collided = false;
+    }
     this.all.splice(i, 1);
     return true;
   }

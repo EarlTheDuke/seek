@@ -117,6 +117,44 @@ const wall = colliders.list.find((c) => c.tag === 'structure');
 check('the palisade is solid', !!wall && wall.r > 0 && wall.h > 0,
   wall ? `a ${wall.r} m x ${wall.h} m cylinder is in the collider field` : 'NO collider was added');
 
+// ── ...AND IT STOPS BEING SOLID WHEN IT COMES DOWN ──
+//
+// The bug the fix above would otherwise have INTRODUCED. While
+// `colliders.add?.()` silently did nothing, taking a palisade down could not
+// leave anything behind, because nothing was ever there. Now that a wall is
+// real, a wall that outlives its own removal is an invisible barrier that stops
+// arrows for the rest of the run — and it would be invisible in every sense.
+//
+// Asserted through a live segment query rather than off the list, because
+// `retire` deliberately does NOT splice (the grid holds indices) and a check
+// that counted list entries would read a retired wall as still present.
+const throughWall = (field) => {
+  const out = { t: 0, point: new THREE.Vector3(), normal: new THREE.Vector3(), tag: null };
+  return field.segmentHit(
+    new THREE.Vector3(wall.x - 4, wall.y + 1, wall.z),
+    new THREE.Vector3(wall.x + 4, wall.y + 1, wall.z),
+    out
+  );
+};
+const blockedBefore = !!throughWall(colliders);
+const pi = built.findIndex((b) => b.kind === 'palisade');
+structures.remove(built[pi]);
+const blockedAfter = !!throughWall(colliders);
+check('and it stops being solid when it comes down', blockedBefore && !blockedAfter,
+  `an arrow across the wall line is ${blockedBefore ? 'STOPPED' : 'not stopped'} while it stands ` +
+  `and ${blockedAfter ? 'STILL STOPPED — the wall outlived itself' : 'let through once it is gone'}`);
+
+// Put it back exactly where the build loop had it, because everything below
+// this line is about a camp of FOUR structures surviving a save and a reload.
+// A check that quietly changes the world for the checks after it is how a
+// passing suite starts describing a camp nobody built.
+const wallAngle = (pi / 4) * Math.PI * 2;
+const rebuilt = structures.place('palisade',
+  site.x + Math.cos(wallAngle) * 2.9, site.z + Math.sin(wallAngle) * 2.9, wallAngle);
+built[pi] = rebuilt.structure;
+check('and it can be built again where it stood', rebuilt.ok && built.length === 4,
+  `${built.length} structures back up: ${built.map((b) => b.kind).join(', ')}`);
+
 // ── storage ──
 const store = built.find((b) => b.kind === 'store');
 store.contents.push({ item: 'venison', count: 5 }, { item: 'hide', count: 2 });

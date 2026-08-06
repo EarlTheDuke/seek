@@ -31,22 +31,41 @@ export class ColliderField {
   }
 
   addSphere(x, y, z, r, tag) {
-    this.push({ kind: SPHERE, x, y, z, r, tag }, x - r, z - r, x + r, z + r);
+    return this.push({ kind: SPHERE, x, y, z, r, tag }, x - r, z - r, x + r, z + r);
   }
 
   /** Vertical cylinder with its base at (x, y, z). */
   addCylinder(x, y, z, r, h, tag) {
-    this.push({ kind: CYLINDER, x, y, z, r, h, tag }, x - r, z - r, x + r, z + r);
+    return this.push({ kind: CYLINDER, x, y, z, r, h, tag }, x - r, z - r, x + r, z + r);
   }
 
   addBox(min, max, tag) {
-    this.push(
+    return this.push(
       { kind: BOX, minx: min.x, miny: min.y, minz: min.z, maxx: max.x, maxy: max.y, maxz: max.z, tag },
       min.x,
       min.z,
       max.x,
       max.z
     );
+  }
+
+  /**
+   * Take one collider out of service.
+   *
+   * NOT a splice, and that is the whole design: `grid` holds INDICES into
+   * `list`, so removing an entry would silently renumber every collider after it
+   * and every bucket in the grid would then point at the wrong solid. A retired
+   * collider keeps its slot and its index and is skipped by the query.
+   *
+   * This exists because structures can be taken down (`Structures.remove`, and a
+   * palisade is the one structure with a collider). Until the `addCylinder` fix
+   * landed no structure had ever actually contributed one, so removing a wall
+   * could not leave anything behind. Now it can, and an invisible wall that
+   * stops arrows for the rest of the run is a worse bug than the one that was
+   * fixed.
+   */
+  retire(c) {
+    if (c) c.dead = true;
   }
 
   push(c, x0, z0, x1, z1) {
@@ -61,6 +80,7 @@ export class ColliderField {
         bucket.push(i);
       }
     }
+    return c;
   }
 
   /**
@@ -88,6 +108,7 @@ export class ColliderField {
           if (seen.has(idx)) continue;
           seen.add(idx);
           const c = this.list[idx];
+          if (c.dead) continue;
           const t =
             c.kind === SPHERE
               ? hitSphere(a, b, c)
