@@ -23,41 +23,24 @@ about to act on a queue entry here, print the number first.
 
 ## A CRAFT DEED WAS A KEYPRESS — and the bug in the queue did not exist
 
-**Read the second half of this before you trust anything in the old queue.**
+`did('craft', …)` fired the instant `i.craft` was set — an INTENT wearing an
+outcome's clothes, the same mistake `arriveWithin` (6 m) vs `PICKUP.radius`
+(2.2 m) made one method down. **What that hid: `World.update` refuses a craft in
+TOTAL SILENCE** — no station within `SURVIVAL.fireReach`, inputs gone, or
+`maxHeld` met, and nothing is said to anybody. A body at a cold fire pressing all
+night filled its deed log and its session report with meals it never cooked.
 
-`did('craft', …)` fired the instant `i.craft` was set, which made it an INTENT
-wearing an outcome's clothes — the same mistake `arriveWithin` (6 m) vs
-`PICKUP.radius` (2.2 m) made one method down, and it goes the same way. The deed
-now comes off the recipe's own `outputs` ARRIVING in the pack, inside the window
-the make already owns. `Agent.noteMake`.
+The deed now comes off the recipe's own `outputs` ARRIVING in the pack, inside
+the window the make already owns (`Agent.noteMake`), and `acted.craftTried` sits
+beside `acted.craft` the way the report already separates reaches from items.
+`survivalcheck` **12/12**, and it DISCRIMINATES: with the old press-time line put
+back it goes **11/12**, red on exactly that check.
 
-**What it was actually hiding: `World.update` refuses a craft in total silence.**
-No station within `SURVIVAL.fireReach`, inputs gone, or `maxHeld` already met —
-the craft is dropped and nothing is said to anybody. So a body standing at a cold
-fire pressing all night filled its deed log and its session report with meals it
-never cooked. `acted.craftTried` now sits beside `acted.craft` for the same
-reason the report already spells out reaches vs items.
-
-`survivalcheck` **12/12**, and the new one DISCRIMINATES: with the old
-press-time line put back it goes **11/12**, red on exactly that check, reading
-*"the press alone wrote 2 deeds — a keypress is not a meal"*. Committed first,
-mutated, run, `git checkout --`, then grepped both arms — the counterfactual
-STATE.md prescribes.
-
-### the queue was wrong about WHY, and that is worth more than the fix
-
-Queue item 2 said *"a craft writes a deed EVERY TICK it stands at the fire"* and
-cited two identical lines stamped 1.27h. **It does not, and they were not.**
-`survivalcheck` stages `STOCK=venison:2` — those were **two real steaks**, cooked
-one after the other, and `craftTried: 2 / craft: 2` now says so on its own line.
-The per-tick spam was REASONED from where the call sat, never measured; the
-server resolves a craft instantly, so the branch fires once per make.
-
-The fix was still worth having, because the defect underneath it was real and
-worse. But the lesson is the standing one: **a call site that looks like it
-repeats is not evidence that it repeated.** One `console.log` of the tally would
-have said so in ten seconds, and three paragraphs of the last handover would not
-have been written.
+**But queue item 2's premise was FALSE.** It said "a craft writes a deed every
+tick"; it does not. `survivalcheck` stages `STOCK=venison:2`, so the two lines at
+1.27h were **two real steaks** — `craftTried: 2 / craft: 2` says so directly. The
+per-tick spam was reasoned from where the call sat and never measured. One
+`console.log` of the tally would have settled it in ten seconds.
 
 ## THE HILLSIDE IS NEVER EMPTY. Queue item 1's premise was false too.
 
@@ -65,7 +48,7 @@ have been written.
 that killed nothing, **which of six failures it actually was** instead of leaving
 it to be inferred from three tables that all read "nothing happened".
 
-Five runs, and the answer never varied:
+Seven runs, and the answer never varied:
 
 ```
   a deer in the snapshot   147/147 samples (100%), 18-26 at a time    <- every run
@@ -133,9 +116,20 @@ a tolerance on the mean cannot see a bias. The mind is told too — *"the deer w
 4 m to the left of my mark when it landed"* is an actionable sentence and *"a
 miss, but barely"* is not.
 
-**NOT YET READ.** The instrument landed mid-batch and no red run has been
-measured with it. That is the first thing the next run should do: `npm run
-huntcheck` until one goes red, then read the LEAD line.
+**It works, and it has only been read on a GREEN run so far.** First live
+payload, on a miss that every other column called flawless:
+
+```
+  25 m  vsModel +0.1 m  across 0 m  (pitch -11.28°, hit ground)
+        the deer itself was 0.5 m LEFT of the mark and 3.6 m NEARER than solved for
+```
+
+Half a metre of lateral lead error — nothing — and **3.6 m of range error**,
+because the deer was closing while the shaft was in the air. `leadAlong` may
+turn out to be the interesting half: the pitch is solved for a range the animal
+has already left. **No RED run has been measured with it yet.** That is the
+first thing to do next: `npm run huntcheck` until one goes red, then read the
+LEAD line and its sign split.
 
 ### honesty about the rate
 
@@ -144,71 +138,20 @@ that as a regression** — builds, greps and a `npm run build` were running on t
 box during several of them, and this check is real-time on a wall clock. The box
 was not quiet. The rate is not the finding; the two failure SHAPES are.
 
-## THE BOW IS UNDERSTOOD. Queue item 0 was the INSTRUMENT, not the ballistics.
+## CLOSED EARLIER, kept to three lines each
 
-`npm run ballisticscheck` — **7/7**, port 8088. A real body on a real server, a
-staircase of six ranges from 15 m to 70 m, two shafts each, every one compared
-against `predictLanding`. **Median 0.17 m from where our own model said it would
-come down**, at landing distances out to 151 m. Six long, six short.
+**The bow is understood** (`ballisticscheck` 7/7, port 8088): median **0.17 m**
+from its own model out to 151 m, and the one real bias in it — `Bow.fire` spawns
+the shaft 0.55 m down the aim line while every model launched from the eye — is
+fixed as `BOW.muzzle`. The phantom "arrows land long" was geometry; the yardstick
+is the first entry in the trap list and it is printed at the end of the check.
 
-### "arrows land LONG and the error grows with range" was geometry
-
-`howItMissed` measured the impact against the MARK, and the mark is a deer's
-chest 0.75 m above the ground the deer stands on. **An arrow that passes exactly
-through that chest does not stop there.** At 20 m the shaft is descending at
-barely two degrees, so shedding the last 0.75 m of height carries it another
-**fourteen metres**. A flawless archer reads "+14 m long" on that scale, and the
-sign is a foregone conclusion for every shot not stopped by a bank.
-
-So the board's *"3 m long at 20 m"* — eight of them from one body, written up
-here as a systematic bias whose magnitude grew with range — was an arrow landing
-**eleven metres SHORT of a perfect one**. The sign was inverted and the trend
-was an artifact. The very first live payload read the right way settled it:
-`along +2.8 m` against the deer, **`model 0.3 m`** against the bow.
-
-`vsModel` is the honest column now, and it is what the board, huntcheck and the
-agent's own MEMORY all report. That last one mattered: the mind was being told
-in its prompt that its arrow flew long when it had fallen short.
-
-### and there WAS a real bias underneath, ten times smaller
-
-Twelve arrows, twelve of them long of prediction, +0.05 to +0.91 m. A magnitude
-inside marksmanship and a sign that never flipped once — which is a bias.
-`Bow.fire` spawns the shaft **0.55 m along the aim line** so it clears the
-archer's own capsule; every model of the bow launched from the eye. Now
-`BOW.muzzle`, read by the bow and by all three integrators in marksman.js.
-
-Measured before and after on the same ground: median gap **0.18 → 0.11 m**, mean
-along error **+0.31 → +0.07 m**, signs **12/0 → 6/6**. It moves the solved pitch
-about 1.4 mrad and takes 1.5 cm at 10 m to 8.5 cm at 60 m off the top of the arc
-— under `BOW.spreadFull`, so a correction and not a transformation. **Do not
-expect it to make huntcheck seven-for-seven.** The browser's own aim mark was
-always right; `previewShot` had the offset all along.
-
-## A BODY CAN SAY IT PICKED SOMETHING UP — queue item 2, closed
-
-`did()` had five call sites and gathering was not one of them, so the board's
-"did" column read *"nothing worth telling yet"* beside a pack holding three
-branches. **Driven off the inventory RISING on the server's own snapshot**, not
-off the keypress — `arriveWithin` is 6 m and `PICKUP.radius` is 2.2, so a body
-can press E at nothing all afternoon. `Agent.notePack`.
-
-Live: **23 reaches, 28 items in the pack.** Those were one number before, and
-the session report now spells the gap out so nobody adds them up. Three things
-that also make a number go up: a cook or craft owns the pack for
-`AGENTS.makeOwnsPackFor`; the starting kit is adopted in silence; a FALL is
-never a deed. Consecutive pickups grow one line — *"I picked up 27 branches"*,
-observed — because `deeds` is five deep on the board and nine branch lines
-would push the kill and the fire off the end of it.
-
-**"branch" + "s" is "branchs"**, and the item whose id is `wood` is called a
-Branch — the naive plural was wrong on the commonest pickup in the game.
-`Agent.plural`. `survivalcheck` **11/11**, `reportcheck` **20/20**.
-
-**And it discriminates, on a live socket.** With `makeOwnsPackFor: 0` the same
-run reports *"I picked up 2 cooked venison"* — a steak the body cooked itself,
-announced as something it found lying about — and survivalcheck goes 10/11 red
-on exactly that line. The window is load-bearing, not decoration.
+**A body can say it picked something up** (`Agent.notePack`): driven off the pack
+RISING on the server's snapshot, never off the keypress. Consecutive pickups
+coalesce into one growing line; the starting kit is adopted in silence; a fall is
+not a deed; a make owns the pack for `AGENTS.makeOwnsPackFor`. Proved red as well
+as green — with that window at 0 it announces a steak it cooked as something it
+found, and survivalcheck goes red on exactly that line.
 
 ## THERE IS A BOARD. `BOARD=on npm run agents` -> http://127.0.0.1:8090
 
@@ -234,10 +177,12 @@ assertions in boardcheck now. Fixture values come out of REAL payloads.
 
 Detail on how each one was won is in FINDINGS.md; what is still worth knowing:
 
-**1. SURVIVE** `survivalcheck` 7/7 — forage, light, cook, eat, live the night.
-**2. HUNT** `huntcheck` six of seven runs, one arrow, kills at 59-109 s. The
-seventh is the marksmanship tail, not an empty hillside. DO NOT TUNE CONSTANTS
-ON ONE RUN — three passes of that moved the failure around without fixing it.
+**1. SURVIVE** `survivalcheck` 12/12 — forage, light, cook, eat, live the night.
+**2. HUNT** `huntcheck` kills in 65-134 s when it kills, on one or two arrows.
+The tail is NOT an empty hillside (measured, see the top of this file) and it is
+not one bug either: half of it is the shot rate and half is the aim. DO NOT TUNE
+CONSTANTS ON ONE RUN — three passes of that moved the failure around without
+fixing it, and this run found two more instruments that were lying.
 **3. MINDS & PROVIDERS** `providercheck` 25/25. One OpenAI-compatible provider
 plus Anthropic; `MINDS_PROVIDER/BASE_URL/MODEL/API_KEY`, per-agent overrides in
 a roster file. Proved against a local fake endpoint — no key needed to test.
@@ -328,12 +273,12 @@ spends the whole twelve-arrow quiver and takes about three minutes.**
    refusals cleared FIRST; only then decide between fixing the detour and
    fixing the stand-off.
 
-   **1b. READ THE LEAD COLUMN ON A RED RUN. Nothing has yet.** `leadAcross`
-   (the deer's own position against the mark at impact) landed mid-batch and no
-   red run has been measured with it. Every other column says the bow is
-   perfect, and `across` is structurally blind to a mis-lead. Run `npm run
-   huntcheck` until one goes red, then read the LEAD line and its SIGN SPLIT —
-   all one way is a lead the solver gets wrong, a split is spread. **Do not tune
+   **1b. READ THE LEAD COLUMN ON A RED RUN — no red run has been.** Its one
+   live reading (on a green run) was 0.5 m of lateral lead error and **3.6 m of
+   RANGE error**: the deer was closing while the shaft flew, so the pitch was
+   solved for a range it had already left. If that repeats on the red runs,
+   `leadAlong` is the bug and not `leadAcross`. Read the SIGN SPLIT — all one
+   way is a lead the solver gets wrong, a split is spread. **Do not tune
    `BOW`/`AGENTS` constants before reading it**; three passes of that moved the
    failure around without fixing it.
 
