@@ -5,6 +5,13 @@ more context than the work does. This file is the current state. **Update it at
 the end of every run**, and cut the closed section rather than letting this
 become another archive.
 
+**HOW TO READ IT.** Everything down to "The queue, ranked" is the state of play
+and the next thing to do — that is the ~100 lines the brief asks for. Below it,
+"Things that will waste your time" is a standing trap list rather than news, and
+it is the most expensive knowledge in the repo: every entry cost somebody a
+wrong diagnosis. **Skim it before you debug anything, not after.** It is kept
+here rather than cut because a closed bug can be deleted and a trap cannot.
+
 Last updated: 2026-08-06, by the run that measured the bow and found the bug was
 in the ruler.
 
@@ -48,6 +55,31 @@ about 1.4 mrad and takes 1.5 cm at 10 m to 8.5 cm at 60 m off the top of the arc
 — under `BOW.spreadFull`, so a correction and not a transformation. **Do not
 expect it to make huntcheck seven-for-seven.** The browser's own aim mark was
 always right; `previewShot` had the offset all along.
+
+## A BODY CAN SAY IT PICKED SOMETHING UP — queue item 2, closed
+
+`did()` had five call sites and gathering was not one of them, so the board's
+"did" column read *"nothing worth telling yet"* beside a pack holding three
+branches. **Driven off the inventory RISING on the server's own snapshot**, not
+off the keypress — `arriveWithin` is 6 m and `PICKUP.radius` is 2.2, so a body
+can press E at nothing all afternoon. `Agent.notePack`.
+
+Live: **23 reaches, 28 items in the pack.** Those were one number before, and
+the session report now spells the gap out so nobody adds them up. Three things
+that also make a number go up: a cook or craft owns the pack for
+`AGENTS.makeOwnsPackFor`; the starting kit is adopted in silence; a FALL is
+never a deed. Consecutive pickups grow one line — *"I picked up 27 branches"*,
+observed — because `deeds` is five deep on the board and nine branch lines
+would push the kill and the fire off the end of it.
+
+**"branch" + "s" is "branchs"**, and the item whose id is `wood` is called a
+Branch — the naive plural was wrong on the commonest pickup in the game.
+`Agent.plural`. `survivalcheck` **11/11**, `reportcheck` **20/20**.
+
+**And it discriminates, on a live socket.** With `makeOwnsPackFor: 0` the same
+run reports *"I picked up 2 cooked venison"* — a steak the body cooked itself,
+announced as something it found lying about — and survivalcheck goes 10/11 red
+on exactly that line. The window is load-bearing, not decoration.
 
 ## THERE IS A BOARD. `BOARD=on npm run agents` -> http://127.0.0.1:8090
 
@@ -123,7 +155,7 @@ scripted. Read it. Other knobs, all off by default: `HOURS=1`, `RAID=6`,
 `bookcheck`/`reportcheck`/`raidcheck` 18 · `timbercheck` 17 · `agentcheck` 17 ·
 `ordercheck` 17 · `dangercheck`/`herdcheck`/`rendercheck` 12 · `bitecheck` 10 ·
 `spreadcheck` 10 · `watchcheck` 10 · `refillcheck` 9 · `scarcecheck` 9 ·
-`shotcheck` 8 · `survivalcheck`/`huntcheck` 7 · `arrowcheck`/`woundcheck` 7 ·
+`shotcheck` 8 · **`survivalcheck` 11** · `huntcheck` 7 · `arrowcheck`/`woundcheck` 7 ·
 **`ballisticscheck` 7** · `rostercheck` 6.
 
 Ports: **ballisticscheck 8088**, boardcheck 8093 (plus 8090 for its own board and
@@ -155,13 +187,13 @@ spends the whole twelve-arrow quiver and takes about three minutes.**
    budget — but "no shot in 150 s" and "a shot it could not take" are different
    answers and only the refusal log can tell them apart. The board surfaces
    refusals live now, which is the instrument this wanted.
-2. **A confirmed pickup is recorded nowhere.** `did()` has exactly five call
-   sites — killed, ate, ate raw, cooked, lit a fire — so the board's "did"
-   column honestly reads "nothing worth telling yet" beside a pack that has
-   gained two wood. Do NOT record it from the keypress: `arriveWithin` is 6 m,
-   `PICKUP.radius` is 2.2, and a body can press E thirty-five times at nothing.
-   The honest signal is the inventory going UP on the snapshot; drive a
-   `did('gather', …)` off that delta and the deed becomes an outcome.
+2. **A craft writes a deed EVERY TICK it stands at the fire.** (~~"a confirmed
+   pickup is recorded nowhere"~~ closed — see the top of this file — and this is
+   what closing it exposed.) Live survivalcheck: *"I worked cook venison at the
+   fire"* twice at the same game hour. `did('craft', …)` sits inside the
+   per-tick branch that sets `i.craft`, so a long cook pushes near-identical
+   lines into a five-deep column and shoves the kill off the end of it. Same
+   class of problem the gather coalescing just solved and the same shape of fix.
 3. `glider.js` samples ridge lift upwind with `(−sin, −cos)` while integrating
    flight in `(+sin, +cos)`. **Half answered: a BODY walks along `(−sin yaw,
    −cos yaw)`, measured on the server four ways.** So `(−sin, −cos)` is this

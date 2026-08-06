@@ -1111,6 +1111,21 @@ export class Agent {
   }
 
   /**
+   * "3 branches", "2 stones", "3 trout" — a count and a noun that reads right.
+   *
+   * `id + 's'` gives "branchs", and the item whose id is `wood` is called a
+   * Branch, so the naive version is wrong on the commonest pickup in the game.
+   * Meat and fish do not take a plural at all.
+   */
+  static plural(noun, n) {
+    if (n === 1) return noun;
+    if (/(venison|trout|fish)$/.test(noun)) return noun;
+    if (/(s|x|z|ch|sh)$/.test(noun)) return `${noun}es`;
+    if (/[^aeiou]y$/.test(noun)) return `${noun.slice(0, -1)}ies`;
+    return `${noun}s`;
+  }
+
+  /**
    * The pack, as the server sends it — and WHAT JUST WENT INTO IT.
    *
    * ── why this is driven off the delta and not off the keypress ──
@@ -1140,21 +1155,6 @@ export class Agent {
    * starting kit — twelve arrows, a bow — arrives as one enormous delta. The
    * first pack is adopted in silence.
    */
-  /**
-   * "3 branches", "2 stones", "3 trout" — a count and a noun that reads right.
-   *
-   * `id + 's'` gives "branchs", and the item whose id is `wood` is called a
-   * Branch, so the naive version is wrong on the commonest pickup in the game.
-   * Meat and fish do not take a plural at all.
-   */
-  static plural(noun, n) {
-    if (n === 1) return noun;
-    if (/(venison|trout|fish)$/.test(noun)) return noun;
-    if (/(s|x|z|ch|sh)$/.test(noun)) return `${noun}es`;
-    if (/[^aeiou]y$/.test(noun)) return `${noun.slice(0, -1)}ies`;
-    return `${noun}s`;
-  }
-
   notePack(iv) {
     const before = this.carrying;
     this.carrying = iv;
