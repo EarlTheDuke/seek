@@ -14,6 +14,7 @@ import * as THREE from 'three';
 import { WILDLIFE, WATER_LEVEL, ALARM } from '../config.js';
 import { heightAt, slopeAt, clumpAt, makeRandom } from '../world/noise.js';
 import { hash2i, lerp, damp } from '../util/math.js';
+import { richnessAt } from '../world/scarcity.js';
 import { SPECIES, getSpecies } from './registry.js';
 import { Creature, DEAD, GRAZE } from './creature.js';
 import { strangenessAt, darkness, inBand } from '../world/strangeness.js';
@@ -185,14 +186,20 @@ export class Wildlife {
         if (this.spawnedSites.has(key) || this.clearedSites.has(key)) continue;
         if (this.creatures.length >= this.aliveCap()) return;
 
-        // Not every cell holds a herd.
-        if (hash2i(ci, cj, 811) > WILDLIFE.siteDensity) {
-          this.spawnedSites.add(key);
+        // Not every cell holds a herd — and under scarcity, fewer do, with the
+        // ones that remain pulled into the good ground. `richnessAt` returns 1
+        // everywhere until somebody turns it on, so this is the same world it
+        // has always been by default. The site's own position has to be worked
+        // out first, because WHERE it is decides how rich it is.
+        const x = ci * cell + hash2i(ci, cj, 812) * cell;
+        const z = cj * cell + hash2i(ci, cj, 813) * cell;
+        if (hash2i(ci, cj, 811) > WILDLIFE.siteDensity * richnessAt(x, z)) {
+          // NOT marked used: a site that failed only because the valley is thin
+          // is not a site that can never hold anything. Marking it would bake
+          // today's scarcity into the map for the rest of the session.
           continue;
         }
 
-        const x = ci * cell + hash2i(ci, cj, 812) * cell;
-        const z = cj * cell + hash2i(ci, cj, 813) * cell;
         const d = Math.hypot(x - px, z - pz);
         if (d > R) continue;
         // Never appear in front of you at conversational distance.
@@ -225,7 +232,13 @@ export class Wildlife {
         const species = pickWeighted(now, hash2i(ci, cj, 815));
         if (!species) continue;
 
-        const n = Math.round(lerp(species.herd.min, species.herd.max, hash2i(ci, cj, 814)));
+        // ...and a herd in poor country is a smaller herd. Never below one:
+        // an empty herd is not scarcity, it is a site that silently did
+        // nothing, and the site is already gone by this point.
+        const rich = Math.min(1, richnessAt(x, z));
+        const n = Math.max(1, Math.round(
+          lerp(species.herd.min, species.herd.max, hash2i(ci, cj, 814)) * rich
+        ));
         // Goes through the same placement as every other herd. This used to
         // have its own loop picking `radius = hash * spread`, which happily
         // returned near-zero for several members at once and stacked them.

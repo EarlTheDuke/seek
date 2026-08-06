@@ -15,6 +15,7 @@
 import * as THREE from 'three';
 import { PICKUP, PLAYER, WATER_LEVEL } from '../config.js';
 import { heightAt, slopeAt, clumpAt } from './noise.js';
+import { richnessAt } from './scarcity.js';
 import { getItem } from '../items/registry.js';
 import { hash2i, lerp } from '../util/math.js';
 
@@ -186,6 +187,18 @@ export class Pickups {
     }
   }
 
+  /**
+   * Forget where we thought the loot was and look again on the next tick.
+   *
+   * Called when the RULE changes underneath us — joining a server that runs a
+   * leaner valley than this client assumed. Without it the branches placed
+   * before the welcome stay on the ground until the player has walked 45 m,
+   * and they are branches the server does not have.
+   */
+  reconsider() {
+    this.anchor.set(Infinity, 0, Infinity);
+  }
+
   // ── per frame ────────────────────────────────────────────────────────────
 
   update(dt, playerPos) {
@@ -353,7 +366,12 @@ export function deadfallNear(px, pz, radius = PICKUP.woodRadius, taken = null) {
       if ((x - px) ** 2 + (z - pz) ** 2 > radius * radius) continue;
       const clump = clumpAt(x, z);
       if (clump < 0.25) continue;
-      if (hash2i(ci, cj, 513) > PICKUP.woodChance * clump) continue;
+      // ── and how much this valley has ──
+      // `richnessAt` is 1 everywhere until somebody turns scarcity on, so this
+      // multiplies by one and the world is byte-identical by default. With it
+      // on, fuel pulls into the good ground along with the deer — see
+      // world/scarcity.js for why that, rather than "less everywhere".
+      if (hash2i(ci, cj, 513) > PICKUP.woodChance * clump * richnessAt(x, z)) continue;
       const y = heightAt(x, z);
       if (y < WATER_LEVEL + 0.5) continue;
       if (slopeAt(x, z) > 0.45) continue;

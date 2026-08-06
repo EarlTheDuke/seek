@@ -33,6 +33,7 @@ import { findRegion } from '../world/regions.js';
 const KEEP_ON_DEATH = new Set(['bow']);
 import { heightAt } from '../world/noise.js';
 import { treesNear, rocksNear, setClearings as setTimberClearings } from '../world/timber.js';
+import { scarcity } from '../world/scarcity.js';
 import { ColliderField } from '../world/colliders.js';
 import { Weather } from '../world/weather.js';
 import { solarPosition } from '../world/sky.js';
@@ -1191,6 +1192,12 @@ export class SimWorld {
       tick: this.tick,
       spawn: { p: [at.x, at.y, at.z], y: yaw },
       players: this.playersInOrder().map((p) => ({ id: p.id, n: p.name })),
+      // ── how much this valley has ──
+      // Firewood is drawn by the client from a pure function of the seed, so a
+      // server that thins the wood and says nothing leaves every browser
+      // painting branches that are not there and every agent walking to them.
+      // See world/scarcity.js.
+      scarcity: scarcity(),
     };
   }
 

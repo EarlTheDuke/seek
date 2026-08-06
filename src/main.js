@@ -25,6 +25,7 @@ import {
   bearingName,
 } from './world/placenames.js';
 import { sanitiseIntent, IDLE_INTENT } from './sim/intents.js';
+import { setScarcity } from './world/scarcity.js';
 import { CameraFeel } from './player/cameraFeel.js';
 import { ViewModel } from './player/viewmodel.js';
 import { Soundscape } from './audio/soundscape.js';
@@ -312,6 +313,17 @@ function boot() {
     return {
       onWelcome: (data) => {
         hud.toast(`joined — ${data.players.length + 1} here`, 3);
+        // ── how much this valley has, as the SERVER has it ──
+        //
+        // Firewood is drawn here from a pure function of the seed, so a lean
+        // server and a plentiful client paint different branches: you would
+        // walk to one and press E on bare ground. One number, taken on the way
+        // in. Absent (an older server) means the world as it always was.
+        setScarcity(data.scarcity ?? null);
+        if (data.scarcity?.plenty !== undefined && data.scarcity.plenty !== 1) {
+          hud.chat(null, 'the country here is lean — fuel and game are thin, and not evenly spread');
+        }
+        pickups.reconsider();
         // The server's spawn is authoritative; take it rather than the one
         // this client would have picked, or two people stand in different
         // places and each thinks the other is wrong.

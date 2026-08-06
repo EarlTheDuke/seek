@@ -46,6 +46,7 @@ import { nearestDeadfall } from '../world/pickups.js';
 import { heightAt } from '../world/noise.js';
 import { aimAt, sightline, clearSpotNear, predictLanding } from '../minds/marksman.js';
 import { timberBlocker } from '../world/timber.js';
+import { setScarcity, scarce } from '../world/scarcity.js';
 // For `guard`: what counts as a threat is read off the species table rather
 // than listed here, so a wolf added later is guarded against without an edit.
 import { SPECIES } from '../creatures/registry.js';
@@ -186,6 +187,11 @@ export class Agent {
             this.id = msg.data.id;
             this.seed = msg.data.seed;
             this.connected = true;
+            // ── how much this valley has ──
+            // Firewood is worked out here from the seed, so a body that does
+            // not take the server's word for it walks to branches that are not
+            // there. Absent means the world as it always was. See scarcity.js.
+            setScarcity(msg.data.scarcity ?? null);
             // ── where it thinks it is ──
             // The server never sends you your own position (you are expected
             // to know it), so an agent navigates by dead reckoning — and it

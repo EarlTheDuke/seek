@@ -23,6 +23,7 @@ import { addRivalHunter } from '../src/minds/hunter.js';
 import { makeRandom } from '../src/world/noise.js';
 import { bannedSpecies, getDangerLevel } from '../src/modes/danger.js';
 import { solarPosition } from '../src/world/sky.js';
+import { setScarcity, scarcityFromEnv, scarce } from '../src/world/scarcity.js';
 import {
   PROTOCOL_VERSION,
   C_HELLO,
@@ -99,6 +100,17 @@ const STOCK = parseStock(process.env.STOCK);
 // eating works at all. Same argument as `HOURS`, and the same default of "off".
 const HUNGER = Number(process.env.HUNGER);
 
+// ── SCARCE: how much this valley has, and how unevenly ──
+//
+//   SCARCE=on        a hard winter — less of everything, pulled into good ground
+//   SCARCE=0.5,0.8   half as much, and clumped hard
+//
+// OFF by default, so a world nobody asked to make hard is the world it has
+// always been, to the byte. It exists because a hoarder and a generous soul
+// behave identically when there is another branch four metres away: character
+// only shows when something is at stake. See src/world/scarcity.js.
+const SCARCITY = setScarcity(scarcityFromEnv(process.env));
+
 /** `venison:2,wood:1` -> [['venison', 2], ['wood', 1]]. Unknown ids are loud. */
 function parseStock(raw) {
   const out = [];
@@ -168,6 +180,10 @@ if (Number.isFinite(HOURS)) console.log(`  staged: the world starts at ${String(
 if (RAID) console.log(`  staged: a warband of ${RAID} meets the first player through the door`);
 if (STOCK.length) console.log(`  staged: everybody arrives carrying ${STOCK.map(([i, n]) => `${n} ${i}`).join(', ')}`);
 if (Number.isFinite(HUNGER)) console.log(`  staged: everybody arrives ${HUNGER < 25 ? 'starving' : 'hungry'} (${HUNGER}/100)`);
+if (scarce()) {
+  console.log(`  staged: a lean valley — ${Math.round(SCARCITY.plenty * 100)}% of the usual food and fuel` +
+    (SCARCITY.patchy ? `, ${Math.round(SCARCITY.patchy * 100)}% of it pulled into the good ground` : ', spread evenly'));
+}
 console.log(`  listening on ws://0.0.0.0:${PORT}`);
 console.log(
   `  ${rivals.length} rival hunter${rivals.length === 1 ? '' : 's'} (${provider.name} minds)` +
