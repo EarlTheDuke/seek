@@ -806,7 +806,14 @@ export const AGENTS = {
   // business shooting at one. Past about 60 m the hold-over is 4°+ and the arc
   // spends long enough in the air that a grazing animal has moved out from
   // under it — see the drop table in ARROW.
-  shootRange: 45,
+  // TUNED DOWN FROM 45, on measurement rather than taste. At 45 the body spent
+  // its time considering shots the ground would never allow — 19 refusals to 2
+  // arrows in one run, all of them "ground in the way" at roughly half the
+  // distance to the animal. A crest at 17 m of a 36 m shot is not a geometry
+  // problem to be solved with a cleverer sightline; it is a hill, and the
+  // answer to a hill is to walk. Cutting the range makes the body stop
+  // deliberating at distance and close until the shot is honest.
+  shootRange: 26,
   aimAboveFeet: 0.75, // the middle of a deer, not the ground it stands on
   // How close it will walk while trying to get a clear line. A bow is not a
   // spear: past this the shot is a steep plunge onto an animal that is already

@@ -44,7 +44,7 @@ import { sanitiseGoal, describeGoal, GOAL_IDS } from '../minds/goals.js';
 import { Memory } from '../minds/mind.js';
 import { nearestDeadfall } from '../world/pickups.js';
 import { heightAt } from '../world/noise.js';
-import { aimAt, sightline } from '../minds/marksman.js';
+import { aimAt, sightline, clearSpotNear } from '../minds/marksman.js';
 // For `guard`: what counts as a threat is read off the species table rather
 // than listed here, so a wolf added later is guarded against without an edit.
 import { SPECIES } from '../creatures/registry.js';
@@ -695,6 +695,33 @@ export class Agent {
       // that this is a bad place to shoot from. Holding here lets the animal
       // graze on, the ground change, or the mind pick another quarry — all of
       // which are better than closing until it runs.
+      // ── if it is the GROUND, go round it rather than at it ──
+      //
+      // Closing was the only answer the body had, and against a crest closing
+      // does not work: you walk until the deer bolts. A person steps sideways
+      // and looks again. `clearSpotNear` finds the nearest place across the
+      // line of sight that can actually see the animal, and we walk to that
+      // instead — recomputed as we go, so it re-solves if the deer moves.
+      const detour = shot.why.startsWith('ground')
+        ? clearSpotNear({ x: this._x, y: this._y, z: this._z },
+                        { x: t.x, y: t.y + AGENTS.aimAboveFeet, z: t.z }, heightAt)
+        : null;
+      if (detour) {
+        const bx = detour.x - this._x;
+        const bz = detour.z - this._z;
+        if (Math.hypot(bx, bz) > 2) {
+          i.aimYaw = Math.atan2(-bx, -bz);
+          this.yaw = i.aimYaw;
+        }
+        i.forward = 1;
+        i.sprint = false;
+        i.crouch = dist < AGENTS.stalkWithin;
+        if (this.shotWhy !== 'detour') {
+          this.shotWhy = 'detour';
+          this.memory.add(this.hours, `stepping ${Math.abs(detour.step)} m aside for a clear line`);
+        }
+        return;
+      }
       i.forward = dist > AGENTS.standOff ? 1 : 0;
       i.sprint = false;
       i.crouch = dist < AGENTS.stalkWithin; // stop spooking it

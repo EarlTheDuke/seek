@@ -100,6 +100,7 @@ export function sightline(fromX, eyeY, fromZ, toX, toY, toZ, groundAt, margin = 
   const dist = Math.hypot(dx, dz);
   let worst = Infinity;
   let at = 0;
+  let blocked = false;
   // Not from 0: the ground under your own feet is level with your feet, and
   // starting there reports every shot ever taken as blocked by the archer.
   for (let s = 0.05; s < 0.98; s += 0.02) {
@@ -108,8 +109,55 @@ export function sightline(fromX, eyeY, fromZ, toX, toY, toZ, groundAt, margin = 
       worst = gap;
       at = dist * s;
     }
+    // ── the margin TAPERS toward the animal ──
+    //
+    // A uniform clearance demand along the whole ray is wrong at the far end,
+    // and wrong in the direction that costs shots. The ray finishes at the
+    // deer's chest, roughly 0.75 m above the ground it is standing on, so the
+    // last stretch is ALWAYS close to the ground by construction — that is the
+    // ground the animal is standing on, not an obstacle between you and it.
+    //
+    // Demanding a full 0.3 m there made the body refuse shots it would have
+    // made: measured at eight refusals to five taken, every one of them
+    // "ground in the way". Requiring less clearance the nearer we get to the
+    // mark keeps the honest rejections — a crest at mid-flight — and drops the
+    // ones that were only ever the target's own hillside.
+    const needed = margin * Math.min(1, (1 - s) / 0.2);
+    if (gap < needed) blocked = true;
   }
-  return { clear: worst, at, dist, blocked: worst < margin };
+  return { clear: worst, at, dist, blocked };
+}
+
+/**
+ * A spot near here with a clear line to the mark, or null if there is none.
+ *
+ * WHAT A PERSON DOES WHEN A CREST IS IN THE WAY: steps sideways and looks
+ * again. The body only knew how to walk straight at the animal, so a hill
+ * between the two of them could only be solved by closing until the deer bolted
+ * — and on rolling ground that is most hills.
+ *
+ * Tried across the line of sight rather than in a ring, because the obstruction
+ * is on that line and the cheapest way past it is around its edge. Nearest
+ * offsets first, so the answer is the shortest walk that works.
+ *
+ * @returns {{x:number, z:number, step:number}|null}
+ */
+export function clearSpotNear(from, target, groundAt, { steps = [6, -6, 12, -12, 20, -20] } = {}) {
+  const dx = target.x - from.x;
+  const dz = target.z - from.z;
+  const d = Math.hypot(dx, dz) || 1;
+  // Perpendicular to the line of sight, normalised.
+  const px = -dz / d;
+  const pz = dx / d;
+  for (const step of steps) {
+    const x = from.x + px * step;
+    const z = from.z + pz * step;
+    const eyeY = groundAt(x, z) + PLAYER.eyeHeight;
+    if (!sightline(x, eyeY, z, target.x, target.y, target.z, groundAt).blocked) {
+      return { x, z, step };
+    }
+  }
+  return null;
 }
 
 /**
