@@ -12,45 +12,77 @@ it is the most expensive knowledge in the repo: every entry cost somebody a
 wrong diagnosis. **Skim it before you debug anything, not after.** It is kept
 here rather than cut because a closed bug can be deleted and a trap cannot.
 
-Last updated: 2026-08-06, by the run that built the detour instrument, killed
-three theories with it including two of its own, and found the real bug.
+Last updated: 2026-08-06, by the run that BUILT queue item 1, proved it works,
+and proved it does not matter — then found what actually ends a detour.
 
-**THE HUNTCHECK TAIL IS ONE BUG AND IT IS NAMED NOW.** Sixteen runs on a quiet
-box, ten green and six red. The fix is planned but NOT built — it is queue item
-1 and the plan is written there. Everything landed this run is instrument.
+**THE DETOUR COMMITS NOW, AND THE KILL RATE DID NOT MOVE.** Queue item 1 is
+built, flag-gated and measured on both arms. It does exactly what it promised
+and the outcome is unchanged, because the flicker was never the main thing
+ending a step aside. **`too far` is.** That is the new queue item 1.
 
-## THE DETOUR HAS NO COMMITMENT — the measured bug
+## WHAT SHIPPED: `DETOUR=commit` — a step aside is a destination
 
-`clearSpotNear` is re-solved FROM SCRATCH every tick. A twenty-metre sideways
-probe over rolling ground is exquisitely sensitive to the exact origin it is
-cast from, so as the body takes its first 6 cm step the answer flickers — and
-**13% of ground ticks come back null**, which is plenty to kill an episode a
-tenth of a second into a walk that would take eight seconds. Five consecutive
-episodes from one red run, deer at 23-26 m, obstruction 6-7 m out:
+`Agent.detourSpot` holds the spot in world coordinates and walks to it. Four
+things end the hold and only four: **arrived** (2 m), **`resolve` picked another
+animal**, **12 s**, or **one sightline from the FIXED spot** says it is no longer
+clear. That last one is the "quarry moved materially" test, and it beats a
+distance threshold because what matters is not how far the animal went but
+whether it went behind the hill you were walking around. `endDetour` releases
+the spot with the episode.
+
+**Default OFF and byte-identical** — `detourcheck` asserts the control arm is
+answer-for-answer identical to a bare `clearSpotNear` over 480 ticks.
+
+## IT WORKS. Measured live, four runs an arm.
+
+| | uncommitted | committed |
+|---|---|---|
+| `clearSpotNear` calls per detour | **14 - 44** | **1.0 - 1.3** |
+| ticks spent walking to a remembered spot | **0** | 50 - 211 |
+| ground/timber refusals entered, 4 runs | **46** | **15** |
+| **deer killed** | **4 of 8** | **4 of 8** |
+| metres walked per detour | 1 - 4 | 1 - 2 |
+| inside `shootRange`, full-length runs | 16-19% | 10-18% |
+
+Kills are pooled over both A/Bs (eight runs an arm). Dead level. And the number
+the last run predicted would climb — **metres walked per detour, toward the 6-20
+it asks for — did not climb.** It is still 1-2 m.
+
+## AND HERE IS WHY: `too far` ENDS THE DETOUR, not the flicker
+
+The outcome tally, which was sitting in huntcheck's output all along:
 
 ```
-  20 m aside, walked 0 m in 0.1 s  (ground)  ground in the way 6 m out
-  20 m aside, walked 0 m in 0.2 s  (ground)  ground in the way 6 m out
-  20 m aside, walked 0 m in 0.1 s  (ground)  ground in the way 6 m out
+  uncommitted   9 of 14 closed detours ended `too far`   (64%)
+  committed    15 of 28 closed detours ended `too far`   (54%)
 ```
 
-**Sixteen detours, twenty metres walked in TOTAL, one metre each, not one ever
-completed.** The body picks a knoll, takes one step toward it, forgets, and
-refuses the shot again. A person picks the knoll and goes to it.
+**It is the commonest end of a step aside on BOTH arms, by a long way.** The
+flicker ended 13-17% of detour TICKS; `too far` ends the MAJORITY of detour
+EPISODES. Remembering where you were going does not survive a range check that
+fires while you walk there.
 
-## Three theories died this run. Two of them were mine.
+The mechanism was written into huntcheck as a guess by the previous run and is
+now measured: `clearSpotNear` only offers offsets **PERPENDICULAR** to the line
+of sight, so a step aside never closes an inch. `AGENTS.shootRange` is 26 m and
+the body is refused at 20-26 m, so the moment the animal drifts the slant
+crosses 26, `aimAt` answers `too far` — which carries **no `blockedBy`**, so the
+detour branch stops firing and the body turns and walks back at the hill.
 
-Every one was measured, not argued. Print the number before you act on any of
-these — that is now five queue items closed by disproof across two runs.
+## Theories that died, and the newest one was the QUEUE'S OWN
+
+Every one measured, not argued. Print the number before you act on any of these.
 
 | theory | what the instrument said |
 |---|---|
+| **committing to the detour will move the kill rate** | **4/8 both arms.** It fixed the flicker it was aimed at and changed nothing downstream |
+| **the flicker is what stops the walk completing** | it stops 13-17% of TICKS. `too far` stops 54-64% of EPISODES |
 | the detour walks sideways FOR EVER / orbits | walks **0-7 m**, 0-2 sign flips. No orbit, no livelock |
 | `clearSpotNear` finds nowhere to go | finds a spot **87% on ground, 100% on timber** |
 | ground in the way throttles the shot rate | blocked sightlines are **~10 s of a 150 s run** |
 | it thrashes between deer (`resolve` picks NEAREST) | **0-5 swaps/run**, longest unbroken stalk **46-86 s** |
-| it abandons the animal it wounded | stayed on it **65 of the 72 s after the arrow** — and still could not finish it |
-| the lead is over-projecting (3 of 3 arrows LEFT) | `aimed 0.2 m ahead of the animal`. Velocity is already clamped at 14 m/s |
+| it abandons the animal it wounded | stayed on it **65 of the 72 s after the arrow** |
+| the lead is over-projecting (3 of 3 arrows LEFT) | `aimed 0.2 m ahead`. Velocity is already clamped at 14 m/s |
 
 The 23-refusals-against-2-detours arithmetic that started the null-rate theory
 was **two TRANSITION counts**, and a 90% null rate was read straight out of it.
@@ -67,19 +99,42 @@ wounds without a kill. A deer takes two arrows and the body gets 1-4 away in
 
 **Shot RATE is the whole tail.** Not aim, not ballistics, not target selection.
 
-## The instruments built this run — all in huntcheck's output
+## `detourcheck` — 12/12, no port, no server, no wall clock
+
+**The one check here that is not real-time, on purpose.** huntcheck stays the
+outcome test, but a memory ACROSS TICKS is invisible in an outcome and perfectly
+visible in isolation. It drives the real `Agent.prototype` over real terrain at
+**24 sites found by scanning**, not pasted in as coordinates.
+
+It reproduces the field measurement independently — **17% of ticks come back
+NOWHERE TO GO mid-walk**, against the 13% measured in the game — and it asserts
+each of the four things that end a hold by the WORD the method wrote, so a hold
+ending for the wrong reason cannot pass as one ending for the right one.
+**Committed 24/24 arrive; uncommitted 1/24.** The counterfactual (disable
+`commitDetour` in the real code, re-run, `git checkout --`, grep to prove the
+probe is gone) puts it at **4/12**.
+
+Careful reading one number: the uncommitted arm walks 18 m there and 1 m in the
+game. Same 17% flicker counted in two places — in the game a null tick also
+CLOSES the episode, in the harness nothing does.
+
+## The instruments, cumulative
 
 - **detour episodes** (`openDetour`/`walkDetour`/`endDetour`): one obstruction,
   one decision, one named outcome, with ground WALKED against NET displacement
-  and sign-flips. Prints its own arithmetic (`closed + open = opened`) and says
-  so out loud if the books do not balance.
+  and sign-flips. Prints its own arithmetic and says so out loud if the books do
+  not balance. **Read the OUTCOME tally — it named this run's finding and it had
+  been printing it for a run and a half before anybody read it.**
+- **`resolves`/`held`/`dropped`** per episode: how many times it asked, how many
+  ticks it walked to a remembered spot, and what ended the last hold.
 - **`detourAsked`/`detourNone`** per TICK with the blocker named — built
   precisely because the transition-count inference above was wrong.
-- **the wound event now carries `i: creature.id`.** The comment above it has
-  said for months it is "the only signal that says keep after THAT one" while
-  naming a species, on a hillside holding 18-26 deer. Nothing acts on it yet.
+- **the wound event carries `i: creature.id`.** Nothing acts on it yet.
 - **`leadBy`/`dropTo`** carry the aim's INPUTS into the miss table, so a wrong
   answer can be read against what it was asked.
+- huntcheck prints **which arm is loaded** at the top and beside the detour
+  table. It is red about a third of the time with nothing changed; a run that
+  does not say which arm it was is a run nobody can read afterwards.
 
 ## CLOSED EARLIER, kept to three lines each
 
@@ -115,10 +170,10 @@ caught twice; fixture values now come out of REAL payloads.
 ## THE LADDER IS DONE. All six rungs green.
 
 **1. SURVIVE** `survivalcheck` 12/12 — forage, light, cook, eat, live the night.
-**2. HUNT** `huntcheck` kills in 61-72 s when it kills, on one arrow. The tail
-is understood at last — see the top of this file. **DO NOT TUNE CONSTANTS**:
-three passes of that moved the failure around, and this run found the mechanism
-only by measuring episodes instead of aggregates.
+**2. HUNT** `huntcheck` kills in 60-102 s when it kills, on one arrow. The tail
+is half understood — see the top of this file. **DO NOT TUNE CONSTANTS**: three
+passes of that moved the failure around, and the two real mechanisms were both
+found by measuring EPISODES and their named OUTCOMES instead of aggregates.
 **3. MINDS & PROVIDERS** `providercheck` 25/25. One OpenAI-compatible provider
 plus Anthropic; `MINDS_PROVIDER/BASE_URL/MODEL/API_KEY`, per-agent overrides in
 a roster file. Proved against a local fake endpoint — no key needed to test.
@@ -149,7 +204,12 @@ on screen long enough to read.
 The header prints what is ACTUALLY about to play — a line per player, its model,
 its character, and `(no XAI_API_KEY)` beside anyone who quietly fell back to
 scripted. Read it. Other knobs, all off by default: `HOURS=1`, `RAID=6`,
-`STOCK=venison:2`, `HUNGER=52`.
+`STOCK=venison:2`, `HUNGER=52`, `DETOUR=commit`.
+
+**`DETOUR=commit` is safe to add for the evening and is not recommended yet.**
+It works by every mechanism number and it did not change a single outcome, so it
+buys nothing a watcher can see. Leave it off unless you want the hunting bodies
+to walk more purposefully round hills on camera, which they measurably do.
 
 ## Checks
 
@@ -159,8 +219,12 @@ scripted. Read it. Other knobs, all off by default: `HOURS=1`, `RAID=6`,
 `deathcheck` 19 · `bookcheck`/`reportcheck`/`raidcheck` 18 · `timbercheck` 17 ·
 `agentcheck` 17 · `ordercheck` 17 · `dangercheck`/`herdcheck`/`rendercheck` 12 ·
 `survivalcheck` 12 · `bitecheck` 10 · `spreadcheck` 10 · `watchcheck` 10 ·
-`refillcheck` 9 · `scarcecheck` 9 · `shotcheck` 8 · `huntcheck` 7 ·
-`arrowcheck`/`woundcheck` 7 · `ballisticscheck` 7 · `rostercheck` 6.
+`detourcheck` 12 · `refillcheck` 9 · `scarcecheck` 9 · `shotcheck` 8 ·
+`huntcheck` 7 · `arrowcheck`/`woundcheck` 7 · `ballisticscheck` 7 ·
+`rostercheck` 6.
+
+**`detourcheck` needs NO port** — no server, no socket, no wall clock. It is the
+only check here you can run on a busy box and believe.
 
 Ports: **ballisticscheck 8088**, boardcheck 8093 (plus 8090 for its own board and
 8089 for the fleet's), rostercheck 8091, watchcheck 8092, scarcecheck 8094,
@@ -174,34 +238,44 @@ spends the whole twelve-arrow quiver and takes about three minutes.**
 
 - `netcheck` "it went with her" (a companion trailing a continuously moving
   owner) is the long-known load-sensitive one.
-- `huntcheck` — **ten green, six red in sixteen runs** on a genuinely quiet box
-  this time. That is a better rate than the documented six-red-of-seven and it
-  is NOT a fix: nothing behavioural changed this run. The box being quiet is the
-  most likely difference, and it is a reminder that this check is real-time on a
-  wall clock. **The rate is not the finding; the mechanism at the top is.**
+- `huntcheck` — **8 green of 16 across this run's two A/Bs**, four runs an arm
+  each, on a box that was NOT quiet: five `node.exe` were already running and one
+  of them owns 8080. They were left alone rather than killed, so read the rate
+  accordingly. Sixteen earlier runs on a quiet box gave ten green. **The rate is
+  not the finding; the mechanism at the top is.**
 
 ## The queue, ranked
 
-1. **COMMIT TO THE DETOUR.** The measured bug — see the top of this file. Once
-   `clearSpotNear` names a spot, KEEP it: remember it in world coordinates and
-   walk to it until you arrive, it stops being clear, the quarry moves
-   materially, or a few seconds pass. Today it is re-decided thirty times a
-   second and a 13% flicker rate means it never completes a single walk.
+1. **A STEP ASIDE MUST ALSO CLOSE.** The measured bug — see the top of this
+   file. `too far` ends **54-64% of all detour episodes on both arms**, and it is
+   a pure consequence of geometry: `clearSpotNear` offers candidates ONLY
+   perpendicular to the line of sight, so a step aside holds the range exactly
+   while the animal drifts. `AGENTS.shootRange` is 26 m and the body is refused
+   at 20-26 m, so the slant crosses 26 almost immediately, `aimAt` answers
+   `too far`, that answer carries **no `blockedBy`**, the detour branch stops
+   firing and the body walks straight back at the hill.
 
-   **PLAN.** Hold `this._detourTo = {x, z, quarryId, at}` on the body. While it
-   exists and the quarry is unchanged, walk to it WITHOUT re-solving; drop it on
-   arrival (within ~2 m), on quarry change, after a timeout, or if the line
-   clears. Re-solve only when there is no held spot. **Flag-gate it** and keep
-   the default byte-identical — house style, and this check is noisy enough that
-   an unguarded behaviour change cannot be told from luck.
+   **PLAN — two candidates, and the first is much smaller.** (a) Give
+   `clearSpotNear` DIAGONAL candidates: offset perpendicular AND a few metres
+   toward the quarry, so stepping aside closes range instead of preserving it.
+   Nearest-first still holds. This is what a person does and it is a change to
+   one function with one caller. (b) Alternatively, do not let `too far` end a
+   committed detour — a detour IS a walk to a firing position, and being briefly
+   out of range mid-walk is not a reason to abandon it. Cheaper still, but it
+   papers over the geometry rather than fixing it. **Prefer (a); consider (b) if
+   (a) does not take.** Flag-gate either way.
 
-   **HOW IT WILL BE PROVEN.** The instrument is already built and these are the
-   numbers to move: detours attempted, metres WALKED per detour (1 m today), and
-   the share ending in a shot (3 of 16 today, all of which walked 0-2 m and were
-   the line clearing on its own). A working commitment shows metres-walked
-   climbing toward the 6-20 m it actually asked for and episodes ending in
-   `a shot came on` after a REAL walk. Run it with the flag off and on, several
-   times each — **six of sixteen red means a single run proves nothing.**
+   **HOW IT WILL BE PROVEN.** The instrument is built and the numbers to move
+   are: the `too far` share of detour OUTCOMES (54-64% today) falling, and
+   `deer N m -> M m` on the per-detour lines showing M **smaller** than N — today
+   a detour holds the range or loses it. Metres-walked per detour should also
+   finally climb off 1-2 m. **Run four times an arm minimum:** kills are 4 of 8
+   on both arms today and a single run proves nothing whatsoever.
+
+   **DO NOT expect the kill rate to move on its own evidence.** This run's fix
+   worked perfectly by every mechanism number and left kills at 4/8 vs 4/8.
+   Shot RATE is still the tail, and the body is inside `shootRange` for only
+   10-19% of a run.
 
 2. **`p.lastCraft`** (world.js:911) is written on every successful craft and read
    by nothing anywhere — a confirmed-make signal already sitting on the server,
@@ -231,6 +305,23 @@ spends the whole twelve-arrow quiver and takes about three minutes.**
 
 ## Things that will waste your time if you do not know them
 
+- **ASSERT THE COUNTER THAT REACHES A HUMAN, NOT THE ONE YOU FIND CONVENIENT.**
+  `detourSpot` kept two: a body-global tally and a per-episode one. The check
+  asserted the global; huntcheck PRINTS the episode's. The uncommitted path
+  incremented only the global, so a live A/B reported **"1.0 solves per detour"
+  for the arm that re-solves thirty times a second** — the seed value, wrong in
+  the direction that flattered the change, which is the worst direction. Fifth
+  instrument in this project to report something it had not measured.
+- **RUN THE COUNTERFACTUAL BEFORE YOU BELIEVE YOUR OWN GREEN.** Disabling
+  `commitDetour` in the real code took `detourcheck` from 12/12 to 4/12 and
+  caught two assertions that were **passing on nothing**: "every held tick names
+  the same place" was true of ZERO held ticks, and the arrival test was an `||`
+  a body that never arrives satisfies. Neither would ever have failed on its own.
+- **THE OUTCOME TALLY WAS PRINTING THE ANSWER FOR A RUN AND A HALF.** This run's
+  whole finding — `too far` ends the majority of detours — came out of a block
+  huntcheck had been printing since the previous run. Nobody read it, because
+  everybody was reading the averages above it. **Read every line of your own
+  instrument's output before you build anything to add to it.**
 - **A TRANSITION COUNT IS NOT A TICK COUNT.** "23 ground refusals against 2
   detours" reads as a 90% null rate and is nothing of the kind: both numbers
   count STATE CHANGES, and measured per tick the null rate is 13%. An inference

@@ -405,6 +405,18 @@ async function main() {
       // `AGENTS.shootRange` and `aimAt` answers `too far` — which carries no
       // `blockedBy`, so the detour branch stops firing and the body turns and
       // walks straight back at the obstruction it just left.
+      //
+      // ...AND THAT IS NO LONGER A HYPOTHESIS. Measured over eight runs, four
+      // an arm, with the commitment flag off and on: `too far` is the outcome
+      // of 9 of 14 closed detours uncommitted and 15 of 28 committed. It is the
+      // commonest end of a step aside on BOTH arms and by a long way.
+      //
+      // Which is why committing to the spot fixed the flicker and did not move
+      // the kill rate. The flicker ended 13-17% of detour ticks; `too far` ends
+      // the MAJORITY of detour episodes, and no amount of remembering where you
+      // were going survives the range check that fires while you walk there.
+      // `clearSpotNear` only offers offsets PERPENDICULAR to the line of sight,
+      // so a step aside never closes an inch — see the queue in STATE.md.
       console.log('        each one, and what it cost:');
       for (const e of detours) {
         console.log(`          deer ${String(e.d0).padStart(3)} m -> ${String(e.d).padStart(3)} m  ` +
