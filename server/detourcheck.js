@@ -187,6 +187,12 @@ function main() {
   let solvesOff = 0;
   let solvesOn = 0;
   let stillEvery = true;
+  // ── counted, because "they were all the same" is TRUE OF NOTHING ──
+  // The first cut of this assertion passed with the fix disabled: there were no
+  // held ticks at all, so none of them disagreed. A vacuous green is the exact
+  // shape of lie four instruments in this project have already told, and the
+  // counterfactual run is the only reason it was caught here.
+  let heldTicks = 0;
   for (const s of sites) {
     const off = makeBody(false, s.x, s.z);
     walk(off, mark(s.deer), 30);
@@ -197,12 +203,17 @@ function main() {
     const first = seen.find(Boolean);
     // Held ticks must name the SAME PLACE. A commitment that returns a
     // different point every tick is the bug wearing the fix's clothes.
-    for (const sp of seen) if (sp?.held && (sp.x !== first.x || sp.z !== first.z)) stillEvery = false;
+    for (const sp of seen) {
+      if (!sp?.held) continue;
+      heldTicks++;
+      if (sp.x !== first.x || sp.z !== first.z) stillEvery = false;
+    }
   }
   check('committed, it asks once instead of thirty times a second', solvesOn < solvesOff / 4,
     `${solvesOn} solves committed against ${solvesOff} uncommitted, over ${sites.length} sites x 1 s`);
-  check('and every held tick names the same place', stillEvery,
-    'the remembered spot is a world coordinate, not a fresh opinion');
+  check('and every held tick names the same place', stillEvery && heldTicks > 0,
+    `${heldTicks} ticks walked to a remembered spot, all naming the same world coordinate` +
+    (heldTicks ? '' : ' — NONE, so this assertion had nothing to be true of'));
 
   // ── 4. THE NUMBER THE QUEUE ASKED FOR: DOES IT ARRIVE? ──
   //
@@ -254,7 +265,10 @@ function main() {
 
   const arrive = makeBody(true, s0.x, s0.z);
   walk(arrive, m0, budget);
-  check('a hold ends when the body ARRIVES', arrive._detour.dropped === 'arrived' || arrive._detour.held > 0,
+  // Not `|| held > 0`, which was the first cut: a body that walks to a spot and
+  // never gets there would have passed that, and never getting there is the
+  // entire bug this file exists for.
+  check('a hold ends when the body ARRIVES', arrive._detour.dropped === 'arrived',
     `dropped: ${arrive._detour.dropped ?? 'never'} after ${arrive._detour.held} held ticks`);
 
   const swap = makeBody(true, s0.x, s0.z);
