@@ -77,6 +77,10 @@ const INTENT_KEYS = [
   'drop',
   'place',
   'eat',
+  // Cooking, at last. It was the one act on the survival loop that had no field
+  // here at all — so a body on the far side of a socket could gather, light a
+  // fire and eat, and still never turn raw meat into a meal.
+  'craft',
   'selectSlot',
 ];
 

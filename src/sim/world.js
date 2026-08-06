@@ -54,6 +54,10 @@ import { Fires } from '../world/fires.js';
 import { sampleEnvironment } from '../world/environment.js';
 import { insulationOf, EDIBLE } from '../items/registry.js';
 import { Inventory } from '../items/inventory.js';
+// Cooking, knapping, stitching and fletching, as data and two pure functions.
+// Shared with the browser's interaction prompt rather than copied — the whole
+// reason `bestAvailable` is a function and not a switch in main.js.
+import { RECIPES, craft } from '../items/recipes.js';
 import { WeaponHost } from '../weapons/index.js';
 import { pickSpawn, buildLandmarks } from '../world/landmarks.js';
 import { makeRandom } from '../world/noise.js';
@@ -129,6 +133,8 @@ class Player {
 
 const round2 = (v) => Math.round(v * 100) / 100;
 const round3 = (v) => Math.round(v * 1000) / 1000;
+// A carcass is not thrown anywhere; it falls where the animal stood.
+const ZERO = new THREE.Vector3(0, 0, 0);
 
 export class SimWorld {
   constructor({ seed = SEED, hours = TIME.startHour, headless = true } = {}) {
@@ -218,6 +224,15 @@ export class SimWorld {
           if (n > 0) drops.push({ item: d.item, count: n });
         }
         const at = creature.position;
+        // ── and the meat has to be ON THE GROUND, here ──
+        //
+        // Rolling the drop table and announcing it is half the job. The browser
+        // lays the carcass out from that announcement, so a person watching saw
+        // venison — but the SERVER's own world had nothing there, and the
+        // server's world is the only one an agent can reach. It could stalk a
+        // deer, kill it, walk onto the body and press E on bare ground for
+        // ever. The same numbers, laid where everybody's E can find them.
+        for (const d of drops) this.pickups.drop(d.item, d.count, at, ZERO);
         this.events.push({
           k: 'kill',
           sp: creature.species.id,
@@ -720,9 +735,19 @@ export class SimWorld {
       else p.weapons.endPrimary();
     }
     if (intent.selectSlot >= 0) p.inventory.select(intent.selectSlot);
+    // ── E picks up what is at YOUR feet, not what is at the anchor's ──
+    //
+    // `Pickups.collect` takes whatever `update` last found, and `update` is
+    // called once a tick with ONE position — the first player in the map. So
+    // everybody's E resolved against that person's surroundings: player two
+    // pressing E collected a branch lying beside player one, two hundred metres
+    // away, and if nothing was near player one then nobody in the world could
+    // pick anything up at all. Invisible in single player, which is the only
+    // place it was ever exercised, and fatal to a fleet of agents all foraging
+    // at once. `collectFor` asks the question per person.
     if (intent.interact) {
-      this.pickups.deps.inventory = p.inventory;
-      this.pickups.collect();
+      const got = this.pickups.collectFor(p.ctrl.position, p.inventory);
+      if (got) p.dirty = true;
     }
 
     // ── two intents that crossed the wire for a year and were never read ──
@@ -757,6 +782,33 @@ export class SimWorld {
       // caller that is not a packet from a browser.
       if (this.lightFireFor(p.id, fx, fz).ok) {
         p.inventory.remove('wood', 1);
+        p.dirty = true;
+      }
+    }
+
+    // ── and the third: cooking ──
+    //
+    // The station is whatever you are standing at, and there is exactly one
+    // kind of station in the game — a lit fire, within the same reach the
+    // browser's E obeys. `bestAvailable` picks from the recipe table in table
+    // order, so what an agent cooks is decided by the same data that decides
+    // what the prompt offers you, and neither end holds a second opinion.
+    //
+    // Instant, like the browser's. `RECIPES.seconds` is presentation today —
+    // main.js does not run a timer either — and a server-side craft timer is a
+    // thing to add on both sides at once or not at all.
+    if (intent.craft) {
+      // Already checked against the table by `sanitiseIntent`; what is checked
+      // HERE is everything the table cannot know — that the station it needs is
+      // actually within reach, that the inputs are in the pack, and that you do
+      // not already own as many as the recipe is worth making. `craft` itself
+      // refuses politely if the inputs are gone, so a stale press costs nothing.
+      const recipe = RECIPES[intent.craft];
+      const station = recipe.requires !== 'fire' || this.fires.nearest(p.ctrl.position, SURVIVAL.fireReach);
+      const out = Object.keys(recipe.outputs)[0];
+      const enough = recipe.maxHeld && p.inventory.countOf(out) >= recipe.maxHeld;
+      if (station && !enough && craft(recipe, p.inventory)) {
+        p.lastCraft = recipe.id;
         p.dirty = true;
       }
     }
@@ -879,9 +931,24 @@ export class SimWorld {
         // server that integrates it differently, and the two drift: a body
         // told to walk toward somebody 240 m west walked 80 m east instead.
         // Position without heading is half a fix.
+        // ── and WHAT YOU ARE CARRYING ──
+        //
+        // The same argument as the position, one step further on. A browser
+        // holds its own inventory and does not need this; a body on the far
+        // side of a socket has NO inventory of its own, so "am I carrying meat"
+        // was a question no agent could answer about itself. It could not
+        // decide to cook, could not decide to eat, and could not tell a mind
+        // what was in its pack — `brief.carrying` was a hard-coded empty list.
+        //
+        // A plain id → count map, and only what is actually held, so an empty
+        // pack costs two bytes. This is the server's copy of you, which is the
+        // one that eats, cooks and burns wood.
+        const iv = {};
+        for (const s of p.inventory.slots) iv[s.item] = (iv[s.item] ?? 0) + s.count;
         me = { p: [round2(p.ctrl.position.x), round2(p.ctrl.position.y), round2(p.ctrl.position.z)],
                y: round3(p.ctrl.yaw), t: round3(p.ctrl.pitch),
-               h: Math.round(p.body.health), f: Math.round(p.body.hunger), c: round2(p.body.coreC) };
+               h: Math.round(p.body.health), f: Math.round(p.body.hunger), c: round2(p.body.coreC),
+               iv };
         continue;
       }
       players.push(p.snapshot());

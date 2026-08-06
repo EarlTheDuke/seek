@@ -11,6 +11,11 @@
 // of message types: it has to be trivially serialisable, diffable and cheap to
 // send sixty times a second.
 
+// The recipe table, for one job only: deciding whether a `craft` field names a
+// real recipe. Data, no THREE, no DOM — it imports as cleanly here as it does
+// into the browser's interaction prompt.
+import { RECIPES } from '../items/recipes.js';
+
 /** A fresh, entirely passive intent. */
 export function createIntent() {
   return {
@@ -52,12 +57,28 @@ export function createIntent() {
     drop: false, // edge-triggered: drop equipped
     place: false, // edge-triggered: light a fire (later: build)
     eat: false, // edge-triggered: eat the best food you carry
+    // Edge-triggered: work THIS recipe, at whatever station you are standing
+    // at. `''` means "nothing"; anything else is an id out of the recipe table
+    // and is rejected here if it is not.
+    //
+    // A NAMED RECIPE RATHER THAN A BARE "CRAFT SOMETHING", and the difference
+    // matters. `bestAvailable` returns the first thing the table allows, so a
+    // body carrying stone, hide and firewood that pressed a boolean would knap
+    // an axe while its venison went raw and its fuel went into arrows. The
+    // vocabulary is closed either way — this just lets the presser say which of
+    // the closed words it meant. Same rule the goals table follows.
+    //
+    // It exists because cooking was BROWSER-ONLY. `bestAvailable`/`craft` are
+    // pure and have always been shared, but the only caller was the interaction
+    // prompt in main.js, so the act of cooking never crossed the wire. An agent
+    // could kill a deer and carry raw venison for ever: raw venison fills 16 and
+    // cooked fills 34, and the gap between those two numbers is most of a night.
+    craft: '',
     // Edge-triggered: "I meant the OTHER thing here." E resolves by distance
     // and urgency; this takes the runner-up. Deliberately NOT in the protocol's
-    // INTENT_KEYS: the actions it picks between — cooking, crafting — are
-    // resolved in the browser, so the server has nothing to do with it. That is
-    // also a standing limit on agents, which cannot cook at all for the same
-    // reason.
+    // INTENT_KEYS: it picks between two LOCAL presentations of the same two
+    // acts, and both of those — feeding a fire and crafting at it — now have
+    // their own field on the wire.
     alternate: false,
     selectSlot: -1, // -1 = no change
   };
@@ -79,6 +100,7 @@ export function clearIntent(i) {
   i.drop = false;
   i.place = false;
   i.eat = false;
+  i.craft = '';
   i.alternate = false;
   i.selectSlot = -1;
   return i;
@@ -100,6 +122,7 @@ export function copyIntent(to, from) {
   to.drop = from.drop;
   to.place = from.place;
   to.eat = from.eat;
+  to.craft = from.craft;
   to.alternate = from.alternate;
   to.selectSlot = from.selectSlot;
   return to;
@@ -141,6 +164,10 @@ export function sanitiseIntent(i, maxLookPerTick = 0.35) {
   i.drop = !!i.drop;
   i.place = !!i.place;
   i.eat = !!i.eat;
+  // A closed vocabulary, checked against the table itself. Anything else — a
+  // typo, a hallucinated recipe, a hostile string — becomes "nothing", which is
+  // the same treatment `sanitiseGoal` gives a verb that does not exist.
+  i.craft = typeof i.craft === 'string' && RECIPES[i.craft] ? i.craft : '';
   i.alternate = !!i.alternate;
   i.selectSlot = Number.isInteger(i.selectSlot) ? i.selectSlot : -1;
   return i;

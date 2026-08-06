@@ -272,6 +272,60 @@ export class Pickups {
     return `+${added} ${def?.name ?? target.item}${added > 1 ? 's' : ''}`;
   }
 
+  /**
+   * Pick up whatever is at ONE PERSON's feet, into THEIR pack.
+   *
+   * `collect()` above takes `this.nearest`, which `update()` fills in from the
+   * single position it is given each tick. On your own that is you and the
+   * answer is right. On a server it is the first player in the map, for
+   * everybody — so a second player's E collected things lying beside the first,
+   * and when the first was standing on bare ground nobody could pick anything
+   * up at all. Every socket-level test of gathering has run with exactly one
+   * agent connected, which is precisely the case where the bug does not show.
+   *
+   * Deadfall is asked for from the PURE function rather than from `this.loot`,
+   * for the same reason: the loot map only holds what was built around the
+   * anchor, so branches beside anyone else were not in it to be found. The
+   * scene copy is removed too when there is one, so the browser stops drawing
+   * a branch that has been carried away.
+   *
+   * @returns {string|null} what was taken, in words, or null for bare ground.
+   */
+  collectFor(pos, inventory) {
+    let best = this.findNearest(pos);
+    let bestD = best ? best.distance : PICKUP.radius;
+
+    const wood = nearestDeadfall(pos.x, pos.z, PICKUP.radius, this.taken);
+    if (wood && wood.distance <= bestD) {
+      const added = inventory.add('wood', wood.count);
+      if (added === 0) return null;
+      this.taken.add(wood.key);
+      const entry = this.loot.get(wood.key);
+      if (entry) {
+        this.scene.remove(entry.obj);
+        this.loot.delete(wood.key);
+      }
+      if (this.nearest?.ref?.key === wood.key) this.nearest = null;
+      this.deps.audio?.pickup?.();
+      return `+${added} branch${added > 1 ? 'es' : ''}`;
+    }
+    if (!best) return null;
+
+    // Everything else is a real entry, so hand it to the existing path rather
+    // than writing a second one — `collect` is where "and take it out of the
+    // world" lives, and two copies of that would drift.
+    const wasNearest = this.nearest;
+    const wasInventory = this.deps.inventory;
+    this.nearest = best;
+    this.deps.inventory = inventory;
+    const msg = this.collect();
+    this.deps.inventory = wasInventory;
+    // `collect` clears `nearest`; only restore it if it was pointing at
+    // something else, so the local prompt does not resurrect what we just took.
+    if (wasNearest && wasNearest !== best) this.nearest = wasNearest;
+    return msg;
+  }
+
   get stats() {
     return { recoverable: this.recovered.length, dropped: this.dropped.length, loot: this.loot.size };
   }

@@ -17,6 +17,7 @@
 
 import { WebSocketServer } from 'ws';
 import { SimWorld } from '../src/sim/world.js';
+import { getItem } from '../src/items/registry.js';
 import { makeProvider } from '../src/minds/providers.js';
 import { addRivalHunter } from '../src/minds/hunter.js';
 import { makeRandom } from '../src/world/noise.js';
@@ -77,8 +78,41 @@ const TIMEOUT_MS = 90000;
 // thing being tested. `raidtest.js` has staged exactly this against SimWorld
 // directly for a long time — this is the same stage, on the far side of the
 // socket, which is the half that was never watched.
+//   STOCK=venison:2,wood:1 npm run serve
+//
+// ...and the third stage: what everybody arrives carrying, on top of the normal
+// loadout. Same class of knob as the two above and off by default in the same
+// way. It exists because the survival loop and the hunting loop are separate
+// questions and were impossible to ask separately: to find out whether a body
+// can cook, eat and get through a night you first had to make it kill a deer,
+// so a red hunt made the whole of survival untestable. Staging two steaks costs
+// nothing and answers the second question on its own.
 const HOURS = Number(process.env.HOURS);
 const RAID = Math.min(12, Math.max(0, Number(process.env.RAID) || 0));
+const STOCK = parseStock(process.env.STOCK);
+//   HUNGER=40 npm run serve
+//
+// ...and how empty everybody arrives. Hunger runs 100 down to 0 and falls about
+// six points an hour, so a body that starts full is not hungry for most of a
+// day — fourteen game hours, a quarter of an hour of real time, before it would
+// touch its food. That is a long time to hold a socket open to find out whether
+// eating works at all. Same argument as `HOURS`, and the same default of "off".
+const HUNGER = Number(process.env.HUNGER);
+
+/** `venison:2,wood:1` -> [['venison', 2], ['wood', 1]]. Unknown ids are loud. */
+function parseStock(raw) {
+  const out = [];
+  for (const part of String(raw ?? '').split(',')) {
+    if (!part.trim()) continue;
+    const [id, n] = part.split(':');
+    if (!getItem(id.trim())) {
+      console.warn(`  STOCK: there is no such item as "${id.trim()}" — ignored`);
+      continue;
+    }
+    out.push([id.trim(), Math.max(1, Math.min(20, Number(n) || 1))]);
+  }
+  return out;
+}
 
 const world = new SimWorld({ headless: true, ...(Number.isFinite(HOURS) ? { hours: HOURS } : {}) });
 const clients = new Map(); // ws -> { id, name, lastSeen }
@@ -132,6 +166,8 @@ console.log(`  danger: ${getDangerLevel(DANGER).name.toLowerCase()}` +
   (banned.size ? ` — no ${[...banned].join(', ')}` : ''));
 if (Number.isFinite(HOURS)) console.log(`  staged: the world starts at ${String(Math.floor(HOURS)).padStart(2, '0')}:00`);
 if (RAID) console.log(`  staged: a warband of ${RAID} meets the first player through the door`);
+if (STOCK.length) console.log(`  staged: everybody arrives carrying ${STOCK.map(([i, n]) => `${n} ${i}`).join(', ')}`);
+if (Number.isFinite(HUNGER)) console.log(`  staged: everybody arrives ${HUNGER < 25 ? 'starving' : 'hungry'} (${HUNGER}/100)`);
 console.log(`  listening on ws://0.0.0.0:${PORT}`);
 console.log(
   `  ${rivals.length} rival hunter${rivals.length === 1 ? '' : 's'} (${provider.name} minds)` +
@@ -170,6 +206,8 @@ wss.on('connection', (ws, req) => {
         // your name, and sanitised the same way.
         const pet = cleanPet(msg.data.pet);
         world.addPlayer(client.id, client.name, { pet });
+        for (const [item, n] of STOCK) world.players.get(client.id).inventory.add(item, n);
+        if (Number.isFinite(HUNGER)) world.players.get(client.id).body.hunger = Math.max(0, Math.min(100, HUNGER));
         ws.send(encode(S_WELCOME, world.hello(client.id)));
         broadcast(S_JOIN, { id: client.id, n: client.name }, ws);
         console.log(

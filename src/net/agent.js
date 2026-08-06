@@ -49,9 +49,20 @@ import { aimAt, sightline, clearSpotNear } from '../minds/marksman.js';
 // than listed here, so a wolf added later is guarded against without an edit.
 import { SPECIES } from '../creatures/registry.js';
 import { bearingName, describePosition } from '../world/placenames.js';
-import { AGENTS, BOW, PLAYER, NET } from '../config.js';
+// What can be made, and out of what. Pure data and one pure predicate, shared
+// with the browser's prompt and with the server that resolves the act — three
+// callers, one table, which is the only way "cook" means the same thing in all
+// three places.
+import { RECIPES, canCraft } from '../items/recipes.js';
+import { EDIBLE, getItem } from '../items/registry.js';
+import { AGENTS, BOW, PLAYER, NET, SURVIVAL, PICKUP } from '../config.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+// How close a body walks to something it means to pick up. Inside
+// `PICKUP.radius` with margin to spare, because the last word on where it is
+// standing belongs to the server and dead reckoning is only ever nearly right.
+const REACH = PICKUP.radius * 0.7;
 
 export class Agent {
   /**
@@ -113,6 +124,9 @@ export class Agent {
     // are very different numbers: deciding to gather and arriving at a branch
     // are separated by a walk that may not finish.
     this.acted = {};
+    // ...and WHAT it did, in words, hour-stamped and outside the mind's ring
+    // buffer. See `did`. This is the thread a watcher follows.
+    this.deeds = [];
     this.said = [];
     this.startX = 0;
     this.startZ = 0;
@@ -125,6 +139,8 @@ export class Agent {
     // collected; an agent has no `Pickups`, so it remembers here. Without this
     // the `gather` goal walks two metres, presses E, and never moves again.
     this.taken = new Set();
+    // id -> count, straight off the snapshot. Empty until the first one lands.
+    this.carrying = {};
     this.hours = 0;
     this.spoke = -999;
     this.tokensIn = 0;
@@ -193,6 +209,12 @@ export class Agent {
               this.health = msg.data.me.h;
               this.food = msg.data.me.f;
               this.coreC = msg.data.me.c;
+              // ── what the server thinks is in our pack ──
+              // Not what we think we picked up. An agent has no inventory of
+              // its own — the server's copy is the one that eats, cooks and
+              // burns wood, so it is the only honest answer to "am I carrying
+              // meat", and until it was sent nobody could ask.
+              if (msg.data.me.iv) this.carrying = msg.data.me.iv;
             }
             // ── remember what HAPPENED, not only what you noticed while thinking ──
             //
@@ -464,7 +486,14 @@ export class Agent {
       contacts: contacts.slice(0, AGENTS.maxContacts).map(({ _m, ...r }) => r),
       heard: this.heard.slice(-3),
       memory: this.memory.recent(this.hours),
-      carrying: [],
+      // ── what is in the pack ──
+      // Hard-coded empty until the snapshot started carrying it. A mind that
+      // cannot tell whether it has meat, wood or a single arrow left is being
+      // asked to plan an evening blindfolded — and every "why did it wander
+      // instead of making camp" reading of a session log had this underneath it.
+      carrying: Object.entries(this.carrying ?? {})
+        .filter(([, n]) => n > 0)
+        .map(([id, n]) => `${n} ${itemWords(id, n)}`),
       _contacts: contacts,
     };
   }
@@ -556,6 +585,7 @@ export class Agent {
   act(dt) {
     const i = this.intent;
     i.interact = i.drop = i.place = i.eat = i.jump = false;
+    i.craft = '';
 
     // SAY WHERE WE ARE POINTING, not just how far we turned.
     //
@@ -570,6 +600,15 @@ export class Agent {
     this._x ??= 0;
     this._y ??= 0;
     this._z ??= 0;
+
+    // ── the body's own business, before anybody's plans ──
+    // Eating, cooking and getting a fire lit. It only takes the tick when
+    // something is actually wrong; the rest of the time it returns straight
+    // away and the goal drives, exactly as it always has.
+    if (this.upkeep(dt, i)) {
+      this.trackSelf(dt, i.forward ? 4.1 : 0);
+      return;
+    }
 
     const g = this.goal;
     this.retarget -= dt;
@@ -606,12 +645,18 @@ export class Agent {
       const dx = this.target.x - this._x;
       const dz = this.target.z - this._z;
       const dist = Math.hypot(dx, dz);
-      if (dist > AGENTS.arriveWithin) {
-        const want = Math.atan2(-dx, -dz);
-        let diff = ((want - this.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-        i.lookYaw = -clamp(diff, -AGENTS.turnRate * dt, AGENTS.turnRate * dt);
-        this.yaw += clamp(diff, -AGENTS.turnRate * dt, AGENTS.turnRate * dt);
-        i.forward = 1;
+      // ── how close is "there" depends on what you came to do ──
+      //
+      // Six metres is close enough to have ARRIVED somewhere and nowhere near
+      // close enough to TOUCH anything: `PICKUP.radius` is 2.2. So `gather`
+      // walked to a branch, stopped four metres short, pressed E, marked the
+      // branch as taken and walked off — thirty-five times in a row, with an
+      // empty pack, and every existing check read that as gathering because it
+      // counted the presses. A target that came to use its hands says how near
+      // it needs to be.
+      const stop = this.target.within ?? AGENTS.arriveWithin;
+      if (dist > stop) {
+        this.steerTo(this.target.x, this.target.z, dt, i);
         i.sprint = g.kind === 'avoid' && dist < 45;
         i.crouch = g.kind === 'hunt' && dist < AGENTS.stalkWithin;
       } else {
@@ -634,6 +679,194 @@ export class Agent {
     }
 
     this.trackSelf(dt, i.forward ? (i.sprint ? 8.4 : 4.1) * (i.crouch ? 0.5 : 1) : 0);
+  }
+
+  /**
+   * Turn toward a point and walk at it. The one piece of steering everything
+   * shares, so "which way is that" is answered in one place.
+   */
+  steerTo(x, z, dt, i) {
+    const dx = x - this._x;
+    const dz = z - this._z;
+    const want = Math.atan2(-dx, -dz);
+    const diff = ((want - this.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    const turn = clamp(diff, -AGENTS.turnRate * dt, AGENTS.turnRate * dt);
+    // The delta is what a keyboard would have sent; the absolute is what the
+    // server actually reads. Both, for the reason in intents.js.
+    i.lookYaw = -turn;
+    this.yaw += turn;
+    i.aimYaw = this.yaw;
+    i.forward = 1;
+    return Math.hypot(dx, dz);
+  }
+
+  /** How many of something the server says we are carrying. */
+  count(id) {
+    return this.carrying?.[id] ?? 0;
+  }
+
+  /** An `Inventory`-shaped view of that, for the shared recipe predicates. */
+  get pack() {
+    return { countOf: (id) => this.count(id) };
+  }
+
+  /** The nearest fire we know about, out of the snapshot. */
+  nearestFire() {
+    let best = null;
+    for (const f of this.snapshot?.fi ?? []) {
+      const d = Math.hypot(f.p[0] - this._x, f.p[1] - this._z);
+      if (!best || d < best.d) best = { x: f.p[0], z: f.p[1], fuel: f.f, d };
+    }
+    return best;
+  }
+
+  /**
+   * What is worth making at a fire right now, as a recipe id, or null.
+   *
+   * NOT `bestAvailable`. That returns the first thing the table permits, which
+   * is the right answer for a person reading a prompt and the wrong one for a
+   * body keeping itself alive: carrying stone, hide and firewood, it would knap
+   * an axe while the venison stayed raw, then spend the rest of the night
+   * turning the fuel into arrows. So this asks the two questions a body has —
+   * is there food to cook, and is the quiver low — and asks them in that order.
+   */
+  recipeToWork() {
+    for (const r of Object.values(RECIPES)) {
+      if (r.requires !== 'fire' || r.verb !== 'cook') continue;
+      if (canCraft(r, this.pack)) return r.id;
+    }
+    // Arrows, but never out of the last of the fuel: a fire you cannot light is
+    // worse than a shot you cannot take, because the cold does not miss.
+    const fletch = RECIPES.fletch_arrows;
+    if (
+      this.count('arrow') < AGENTS.lowArrows &&
+      this.count('wood') >= AGENTS.spareWood &&
+      canCraft(fletch, this.pack)
+    ) {
+      return fletch.id;
+    }
+    return null;
+  }
+
+  /**
+   * Keeping the body alive. Reflex, not deliberation.
+   *
+   * NOBODY DECIDES TO BE HUNGRY. The mind runs every `AGENTS.cadenceSeconds`
+   * and may be waiting on a model at the far end of a network call; a body that
+   * asks permission to eat starves between two thoughts. This is the same split
+   * the bow already uses — the mind names the deer, the reflex draws the string
+   * — applied to the other half of survival.
+   *
+   * Order is the whole design, and it is the order a cold, hungry person would
+   * actually take:
+   *
+   *   1. a cooked meal in the pack — eat it
+   *   2. something to cook, or too cold to carry on — get to a fire
+   *   3. no fire near enough — lay one, if there is a branch for it
+   *   4. nothing worked and we are starving — eat it raw rather than die of it
+   *
+   * Anything it does not answer returns false, and the goal drives as before.
+   * That matters: this must not turn an agent into a housekeeping loop. On a
+   * fed, warm body it does nothing at all.
+   *
+   * @returns {boolean} whether it took this tick's body.
+   */
+  upkeep(dt, i) {
+    if (this.food === undefined) return false; // no snapshot of ourselves yet
+
+    // ── a swallow takes a moment ──
+    // `me.f` is the server's answer and it arrives at 20 Hz while this runs at
+    // 30, so for a tick or two after eating the body still believes it is
+    // hungry — and it ate the second steak a third of a second after the first,
+    // at 78 fed, throwing away most of a deer. Measured: two meals, 44 -> 100,
+    // with a ceiling at 100. A pause is all it needs.
+    this.eatCooling = Math.max(0, (this.eatCooling ?? 0) - dt);
+
+    const hungry = this.food < AGENTS.eatBelow && this.eatCooling === 0;
+    const cold = this.coreC !== undefined && this.coreC < AGENTS.warmBelow;
+
+    // 1. A MEAL. `intent.eat` takes the best food in the pack, so all this has
+    // to establish is that one of them is already cooked — otherwise it would
+    // eat the raw venison it is standing at a fire to cook.
+    if (hungry && COOKED.some((id) => this.count(id) > 0)) {
+      i.eat = true;
+      this.eatCooling = AGENTS.swallowSeconds;
+      this.did('eat', 'I ate a cooked meal');
+      return true;
+    }
+
+    const recipe = this.recipeToWork();
+    if (!recipe && !cold) return this.eatRaw(i);
+
+    // 2. A FIRE — somebody's, if there is one, because a fire already burning
+    // costs no branch.
+    const fire = this.nearestFire();
+    if (fire && fire.d <= SURVIVAL.fireReach) {
+      i.forward = 0;
+      i.sprint = i.crouch = false;
+      if (recipe) {
+        i.craft = recipe;
+        this.did('craft', `I worked ${RECIPES[recipe].name.toLowerCase()} at the fire`);
+      }
+      // No recipe means we are here to get warm, so stand at it. Self-limiting:
+      // the moment `coreC` climbs back over the line this returns false and the
+      // agent gets on with whatever it was doing.
+      return true;
+    }
+    if (fire && fire.d <= AGENTS.fireWalkRange) {
+      this.steerTo(fire.x, fire.z, dt, i);
+      i.sprint = i.crouch = false;
+      return true;
+    }
+
+    // 3. LAY ONE. `place` puts it three metres in front, which is inside the
+    // reach that cooks — so the next tick at this spot is step 2.
+    // Counted in REAL seconds, not game hours: the clock wraps at midnight and
+    // a body that cannot light a fire between 23:59 and 00:04 would be caught
+    // out at exactly the hour it matters.
+    this.placeCooling = Math.max(0, (this.placeCooling ?? 0) - dt);
+    const near = fire && fire.d < AGENTS.fireNearby;
+    if (this.count('wood') > 0 && !near && this.placeCooling === 0) {
+      i.place = true;
+      i.forward = 0;
+      this.placeCooling = AGENTS.relightSeconds;
+      this.did('place', 'I set a fire going');
+      return true;
+    }
+
+    // 4. Nothing to cook on and nothing to cook with. Fall back to the goal —
+    // which is how `gather` and `makeCamp` get a chance to find the branch this
+    // needed — unless we are far enough gone that raw is better than nothing.
+    return this.eatRaw(i);
+  }
+
+  /** Raw meat, only when the alternative is dying with it in the pack. */
+  eatRaw(i) {
+    if (this.food === undefined || this.food >= AGENTS.eatRawBelow) return false;
+    if (this.eatCooling > 0) return false;
+    if (!EDIBLE.some((id) => this.count(id) > 0)) return false;
+    i.eat = true;
+    this.eatCooling = AGENTS.swallowSeconds;
+    this.did('eat', 'I ate what I had, raw');
+    return true;
+  }
+
+  /**
+   * Tally a reach for something, and KEEP THE SENTENCE.
+   *
+   * `Memory` is a ring buffer forty entries deep and it fills with noticing —
+   * a body that spends an hour walking past deer has forgotten it lit a fire.
+   * That is right for a mind, which should be thinking about what is in front
+   * of it, and wrong for a record of what happened: "did this thing ever cook"
+   * is a question about a whole session. So the deed is kept here as well,
+   * hour-stamped, and this is what a watcher and a report read.
+   */
+  did(what, text = null) {
+    this.acted[what] = (this.acted[what] ?? 0) + 1;
+    if (!text) return;
+    this.memory.add(this.hours, text);
+    this.deeds.push({ h: +this.hours.toFixed(2), what, text });
+    if (this.deeds.length > AGENTS.logSize) this.deeds.shift();
   }
 
   /**
@@ -838,7 +1071,7 @@ export class Agent {
       // walk to a branch it was never told about. See world/pickups.js.
       case 'gather': {
         const wood = nearestDeadfall(this._x, this._z, undefined, this.taken);
-        return wood ? { x: wood.x, z: wood.z, key: wood.key, act: 'interact' } : this.roam();
+        return wood ? { x: wood.x, z: wood.z, key: wood.key, act: 'interact', within: REACH } : this.roam();
       }
       // Camp is a place with fuel in reach, so this is gather with a reason.
       // It used to fall through to `roam()` — which meant an agent that decided
@@ -846,7 +1079,7 @@ export class Agent {
       // and the report counted it as a distinct activity. It was not one.
       case 'makeCamp': {
         const wood = nearestDeadfall(this._x, this._z, 60, this.taken);
-        return wood ? { x: wood.x, z: wood.z, key: wood.key, act: 'interact' } : this.roam();
+        return wood ? { x: wood.x, z: wood.z, key: wood.key, act: 'interact', within: REACH } : this.roam();
       }
       // ── standing orders ──
       // Both resolve to "be near them", and the difference is what happens when
@@ -934,6 +1167,23 @@ export class Agent {
       tokens: this.tokensIn + this.tokensOut,
     };
   }
+}
+
+// Which foods are already a meal, built from the same table `EDIBLE` is built
+// from. A cooked thing is one that does not spoil — that is what cooking IS in
+// this model, and hard-coding the two ids here would go stale the first time
+// anybody smoked a fish.
+const COOKED = Object.entries(SURVIVAL.food)
+  .filter(([, f]) => !f.spoils)
+  .map(([id]) => id);
+
+/**
+ * "2 branches", "1 cooked venison". The item table's own words, lower-cased,
+ * because this ends up in the middle of a sentence in a prompt.
+ */
+function itemWords(id, n) {
+  const name = (getItem(id)?.name ?? id.replace(/_/g, ' ')).toLowerCase();
+  return n > 1 ? `${name}${/(s|x|ch)$/.test(name) ? 'es' : 's'}` : name;
 }
 
 function howFar(d) {

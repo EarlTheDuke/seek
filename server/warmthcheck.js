@@ -212,13 +212,18 @@ check('the server still puts it in the snapshot',
 
 // The one that is deliberately still NOT read, and the reason, so that a future
 // session cannot quietly make everybody starve on a schedule they cannot touch.
-// `me.f` is blocked on there being no way to feed the server's copy of you:
-// `intent.eat` is on the wire and no handler reads it, so a read today would
-// overwrite every mouthful five times a second. When that handler exists, this
-// line is the right thing to delete — but delete it on purpose.
-check('and your HUNGER is still your own, because nothing can feed you yet',
+//
+// The old reason has been fixed: `intent.eat` has a handler, the server holds a
+// real inventory, and `me.iv` now says what is in it. The remaining reason is
+// narrower and still good — a BROWSER eats out of its own inventory, in its own
+// simulation, and reading `me.f` would have the server's copy of that number
+// overwrite every mouthful five times a second. An agent has no local inventory
+// and no local body, which is exactly why it reads both and a browser does not.
+// The day the browser stops resolving eating locally, this line is the right
+// thing to delete — but delete it on purpose.
+check('and your HUNGER is still your own, because a browser feeds itself locally',
   !/applyRemote\w*\(\s*snap\.me\.f\s*\)/.test(onSnap),
-  'queue #2 — needs an `intent.eat` handler and a server-side inventory first');
+  'the server-side loop lives behind the seam instead — see survivalcheck');
 
 const passed = results.filter(Boolean).length;
 console.log(`\n  ${passed}/${results.length}\n`);

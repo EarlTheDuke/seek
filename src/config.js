@@ -827,6 +827,48 @@ export const AGENTS = {
   turnRate: 1.7,
   speakEveryHours: 0.5,
 
+  // ── staying alive, which is not a decision ──
+  //
+  // The reflex layer's half of survival. A mind chooses where to go and what to
+  // hunt; NOBODY chooses to be hungry, and a body that waits for permission to
+  // eat is a body that starves between two thoughts eight seconds apart. Same
+  // split the bow already uses: the mind names the deer, the reflex draws.
+  //
+  // `hunger` runs 100 (fed) down to 0 (starving). Cooked venison fills 34, so a
+  // body that eats at 45 finishes its meal comfortably under the ceiling and
+  // wastes nothing — eating at 80 would throw away half of every deer.
+  eatBelow: 45,
+  // ...and this is the line where cooking stops being worth waiting for. Raw
+  // venison fills 16 against cooked's 34, so eating it is a real loss and a
+  // body should only take it when the alternative is dying with meat in its
+  // pack. Below this it stops holding out for a fire.
+  eatRawBelow: 18,
+  // How long a meal takes to register. `me.f` is the server's answer and it
+  // arrives at 20 Hz against a body running at 30, so without a pause here a
+  // hungry agent eats everything in its pack in the third of a second before
+  // the first mouthful is acknowledged — measured, two steaks, 44 to 100 with
+  // the ceiling at 100 and most of a deer thrown away.
+  swallowSeconds: 2.5,
+  // Core temperature, in degrees. `Body` starts shivering at 35.6; this is the
+  // point at which warming up stops being something to fit around the day.
+  warmBelow: 35.4,
+  // How far it will walk to a fire that is already burning rather than lighting
+  // its own. Beyond this, a branch of its own is cheaper than the walk.
+  fireWalkRange: 45,
+  // ...and how close a fire has to be before lighting another is silly. Under
+  // this, `place` would land on top of the fire already there and simply feed
+  // it — which burns the branch you were saving for the next camp.
+  fireNearby: 9,
+  // A pause after asking for a fire, so a body does not lay six of them while
+  // the snapshot that would have told it about the first is still in flight.
+  relightSeconds: 4,
+  // Fletching is fuel spent on arrows, so it only happens with fuel to spare:
+  // below this many branches in the pack, the wood is for the fire.
+  spareWood: 4,
+  // ...and only when the quiver is genuinely low. A body that fletches at 11
+  // arrows spends its whole night at the fire making arrows it already has.
+  lowArrows: 5,
+
   // ── standing orders ──
   // Station-keeping for `follow` and `guard`. Twelve metres is close enough to
   // be company and far enough not to be underfoot — a companion that walks into
