@@ -28,7 +28,8 @@
 // which is the floor VISION.md insisted on.
 
 import { Agent } from '../src/net/agent.js';
-import { ScriptedProvider, LlmProvider, Budget } from '../src/minds/providers.js';
+import { ScriptedProvider, makeProvider, Budget } from '../src/minds/providers.js';
+import { loadRoster, providerFor as providerForEntry, describeRoster } from './roster.js';
 import { makeRandom } from '../src/world/noise.js';
 import { AGENTS } from '../src/config.js';
 import { buildReport, summarise } from './playreport.js';
@@ -41,7 +42,7 @@ const flag = (name, fallback) => {
   return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : fallback;
 };
 
-const COUNT = positional[0] ?? Number(process.env.AGENT_COUNT ?? 6);
+let COUNT = positional[0] ?? Number(process.env.AGENT_COUNT ?? 6);
 const URL = flag('url', process.env.AGENT_URL ?? 'ws://127.0.0.1:8080');
 const SECONDS = Number(flag('for', process.env.AGENT_SECONDS ?? 0)); // 0 = forever
 
@@ -64,55 +65,78 @@ const ORDERS = process.env.ORDERS === 'obeys' ? 'obeys' : 'decides';
 // people's companions are in the world now.
 const PET = process.env.PET ?? null;
 
-const useModel = (process.env.MINDS_PROVIDER ?? 'scripted') === 'claude';
+// ── A FLEET OF DIFFERENT MINDS, not N copies of one ──
+//
+//   MINDS_ROSTER=roster.json npm run agents
+//
+// The roster names every player and gives each its own vendor, model and
+// character. Without one this behaves exactly as it always did: `COUNT` players
+// off the name list, all on whatever the MINDS_* variables say. See roster.js.
+const ROSTER = process.env.MINDS_ROSTER
+  ? loadRoster(process.env.MINDS_ROSTER)
+  : null;
+
+const useModel = (process.env.MINDS_PROVIDER ?? 'scripted') !== 'scripted';
 const hasKey = !!process.env.MINDS_API_KEY;
 
 // One purse for the whole session, so "twelve players" cannot quietly cost
 // twelve times what one does.
 const budget = new Budget({
-  maxCalls: Number(process.env.MINDS_MAX_CALLS ?? AGENTS.maxCallsTotal),
+  maxCalls: Number(process.env.MINDS_MAX_CALLS ?? ROSTER?.budgetCalls ?? AGENTS.maxCallsTotal),
   label: 'agents',
 });
+
+// The roster decides how many there are — a fleet is the people in it.
+if (ROSTER) COUNT = ROSTER.players.length;
+
+// Built once, up front, so the console can say what is ACTUALLY about to play
+// rather than what was asked for. A player whose key is missing is scripted,
+// and finding that out from the header beats finding it out from the bill.
+const providers = [];
+for (let i = 0; i < COUNT; i++) {
+  providers.push(
+    ROSTER
+      ? providerForEntry(ROSTER.players[i], { budget, maxCalls: AGENTS.maxCallsPerAgent, index: i })
+      : makeProvider(makeRandom(`agent:${i}`), process.env, {
+          budget,
+          maxCalls: AGENTS.maxCallsPerAgent,
+        })
+  );
+}
+const anyModel = providers.some((p) => p.name !== 'scripted');
 
 console.log('\n  Highlands — agents');
 console.log(`  ${COUNT} player${COUNT === 1 ? '' : 's'} joining ${URL}`);
 console.log(`  orders: ${ORDERS === 'obeys'
   ? 'obeys — "follow me", "guard me", "kill the troll", "wait", "carry on"'
   : 'decides — they hear you and make up their own minds (ORDERS=obeys to change)'}`);
-if (useModel && hasKey) {
-  console.log(`  minds: ${process.env.MINDS_MODEL ?? 'claude-sonnet-4-5'}`);
-  console.log(`  budget: ${budget.maxCalls} calls for the whole session, then scripted`);
-} else if (useModel) {
-  console.log('  minds: scripted — MINDS_PROVIDER=claude but no MINDS_API_KEY');
+if (ROSTER) {
+  console.log(`  roster: ${process.env.MINDS_ROSTER}`);
+  for (const line of describeRoster(ROSTER, providers)) console.log(line);
+} else if (anyModel) {
+  console.log(`  minds: ${providers[0].name} · ${providers[0].model}`);
 } else {
   console.log('  minds: scripted — no key, no network, no cost');
+}
+if (anyModel) {
+  console.log(`  budget: ${budget.maxCalls} calls for the whole session, then scripted`);
 }
 console.log('');
 
 const agents = [];
 const log = (m) => console.log(`  ${m}`);
 
-function providerFor(i) {
-  const scripted = new ScriptedProvider(makeRandom(`agent:${i}`));
-  if (!useModel || !hasKey) return scripted;
-  return new LlmProvider({
-    apiKey: process.env.MINDS_API_KEY,
-    model: process.env.MINDS_MODEL,
-    fallback: scripted,
-    budget,
-    maxCalls: AGENTS.maxCallsPerAgent,
-  });
-}
-
 async function main() {
   for (let i = 0; i < COUNT; i++) {
+    const entry = ROSTER?.players[i];
     const a = new Agent({
-      name: NAMES[i % NAMES.length] + (i >= NAMES.length ? ` ${Math.floor(i / NAMES.length) + 1}` : ''),
-      provider: providerFor(i),
+      name: entry?.name
+        ?? NAMES[i % NAMES.length] + (i >= NAMES.length ? ` ${Math.floor(i / NAMES.length) + 1}` : ''),
+      provider: providers[i],
       rand: makeRandom(`agentbody:${i}`),
       onLog: log,
-      orders: ORDERS,
-      pet: PET,
+      orders: entry?.orders ?? ORDERS,
+      pet: entry?.pet ?? PET,
     });
     try {
       await a.connect(URL);
@@ -149,7 +173,7 @@ async function main() {
       console.log(
         `  ${Math.round(elapsed)}s · ${agents.length} alive · ${decisions} decisions · ` +
           Object.entries(doing).map(([k, n]) => `${n} ${k}`).join(', ') +
-          (useModel && hasKey
+          (anyModel
             ? ` · ${spent.calls}/${spent.of} calls, ${spent.tokensIn + spent.tokensOut} tokens`
             : '')
       );
@@ -173,7 +197,7 @@ async function main() {
       );
       if (s.lastError) console.log(`      last error: ${s.lastError}`);
     }
-    if (useModel && hasKey) {
+    if (anyModel) {
       const s = budget.spent;
       console.log(`\n    ${s.calls} calls · ${s.tokensIn} in / ${s.tokensOut} out tokens`);
     }
@@ -185,9 +209,13 @@ async function main() {
     // read as one document rather than as two systems you have to check.
     const { text, findings } = buildReport(agents, {
       seconds: elapsed,
-      minds: useModel && hasKey ? 'model' : 'scripted',
-      model: useModel && hasKey ? (process.env.MINDS_MODEL ?? 'claude-sonnet-4-5') : null,
-      spend: useModel && hasKey ? budget.spent : null,
+      minds: anyModel ? 'model' : 'scripted',
+      // What actually played, not what was asked for — with a roster that is
+      // several models at once, so it is named as a set.
+      model: anyModel
+        ? [...new Set(providers.filter((p) => p.name !== 'scripted').map((p) => p.model))].join(', ')
+        : null,
+      spend: anyModel ? budget.spent : null,
     });
     try {
       appendNote({ text, who: `${agents.length} agents`, context: `${Math.round(elapsed)}s at ${URL}` });

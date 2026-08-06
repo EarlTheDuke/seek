@@ -39,7 +39,8 @@
     "agents": "node server/agents.js",
     "agentcheck": "node server/agentcheck.js",
     "huntcheck": "node server/huntcheck.js",
-    "survivalcheck": "node server/survivalcheck.js"
+    "survivalcheck": "node server/survivalcheck.js",
+    "providercheck": "node server/providercheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",
