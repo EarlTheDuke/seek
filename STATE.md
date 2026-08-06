@@ -12,8 +12,137 @@ it is the most expensive knowledge in the repo: every entry cost somebody a
 wrong diagnosis. **Skim it before you debug anything, not after.** It is kept
 here rather than cut because a closed bug can be deleted and a trap cannot.
 
-Last updated: 2026-08-06, by the run that measured the bow and found the bug was
-in the ruler.
+Last updated: 2026-08-06, by the run that instrumented the hillside, found a deed
+that was a keypress, and caught the miss table lying for the third time.
+
+**Two queue items were closed by DISPROVING them this run.** Items 1 and 2 both
+described bugs that do not exist — a huntcheck run that finds no deer, and a
+craft deed written every tick. Both premises were reasoned from where a call
+sat, never measured. Both had a real and different defect underneath. If you are
+about to act on a queue entry here, print the number first.
+
+## A CRAFT DEED WAS A KEYPRESS — and the bug in the queue did not exist
+
+**Read the second half of this before you trust anything in the old queue.**
+
+`did('craft', …)` fired the instant `i.craft` was set, which made it an INTENT
+wearing an outcome's clothes — the same mistake `arriveWithin` (6 m) vs
+`PICKUP.radius` (2.2 m) made one method down, and it goes the same way. The deed
+now comes off the recipe's own `outputs` ARRIVING in the pack, inside the window
+the make already owns. `Agent.noteMake`.
+
+**What it was actually hiding: `World.update` refuses a craft in total silence.**
+No station within `SURVIVAL.fireReach`, inputs gone, or `maxHeld` already met —
+the craft is dropped and nothing is said to anybody. So a body standing at a cold
+fire pressing all night filled its deed log and its session report with meals it
+never cooked. `acted.craftTried` now sits beside `acted.craft` for the same
+reason the report already spells out reaches vs items.
+
+`survivalcheck` **12/12**, and the new one DISCRIMINATES: with the old
+press-time line put back it goes **11/12**, red on exactly that check, reading
+*"the press alone wrote 2 deeds — a keypress is not a meal"*. Committed first,
+mutated, run, `git checkout --`, then grepped both arms — the counterfactual
+STATE.md prescribes.
+
+### the queue was wrong about WHY, and that is worth more than the fix
+
+Queue item 2 said *"a craft writes a deed EVERY TICK it stands at the fire"* and
+cited two identical lines stamped 1.27h. **It does not, and they were not.**
+`survivalcheck` stages `STOCK=venison:2` — those were **two real steaks**, cooked
+one after the other, and `craftTried: 2 / craft: 2` now says so on its own line.
+The per-tick spam was REASONED from where the call sat, never measured; the
+server resolves a craft instantly, so the branch fires once per make.
+
+The fix was still worth having, because the defect underneath it was real and
+worse. But the lesson is the standing one: **a call site that looks like it
+repeats is not evidence that it repeated.** One `console.log` of the tally would
+have said so in ten seconds, and three paragraphs of the last handover would not
+have been written.
+
+## THE HILLSIDE IS NEVER EMPTY. Queue item 1's premise was false too.
+
+`npm run huntcheck` now samples the herd once a second and prints, on any run
+that killed nothing, **which of six failures it actually was** instead of leaving
+it to be inferred from three tables that all read "nothing happened".
+
+Five runs, and the answer never varied:
+
+```
+  a deer in the snapshot   147/147 samples (100%), 18-26 at a time    <- every run
+  a quarry was LOCKED ON   133/147 (90%)
+  hunting but NO deer found  3/147
+  inside shootRange 26 m    19-41/147 (13-28%)
+```
+
+**There is no "run that finds no deer".** The snapshot holds eighteen to
+twenty-six of them, always, and `resolve` falls through to `roam()` with a hunt
+goal about three seconds in a hundred and fifty. What actually varies is the
+**13-28% of seconds in which a deer is inside `AGENTS.shootRange` (26 m)** —
+everything else is a body walking.
+
+### the failures are NOT one failure, and the biggest is not marksmanship
+
+**Seven runs today, four red — and the red ones are TWO different bugs, in equal
+measure.** Every row below is a real run:
+
+| # | arrows | outcome | `ground in the way` | verdict |
+|---|---|---|---|---|
+| 4 | **1** in 150 s | 1 wound, 0 kills | **24** (deer 12-23 m) | RED — throttled |
+| 5 | **1** in 150 s | 1 wound, 0 kills | **17** (deer 14-25 m) | RED — throttled |
+| 1 | 7 | 0 kills, 5 measured misses | 6 | RED — missed |
+| 2 | 6 | 0 kills, 5 measured misses | 3 | RED — missed |
+| 3 | 1 | kill in 72 s | few | green |
+| 6 | 2 | 1 wound + kill in **77 s** | **0** | green |
+| — | 3 | 1 wound + kill in 134 s | 10 | green |
+
+**IT TAKES TWO ARROWS TO KILL A DEER.** Every kill this run was a wound
+followed by a kill, and every wound left the animal up at 17 hp. So a body
+throttled to ONE shot cannot kill one however well it aims — which is exactly
+what runs 4 and 5 are. Both of their single arrows HIT.
+
+Read the `ground in the way` column against the verdict. The cleanest run of the
+day (run 6: kill in 77 s) had **none**; the two worst had seventeen and
+twenty-four. That is a correlation over seven runs, not a proof — runs 1 and 2
+are a genuine aiming failure with only 3-6 ground refusals between them, and
+they are the ones the new LEAD column exists for.
+
+**The first cut of the verdict line called runs 4 and 5 "marksmanship".** It now
+separates the wound case and the never-loosed case and names the dominant
+refusal — a verdict that names the wrong bug is worse than no verdict at all,
+and this one named the wrong bug on its first outing.
+
+### and the miss table has been measuring the wrong thing all along
+
+Every arrow on every red run: **`vsModel` 0.0-0.3 m, `across` exactly 0.0 m.**
+The bow does precisely what it is told, and `across` said so ten times out of
+ten. Then why the misses?
+
+**Because `across` is measured against `mark`, and `mark` is the LEAD-ADJUSTED
+aim point `aimAt` returns.** Its own doc comment claimed it showed "spread and
+mis-lead". It cannot show a mis-lead: a wrong lead moves the ANIMAL off the
+mark and never moves the arrow off it. Ten arrows of exactly 0.0 was the tell —
+a crouched, stationary body has nearly no spread, so the column was
+structurally incapable of reporting the one failure that fits the evidence.
+**That is the third time an instrument in this project has lied**, after `hit`
+as a boolean and `along` as marksmanship.
+
+So `lastShot` now carries `quarryId`, and `howItMissed` puts the DEER's own
+position at impact into the shot-line frame: **`leadAcross`** (the lead error)
+and `leadAlong`. huntcheck prints it per arrow and prints the SIGN SPLIT, because
+a tolerance on the mean cannot see a bias. The mind is told too — *"the deer was
+4 m to the left of my mark when it landed"* is an actionable sentence and *"a
+miss, but barely"* is not.
+
+**NOT YET READ.** The instrument landed mid-batch and no red run has been
+measured with it. That is the first thing the next run should do: `npm run
+huntcheck` until one goes red, then read the LEAD line.
+
+### honesty about the rate
+
+**Four red in seven today**, against the documented six-of-seven. **Do not treat
+that as a regression** — builds, greps and a `npm run build` were running on the
+box during several of them, and this check is real-time on a wall clock. The box
+was not quiet. The rate is not the finding; the two failure SHAPES are.
 
 ## THE BOW IS UNDERSTOOD. Queue item 0 was the INSTRUMENT, not the ballistics.
 
@@ -155,7 +284,7 @@ scripted. Read it. Other knobs, all off by default: `HOURS=1`, `RAID=6`,
 `bookcheck`/`reportcheck`/`raidcheck` 18 · `timbercheck` 17 · `agentcheck` 17 ·
 `ordercheck` 17 · `dangercheck`/`herdcheck`/`rendercheck` 12 · `bitecheck` 10 ·
 `spreadcheck` 10 · `watchcheck` 10 · `refillcheck` 9 · `scarcecheck` 9 ·
-`shotcheck` 8 · **`survivalcheck` 11** · `huntcheck` 7 · `arrowcheck`/`woundcheck` 7 ·
+`shotcheck` 8 · **`survivalcheck` 12** · `huntcheck` 7 · `arrowcheck`/`woundcheck` 7 ·
 **`ballisticscheck` 7** · `rostercheck` 6.
 
 Ports: **ballisticscheck 8088**, boardcheck 8093 (plus 8090 for its own board and
@@ -170,9 +299,11 @@ spends the whole twelve-arrow quiver and takes about three minutes.**
 
 - `netcheck` "it went with her" (a companion trailing a continuously moving
   owner) is the long-known load-sensitive one.
-- `huntcheck` is still the documented six-of-seven. Today, after the muzzle fix:
-  **7/7, a kill inside 80 s on two arrows** — but that is ONE run and the fix is
-  1.4 mrad, so it is not evidence of anything. Do not read it as a cure.
+- `huntcheck` — **three red in five today**, on a box that was NOT quiet (builds
+  and greps ran during the first two). Do not compare that with the documented
+  six-of-seven and do not read it as a regression. The green ones killed off one
+  or two arrows in 72-134 s; the red ones are described at the top of this file
+  and they are not all the same failure.
 
 ## The queue, ranked
 
@@ -182,18 +313,42 @@ spends the whole twelve-arrow quiver and takes about three minutes.**
    huntcheck tail is NOT ballistics** — whatever is left is the aim: the lead,
    the mark, the spread, or the shot never being taken. Item 1 is now the live
    lead, and the refusal log is the instrument for it.
-1. **The one huntcheck run in seven that finds no deer.** Log where the herds
-   actually were during it. It may be nothing — a thin hillside and a 150 s
-   budget — but "no shot in 150 s" and "a shot it could not take" are different
-   answers and only the refusal log can tell them apart. The board surfaces
-   refusals live now, which is the instrument this wanted.
-2. **A craft writes a deed EVERY TICK it stands at the fire.** (~~"a confirmed
-   pickup is recorded nowhere"~~ closed — see the top of this file — and this is
-   what closing it exposed.) Live survivalcheck: *"I worked cook venison at the
-   fire"* twice at the same game hour. `did('craft', …)` sits inside the
-   per-tick branch that sets `i.craft`, so a long cook pushes near-identical
-   lines into a five-deep column and shoves the kill off the end of it. Same
-   class of problem the gather coalescing just solved and the same shape of fix.
+1. ~~The one huntcheck run in seven that finds no deer.~~ **CLOSED — there is no
+   such run.** 147/147 samples hold 18-26 deer on every run measured. See the
+   top of this file. What it exposed, ranked, is now items 1a and 1b:
+
+   **1a. THE SHOT RATE — `ground in the way` throttles it to one arrow, and one
+   arrow never kills.** Two of the four red runs refused **24 and 17** times for
+   ground at 12-25 m, got a SINGLE arrow away in 150 s, and HIT with it. The
+   cleanest green run had **zero** ground refusals and killed in 77 s.
+   `clearSpotNear` exists for exactly this and writes *"stepping N m aside for a
+   clear line"* into memory, and **nothing anywhere counts whether the detour is
+   attempted or whether it ever clears the line** — the same instrument gap the
+   refusal log had before somebody built it. Count detours attempted vs
+   refusals cleared FIRST; only then decide between fixing the detour and
+   fixing the stand-off.
+
+   **1b. READ THE LEAD COLUMN ON A RED RUN. Nothing has yet.** `leadAcross`
+   (the deer's own position against the mark at impact) landed mid-batch and no
+   red run has been measured with it. Every other column says the bow is
+   perfect, and `across` is structurally blind to a mis-lead. Run `npm run
+   huntcheck` until one goes red, then read the LEAD line and its SIGN SPLIT —
+   all one way is a lead the solver gets wrong, a split is spread. **Do not tune
+   `BOW`/`AGENTS` constants before reading it**; three passes of that moved the
+   failure around without fixing it.
+
+   **1c. One arrow does not kill a deer** — both throttled runs left one at
+   17 hp. Worth knowing before anyone reads "wounded, not killed" as an aim bug.
+2. ~~A craft writes a deed EVERY TICK it stands at the fire.~~ **CLOSED, and the
+   premise was FALSE** — see the top of this file. The two lines at 1.27h were
+   two real steaks (`STOCK=venison:2`), not one press counted twice; the server
+   resolves a craft instantly so the branch fires once per make. The defect
+   underneath it was real and different: a craft the server refuses in silence
+   was recorded as a meal. Fixed via `noteMake`, `survivalcheck` 12/12.
+   **Still open from it:** `p.lastCraft` (world.js:911) is written on every
+   successful craft and **read by nothing anywhere** — a confirmed-make signal
+   already sitting on the server, if anyone wants it on the wire rather than
+   inferred from the pack.
 3. `glider.js` samples ridge lift upwind with `(−sin, −cos)` while integrating
    flight in `(+sin, +cos)`. **Half answered: a BODY walks along `(−sin yaw,
    −cos yaw)`, measured on the server four ways.** So `(−sin, −cos)` is this
@@ -257,6 +412,22 @@ spends the whole twelve-arrow quiver and takes about three minutes.**
   mentioning `` `did()` `` turned board.js into a syntax error. **And `npm run
   build` was green**, because vite never compiles `server/` at all. The only
   gate on a server file is running it: `node -e "import('./server/board.js')"`.
+  **But NOT on a `*check.js` file** — every one of them ends in `main().catch(…)`,
+  so importing it does not check it, it RUNS it. That probe cost a full 150 s
+  huntcheck and a spawned server on 8096 before it printed a single line. Use
+  `node --check <file>` for syntax; it is instant and it does not play the game.
+- **`| head -N` ON A CHECK LOOKS EXACTLY LIKE THE CHECK DYING EARLY.** The same
+  probe came back showing two PASS lines and then nothing, which reads as a
+  harness that exited after the second assertion. `head` had closed the pipe.
+  Exit code was 0 and the run was fine.
+- **A FED-IN FAKE MADE OF A PLAIN OBJECT AND TWO BORROWED METHODS STOPS TESTING
+  ANYTHING THE MOMENT THE REAL METHOD GROWS A THIRD CALL.** `notePack` was
+  driven as `Agent.prototype.notePack.call(fake, iv)`; it now calls `noteMake`,
+  which calls `did`, and the fake died with *"this.noteMake is not a function"*
+  — in a check that was otherwise green. Build the body with
+  `Object.assign(Object.create(Agent.prototype), {…state})` so the METHODS are
+  real and only the state is invented. The existing four-field `fake` in
+  survivalcheck survives only because it never enters the make window.
 - **`server.close()` NEVER CALLS BACK while a keep-alive socket is open**, and
   both a watching browser and `fetch` hold one. The port goes quiet, the process
   sits idle at half a second of CPU, and it reads exactly like a spin loop
