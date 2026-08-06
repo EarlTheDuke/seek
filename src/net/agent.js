@@ -45,6 +45,7 @@ import { Memory } from '../minds/mind.js';
 import { nearestDeadfall } from '../world/pickups.js';
 import { heightAt } from '../world/noise.js';
 import { aimAt, sightline, clearSpotNear, predictLanding } from '../minds/marksman.js';
+import { timberBlocker } from '../world/timber.js';
 // For `guard`: what counts as a threat is read off the species table rather
 // than listed here, so a wolf added later is guarded against without an edit.
 import { SPECIES } from '../creatures/registry.js';
@@ -544,7 +545,8 @@ export class Agent {
       // A mind that cannot tell those apart is not choosing between them, it is
       // guessing. One word fixes it.
       const clear = y === null ? null
-        : !sightline(this.x, this._y + PLAYER.eyeHeight, this.z, x, y + AGENTS.aimAboveFeet, z, heightAt).blocked;
+        : !sightline(this.x, this._y + PLAYER.eyeHeight, this.z, x, y + AGENTS.aimAboveFeet, z,
+                     heightAt, 0.3, this.timber()).blocked;
       contacts.push({
         what,
         how: 'seen',
@@ -1006,6 +1008,25 @@ export class Agent {
    * throttle, so it believed it was facing its quarry while the server had it
    * pointing somewhere else. Absolute aim is what makes this possible at all.
    */
+  /**
+   * Everything solid near this body that is not the ground.
+   *
+   * Rebuilt only when we have walked out of the patch it was made for, because
+   * the cell scan behind it is the expensive half and the arc walker calls the
+   * result a few hundred times a shot. 90 m of timber around a body that will
+   * not shoot past `AGENTS.shootRange` is generous on purpose: the arc, the
+   * chord, and any spot we might step sideways to all have to be inside it.
+   */
+  timber() {
+    const r = 90;
+    const a = this._timberAt;
+    if (!this._timber || !a || Math.hypot(this._x - a.x, this._z - a.z) > 25) {
+      this._timber = timberBlocker(this._x, this._z, r);
+      this._timberAt = { x: this._x, z: this._z };
+    }
+    return this._timber;
+  }
+
   act_shoot(dt, i) {
     const t = this.target;
     const dx = t.x - this._x;
@@ -1030,6 +1051,8 @@ export class Agent {
         // what a STANDING person's would be — and this one is crouched,
         // because it is stalking a deer.
         eye: this.eye ?? PLAYER.eyeHeight,
+        // ...and the trees, which were invisible to every check the body made.
+        solidAt: this.timber(),
       }
     );
 
@@ -1054,8 +1077,12 @@ export class Agent {
     // takes about a fifth of a second for the eye to come up, the next tick
     // re-solves from the real height, and the ordinary path takes the shot. A
     // person on a slope does this without thinking about it.
+    // ...and only for GROUND. Standing up clears a lip of turf and does
+    // precisely nothing about an oak, so a body that answered every refusal by
+    // straightening its knees would stand up in front of a tree and shoot it
+    // again from four inches higher.
     const crouched = (this.eye ?? PLAYER.eyeHeight) < PLAYER.eyeHeight - 0.05;
-    if (!shot.shoot && shot.why.startsWith('ground') && crouched) {
+    if (!shot.shoot && shot.blockedBy === 'ground' && crouched) {
       const standing = aimAt(
         { x: this._x, y: this._y, z: this._z },
         { x: t.x, y: t.y + AGENTS.aimAboveFeet, z: t.z },
@@ -1065,6 +1092,7 @@ export class Agent {
           velocity: track ? { x: track.vx, z: track.vz } : null,
           lag: NET.interpolationMs / 1000,
           eye: PLAYER.eyeHeight,
+          solidAt: this.timber(),
         }
       );
       if (standing.shoot) {
@@ -1106,9 +1134,14 @@ export class Agent {
       // and looks again. `clearSpotNear` finds the nearest place across the
       // line of sight that can actually see the animal, and we walk to that
       // instead — recomputed as we go, so it re-solves if the deer moves.
-      const detour = shot.why.startsWith('ground')
+      // A tree is the case this was invented for, even more than a crest: you
+      // do not shoot through it and you do not walk through it, you step round
+      // it. `clearSpotNear` gets the blocker too, or "aside" just finds more
+      // wood.
+      const detour = shot.blockedBy
         ? clearSpotNear({ x: this._x, y: this._y, z: this._z },
-                        { x: t.x, y: t.y + AGENTS.aimAboveFeet, z: t.z }, heightAt)
+                        { x: t.x, y: t.y + AGENTS.aimAboveFeet, z: t.z }, heightAt,
+                        { solidAt: this.timber() })
         : null;
       if (detour) {
         const bx = detour.x - this._x;

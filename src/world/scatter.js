@@ -18,6 +18,13 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Q, SCATTER, WIND, WATER_LEVEL } from '../config.js';
 import { heightAt, clumpAt, makeRandom, noise4 } from './noise.js';
+// ── the placement rules live OUTSIDE this file now ──
+// Trees and boulders have to be findable by something with no scene — an agent
+// judging whether its arrow will hit an oak. timber.js states where they are
+// and what shape they are; this class draws that answer. See its header.
+import {
+  treeShape, rockShape, treesNear, rocksNear, setClearings as setTimberClearings,
+} from './timber.js';
 import { hash2i, clamp, lerp, smoothstep } from '../util/math.js';
 
 const _m4 = new THREE.Matrix4();
@@ -247,8 +254,16 @@ const LEAF = [0x4f5d22, 0x5e6528, 0x3f5320, 0x6c6b2c, 0x445b26].map((h) => new T
 const STONE = [0x50483e, 0x5c5348, 0x453f37].map((h) => new THREE.Color(h));
 
 function makeTree(rand, variant) {
-  const height = lerp(5.5, 11, rand());
-  const trunkR = lerp(0.28, 0.5, rand());
+  // ── the DIMENSIONS are not ours to invent any more ──
+  //
+  // They used to come off the head of this random stream, interleaved with the
+  // per-face colour jitter below — which made them reproducible only by
+  // replaying this entire geometry build, THREE and all. A body over a socket
+  // cannot do that, so nothing outside the browser could know how thick a trunk
+  // was, and an agent's arrow checks could not see the wood at all. `treeShape`
+  // states them as arithmetic instead; the jitter still comes from `rand`.
+  const { height, trunkR, crownR: boundR } = treeShape(variant);
+  const crownR = boundR / 1.15;
 
   // A short bare trunk with a broad crown starting low reads as a real
   // broadleaf. A thin tall stick under a sphere reads as a lollipop.
@@ -262,7 +277,6 @@ function makeTree(rand, variant) {
   // not foliage. They have to overlap enough to merge into a single mass.
   const leaf = LEAF[variant % LEAF.length];
   const crownY = height * 0.72;
-  const crownR = lerp(2.1, 3.1, rand());
   const blobs = 4 + Math.floor(rand() * 3);
   for (let i = 0; i < blobs; i++) {
     const canopy = new THREE.IcosahedronGeometry(crownR * lerp(0.64, 1, rand()), 1);
@@ -293,10 +307,13 @@ function makeTree(rand, variant) {
 }
 
 function makeRock(rand, variant) {
-  const r = lerp(0.4, 1.25, rand());
-  const geo = new THREE.IcosahedronGeometry(r, 1);
+  // Stated rather than drawn from the stream, for the same reason as the tree:
+  // the collision proxy has to be computable without this geometry. See
+  // `rockShape`.
+  const shape = rockShape(variant);
+  const geo = new THREE.IcosahedronGeometry(shape.r, 1);
   roughen(geo, 0.42, 0.9);
-  geo.scale(lerp(0.8, 1.5, rand()), lerp(0.4, 0.8, rand()), lerp(0.8, 1.5, rand()));
+  geo.scale(shape.sx, shape.sy, shape.sz);
   const g = prep(geo, STONE[variant % STONE.length], 0.24, rand);
   g.computeVertexNormals();
   g.computeBoundingSphere();
@@ -406,7 +423,9 @@ export class Scatter {
       mesh.receiveShadow = true;
       mesh.frustumCulled = false;
       mesh.count = 0;
-      mesh.userData.radius = geo.boundingSphere ? geo.boundingSphere.radius : 1;
+      // From the shared shape, not the built geometry: an agent has no
+      // geometry to measure and both ends have to reach the same sphere.
+      mesh.userData.radius = rockShape(v).bound;
       scene.add(mesh);
       this.rocks.push(mesh);
     }
@@ -415,29 +434,22 @@ export class Scatter {
     this.colliders = null;
 
     this.grassGrid = new HeightGrid(2, Q.grassRadius + 4);
-    this.bigGrid = new HeightGrid(8, Q.scatterRadius + 16);
+    // No big grid any more: trees and rocks are placed against timber.js's
+    // world-fixed lattice, which does not move with the player and can
+    // therefore be recomputed by something with no scene at all.
     // Where each field was last centred. Infinity forces a build on frame one.
     this.grassAnchor = new THREE.Vector3(Infinity, 0, Infinity);
     this.bigAnchor = new THREE.Vector3(Infinity, 0, Infinity);
 
-    /** Circles kept clear of trees and rocks — see landmarks.js. */
-    this.clearings = [];
+
   }
 
   setClearings(list) {
-    // Pre-square the radii so the placement loop stays sqrt-free.
-    this.clearings = list.map((c) => ({ x: c.x, z: c.z, r2: c.r * c.r }));
+    // Forwarded, because the placement rules live there now — see timber.js.
+    // Keeping a second copy here is precisely the drift that made a tree the
+    // renderer drew and a tree an arrow hit two different questions.
+    setTimberClearings(list);
     this.bigAnchor.set(Infinity, 0, Infinity); // force a re-place
-  }
-
-  inClearing(x, z) {
-    for (let i = 0; i < this.clearings.length; i++) {
-      const c = this.clearings[i];
-      const dx = x - c.x;
-      const dz = z - c.z;
-      if (dx * dx + dz * dz < c.r2) return true;
-    }
-    return false;
   }
 
   // ── grass + reeds ─────────────────────────────────────────────────────────
@@ -550,83 +562,44 @@ export class Scatter {
   }
 
   // ── trees + rocks ─────────────────────────────────────────────────────────
+  //
+  // The rules moved to timber.js and this DRAWS their answer. It used to own
+  // them, and owning them meant nothing without a scene could reproduce them:
+  // the cell tests ran against a `HeightGrid` centred on the player, so whether
+  // a given tree existed depended on where somebody happened to be standing
+  // when the scatter was last placed. An agent had no way to compute that and
+  // therefore no way to know a tree was in front of its bow — measured, both
+  // aimed arrows of a huntcheck run ending `hit tree`.
   placeLarge(px, pz) {
-    this.bigGrid.rebuild(px, pz);
-    const grid = this.bigGrid;
     const R = Q.scatterRadius;
-    const R2 = R * R;
 
     const treeCounts = this.trees.map(() => 0);
     const rockCounts = this.rocks.map(() => 0);
 
-    // ── trees ──
-    const tc = SCATTER.treeCell;
-    for (let cj = Math.floor((pz - R) / tc); cj <= Math.ceil((pz + R) / tc); cj++) {
-      for (let ci = Math.floor((px - R) / tc); ci <= Math.ceil((px + R) / tc); ci++) {
-        const h1 = hash2i(ci, cj, 11);
-        const h2 = hash2i(ci, cj, 12);
-        const x = ci * tc + h1 * tc;
-        const z = cj * tc + h2 * tc;
-        const dx = x - px;
-        const dz = z - pz;
-        if (dx * dx + dz * dz > R2) continue;
-
-        // Copses, not confetti.
-        if (hash2i(ci, cj, 13) > clumpAt(x, z) * 0.92) continue;
-        if (this.inClearing(x, z)) continue;
-
-        const h = grid.height(x, z);
-        if (h < SCATTER.treeMinHeight || h > SCATTER.treeMaxHeight) continue;
-        if (grid.slope(x, z) > SCATTER.treeMaxSlope) continue;
-
-        const v = Math.floor(hash2i(ci, cj, 14) * this.trees.length) % this.trees.length;
-        const entry = this.trees[v];
-        const i = treeCounts[v];
-        if (i >= entry.mesh.instanceMatrix.count) continue;
-
-        // Thin and shrink toward the treeline, as real forests do.
-        const alt = 1 - smoothstep(SCATTER.treeMaxHeight - 22, SCATTER.treeMaxHeight, h) * 0.45;
-        _pos.set(x, h - 0.3, z);
-        _q.setFromAxisAngle(_up, hash2i(ci, cj, 15) * Math.PI * 2);
-        _scale.setScalar(lerp(0.75, 1.3, hash2i(ci, cj, 16)) * alt);
-        _m4.compose(_pos, _q, _scale);
-        _m4.toArray(entry.mesh.instanceMatrix.array, i * 16);
-        treeCounts[v] = i + 1;
-      }
+    for (const t of treesNear(px, pz, R)) {
+      const v = t.variant % this.trees.length;
+      const entry = this.trees[v];
+      const i = treeCounts[v];
+      if (i >= entry.mesh.instanceMatrix.count) continue;
+      _pos.set(t.x, t.y, t.z);
+      _q.setFromAxisAngle(_up, t.yaw);
+      _scale.setScalar(t.s);
+      _m4.compose(_pos, _q, _scale);
+      _m4.toArray(entry.mesh.instanceMatrix.array, i * 16);
+      treeCounts[v] = i + 1;
     }
 
-    // ── rocks ──
-    const rc = SCATTER.rockCell;
-    for (let cj = Math.floor((pz - R) / rc); cj <= Math.ceil((pz + R) / rc); cj++) {
-      for (let ci = Math.floor((px - R) / rc); ci <= Math.ceil((px + R) / rc); ci++) {
-        const h1 = hash2i(ci, cj, 21);
-        const h2 = hash2i(ci, cj, 22);
-        const x = ci * rc + h1 * rc;
-        const z = cj * rc + h2 * rc;
-        const dx = x - px;
-        const dz = z - pz;
-        if (dx * dx + dz * dz > R2) continue;
-
-        const h = grid.height(x, z);
-        const slope = grid.slope(x, z);
-        // Rocks like steep ground and shorelines; grass covers the gentle flats.
-        const shore = smoothstep(3.5, 0.6, Math.abs(h - WATER_LEVEL)) * SCATTER.rockShoreBonus;
-        const chance = smoothstep(0.2, 0.62, slope) * 0.7 + shore + 0.09;
-        if (hash2i(ci, cj, 23) > chance) continue;
-        if (this.inClearing(x, z)) continue;
-
-        const v = Math.floor(hash2i(ci, cj, 24) * this.rocks.length) % this.rocks.length;
-        const mesh = this.rocks[v];
-        const i = rockCounts[v];
-        if (i >= mesh.instanceMatrix.count) continue;
-
-        _pos.set(x, h - 0.25, z);
-        _q.setFromAxisAngle(_up, hash2i(ci, cj, 25) * Math.PI * 2);
-        _scale.setScalar(lerp(0.55, 1.35, hash2i(ci, cj, 26)));
-        _m4.compose(_pos, _q, _scale);
-        _m4.toArray(mesh.instanceMatrix.array, i * 16);
-        rockCounts[v] = i + 1;
-      }
+    for (const r of rocksNear(px, pz, R)) {
+      const v = r.variant % this.rocks.length;
+      const mesh = this.rocks[v];
+      const i = rockCounts[v];
+      if (i >= mesh.instanceMatrix.count) continue;
+      _pos.set(r.x, r.y, r.z);
+      _q.setFromAxisAngle(_up, r.yaw);
+      _scale.setScalar(r.s);
+      _m4.compose(_pos, _q, _scale);
+      _m4.toArray(mesh.instanceMatrix.array, i * 16);
+      rockCounts[v] = i + 1;
     }
 
     this.trees.forEach((t, v) => {

@@ -15,6 +15,9 @@ import * as THREE from 'three';
 import { LAKE, SKY, WATER_LEVEL } from '../config.js';
 import { heightAt, slopeAt, makeRandom, noise4 } from './noise.js';
 import { lerp } from '../util/math.js';
+// The siting scan itself moved out, unchanged, so things with no scene can ask
+// where the clear ground is. See landmarksites.js — and timber.js, which is why.
+import { landmarkSites, CLEAR_RADIUS } from './landmarksites.js';
 
 const STONE_A = new THREE.Color(0x6a6259);
 const STONE_B = new THREE.Color(0x565049);
@@ -36,28 +39,6 @@ function weather(geo, amount, freq) {
 
 function stoneMaterial(color) {
   return new THREE.MeshStandardMaterial({ color, roughness: 0.93, metalness: 0, flatShading: true });
-}
-
-/**
- * Scan a polar annulus for the spot that best satisfies `score`. Deterministic,
- * and cheap enough at load time to be worth doing properly.
- */
-function findSite(cx, cz, minR, maxR, dirDeg, spreadDeg, score) {
-  let best = null;
-  const steps = 26;
-  const rings = 16;
-  for (let a = 0; a < steps; a++) {
-    const ang = THREE.MathUtils.degToRad(dirDeg - spreadDeg / 2 + (spreadDeg * a) / (steps - 1));
-    for (let r = 0; r < rings; r++) {
-      const rad = lerp(minR, maxR, r / (rings - 1));
-      const x = cx + Math.sin(ang) * rad;
-      const z = cz + Math.cos(ang) * rad;
-      const h = heightAt(x, z);
-      const s = score(x, z, h);
-      if (s !== null && (best === null || s > best.score)) best = { x, z, h, score: s };
-    }
-  }
-  return best;
 }
 
 // ── individual landmarks ────────────────────────────────────────────────────
@@ -218,50 +199,24 @@ export function buildLandmarks(scene) {
   scene.add(root);
 
   // Look toward the sun from the lake: that is the direction the player will be
-  // facing at spawn, so the biggest silhouette belongs there, backlit.
-  const sunAz = SKY.azimuth;
-  const sites = {};
+  // facing at spawn, so the biggest silhouette belongs there, backlit. The scan
+  // itself lives in landmarksites.js — the ONE definition of where these stand,
+  // shared with everything that needs the answer without a scene.
+  const sites = landmarkSites();
 
-  // Highest ridge, roughly beyond the lake toward the sun.
-  sites.monoliths = findSite(LAKE.x, LAKE.z, 300, 520, sunAz, 70, (x, z, h) =>
-    h < WATER_LEVEL + 12 || slopeAt(x, z) > 0.34 ? null : h
-  );
-
-  // A hilltop off to one side, moderate slope, clear of the water.
-  sites.greatTree = findSite(LAKE.x, LAKE.z, 250, 400, sunAz + 78, 70, (x, z, h) =>
-    h < WATER_LEVEL + 8 || slopeAt(x, z) > 0.24 ? null : h
-  );
-
-  // A gully: we want *low* ground here, so the score is negated height.
-  sites.arch = findSite(LAKE.x, LAKE.z, 260, 400, sunAz - 84, 70, (x, z, h) =>
-    h < WATER_LEVEL + 4 ? null : -h
-  );
-
-  // The top of the world, anywhere within range.
-  sites.cairn = findSite(LAKE.x, LAKE.z, 430, 700, sunAz + 180, 260, (x, z, h) =>
-    slopeAt(x, z) > 0.4 ? null : h
-  );
-
-  // Shallow water near the shore.
-  sites.sunken = findSite(LAKE.x, LAKE.z, LAKE.radius * 0.42, LAKE.radius * 0.72, sunAz, 120, (x, z, h) => {
-    const depth = WATER_LEVEL - h;
-    return depth > 1.5 && depth < 6 ? -Math.abs(depth - 3.2) : null;
-  });
-
-  // How much ground each landmark keeps clear of trees and boulders. Without
-  // this the scatter buries the very things you walked over to look at.
   const builders = [
-    ['monoliths', monolithRing, 44],
-    ['greatTree', greatTree, 26],
-    ['arch', stoneArch, 32],
-    ['cairn', cairn, 20],
-    ['sunken', sunkenStone, 16],
+    ['monoliths', monolithRing],
+    ['greatTree', greatTree],
+    ['arch', stoneArch],
+    ['cairn', cairn],
+    ['sunken', sunkenStone],
   ];
 
   const built = {};
   const clearings = [];
-  for (const [name, build, clear] of builders) {
+  for (const [name, build] of builders) {
     const site = sites[name];
+    const clear = CLEAR_RADIUS[name];
     if (!site) continue; // this seed had no suitable ground; skip rather than float one
     const g = new THREE.Group();
     build(g, site, rand);

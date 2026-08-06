@@ -40,7 +40,8 @@
     "agentcheck": "node server/agentcheck.js",
     "huntcheck": "node server/huntcheck.js",
     "survivalcheck": "node server/survivalcheck.js",
-    "providercheck": "node server/providercheck.js"
+    "providercheck": "node server/providercheck.js",
+    "timbercheck": "node server/timbercheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

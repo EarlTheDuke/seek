@@ -32,7 +32,7 @@ import { findRegion } from '../world/regions.js';
  */
 const KEEP_ON_DEATH = new Set(['bow']);
 import { heightAt } from '../world/noise.js';
-import { Scatter } from '../world/scatter.js';
+import { treesNear, rocksNear, setClearings as setTimberClearings } from '../world/timber.js';
 import { ColliderField } from '../world/colliders.js';
 import { Weather } from '../world/weather.js';
 import { solarPosition } from '../world/sky.js';
@@ -143,12 +143,23 @@ export class SimWorld {
     this.scene = new THREE.Scene(); // a container; never rendered server-side
     this.tick = 0;
 
+    // ── everything solid that is not the ground ──
+    //
+    // Built here from the seed rather than harvested off a `Scatter`'s instance
+    // matrices, and that is a fix, not a tidy-up. `Scatter` places one patch,
+    // centred on ONE position, and this class called it with the first player in
+    // the map — so the trees an arrow could hit existed only around whoever
+    // joined first. Everybody else was shooting through a world made of
+    // hillside: no trunk stopped their arrows, and none of the trees their own
+    // browser was drawing were in the server's copy at all. Invisible in single
+    // player, and precisely wrong for a fleet of agents spread over a valley.
+    // `refreshTimber` covers every player, and the server no longer allocates
+    // instanced grass it will never draw.
     this.scatterColliders = new ColliderField(14);
-    this.scatter = new Scatter(this.scene);
-    this.scatter.colliders = this.scatterColliders;
+    this._timberAnchors = new Map(); // player id -> where their patch was built
 
     this.landmarks = buildLandmarks(this.scene);
-    this.scatter.setClearings(this.landmarks.clearings);
+    setTimberClearings(this.landmarks.clearings);
 
     this.weather = new Weather();
     this.clock = { hours, running: true };
@@ -312,7 +323,7 @@ export class SimWorld {
     };
 
     this.spawn = pickSpawn(this.sunHorizontal(new THREE.Vector3()));
-    this.scatter.update(this.spawn.position, 0);
+    this.refreshTimber(true);
   }
 
   sunHorizontal(out) {
@@ -742,7 +753,7 @@ export class SimWorld {
     const anchor = this.playersInOrder()[0];
     const anchorPos = anchor ? anchor.ctrl.position : this.spawn.position;
     this.wildlife.deps.stealth = anchor ? anchor.stealth : null;
-    this.scatter.update(anchorPos, 0);
+    this.refreshTimber();
     this.updateWildlife(dt, worldCtx);
 
     this.projectiles.update(dt);
@@ -751,6 +762,55 @@ export class SimWorld {
 
   playersInOrder() {
     return [...this.players.values()];
+  }
+
+  /**
+   * Keep a patch of solid world around EVERY player, not around the first one.
+   *
+   * The radius is the distance a shaft can travel from anywhere inside the
+   * patch before its owner has walked far enough to trigger a rebuild — 45 m of
+   * drift plus a bow's whole useful range, with room to spare. Rebuilt only
+   * when somebody has actually left their patch, so a fleet standing about
+   * costs nothing.
+   *
+   * Deduplicated by cell key: two agents hunting the same copse must not put
+   * the same trunk in twice, or an arrow tests it twice for no reason.
+   */
+  refreshTimber(force = false) {
+    const R = 160;
+    const MOVED = 45;
+    const everyone = this.playersInOrder();
+    const spots = everyone.length
+      ? everyone.map((p) => ({ key: p.id, x: p.ctrl.position.x, z: p.ctrl.position.z }))
+      : [{ key: 'spawn', x: this.spawn.position.x, z: this.spawn.position.z }];
+
+    let stale = force || this._timberAnchors.size !== spots.length;
+    if (!stale) {
+      for (const s of spots) {
+        const a = this._timberAnchors.get(s.key);
+        if (!a || Math.hypot(s.x - a.x, s.z - a.z) > MOVED) { stale = true; break; }
+      }
+    }
+    if (!stale) return;
+
+    const field = this.scatterColliders;
+    field.clear();
+    this._timberAnchors.clear();
+    const seen = new Set();
+    for (const s of spots) {
+      this._timberAnchors.set(s.key, { x: s.x, z: s.z });
+      for (const t of treesNear(s.x, s.z, R)) {
+        if (seen.has(t.key)) continue;
+        seen.add(t.key);
+        field.addCylinder(t.x, t.y, t.z, t.trunkR, t.trunkH, 'tree');
+        field.addSphere(t.x, t.crownCentreY, t.z, t.crownR, 'tree');
+      }
+      for (const r of rocksNear(s.x, s.z, R)) {
+        if (seen.has(r.key)) continue;
+        seen.add(r.key);
+        field.addSphere(r.x, r.centreY, r.z, r.r, 'rock');
+      }
+    }
   }
 
   stepPlayer(p, dt, worldCtx) {

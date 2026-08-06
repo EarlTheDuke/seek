@@ -94,20 +94,34 @@ export function solvePitch(dist, dy, speed = BOW.maxSpeed) {
  * @param {(x:number,z:number)=>number} groundAt
  * @returns {{clear:number, at:number, dist:number, blocked:boolean}}
  */
-export function sightline(fromX, eyeY, fromZ, toX, toY, toZ, groundAt, margin = 0.3) {
+export function sightline(fromX, eyeY, fromZ, toX, toY, toZ, groundAt, margin = 0.3, solidAt = null) {
   const dx = toX - fromX;
   const dz = toZ - fromZ;
   const dist = Math.hypot(dx, dz);
   let worst = Infinity;
   let at = 0;
   let blocked = false;
+  // What stopped it, when something did. `'ground'` is a hill; `'timber'` is a
+  // trunk or a crown, and the two want different answers from the body — you
+  // walk round a tree, you climb out from behind a hill.
+  let what = null;
   // Not from 0: the ground under your own feet is level with your feet, and
   // starting there reports every shot ever taken as blocked by the archer.
   for (let s = 0.05; s < 0.98; s += 0.02) {
-    const gap = eyeY + (toY - eyeY) * s - groundAt(fromX + dx * s, fromZ + dz * s);
+    const px = fromX + dx * s;
+    const pz = fromZ + dz * s;
+    const py = eyeY + (toY - eyeY) * s;
+    const gap = py - groundAt(px, pz);
     if (gap < worst) {
       worst = gap;
       at = dist * s;
+    }
+    // ── and the wood, which the height field cannot see ──
+    // A hill is a shape in `groundAt`; a tree is not in it at all, so a line
+    // straight through an oak read as open meadow. See world/timber.js.
+    if (solidAt && what === null && solidAt(px, py, pz)) {
+      blocked = true;
+      what = 'timber';
     }
     // ── the margin TAPERS toward the animal ──
     //
@@ -123,9 +137,12 @@ export function sightline(fromX, eyeY, fromZ, toX, toY, toZ, groundAt, margin = 
     // mark keeps the honest rejections — a crest at mid-flight — and drops the
     // ones that were only ever the target's own hillside.
     const needed = margin * Math.min(1, (1 - s) / 0.2);
-    if (gap < needed) blocked = true;
+    if (gap < needed) {
+      blocked = true;
+      what ??= 'ground';
+    }
   }
-  return { clear: worst, at, dist, blocked };
+  return { clear: worst, at, dist, blocked, what };
 }
 
 /**
@@ -153,11 +170,20 @@ export function arcClearance(from, eyeY, pitch, mark, groundAt, {
   // The shaft spawns 0.55 m along the aim line, so the ground nearer than that
   // is behind the arrow before it exists. A little past it, to stay honest.
   ignoreWithin = 0.8,
+  // ── everything solid that is not the ground ──
+  //
+  // `(x, y, z) => truthy` — see `timberBlocker` in world/timber.js. Without it
+  // this walks the height field alone, and a trunk is not in the height field:
+  // an arc that will end in an oak comes back "clear 2.1 m". Measured, not
+  // supposed — huntcheck's instrument had both aimed arrows of a run landing
+  // `hit tree`, 10 m and 6 m short of marks at 21 m and 17 m, while the body
+  // patiently took the same shot again.
+  solidAt = null,
 } = {}) {
   const dx = mark.x - from.x;
   const dz = mark.z - from.z;
   const dist = Math.hypot(dx, dz);
-  if (!(dist > 0.5)) return { clear: Infinity, at: 0, blocked: false };
+  if (!(dist > 0.5)) return { clear: Infinity, at: 0, blocked: false, what: null };
   const ux = dx / dist;
   const uz = dz / dist;
 
@@ -177,13 +203,20 @@ export function arcClearance(from, eyeY, pitch, mark, groundAt, {
     x += vx * dt;
     y += vy * dt;
     if (x < ignoreWithin || x > dist) continue;
-    const gap = eyeY + y - groundAt(from.x + ux * x, from.z + uz * x);
+    const wx = from.x + ux * x;
+    const wz = from.z + uz * x;
+    // The wood first: it is the one that ends the flight outright, and where it
+    // is matters more than how much air was under the shaft at that moment.
+    if (solidAt && solidAt(wx, eyeY + y, wz)) {
+      return { clear: 0, at: x, blocked: true, what: 'timber' };
+    }
+    const gap = eyeY + y - groundAt(wx, wz);
     if (gap < worst) {
       worst = gap;
       at = x;
     }
   }
-  return { clear: worst, at, blocked: worst < margin };
+  return { clear: worst, at, blocked: worst < margin, what: worst < margin ? 'ground' : null };
 }
 
 /**
@@ -240,7 +273,7 @@ export function predictLanding(from, eyeY, pitch, yaw, groundAt, speed = BOW.max
  *
  * @returns {{x:number, z:number, step:number}|null}
  */
-export function clearSpotNear(from, target, groundAt, { steps = [6, -6, 12, -12, 20, -20] } = {}) {
+export function clearSpotNear(from, target, groundAt, { steps = [6, -6, 12, -12, 20, -20], solidAt = null } = {}) {
   const dx = target.x - from.x;
   const dz = target.z - from.z;
   const d = Math.hypot(dx, dz) || 1;
@@ -251,7 +284,9 @@ export function clearSpotNear(from, target, groundAt, { steps = [6, -6, 12, -12,
     const x = from.x + px * step;
     const z = from.z + pz * step;
     const eyeY = groundAt(x, z) + PLAYER.eyeHeight;
-    if (!sightline(x, eyeY, z, target.x, target.y, target.z, groundAt).blocked) {
+    // A spot with a hill out of the way and a tree in it is not a spot. The
+    // blocker goes in here too, or stepping aside just finds different wood.
+    if (!sightline(x, eyeY, z, target.x, target.y, target.z, groundAt, 0.3, solidAt).blocked) {
       return { x, z, step };
     }
   }
@@ -271,7 +306,7 @@ export function aimAt(
   from,
   target,
   groundAt,
-  { maxRange = 60, velocity = null, lag = 0, eye = PLAYER.eyeHeight } = {}
+  { maxRange = 60, velocity = null, lag = 0, eye = PLAYER.eyeHeight, solidAt = null } = {}
 ) {
   // ── how high the string actually is, not how high a standing person's is ──
   //
@@ -334,11 +369,18 @@ export function aimAt(
   if (pitch === null) return { shoot: false, yaw, pitch: 0, dist, why: 'cannot reach' };
 
   const mark = { x: aim.x, y: target.y, z: aim.z };
-  const arc = arcClearance(from, eyeY, pitch, mark, groundAt);
+  const arc = arcClearance(from, eyeY, pitch, mark, groundAt, { solidAt });
   if (arc.blocked) {
     return {
       shoot: false, yaw, pitch: 0, dist,
-      why: `ground in the way ${arc.at.toFixed(0)} m out`,
+      // NAMED, because the two want opposite things from the body. Standing up
+      // clears a lip of ground and does nothing whatever about an oak, and for
+      // as long as every refusal said "ground" the body answered a tree by
+      // straightening its knees and taking the shot again.
+      why: arc.what === 'timber'
+        ? `a tree in the way ${arc.at.toFixed(0)} m out`
+        : `ground in the way ${arc.at.toFixed(0)} m out`,
+      blockedBy: arc.what,
     };
   }
   // WHERE THIS SHOT IS MEANT TO ARRIVE, handed back rather than kept.
