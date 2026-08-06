@@ -91,7 +91,21 @@ const NARRATE = /^(on|yes|1|true)$/i.test(process.env.NARRATE ?? '');
 // remembered in world coordinates and walked to. Off by default because
 // `huntcheck` is a real-time check that comes back red about a third of the
 // time, and an unguarded behaviour change cannot be told apart from luck.
-const COMMIT_DETOUR = /^(commit|on|yes|1|true)$/i.test(process.env.DETOUR ?? '');
+// ── ...and DETOUR=close: that step also CLOSES THE RANGE ──
+//
+//   DETOUR=close npm run agents          DETOUR=commit,close npm run agents
+//
+// The second mechanism, and the one the commitment did not touch. A candidate
+// spot is offered PERPENDICULAR to the line of sight, so a step aside holds the
+// range exactly while the deer drifts — the slant crosses `AGENTS.shootRange`,
+// `aimAt` answers `too far`, and that answer carries no `blockedBy` so the
+// detour branch stops firing and the body walks back at the hill. Measured over
+// eight runs on both arms of `commit`: `too far` ends 54-64% of every step
+// aside. `close` lets a candidate move up the line of sight as well as across
+// it. Independent flags, composable in either order.
+const DETOUR = (process.env.DETOUR ?? '').toLowerCase().split(/[,\s]+/).filter(Boolean);
+const COMMIT_DETOUR = DETOUR.some((t) => /^(commit|on|yes|1|true)$/.test(t));
+const CLOSE_DETOUR = DETOUR.includes('close');
 
 // ── BOARD: the second mile — a board, not a column ──
 //
@@ -221,6 +235,7 @@ async function main() {
       persona: entry?.character ? null : cast[i],
       narrate: NARRATE,
       commitDetour: COMMIT_DETOUR,
+      closeDetour: CLOSE_DETOUR,
     });
     try {
       await a.connect(URL);

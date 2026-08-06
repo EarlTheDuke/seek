@@ -44,12 +44,13 @@ const CHEST = AGENTS.aimAboveFeet;
 /**
  * A body with real methods and invented state.
  */
-function makeBody(commitDetour, x, z, quarryId = 7) {
+function makeBody(commitDetour, x, z, quarryId = 7, closeDetour = false) {
   return Object.assign(Object.create(Agent.prototype), {
     _x: x,
     _y: heightAt(x, z),
     _z: z,
     commitDetour,
+    closeDetour,
     target: { id: quarryId, quarry: true },
     // A live episode, so the bookkeeping `detourSpot` writes into it is exercised
     // too — `resolves`, `held` and `dropped` are what huntcheck prints.
@@ -273,7 +274,141 @@ function main() {
   check('committing gets the body to the spot it chose', arrivedOn > arrivedOff,
     `${arrivedOn} arrivals against ${arrivedOff} — this is the 1-metre-per-detour number from the field`);
 
-  // ── 5-8. THE FOUR THINGS THAT END A HOLD, one at a time ──
+  // ── 5. DOES A STEP ASIDE CLOSE THE RANGE? ──
+  //
+  // THE SECOND MECHANISM, and it is the one the commitment did not touch.
+  // Everything above proves the body now walks to the place it chose. It does —
+  // and the kill rate did not move, because `too far` ends 54-64% of every step
+  // aside on BOTH arms. `clearSpotNear` offered candidates only PERPENDICULAR to
+  // the line of sight, so a step aside holds the range exactly (a six-metre step
+  // at twenty-four metres actually LENGTHENS the slant to 24.7); the animal
+  // drifts, the slant crosses `AGENTS.shootRange`, `aimAt` answers `too far`,
+  // and that answer carries no `blockedBy` so the detour branch stops firing.
+  //
+  // Measured here rather than in the game for the same reason as everything
+  // else in this file: the geometry is deterministic and the outcome is not.
+  const range = (b, m) => Math.hypot(m.x - b._x, m.z - b._z);
+
+  let closer = 0;
+  let sameOrFurther = 0;
+  let diagonals = 0;
+  let nearest = Infinity;
+  let foundOn = 0;
+  let foundOff = 0;
+  let deltaSum = 0;
+  for (const s of sites) {
+    const m = mark(s.deer);
+    const off = makeBody(true, s.x, s.z);
+    const on = makeBody(true, s.x, s.z, 7, true);
+    const a = off.detourSpot(1 / 30, m, {});
+    const b = on.detourSpot(1 / 30, m, {});
+    if (a) foundOff++;
+    if (!b) continue;
+    foundOn++;
+    if (b.along > 0) diagonals++;
+    const was = range(on, m);
+    const now = Math.hypot(m.x - b.x, m.z - b.z);
+    deltaSum += was - now;
+    if (now < was - 1e-9) closer++; else sameOrFurther++;
+    nearest = Math.min(nearest, now);
+  }
+  console.log(`\n      the spot it picks, at ${sites.length} sites where a crouched body cannot see a 22 m deer:`);
+  console.log(`        closing   ${closer} closer, ${sameOrFurther} no nearer, ` +
+    `mean ${(deltaSum / Math.max(1, foundOn)).toFixed(1)} m closed, nearest spot ${nearest.toFixed(1)} m from the deer`);
+  check('the closing arm picks a spot NEARER the animal than where it stands',
+    closer > sameOrFurther && closer >= sites.length / 2,
+    `${closer} of ${foundOn} spots close the range, ${diagonals} of them by stepping up the line of sight`);
+
+  // ── IT MUST NOT WALK ONTO THE ANIMAL ──
+  //
+  // `AGENTS.standOff` exists because closing was once the body's only answer and
+  // it closed until the deer bolted — measured misses reading "my arrow hit
+  // ground 2 m away", which is an archer standing over a deer. A diagonal that
+  // ignored that floor would reintroduce the exact bug the stand-off was built
+  // to stop, wearing a fix's clothes.
+  check('and never one inside the stand-off', nearest >= AGENTS.standOff,
+    `nearest spot offered is ${nearest.toFixed(1)} m from the deer, floor is ${AGENTS.standOff} m`);
+
+  // ── AND IT MUST NEVER FIND FEWER PLACES TO GO ──
+  //
+  // The flat offsets are still tried after the diagonals, so the closing arm's
+  // candidate set is a strict superset of the default one and `nowhere to go`
+  // can only fall. Asserted rather than argued, because "it is a superset by
+  // construction" is exactly the kind of reasoning this project keeps getting
+  // wrong in a way only a printed number catches.
+  check('and never fewer places to go than the default arm', foundOn >= foundOff,
+    `${foundOn} sites had somewhere to step to closing, ${foundOff} by default — the flats are still tried after the diagonals`);
+
+  // ── THE RANGE CANNOT RISE ON THE WAY THERE ──
+  //
+  // The mechanism claim in one number. Distance to a point is convex along a
+  // straight line, so the greatest range over a walk is at one of its two ends:
+  // a spot nearer than where the body stands means the slant never exceeds where
+  // it already was, and `too far` cannot fire mid-walk unless it was already
+  // firing when the body set off. That is WHY this is expected to help, and an
+  // argument from convexity is worth nothing here until something walks it.
+  let roseOn = 0;
+  let roseOff = 0;
+  let endOn = 0;
+  let endOff = 0;
+  const budget2 = Math.ceil(AGENTS.detourHoldSeconds * 30);
+  for (const s of sites) {
+    const m = mark(s.deer);
+    for (const close of [false, true]) {
+      const body = makeBody(true, s.x, s.z, 7, close);
+      const start = range(body, m);
+      let peak = start;
+      for (let k = 0; k < budget2; k++) {
+        const spot = body.detourSpot(1 / 30, m, {});
+        if (!spot) continue;
+        const dx = spot.x - body._x;
+        const dz = spot.z - body._z;
+        const d = Math.hypot(dx, dz);
+        if (d < 1e-9) continue;
+        const len = Math.min(PLAYER.crouchSpeed / 30, d);
+        body._x += (dx / d) * len;
+        body._z += (dz / d) * len;
+        body._y = heightAt(body._x, body._z);
+        peak = Math.max(peak, range(body, m));
+      }
+      const rose = peak > start + 0.5;
+      if (close) { if (rose) roseOn++; endOn += range(body, m); }
+      else { if (rose) roseOff++; endOff += range(body, m); }
+    }
+  }
+  console.log(`\n      ${AGENTS.detourHoldSeconds} s of walking the step aside, deer standing still:`);
+  console.log(`        default   range rose on ${roseOff}/${sites.length} walks, ` +
+    `${(endOff / sites.length).toFixed(1)} m from the deer at the end`);
+  console.log(`        closing   range rose on ${roseOn}/${sites.length} walks, ` +
+    `${(endOn / sites.length).toFixed(1)} m from the deer at the end`);
+  check('walking the step aside never opens the range up', roseOn < roseOff || roseOn === 0,
+    `${roseOn} of ${sites.length} closing walks ever got further from the deer than they began, against ${roseOff} by default`);
+  check('and it ends the walk nearer the animal than the default arm does',
+    endOn < endOff,
+    `${(endOn / sites.length).toFixed(1)} m against ${(endOff / sites.length).toFixed(1)} m — the deer never moved, so this is the step aside alone`);
+
+  // ── AND THE FLAG OFF IS THE OLD CANDIDATE SET, CANDIDATE FOR CANDIDATE ──
+  //
+  // Section 1 asserts `detourSpot` with the commitment off; this asserts the
+  // OPTION, because the plumbing that carries `advance` through is a second
+  // place the default arm could drift, and a default that drifts quietly makes
+  // every A/B after it worthless.
+  let sameSpot = true;
+  let compared2 = 0;
+  for (const s of sites) {
+    const m = mark(s.deer);
+    const from = { x: s.x, y: heightAt(s.x, s.z), z: s.z };
+    const bare = clearSpotNear(from, m, heightAt, { solidAt: null });
+    const zeroed = clearSpotNear(from, m, heightAt, { solidAt: null, advance: 0, minRange: AGENTS.standOff });
+    compared2++;
+    const agrees = (!bare && !zeroed) ||
+      (bare && zeroed && bare.x === zeroed.x && bare.z === zeroed.z && bare.step === zeroed.step);
+    if (!agrees) sameSpot = false;
+  }
+  check('`advance: 0` is the old candidate set, spot for spot', sameSpot,
+    `${compared2} sites, every one identical to a bare clearSpotNear`);
+
+  // ── 6-9. THE FOUR THINGS THAT END A HOLD, one at a time ──
   //
   // Each asserted by the WORD the method wrote into the episode, so a hold that
   // ends for the wrong reason cannot pass as one that ended for the right one.

@@ -55,12 +55,21 @@ const alwaysHunt = {
 // This check is real-time on a wall clock and comes back red about a third of
 // the time with nothing changed, so a run that does not say which arm it was is
 // a run nobody can read afterwards. Printed at the top AND beside the detour
-// table. `DETOUR=commit npm run huntcheck` for the committed arm.
-const COMMIT_DETOUR = /^(commit|on|yes|1|true)$/i.test(process.env.DETOUR ?? '');
+// table. `DETOUR=commit npm run huntcheck` for the committed arm, `DETOUR=close`
+// for the closing one, `DETOUR=commit,close` for both — they are independent
+// mechanisms and either can be read alone.
+const DETOUR = (process.env.DETOUR ?? '').toLowerCase().split(/[,\s]+/).filter(Boolean);
+const COMMIT_DETOUR = DETOUR.some((t) => /^(commit|on|yes|1|true)$/.test(t));
+const CLOSE_DETOUR = DETOUR.includes('close');
+// One string, used in three places, so the arm can never be reported two ways.
+const ARM = [COMMIT_DETOUR ? 'COMMITTED' : null, CLOSE_DETOUR ? 'CLOSING' : null]
+  .filter(Boolean).join('+') || 'default';
 
 async function main() {
   console.log('\n  Can an agent kill a deer?');
-  console.log(`  stepping aside: ${COMMIT_DETOUR ? 'COMMITTED (DETOUR=commit)' : 'default — re-solved every tick'}\n`);
+  console.log(`  stepping aside: ${ARM}  (DETOUR=${process.env.DETOUR || '<unset>'})`);
+  console.log(`    ${COMMIT_DETOUR ? 'the spot is remembered and walked to' : 'the spot is re-solved every tick'}; ` +
+    `${CLOSE_DETOUR ? `a step aside also closes ${AGENTS.detourAdvance}x its own width` : 'a step aside is purely across the line of sight'}\n`);
   await requireFreePort(PORT, 'huntcheck');
 
   const server = spawn(process.execPath, [path.join(HERE, 'server.js'), String(PORT)], {
@@ -76,7 +85,7 @@ async function main() {
   for (let i = 0; i < 40 && !agent; i++) {
     await sleep(150);
     agent = await new Agent({ name: 'Hunter', provider: alwaysHunt, rand: makeRandom('huntcheck'),
-                              commitDetour: COMMIT_DETOUR })
+                              commitDetour: COMMIT_DETOUR, closeDetour: CLOSE_DETOUR })
       .connect(URL)
       .catch(() => null);
   }
@@ -346,12 +355,39 @@ async function main() {
     const open = detours.length - done.length;
     const cleared = by.get('a shot came on') ?? 0;
     const sum = (k, rows = done) => rows.reduce((a, e) => a + (e[k] ?? 0), 0);
-    console.log(`\n      when it stepped aside for a clear line — did it work?  ` +
-      `[${COMMIT_DETOUR ? 'COMMITTED' : 'default'}]`);
+    console.log(`\n      when it stepped aside for a clear line — did it work?  [${ARM}]`);
     console.log(`        ${detours.length} detours attempted, ${cleared} ended with a shot on ` +
       '(read the walk beside it — a shot after 0 m is the line clearing on its own, not the step)');
     for (const [outcome, n] of [...by].sort((a, b) => b[1] - a[1])) {
       console.log(`          ${String(n).padStart(3)} x  ${outcome}`);
+    }
+    // ── THE TWO NUMBERS THE CLOSING ARM EXISTS TO MOVE, spelled out ──
+    //
+    // Both were already derivable from the block above and the per-detour lines
+    // below, and being derivable is exactly how the `too far` finding sat unread
+    // for a run and a half while everybody read the averages. So they are
+    // printed as the numbers they are.
+    //
+    //   `too far` share — 54-64% of closed episodes across eight runs on both
+    //   arms of `commit`, and the reason committing to the spot changed nothing.
+    //
+    //   did the range actually CLOSE — `d0` against `d` per episode, counted.
+    //   A purely perpendicular step holds the range by construction, so on the
+    //   default arm this is near enough all `held or lost`; that is not a
+    //   failure of the body, it is the geometry, and it is what `close` changes.
+    if (done.length) {
+      const tooFar = by.get('too far') ?? 0;
+      const closed = done.filter((e) => e.d < e.d0).length;
+      const heldOrLost = done.length - closed;
+      const drift = done.reduce((a, e) => a + (e.d0 - e.d), 0) / done.length;
+      console.log(`        \`too far\` ended ${tooFar} of ${done.length} closed detours ` +
+        `(${Math.round((tooFar / done.length) * 100)}%) — the number the closing arm is aimed at`);
+      console.log(`        the range CLOSED on ${closed} of them and was held or lost on ${heldOrLost} ` +
+        `(mean ${drift >= 0 ? '-' : '+'}${Math.abs(drift).toFixed(1)} m over the step aside)`);
+      const withAlong = done.filter((e) => (e.along ?? 0) > 0).length;
+      console.log(`        ${withAlong} of ${done.length} stepped UP the line of sight as well as across it` +
+        `${CLOSE_DETOUR && !withAlong ? '  — CLOSING IS ON AND NOT ONE DID: distrust this run' : ''}` +
+        `${!CLOSE_DETOUR && withAlong ? '  — CLOSING IS OFF AND SOME DID: distrust this run' : ''}`);
     }
     if (open) console.log(`          ${String(open).padStart(3)} x  still walking when the run ended`);
     // The arithmetic that proves the instrument is not lying: every episode
@@ -420,7 +456,8 @@ async function main() {
       console.log('        each one, and what it cost:');
       for (const e of detours) {
         console.log(`          deer ${String(e.d0).padStart(3)} m -> ${String(e.d).padStart(3)} m  ` +
-          `${String(Math.abs(e.step)).padStart(2)} m aside, walked ${String(e.walked).padStart(3)} m ` +
+          `${String(Math.abs(e.step)).padStart(2)} m aside${e.along ? ` +${e.along} m up the line` : ''}` +
+          `, walked ${String(e.walked).padStart(3)} m ` +
           `in ${e.secs.toFixed(1)} s  (${e.why})  ${e.outcome ?? 'still walking'}` +
           `  [${e.resolves ?? '?'} solves${e.dropped ? `, last drop: ${e.dropped}` : ''}]`);
       }

@@ -280,23 +280,83 @@ export function predictLanding(from, eyeY, pitch, yaw, groundAt, speed = BOW.max
  * is on that line and the cheapest way past it is around its edge. Nearest
  * offsets first, so the answer is the shortest walk that works.
  *
- * @returns {{x:number, z:number, step:number}|null}
+ * ── AND A STEP ASIDE MUST ALSO CLOSE — `advance`, off by default ──
+ *
+ * THE MEASURED BUG. Offsets purely PERPENDICULAR to the line of sight hold the
+ * range exactly, and a six-metre step at twenty-four metres actually LENGTHENS
+ * the slant to 24.7. `AGENTS.shootRange` is 26 and the body is refused at 20-26,
+ * so the moment the animal drifts the slant crosses 26 and `aimAt` answers
+ * `too far` — which carries no `blockedBy`, so the detour branch stops firing
+ * and the body turns and walks back at the hill it just left. Measured over
+ * eight runs on both arms of the commitment flag: `too far` ends 54-64% of ALL
+ * detour episodes. It is the commonest end of a step aside by a long way, and
+ * it is pure geometry rather than anything the body decided.
+ *
+ * So a candidate may also move UP the line of sight: `along` metres toward the
+ * quarry as well as `step` metres across it. That is what a person does walking
+ * round a knoll at a deer — the sidestep closes ground, it does not preserve it.
+ *
+ * TWO PROPERTIES WORTH THE READING, because both are the difference between
+ * this helping and this being the fourth failed pass at the same bug:
+ *
+ *   IT CANNOT WALK ONTO THE ANIMAL. `along` is clamped to `d - minRange`, and
+ *   the range from the candidate is at least `d - along` whatever the offset
+ *   across, so the clamp bounds the new range from below by `minRange`. The
+ *   caller passes `AGENTS.standOff`; closing inside that is the bug the
+ *   stand-off exists for (arrows landing 2 m from the archer).
+ *
+ *   THE RANGE CANNOT RISE ON THE WAY THERE. Distance to a point is convex along
+ *   a straight line, so the maximum over the walk is at one of its two ends. A
+ *   candidate whose range is below the current one therefore never lets the
+ *   slant exceed where it already was — `too far` cannot fire mid-walk unless it
+ *   was already firing when the body set off. That is the whole mechanism.
+ *
+ * The diagonals are tried first and the FLAT offsets are still tried after them,
+ * so the candidate set here is a strict SUPERSET of the default one: turning
+ * this on can only reduce how often there is nowhere to go, never increase it.
+ * It does mean a twenty-metre diagonal is preferred to a six-metre flat step —
+ * deliberate, since the flat step is the one that does not close, and the walk
+ * is bounded by `AGENTS.detourHoldSeconds` either way.
+ *
+ * With `advance` at 0 the loop is the single flat pass it always was, candidate
+ * for candidate and in the same order.
+ *
+ * @returns {{x:number, z:number, step:number, along:number}|null}
  */
-export function clearSpotNear(from, target, groundAt, { steps = [6, -6, 12, -12, 20, -20], solidAt = null } = {}) {
+export function clearSpotNear(
+  from,
+  target,
+  groundAt,
+  { steps = [6, -6, 12, -12, 20, -20], solidAt = null, advance = 0, minRange = 0 } = {}
+) {
   const dx = target.x - from.x;
   const dz = target.z - from.z;
   const d = Math.hypot(dx, dz) || 1;
   // Perpendicular to the line of sight, normalised.
   const px = -dz / d;
   const pz = dx / d;
-  for (const step of steps) {
-    const x = from.x + px * step;
-    const z = from.z + pz * step;
+  // ...and along it, toward the quarry. Only used when `advance` says so.
+  const fx = dx / d;
+  const fz = dz / d;
+
+  // Diagonals first, flats after — see the superset argument above. Built as a
+  // list rather than branching inside the loop so the `advance = 0` case is
+  // visibly the same six candidates in the same order.
+  const cands = [];
+  if (advance > 0) {
+    const room = Math.max(0, d - minRange);
+    for (const step of steps) cands.push({ step, along: Math.min(advance * Math.abs(step), room) });
+  }
+  for (const step of steps) cands.push({ step, along: 0 });
+
+  for (const { step, along } of cands) {
+    const x = from.x + px * step + fx * along;
+    const z = from.z + pz * step + fz * along;
     const eyeY = groundAt(x, z) + PLAYER.eyeHeight;
     // A spot with a hill out of the way and a tree in it is not a spot. The
     // blocker goes in here too, or stepping aside just finds different wood.
     if (!sightline(x, eyeY, z, target.x, target.y, target.z, groundAt, 0.3, solidAt).blocked) {
-      return { x, z, step };
+      return { x, z, step, along };
     }
   }
   return null;

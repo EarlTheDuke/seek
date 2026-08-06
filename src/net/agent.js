@@ -95,7 +95,7 @@ export class Agent {
    * the option. Neither is a fallback for the other.
    */
   constructor({ name, provider, rand, onLog = null, orders = 'decides', pet = null, persona = null, narrate = false,
-                commitDetour = false }) {
+                commitDetour = false, closeDetour = false }) {
     this.name = name;
     // ── whether a step aside is a DESTINATION or a fresh opinion every tick ──
     //
@@ -104,6 +104,15 @@ export class Agent {
     // without a flag could not be told apart from luck. See `detourSpot`, and
     // `AGENTS.detourArrive`/`detourHoldSeconds` for what ends the walk.
     this.commitDetour = commitDetour;
+    // ── ...and whether that step also CLOSES THE RANGE ──
+    //
+    // Independent of the commitment, and aimed at a different mechanism: the
+    // commitment stopped the body re-deciding every tick, and `too far` still
+    // ended 54-64% of every step aside on BOTH arms, because a purely
+    // perpendicular offset holds the range while the animal drifts out of it.
+    // See `clearSpotNear` for the geometry and `AGENTS.detourAdvance` for how
+    // far up the line of sight a candidate is allowed to walk.
+    this.closeDetour = closeDetour;
     this.provider = provider;
     this.rand = rand;
     this.onLog = onLog;
@@ -1398,7 +1407,7 @@ export class Agent {
    * round it, one outcome. See `endDetour` for the outcomes and `walkDetour`
    * for the number that matters.
    */
-  openDetour(dist, step, blockedBy) {
+  openDetour(dist, step, blockedBy, along = 0) {
     this.detours ??= [];
     this._detour = {
       at: this.hours,
@@ -1406,6 +1415,10 @@ export class Agent {
       d: Math.round(dist),           // ...and at the last tick
       why: blockedBy ?? '?',         // ground or timber
       step,                          // the offset it first chose
+      // ...and how far up the line of sight it went with it. Zero on the default
+      // arm by construction, so a run that forgot to load the close arm says so
+      // on every line rather than being inferred from a rate that moved.
+      along: Math.round(along),
       x0: this._x, z0: this._z,
       lx: this._x, lz: this._z,
       lastStep: step,
@@ -1507,10 +1520,21 @@ export class Agent {
    */
   detourSpot(dt, target, { groundAt = heightAt, solidAt = null } = {}) {
     const from = { x: this._x, y: this._y, z: this._z };
+    // ── may a candidate close the range as well as step across it? ──
+    // The second flag, and it is orthogonal to the commitment: it changes WHERE
+    // the spots are, not how long the body remembers one. `advance: 0` is the
+    // old candidate set, candidate for candidate. `minRange` is the floor the
+    // stand-off already enforces on walking straight at an animal, applied to
+    // the diagonal so a step aside cannot do what closing is forbidden to do.
+    const shape = {
+      solidAt,
+      advance: this.closeDetour ? AGENTS.detourAdvance : 0,
+      minRange: AGENTS.standOff,
+    };
     // ── the control arm, and it must stay byte-identical ──
     // One call, no memory, exactly what the body did before any of this.
     if (!this.commitDetour) {
-      const spot = clearSpotNear(from, target, groundAt, { solidAt });
+      const spot = clearSpotNear(from, target, groundAt, shape);
       if (spot) spot.held = false;
       this._resolves = (this._resolves ?? 0) + 1;
       // ── AND COUNTED ON THE EPISODE TOO, which it was not for one whole run ──
@@ -1539,7 +1563,7 @@ export class Agent {
                 : null;
       if (!stale) {
         if (this._detour) this._detour.held = (this._detour.held ?? 0) + 1;
-        return { x: h.x, z: h.z, step: h.step, held: true };
+        return { x: h.x, z: h.z, step: h.step, along: h.along ?? 0, held: true };
       }
       // Named where the episode can print it: "walked 1 m, gave up because the
       // deer moved" and "walked 18 m and arrived" are the same abandonment to
@@ -1548,11 +1572,11 @@ export class Agent {
       this._detourTo = null;
     }
 
-    const spot = clearSpotNear(from, target, groundAt, { solidAt });
+    const spot = clearSpotNear(from, target, groundAt, shape);
     this._resolves = (this._resolves ?? 0) + 1;
     if (this._detour) this._detour.resolves = (this._detour.resolves ?? 0) + 1;
     if (!spot) return null;
-    this._detourTo = { x: spot.x, z: spot.z, step: spot.step, qid, age: 0 };
+    this._detourTo = { x: spot.x, z: spot.z, step: spot.step, along: spot.along ?? 0, qid, age: 0 };
     return { ...spot, held: false };
   }
 
@@ -1720,7 +1744,7 @@ export class Agent {
         if (this.shotWhy !== 'detour') {
           this.shotWhy = 'detour';
           this.memory.add(this.hours, `stepping ${Math.abs(detour.step)} m aside for a clear line`);
-          this.openDetour(dist, detour.step, shot.blockedBy);
+          this.openDetour(dist, detour.step, shot.blockedBy, detour.along ?? 0);
         }
         this.walkDetour(dt, dist, detour.step);
         return;

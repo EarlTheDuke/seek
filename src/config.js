@@ -861,6 +861,20 @@ export const AGENTS = {
   // out, so a third of the way is not it, and standing exactly on a computed
   // point is not something a walking body does.
   detourArrive: 2,
+  // ── HOW FAR UP THE LINE OF SIGHT A STEP ASIDE ALSO WALKS ──
+  //
+  // A fraction of the sideways offset, so a six-metre step also closes about
+  // four metres and a twenty-metre one closes fourteen. Set against the numbers
+  // that made this necessary: the body is refused at 20-26 m, `shootRange` is
+  // 26, and a bare six-metre sidestep at 24 m LENGTHENS the slant to 24.7 — so
+  // `too far` fires, and it ends 54-64% of every step aside this project has
+  // measured. Four metres of closing at that range takes the slant to 20.7 and
+  // leaves eight metres of margin above `standOff` for the animal to drift into.
+  //
+  // 0.7 rather than 1.0 because the point is to close WHILE going round, not to
+  // charge diagonally at a deer. Only read when the close arm is on; see
+  // `clearSpotNear`.
+  detourAdvance: 0.7,
   // ...and this is how long it may take. Twenty metres is the furthest offset
   // offered and the body is crouched while it stalks, so `PLAYER.crouchSpeed`
   // covers it in about ten seconds. Twelve leaves room for the ground; past
