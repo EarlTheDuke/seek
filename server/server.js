@@ -56,7 +56,17 @@ const num = (i, fallback) => (args[i] !== undefined && /^\d+$/.test(args[i]) ? N
 const PORT = num(0, 8080);
 const TICK_HZ = 60; // the simulation's own rate; never changes
 const SEND_HZ = 20; // how often clients hear about it
-const MAX_PLAYERS = 8;
+// ── how many bodies may be in this world at once ──
+//
+// Eight, shared between people and agents, which is a fleet of six models plus
+// one human plus one spare — and that is not a roster, it is a queue. Raised to
+// sixteen and made settable, because "several models plus a human" is the whole
+// point of the evening this is being built for.
+//
+// MEASURED rather than assumed, which is the only reason it moved: rostercheck
+// puts a full house on a server, drives every one of them, and reports the tick
+// rate and the bytes each client is being sent. See server/rostercheck.js.
+const MAX_PLAYERS = Math.max(1, Number(process.env.MAX_PLAYERS) || 16);
 // A client that has not spoken in this long is gone, whatever the socket says.
 //
 // Generous on purpose. Browsers throttle timers hard in a backgrounded tab —
@@ -171,7 +181,7 @@ for (let i = 0; i < Math.min(HUNTERS, HUNTER_NAMES.length); i++) {
 const wss = new WebSocketServer({ port: PORT });
 
 console.log(`\n  Highlands server`);
-console.log(`  seed ${world.seed}  ·  tick ${TICK_HZ} Hz  ·  snapshots ${SEND_HZ} Hz`);
+console.log(`  seed ${world.seed}  ·  tick ${TICK_HZ} Hz  ·  snapshots ${SEND_HZ} Hz  ·  up to ${MAX_PLAYERS} players`);
 // Said out loud every run, because a world with the bears quietly turned off is
 // a different experiment and nothing else on screen would tell you.
 console.log(`  danger: ${getDangerLevel(DANGER).name.toLowerCase()}` +

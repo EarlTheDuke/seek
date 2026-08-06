@@ -44,7 +44,8 @@
     "timbercheck": "node server/timbercheck.js",
     "scarcecheck": "node server/scarcecheck.js",
     "personacheck": "node server/personacheck.js",
-    "watchcheck": "node server/watchcheck.js"
+    "watchcheck": "node server/watchcheck.js",
+    "rostercheck": "node server/rostercheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",
