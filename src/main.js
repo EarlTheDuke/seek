@@ -53,7 +53,7 @@ import { Companion, ATTACK as COMPANION_ATTACK } from './creatures/companion.js'
 import { COMPANIONS, COMPANION_IDS } from './creatures/companions.js';
 import { Fish } from './world/fish.js';
 import { buildBook, amountText } from './ui/book.js';
-import { launch, stepGlide, canLaunch, flightReport } from './world/glider.js';
+import { launch, stepGlide, canLaunch, flightReport, carryReport } from './world/glider.js';
 import { DANGER_LEVELS, bannedSpecies, readDanger, writeDanger, getDangerLevel } from './modes/danger.js';
 import { GLIDER } from './config.js';
 import { NetClient } from './net/client.js';
@@ -822,6 +822,11 @@ function boot() {
   // only altitude you will ever have is the altitude you carried up the hill.
   let flight = null;
   let wing = null;
+  // The wing on your shoulder: the group being drawn, plus the throttled answer
+  // to "where would this fly from", which is a terrain search and must not run
+  // sixty times a second for a line of HUD text.
+  let carried = null;
+  let carryHint = { text: '', at: null };
   // Named in-memory checkpoints for testers — see `highlands.checkpoint`.
   const checkpoints = new Map();
 
@@ -860,7 +865,11 @@ function boot() {
     if (!ok.ok) return ok.why;
     if (riding) dismount('you slide off');
 
-    structures.remove(s); // it is not on the hill any more, it is under you
+    // Either it was leaning on the hill, or it was on your shoulder. Both leave
+    // the world the same way — there is exactly one wing and it is now under
+    // you — and the second path is why `s` is allowed to be null.
+    if (s) structures.remove(s); // it is not on the hill any more, it is under you
+    dropCarried();
     flight = launch({
       x: ctrl.position.x, y: ctrl.position.y + 0.6, z: ctrl.position.z, heading,
     });
@@ -918,6 +927,109 @@ function boot() {
       hud.toast(put ? (put.r > 4 ? `you set down, and carry the wing ${put.r} m to level ground`
         : 'you set down, and the wing is still whole')
         : 'you set down in country too broken to leave a wing in, and it is lost', 3.4);
+    }
+  }
+
+  // ── carrying the wing ──────────────────────────────────────────────────────
+  //
+  // A wing that lands somewhere it cannot take off from used to be over. Ten
+  // hides and fourteen branches — the most expensive thing in the game, a
+  // season's work by its own config comment — became scenery, permanently,
+  // because the only verb a glider had was "fly" and the answer was no. The
+  // structure's own blurb has said `carry it up a hill` since it was written.
+  //
+  // Landing somewhere you cannot launch from is realistic and stays. Having no
+  // way to pick the thing back up is not realism, it is a missing verb.
+
+  /** Take it off the hill and put it on your shoulder. */
+  function shoulderWing(s) {
+    if (carried) return null;
+    structures.remove(s);
+    const g = new THREE.Group();
+    BUILDABLE.glider.build(g);
+    g.position.y = -1.2; // as in flight: the parts are modelled standing up
+    const pivot = new THREE.Group();
+    pivot.add(g);
+    scene.add(pivot);
+    carried = { group: g, pivot };
+    carryHint = { text: '', at: null };
+    audio.impact?.('wood', { x: ctrl.position.x, y: ctrl.position.y + 1, z: ctrl.position.z });
+    logEvent('WING', 'shouldered');
+    hud.toast('the wing comes up onto your shoulders — nine metres of it, and you feel every one', 3.4);
+    return null;
+  }
+
+  /**
+   * Lean it against the ground here.
+   *
+   * Refuses rather than destroying: a wing you are holding can always be
+   * carried one step further, and the one thing this whole feature exists to
+   * prevent is losing it. `reach` opens up on the save path only, where the
+   * alternative is a save with the wing in no world at all.
+   */
+  function setWingDown(reach = 24) {
+    if (!carried) return null;
+    let put = null;
+    for (let r = 0; r <= reach && !put; r += 4) {
+      for (let i = 0; i < (r ? 8 : 1); i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const x = ctrl.position.x + Math.sin(a) * r;
+        const z = ctrl.position.z + Math.cos(a) * r;
+        if (structures.canPlaceAt('glider', x, z).ok) { put = { x, z, r }; break; }
+      }
+    }
+    if (!put) {
+      return 'there is nowhere here to lean nine metres of wing — carry it on';
+    }
+    structures.place('glider', put.x, put.z, ctrl.yaw);
+    dropCarried();
+    logEvent('WING', `set down ${Math.round(put.r)} m off`);
+    return put.r > 4 ? `you carry it ${Math.round(put.r)} m to level ground and lean it there`
+      : 'you lean the wing against the ground';
+  }
+
+  /** Let go of the drawn object without deciding where the wing went. */
+  function dropCarried() {
+    if (carried?.pivot) scene.remove(carried.pivot);
+    carried = null;
+    carryHint = { text: '', at: null };
+  }
+
+  /**
+   * Carry it where you are looking, and say where an edge is.
+   *
+   * The search is terrain sampling — a few hundred height lookups — so it runs
+   * when you have MOVED, not every frame. Ten metres is well under the scale of
+   * anything it can find and keeps the line honest while you walk.
+   */
+  function updateCarry() {
+    if (!carried) return;
+    // OVERHEAD AND AHEAD, and both numbers were photographed rather than
+    // picked. The wing model spans 0..1.64 in its own space and hangs 1.2 below
+    // the pivot, so a pivot at head height (the first attempt, 1.5) puts the
+    // sail straight through the camera: it blacked out the top two thirds of
+    // the screen with the horizon behind it. Raising it to 3.3 directly above
+    // fixed that and lost the wing entirely — anything above eye level at zero
+    // horizontal distance is at 90° up, outside the frustum, so you carried an
+    // invisible glider. It has to be AHEAD of you to be in frame at all.
+    // 1.6 m forward and 3.1 up puts the trailing edge about 12° above the
+    // centre line: in shot, and nothing you need to see is behind it.
+    const ahead = 1.6;
+    carried.pivot.position.set(
+      ctrl.position.x - Math.sin(ctrl.yaw) * ahead,
+      ctrl.position.y + 3.1,
+      ctrl.position.z - Math.cos(ctrl.yaw) * ahead
+    );
+    // Through the same seam the launch uses. Set from `ctrl.yaw` raw, the nose
+    // rides backwards — the model is built to fly along a glider heading.
+    carried.pivot.rotation.y = flightHeading(ctrl.yaw);
+    const at = carryHint.at;
+    if (!at || Math.hypot(at.x - ctrl.position.x, at.z - ctrl.position.z) > 10) {
+      carryHint = {
+        at: { x: ctrl.position.x, z: ctrl.position.z },
+        text: carryReport(ctrl.position.x, ctrl.position.z, flightHeading(ctrl.yaw), heightAt,
+          { maxRadius: GLIDER.carryFindRadius }).text,
+      };
     }
   }
 
@@ -1532,6 +1644,27 @@ function boot() {
     const sourceDist = source ? source.distance : Infinity;
     const closest = Math.min(near?.distance ?? Infinity, fireDist, mineDist, sourceDist);
 
+    // ── the wing on your shoulder ──
+    // This one does NOT enter the distance race, and it is the only thing that
+    // does not. Everything else in here is something you are standing near;
+    // a carried wing is something you are holding, so there is no distance for
+    // it to lose, and while you are holding it there is nothing else E could
+    // sensibly mean. It also has to sit above the pet for the reason the note
+    // below gives — an animal that follows you would take the key every time.
+    if (carried) {
+      const ok = canLaunch(ctrl.position.x, ctrl.position.z, flightHeading(ctrl.yaw), heightAt);
+      if (ok.ok) {
+        return {
+          label: `<b>E</b>  run — ${(ok.drop * 100).toFixed(0)}% downhill ahead of you`,
+          run: () => beginFlight(null),
+        };
+      }
+      return {
+        label: `<b>E</b>  set the wing down — ${carryHint.text || ok.why}`,
+        run: () => setWingDown(),
+      };
+    }
+
     // ── fishing ──
     // Only when you are actually in the water. Standing on the bank pointing
     // at a shoal is not fishing, and the prompt should not pretend otherwise.
@@ -1574,11 +1707,18 @@ function boot() {
         // which is the same courtesy the fishing odds pay you. Finding out that
         // a hilltop is not steep enough by running off it would be funny once.
         const ok = canLaunch(ctrl.position.x, ctrl.position.z, flightHeading(ctrl.yaw), heightAt);
+        if (ok.ok) {
+          return {
+            label: `<b>E</b>  take the wing — ${(ok.drop * 100).toFixed(0)}% downhill ahead of you`,
+            run: () => beginFlight(s),
+          };
+        }
+        // No edge here. The refusal still says everything it measured, and now
+        // it is a prompt with a verb behind it instead of a wall: pick it up
+        // and go and find one.
         return {
-          label: ok.ok
-            ? `<b>E</b>  take the wing — ${(ok.drop * 100).toFixed(0)}% downhill ahead of you`
-            : `<b>E</b>  the wing — ${ok.why}`,
-          run: () => beginFlight(s),
+          label: `<b>E</b>  shoulder the wing — ${ok.why}`,
+          run: () => shoulderWing(s),
         };
       }
       return { label: `<b>E</b>  ${spec.name.toLowerCase()} — ${spec.blurb}`, run: () => null };
@@ -1985,6 +2125,13 @@ function boot() {
     // mid-flight autosaves, so this is not a rare path, it is the obvious one.
     // Setting down where you are is a fair outcome: you keep the wing.
     if (flight) endFlight(false);
+    // Same hazard, same answer, one step further along: a wing on your shoulder
+    // is not in the structure list either, so a save taken while carrying it
+    // would write a world with no glider in it. Set it down first. The reach is
+    // opened right up here and only here — refusing to place it is the correct
+    // answer when you are holding it and can walk on, and the wrong one when
+    // the alternative is deleting it.
+    if (carried) setWingDown(120);
     const ok = writeSave(captureSave(saveContext()));
     if (ok && reason === 'manual') hud.toast('saved', 1.2);
     return ok;
@@ -2368,7 +2515,10 @@ function boot() {
     // Dead men do not walk. Cold, hunger and exhaustion slow the living.
     ctrl.speedScale = vitals.dead
       ? 0
-      : weapons.moveScale * (ruleset.current.survival ? vitals.speedScale : 1);
+      : weapons.moveScale * (ruleset.current.survival ? vitals.speedScale : 1)
+        // Nine metres of braced wing on your shoulders. Outside survival too:
+        // this is the size of the object, not a hardship rule.
+        * (carried ? GLIDER.carrySpeed : 1);
     // Out of breath means no sprinting until you have some back.
     if (ruleset.current.survival && vitals.sprintBlocked) intent.sprint = false;
 
@@ -2379,6 +2529,8 @@ function boot() {
     // And flying overrides both, for the same reason and more so — the wing
     // does not care what your legs wanted.
     updateFlight(dt, intent);
+    // And the one you are only carrying goes wherever your legs took you.
+    updateCarry();
     feel.update(dt, ctrl, camera, weapons.fovOffset);
 
     // Weather first: the sky, the grass and the scent model all read from it.

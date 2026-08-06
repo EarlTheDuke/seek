@@ -211,6 +211,10 @@ export default defineConfig({
         '**/MISSION.md',
         '**/SESSION.log',
         '**/FINDINGS.md',
+        // STATE.md is the handover every run is REQUIRED to write, and it sat
+        // outside this list for its whole life — the one document the rules
+        // mandate was the one still able to bounce a player to the menu.
+        '**/STATE.md',
         '**/shots/**',
         '**/*.save.json',
       ],

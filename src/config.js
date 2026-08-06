@@ -648,6 +648,15 @@ export const GLIDER = {
   liftEfficiency: 0.78,
   liftBandHeight: 60,    // metres of usable lift above the slope, then nothing
 
+  // ── carrying it ──
+  // Nine metres of span on one shoulder. Slow, but slow is the whole cost —
+  // the alternative that shipped for months was that a wing landed in the
+  // wrong place became scenery, and a season's work with no way to pick it up
+  // is not a difficulty, it is a bug. The blurb has always said "carry it up a
+  // hill"; this is the first version where you can.
+  carrySpeed: 0.55,      // movement multiplier with the wing on your shoulder
+  carryFindRadius: 150,  // how far the "where would this fly from" search looks
+
   crashSpeed: 21,        // arriving this fast breaks it
   crashSink: 6.5,        // so does arriving this hard
   crashDamage: 34,

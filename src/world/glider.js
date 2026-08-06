@@ -279,6 +279,95 @@ export function canLaunch(x, z, heading, groundAt) {
   return { ok: true, drop: near };
 }
 
+/**
+ * Where is the nearest place a wing on your shoulder would actually fly from?
+ *
+ * `canLaunch` can only ever say no. A person standing on flat ground holding
+ * ten hides and fourteen branches of work does not need another no, they need
+ * a direction — and the same probe that refuses them already knows where the
+ * ground does fall away, it was just never asked further than 14 m.
+ *
+ * Rings outward, nearest first, so the answer is the shortest carry and not
+ * merely a valid one. At each candidate the heading is not guessed: the local
+ * gradient says which way is downhill and we try that, plus ±29°, because the
+ * steepest descent underfoot and the sustained fall out to 45 m are not always
+ * the same bearing on rolling ground.
+ *
+ * Pure, deterministic and THREE-free like the rest of this module —
+ * `glidercheck` flies it over synthetic hills.
+ *
+ * @param {number} x
+ * @param {number} z
+ * @param {(x:number,z:number)=>number} groundAt
+ * @returns {{x,z,heading,distance,bearing,drop}|null} null if there is no edge
+ *          within `maxRadius` — which is a real answer, not a failure.
+ */
+export function nearestLaunchable(x, z, groundAt, opts = {}) {
+  const { maxRadius = 150, step = 15, bearings = 12 } = opts;
+
+  // The way the ground falls fastest here, in this module's heading convention
+  // — position integrates along (+sin, +cos), so a bearing whose ground drops
+  // is one where the height difference is negative in both components.
+  const downhillAt = (px, pz) => {
+    const d = 7;
+    const gx = groundAt(px + d, pz) - groundAt(px - d, pz);
+    const gz = groundAt(px, pz + d) - groundAt(px, pz - d);
+    return Math.atan2(-gx, -gz);
+  };
+
+  for (let r = 0; r <= maxRadius; r += step) {
+    // Within one ring take the STEEPEST, not the first — they are all the same
+    // walk, so there is no reason to hand over the worst of them.
+    let best = null;
+    const n = r === 0 ? 1 : bearings;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const px = x + Math.sin(a) * r;
+      const pz = z + Math.cos(a) * r;
+      const down = downhillAt(px, pz);
+      for (const off of [0, 0.5, -0.5]) {
+        const ok = canLaunch(px, pz, down + off, groundAt);
+        if (!ok.ok) continue;
+        if (!best || ok.drop > best.drop) {
+          best = {
+            x: px, z: pz, heading: down + off, drop: ok.drop,
+            distance: r, bearing: r === 0 ? down : a,
+          };
+        }
+        break; // this bearing is answered; the other two offsets are the same spot
+      }
+    }
+    if (best) return best;
+  }
+  return null;
+}
+
+/**
+ * The sentence a person carrying a wing needs, and nothing else.
+ *
+ * Turns rather than compass bearings, for the reason `launchRefusal` gives:
+ * a turn is what somebody standing on a hill can act on. Same convention —
+ * left is increasing heading.
+ *
+ * @param {number} heading  which way you are FACING, glider convention
+ */
+export function carryReport(x, z, heading, groundAt, opts = {}) {
+  const spot = nearestLaunchable(x, z, groundAt, opts);
+  const pct = (v) => `${Math.round(v * 100)}%`;
+  if (!spot) {
+    return { spot: null, here: false, text: 'flat country in every direction — this wing has a long walk ahead of it' };
+  }
+  if (spot.distance === 0) {
+    return { spot, here: true, text: `you are standing on an edge — ${pct(spot.drop)} downhill` };
+  }
+  const turn = relativeTurn(spot.bearing - heading);
+  const deg = Math.round((Math.abs(turn) * 180) / Math.PI);
+  const way = deg <= 15 ? 'straight ahead'
+    : deg > 150 ? 'behind you'
+      : `${deg}° to your ${turn > 0 ? 'left' : 'right'}`;
+  return { spot, here: false, text: `ground that falls ${pct(spot.drop)} is ${Math.round(spot.distance)} m ${way}` };
+}
+
 /** Wrap an angle difference into (−π, π] so it reads as a turn, not a bearing. */
 function relativeTurn(a) {
   let r = a;

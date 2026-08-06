@@ -22,3 +22,8 @@ CHAT.log
 SAY.txt
 
 DO.txt
+
+# The agent play harness, injected into the page by hand during testing.
+# Dev tooling: it only reads the simulation and pushes the intents a keyboard
+# would. Never imported by the game itself.
+playharness.js
