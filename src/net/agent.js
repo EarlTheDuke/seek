@@ -94,8 +94,16 @@ export class Agent {
    * Both exist because they answer different questions and the author wanted
    * the option. Neither is a fallback for the other.
    */
-  constructor({ name, provider, rand, onLog = null, orders = 'decides', pet = null, persona = null, narrate = false }) {
+  constructor({ name, provider, rand, onLog = null, orders = 'decides', pet = null, persona = null, narrate = false,
+                commitDetour = false }) {
     this.name = name;
+    // ── whether a step aside is a DESTINATION or a fresh opinion every tick ──
+    //
+    // Off by default and deliberately so: `huntcheck` is a real-time check that
+    // came back six red in sixteen on a quiet box, and a behaviour change landed
+    // without a flag could not be told apart from luck. See `detourSpot`, and
+    // `AGENTS.detourArrive`/`detourHoldSeconds` for what ends the walk.
+    this.commitDetour = commitDetour;
     this.provider = provider;
     this.rand = rand;
     this.onLog = onLog;
@@ -1407,6 +1415,16 @@ export class Agent {
       walked: 0,                     // ground actually covered, integrated
       net: 0,                        // ...and how far that got us from where we began
       outcome: null,
+      // ── the two numbers that say whether it COMMITTED ──
+      // `resolves` is how many times `clearSpotNear` was asked during this one
+      // episode: one is a body walking to a place it chose, a hundred and fifty
+      // is a body having a fresh opinion every tick. It starts at 1 because the
+      // solve that produced this episode has already happened by the time we get
+      // here. `held` counts the ticks it walked to a remembered spot without
+      // asking again, and `dropped` names what ended the last hold.
+      resolves: 1,
+      held: 0,
+      dropped: null,
     };
     this.detours.push(this._detour);
     if (this.detours.length > AGENTS.logSize) this.detours.shift();
@@ -1455,7 +1473,87 @@ export class Agent {
    * Idempotent, because it is called from four places and three of them are on
    * paths that also run when no detour was ever open.
    */
+  /**
+   * Where to step to — held across ticks instead of re-decided thirty times a
+   * second.
+   *
+   * THE MEASURED BUG THIS IS FOR. `clearSpotNear` casts a twenty-metre probe
+   * perpendicular to the line of sight, and that line rotates as the body walks.
+   * Re-solved from scratch every tick, 13% of ground ticks came back null and
+   * the body abandoned the walk a tenth of a second into it: sixteen episodes,
+   * twenty metres walked in TOTAL, not one arrival. The answer was never a
+   * better probe, it was remembering the answer.
+   *
+   * So: solve once, keep the spot in WORLD coordinates, and walk to it. Four
+   * things end that walk, and only four —
+   *
+   *   arrived        within `AGENTS.detourArrive`; the walk did what it was for
+   *   another animal `resolve` picks the nearest deer every 2.5 s and the spot
+   *                  was chosen to see a specific one
+   *   timed out      `AGENTS.detourHoldSeconds`; a walk that has not arrived
+   *   no longer clear  one sightline from the FIXED spot to where the quarry is
+   *                  NOW. This is the "the quarry moved materially" test and it
+   *                  is better than a distance threshold, because what matters
+   *                  is not how far the animal went but whether it went behind
+   *                  the hill we were walking around.
+   *
+   * Everything else — the line clearing, standing up instead, losing the quarry
+   * — comes through `endDetour`, which drops the held spot with the episode.
+   *
+   * `groundAt` and `solidAt` are arguments rather than module lookups so a check
+   * can drive this against terrain it chose. The default is the real world.
+   *
+   * @returns {{x:number, z:number, step:number, held:boolean}|null}
+   */
+  detourSpot(dt, target, { groundAt = heightAt, solidAt = null } = {}) {
+    const from = { x: this._x, y: this._y, z: this._z };
+    // ── the control arm, and it must stay byte-identical ──
+    // One call, no memory, exactly what the body did before any of this.
+    if (!this.commitDetour) {
+      const spot = clearSpotNear(from, target, groundAt, { solidAt });
+      if (spot) spot.held = false;
+      this._resolves = (this._resolves ?? 0) + 1;
+      return spot;
+    }
+
+    const qid = this.target?.id ?? null;
+    const h = this._detourTo;
+    if (h) {
+      h.age += dt;
+      const away = Math.hypot(h.x - this._x, h.z - this._z);
+      const eyeY = groundAt(h.x, h.z) + PLAYER.eyeHeight;
+      const stale =
+        away <= AGENTS.detourArrive ? 'arrived'
+          : h.qid !== qid ? 'another animal'
+            : h.age > AGENTS.detourHoldSeconds ? 'timed out'
+              : sightline(h.x, eyeY, h.z, target.x, target.y, target.z,
+                          groundAt, 0.3, solidAt).blocked ? 'no longer clear'
+                : null;
+      if (!stale) {
+        if (this._detour) this._detour.held = (this._detour.held ?? 0) + 1;
+        return { x: h.x, z: h.z, step: h.step, held: true };
+      }
+      // Named where the episode can print it: "walked 1 m, gave up because the
+      // deer moved" and "walked 18 m and arrived" are the same abandonment to
+      // every aggregate this project has.
+      if (this._detour) this._detour.dropped = stale;
+      this._detourTo = null;
+    }
+
+    const spot = clearSpotNear(from, target, groundAt, { solidAt });
+    this._resolves = (this._resolves ?? 0) + 1;
+    if (this._detour) this._detour.resolves = (this._detour.resolves ?? 0) + 1;
+    if (!spot) return null;
+    this._detourTo = { x: spot.x, z: spot.z, step: spot.step, qid, age: 0 };
+    return { ...spot, held: false };
+  }
+
   endDetour(outcome) {
+    // The episode and the held spot end together. Called on every path that
+    // finishes a step aside — the line cleared, it stood up instead, it lost the
+    // quarry, or there was nowhere to go — so a body never keeps walking to a
+    // spot it chose for a situation that is over.
+    this._detourTo = null;
     const ep = this._detour;
     if (!ep) return;
     this._detour = null;
@@ -1577,10 +1675,13 @@ export class Agent {
       // do not shoot through it and you do not walk through it, you step round
       // it. `clearSpotNear` gets the blocker too, or "aside" just finds more
       // wood.
+      // ...and once it has named a spot, GO TO IT. Re-solved from scratch every
+      // tick this flickered null 13% of the time and the walk never completed;
+      // `detourSpot` remembers the answer. Flag-gated — with `commitDetour` off
+      // it is the same single `clearSpotNear` call it always was.
       const detour = shot.blockedBy
-        ? clearSpotNear({ x: this._x, y: this._y, z: this._z },
-                        { x: t.x, y: t.y + AGENTS.aimAboveFeet, z: t.z }, heightAt,
-                        { solidAt: this.timber() })
+        ? this.detourSpot(dt, { x: t.x, y: t.y + AGENTS.aimAboveFeet, z: t.z },
+                          { solidAt: this.timber() })
         : null;
       // ── WAS THERE ANYWHERE TO GO? ──
       //

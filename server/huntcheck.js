@@ -50,8 +50,17 @@ const alwaysHunt = {
   },
 };
 
+// ── WHICH ARM IS LOADED ──
+//
+// This check is real-time on a wall clock and comes back red about a third of
+// the time with nothing changed, so a run that does not say which arm it was is
+// a run nobody can read afterwards. Printed at the top AND beside the detour
+// table. `DETOUR=commit npm run huntcheck` for the committed arm.
+const COMMIT_DETOUR = /^(commit|on|yes|1|true)$/i.test(process.env.DETOUR ?? '');
+
 async function main() {
-  console.log('\n  Can an agent kill a deer?\n');
+  console.log('\n  Can an agent kill a deer?');
+  console.log(`  stepping aside: ${COMMIT_DETOUR ? 'COMMITTED (DETOUR=commit)' : 'default — re-solved every tick'}\n`);
   await requireFreePort(PORT, 'huntcheck');
 
   const server = spawn(process.execPath, [path.join(HERE, 'server.js'), String(PORT)], {
@@ -66,7 +75,8 @@ async function main() {
   let agent = null;
   for (let i = 0; i < 40 && !agent; i++) {
     await sleep(150);
-    agent = await new Agent({ name: 'Hunter', provider: alwaysHunt, rand: makeRandom('huntcheck') })
+    agent = await new Agent({ name: 'Hunter', provider: alwaysHunt, rand: makeRandom('huntcheck'),
+                              commitDetour: COMMIT_DETOUR })
       .connect(URL)
       .catch(() => null);
   }
@@ -336,7 +346,8 @@ async function main() {
     const open = detours.length - done.length;
     const cleared = by.get('a shot came on') ?? 0;
     const sum = (k, rows = done) => rows.reduce((a, e) => a + (e[k] ?? 0), 0);
-    console.log('\n      when it stepped aside for a clear line — did it work?');
+    console.log(`\n      when it stepped aside for a clear line — did it work?  ` +
+      `[${COMMIT_DETOUR ? 'COMMITTED' : 'default'}]`);
     console.log(`        ${detours.length} detours attempted, ${cleared} ended with a shot on ` +
       '(read the walk beside it — a shot after 0 m is the line clearing on its own, not the step)');
     for (const [outcome, n] of [...by].sort((a, b) => b[1] - a[1])) {
@@ -356,6 +367,25 @@ async function main() {
         `(${(walked / done.length).toFixed(0)} m per detour, net ${(net / done.length).toFixed(0)} m), ` +
         `over ${sum('secs').toFixed(0)} s`);
       console.log(`        ${sum('flips')} times it reversed the side it was stepping to — an oscillation, not a walk`);
+      // ── DID IT COMMIT, or have a fresh opinion every tick? ──
+      //
+      // The mechanism number, and it is upstream of every other line in this
+      // block. `clearSpotNear` asked once per episode is a body walking to a
+      // place it chose; asked a hundred and fifty times is a body re-deciding
+      // thirty times a second, which is what it did for months — and a
+      // twenty-metre probe over rolling ground flickers null 13% of the time, so
+      // it abandoned the walk a tenth of a second in. If `walked` per detour is
+      // still 1 m while `resolves` per detour is 1, the commitment is working
+      // and something ELSE is ending the walk: read `gave up because`.
+      const resolves = sum('resolves');
+      console.log(`        it asked \`clearSpotNear\` ${resolves} times across ${done.length} detours ` +
+        `(${(resolves / done.length).toFixed(1)} per detour) and walked to a remembered spot ` +
+        `for ${sum('held')} ticks`);
+      const drops = new Map();
+      for (const e of done) if (e.dropped) drops.set(e.dropped, (drops.get(e.dropped) ?? 0) + 1);
+      if (drops.size) {
+        console.log(`        gave up on a held spot: ${[...drops].map(([k, n]) => `${n} x ${k}`).join(', ')}`);
+      }
       const worked = done.filter((e) => e.outcome === 'a shot came on');
       const failed = done.filter((e) => e.outcome !== 'a shot came on');
       const line = (label, rows) => rows.length
@@ -379,7 +409,8 @@ async function main() {
       for (const e of detours) {
         console.log(`          deer ${String(e.d0).padStart(3)} m -> ${String(e.d).padStart(3)} m  ` +
           `${String(Math.abs(e.step)).padStart(2)} m aside, walked ${String(e.walked).padStart(3)} m ` +
-          `in ${e.secs.toFixed(1)} s  (${e.why})  ${e.outcome ?? 'still walking'}`);
+          `in ${e.secs.toFixed(1)} s  (${e.why})  ${e.outcome ?? 'still walking'}` +
+          `  [${e.resolves ?? '?'} solves${e.dropped ? `, last drop: ${e.dropped}` : ''}]`);
       }
     }
   } else {

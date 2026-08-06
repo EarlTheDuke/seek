@@ -840,6 +840,37 @@ export const AGENTS = {
   drawMargin: 0.35,   // held past BOW.drawTime, well under BOW.holdFatigue
   betweenShots: 1.1,  // a pause after loosing, so it does not machine-gun
   arriveWithin: 6,
+
+  // ── STEPPING ASIDE, AND MEANING IT ──
+  //
+  // `clearSpotNear` names a place to walk to when the ground is in the way, and
+  // for months the body re-solved it FROM SCRATCH thirty times a second. A
+  // twenty-metre sideways probe over rolling ground is exquisitely sensitive to
+  // the origin it is cast from, so as the body took its first six centimetres
+  // the answer flickered: 13% of ground ticks came back null, which is plenty to
+  // kill a walk that would have taken eight seconds. Measured over sixteen
+  // episodes: twenty metres walked in TOTAL, one metre each, not one completed.
+  // The body picked a knoll, took one step toward it, forgot, and refused the
+  // shot again.
+  //
+  // A person picks the knoll and GOES to it. So the spot is remembered in world
+  // coordinates and walked to without re-solving. These are the four things
+  // that end that walk.
+  //
+  // Two metres is arrival: `clearSpotNear`'s nearest candidate is six metres
+  // out, so a third of the way is not it, and standing exactly on a computed
+  // point is not something a walking body does.
+  detourArrive: 2,
+  // ...and this is how long it may take. Twenty metres is the furthest offset
+  // offered and the body is crouched while it stalks, so `PLAYER.crouchSpeed`
+  // covers it in about ten seconds. Twelve leaves room for the ground; past
+  // that, a walk that has not arrived is a walk that is not going to.
+  detourHoldSeconds: 12,
+  // How often the held spot is re-checked — as one sightline from the FIXED
+  // spot, not six from wherever the body now stands. That is the whole point:
+  // the origin no longer moves, so the answer only changes when the ANIMAL
+  // does, which is exactly when it should. Every tick is affordable at one
+  // sightline; the flicker was never the cost, it was the origin.
   roamDistance: 60,
   stalkWithin: 45,
   turnRate: 1.7,

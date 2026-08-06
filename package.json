@@ -48,7 +48,8 @@
     "rostercheck": "node server/rostercheck.js",
     "refillcheck": "node server/refillcheck.js",
     "boardcheck": "node server/boardcheck.js",
-    "ballisticscheck": "node server/ballisticscheck.js"
+    "ballisticscheck": "node server/ballisticscheck.js",
+    "detourcheck": "node server/detourcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

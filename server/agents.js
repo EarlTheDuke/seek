@@ -79,6 +79,20 @@ const PET = process.env.PET ?? null;
 // can play straight.
 const NARRATE = /^(on|yes|1|true)$/i.test(process.env.NARRATE ?? '');
 
+// ── DETOUR=commit: a step aside becomes a DESTINATION ──
+//
+//   DETOUR=commit npm run agents
+//
+// When the ground is in the way the body picks a spot to walk round it, and
+// until this flag existed it re-picked that spot thirty times a second from a
+// probe cast along a line of sight that rotates as it walks. 13% of those came
+// back null and the walk was abandoned a tenth of a second in: sixteen episodes,
+// twenty metres walked in TOTAL, not one arrival. With `commit` the spot is
+// remembered in world coordinates and walked to. Off by default because
+// `huntcheck` is a real-time check that comes back red about a third of the
+// time, and an unguarded behaviour change cannot be told apart from luck.
+const COMMIT_DETOUR = /^(commit|on|yes|1|true)$/i.test(process.env.DETOUR ?? '');
+
 // ── BOARD: the second mile — a board, not a column ──
 //
 //   BOARD=on npm run agents         http://127.0.0.1:8090
@@ -206,6 +220,7 @@ async function main() {
       // itself went into the provider above.
       persona: entry?.character ? null : cast[i],
       narrate: NARRATE,
+      commitDetour: COMMIT_DETOUR,
     });
     try {
       await a.connect(URL);
