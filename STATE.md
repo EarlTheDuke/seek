@@ -11,9 +11,13 @@ Last updated: 2026-08-05, by the run that finished the ladder.
 
 **1. SURVIVE — green.** `survivalcheck` 7/7. Unchanged this run.
 
-**2. HUNT — GREEN, and it was the big one.** `huntcheck` 7/7, **five runs, five
-kills, ONE arrow each, 59-72 s**. It was 1-of-4 at 103-150 s. Three separate
-things, each found by instrumenting rather than reasoning:
+**2. HUNT — GREEN, and it was the big one.** `huntcheck` 7/7 on **six of seven
+runs, ONE arrow each, kills at 59, 61, 61, 71, 72 and 109 s**. It was 1-of-4 at
+103-150 s. The seventh run never got a shot at all — its only refusal was "too
+far", so on the evidence the hillside simply had no deer inside `shootRange` (26
+m) in 150 s, not that the body failed one. Worth one instrumented look if it
+recurs; do not tune anything on one run. Three separate things fixed, each found
+by instrumenting rather than reasoning:
 
 - **The check was passing on kills the agent did not make.** Nothing on the wire
   said WHO killed an animal, so a wolf eating a deer read as a hunt. The baseline
@@ -108,6 +112,10 @@ survivalcheck 8095, huntcheck 8096, herdcheck 8098, shotcheck/bitecheck 8099.
 
 ## The queue, ranked
 
+0. **The one huntcheck run in seven that finds no deer.** Log where the herds
+   actually were during it. It may be nothing — a thin hillside and a 150 s
+   budget — but "no shot in 150 s" and "a shot it could not take" are different
+   answers and only the refusal log can tell them apart.
 1. **Instrument the empty `cr` list above.** Two players, one snapshot, no
    animals — that is either a culling bug or a snapshot-budget cut nobody
    documented, and it would gut an evening.
