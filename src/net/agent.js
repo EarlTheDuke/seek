@@ -44,7 +44,7 @@ import { sanitiseGoal, describeGoal, GOAL_IDS } from '../minds/goals.js';
 import { Memory } from '../minds/mind.js';
 import { nearestDeadfall } from '../world/pickups.js';
 import { heightAt } from '../world/noise.js';
-import { aimAt, sightline, clearSpotNear } from '../minds/marksman.js';
+import { aimAt, sightline, clearSpotNear, predictLanding } from '../minds/marksman.js';
 // For `guard`: what counts as a threat is read off the species table rather
 // than listed here, so a wolf added later is guarded against without an edit.
 import { SPECIES } from '../creatures/registry.js';
@@ -215,6 +215,9 @@ export class Agent {
               // burns wood, so it is the only honest answer to "am I carrying
               // meat", and until it was sent nobody could ask.
               if (msg.data.me.iv) this.carrying = msg.data.me.iv;
+              // Where the string actually is. Crouching drops it 0.67 m and the
+              // solver has to know — see `aimAt`.
+              this.eye = msg.data.me.e ?? PLAYER.eyeHeight;
             }
             // ── remember what HAPPENED, not only what you noticed while thinking ──
             //
@@ -327,8 +330,9 @@ export class Agent {
     switch (e.k) {
       case 'miss':
         // The one event that carries a lesson in a number. Kept with the range
-        // so a mind can compare it against how far off the quarry was.
-        if (mine) this.memory.add(this.hours, `my arrow hit ${e.hit} ${e.d} m away — a miss`);
+        // so a mind can compare it against how far off the quarry was — and,
+        // when we know what the shot was aimed at, WHICH WAY it was wrong.
+        if (mine) this.memory.add(this.hours, `my arrow hit ${e.hit} ${e.d} m away — ${this.howItMissed(e)}`);
         break;
       case 'hit':
         if (mine) this.memory.add(this.hours, `my arrow struck someone for ${e.dmg}`);
@@ -348,6 +352,63 @@ export class Agent {
         this.memory.add(this.hours, `${e.n} was killed by ${e.by} ${e.where ?? ''}`.trim());
         break;
     }
+  }
+
+  /**
+   * Where that arrow went WRONG, in the two directions that mean something.
+   *
+   * The whole point of the exercise. "Six misses at about 25 m" is compatible
+   * with over-leading, under-leading, a low arc and a hill, and picking between
+   * them by adjusting constants and re-counting is how three passes moved the
+   * failure around without touching it. Two numbers separate all four:
+   *
+   *   ALONG   the shot line — negative is short, positive is long. A whole
+   *           trajectory sitting low lands SHORT by a lot, every time.
+   *   ACROSS  it — negative is left, positive is right. A lead error is across
+   *           and only across, and it flips sign with the animal's direction.
+   *
+   * Kept in `shots` for a report to total up, and said in the first person into
+   * memory so the mind that has to decide what to do next can read it.
+   */
+  howItMissed(e) {
+    const s = this.lastShot;
+    if (!s || !e.at) return 'a miss';
+    const dx = s.mark.x - s.from.x;
+    const dz = s.mark.z - s.from.z;
+    const d = Math.hypot(dx, dz) || 1;
+    // Unit vector along the shot, and the one at right angles to it.
+    const ux = dx / d;
+    const uz = dz / d;
+    const ix = e.at[0] - s.from.x;
+    const iz = e.at[2] - s.from.z;
+    const along = ix * ux + iz * uz - d;
+    const across = ix * -uz + iz * ux;
+    const high = e.at[1] - s.mark.y;
+    // How far the arrow landed from where OUR OWN MODEL said it would. This is
+    // the number that says whether the ballistics are understood at all.
+    const model = s.predicted
+      ? Math.hypot(e.at[0] - s.predicted.x, e.at[2] - s.predicted.z)
+      : null;
+    this.shots = this.shots ?? [];
+    this.shots.push({
+      dist: +d.toFixed(1),
+      along: +along.toFixed(1),
+      across: +across.toFixed(1),
+      high: +high.toFixed(1),
+      pitch: +(s.pitch * 180 / Math.PI).toFixed(2),
+      eye: s.eye,
+      hit: e.hit,
+      // Predicted range down the shot line, and how far the real one was from it.
+      pred: s.predicted ? +s.predicted.dist.toFixed(1) : null,
+      model: model === null ? null : +model.toFixed(1),
+    });
+    this.lastShot = null; // one arrow, one verdict
+    const near = Math.abs(along) < 1.5 && Math.abs(across) < 1.5;
+    if (near) return `a miss, but barely — a hand's width off the mark at ${Math.round(d)} m`;
+    const bits = [];
+    if (Math.abs(along) >= 1.5) bits.push(`${Math.abs(along).toFixed(0)} m ${along < 0 ? 'short' : 'long'}`);
+    if (Math.abs(across) >= 1.5) bits.push(`${Math.abs(across).toFixed(0)} m ${across < 0 ? 'left' : 'right'}`);
+    return `${bits.join(' and ')} of the mark at ${Math.round(d)} m`;
   }
 
   send(type, data) {
@@ -902,6 +963,10 @@ export class Agent {
         maxRange: AGENTS.shootRange,
         velocity: track ? { x: track.vx, z: track.vz } : null,
         lag: NET.interpolationMs / 1000,
+        // The body's own, off the snapshot. Not `PLAYER.eyeHeight`, which is
+        // what a STANDING person's would be — and this one is crouched,
+        // because it is stalking a deer.
+        eye: this.eye ?? PLAYER.eyeHeight,
       }
     );
 
@@ -909,6 +974,49 @@ export class Agent {
     // an agent ends up orbiting it.
     i.aimYaw = shot.yaw;
     this.yaw = shot.yaw;
+
+    // ── if the ground is in the way, STAND UP before walking anywhere ──
+    //
+    // MEASURED, and it is the single biggest thing between this body and a
+    // deer: thirty-two refusals in one run, every one of them "ground in the
+    // way", at ranges of 15-27 m with the obstruction anywhere from 1 m to 26 m
+    // out — and not one arrow loosed in two and a half minutes.
+    //
+    // The body stalks crouched, because `stalkWithin` is 45 m and a deer at 24
+    // is inside that. Crouching drops the eye from 1.72 m to 1.05 m, and two
+    // thirds of a metre of height is exactly what a lip of ground in front of
+    // you costs. It was refusing shots that a standing archer has.
+    //
+    // So: solve it again from full height, and if THAT is clear, stand. It
+    // takes about a fifth of a second for the eye to come up, the next tick
+    // re-solves from the real height, and the ordinary path takes the shot. A
+    // person on a slope does this without thinking about it.
+    const crouched = (this.eye ?? PLAYER.eyeHeight) < PLAYER.eyeHeight - 0.05;
+    if (!shot.shoot && shot.why.startsWith('ground') && crouched) {
+      const standing = aimAt(
+        { x: this._x, y: this._y, z: this._z },
+        { x: t.x, y: t.y + AGENTS.aimAboveFeet, z: t.z },
+        heightAt,
+        {
+          maxRange: AGENTS.shootRange,
+          velocity: track ? { x: track.vx, z: track.vz } : null,
+          lag: NET.interpolationMs / 1000,
+          eye: PLAYER.eyeHeight,
+        }
+      );
+      if (standing.shoot) {
+        i.crouch = false;
+        i.forward = 0;
+        i.sprint = false;
+        i.primary = false;
+        this.drawFor = 0;
+        if (this.shotWhy !== 'stand') {
+          this.shotWhy = 'stand';
+          this.memory.add(this.hours, `standing up to see over the ground at ${Math.round(dist)} m`);
+        }
+        return;
+      }
+    }
 
     if (!shot.shoot) {
       // Not a shot yet — so close the range, quietly. Whatever the reason is,
@@ -961,6 +1069,15 @@ export class Agent {
       if (this.shotWhy !== shot.why) {
         this.shotWhy = shot.why;
         this.memory.add(this.hours, `no shot at ${Math.round(dist)} m — ${shot.why}`);
+        // ── and kept where the ring buffer cannot lose it ──
+        // A refusal is the commonest thing that happens to a hunting body and
+        // the least visible: it produces no arrow, no event and no line anybody
+        // reads. Counted by REASON with the range attached, because "eighteen
+        // refusals" and "eighteen refusals, all of them ground at 1 m while the
+        // deer stood at 24" are different bugs.
+        this.refusals ??= [];
+        this.refusals.push({ d: Math.round(dist), why: shot.why });
+        if (this.refusals.length > AGENTS.logSize) this.refusals.shift();
       }
       return;
     }
@@ -983,6 +1100,28 @@ export class Agent {
     }
     i.primary = false; // release: THIS is the arrow
     this.arrows = (this.arrows ?? 0) + 1;
+    // ── what this shot was FOR, kept until we hear where it went ──
+    // The instrument. An aggregate miss count cannot tell an over-lead from an
+    // under-lead from a systematically low arc; the same count comes out of all
+    // three, which is how three passes of tuning constants moved the failure
+    // around without fixing it. Held here and cashed in by `remember`.
+    this.lastShot = {
+      from: { x: this._x, y: this._y, z: this._z },
+      mark: shot.mark,
+      dist: shot.dist,
+      pitch: shot.pitch,
+      yaw: shot.yaw,
+      eye: this.eye ?? PLAYER.eyeHeight,
+      // ...and where our own model of the bow says this arrow comes down. The
+      // control for the whole measurement — see `predictLanding`.
+      predicted: predictLanding(
+        { x: this._x, y: this._y, z: this._z },
+        this._y + (this.eye ?? PLAYER.eyeHeight),
+        shot.pitch,
+        shot.yaw,
+        heightAt
+      ),
+    };
     this.memory.add(this.hours, `I loosed at ${Math.round(dist)} m`);
     // Negative, so the next few ticks are a pause rather than an instant redraw.
     this.drawFor = -(BOW.cooldown + AGENTS.betweenShots);
@@ -1048,19 +1187,36 @@ export class Agent {
 
   resolve(g) {
     const s = this.snapshot;
-    const find = (pred) => {
-      for (const c of s?.cr ?? []) if (pred(`a ${c.k}`, c)) return { x: c.p[0], z: c.p[2] };
-      for (const p of s?.pl ?? []) if (pred(this.others.get(p.id) ?? 'someone', p)) return { x: p.p[0], z: p.p[2] };
-      return null;
+    // ── THE NEAREST ONE, not the first one in the packet ──
+    //
+    // These returned whatever the snapshot happened to list first, and a
+    // snapshot is in creature-id order — so "hunt a deer" regularly meant a
+    // particular deer three hundred and fifty metres away with four others
+    // grazing at twenty. Measured in huntcheck's refusal log: "too far (deer at
+    // 22-358 m)", over and over, while the body walked past the one it could
+    // have shot. It also thrashes, because `resolve` re-runs every 2.5 s and
+    // the answer flips with the id order as creatures spawn and cull.
+    const nearestOf = (pred, withHeight) => {
+      let best = null;
+      let bestD = Infinity;
+      const weigh = (label, thing, y, id) => {
+        if (!pred(label, thing)) return;
+        const d = Math.hypot(thing.p[0] - this._x, thing.p[2] - this._z);
+        if (d >= bestD) return;
+        bestD = d;
+        best = withHeight
+          ? { x: thing.p[0], y, z: thing.p[2], id }
+          : { x: thing.p[0], z: thing.p[2] };
+      };
+      for (const c of s?.cr ?? []) weigh(`a ${c.k}`, c, c.p[1], c.i);
+      for (const p of s?.pl ?? []) weigh(this.others.get(p.id) ?? 'someone', p, p.p[1], undefined);
+      return best;
     };
+    const find = (pred) => nearestOf(pred, false);
     // The same search, keeping the height. Anything that is going to be SHOT at
     // needs it; anything that is only going to be walked to does not, and the
     // ground answers for itself on the way.
-    const findFull = (pred) => {
-      for (const c of s?.cr ?? []) if (pred(`a ${c.k}`, c)) return { x: c.p[0], y: c.p[1], z: c.p[2], id: c.i };
-      for (const p of s?.pl ?? []) if (pred(this.others.get(p.id) ?? 'someone', p)) return { x: p.p[0], y: p.p[1], z: p.p[2] };
-      return null;
-    };
+    const findFull = (pred) => nearestOf(pred, true);
     switch (g.kind) {
       // Walk to the nearest branch and PRESS E when you get there.
       //

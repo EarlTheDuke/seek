@@ -118,6 +118,57 @@ async function main() {
   if (misses.length) console.log(`\n      e.g. "${misses.at(-1).text}"`);
   if (noShot.length) console.log(`      e.g. "${noShot.at(-1).text}"`);
 
+  // ── THE INSTRUMENT ──
+  // Every arrow, as the gap between where the solver said it would arrive and
+  // where it actually landed. Printed whatever the verdict, because a green run
+  // that took four arrows to do what should take one is still a body that
+  // cannot reliably hunt, and aggregate counts never said WHICH WAY it was
+  // wrong — an over-lead and an under-lead produce the same tally. See
+  // `Agent.howItMissed`.
+  const shots = agent.shots ?? [];
+  if (shots.length) {
+    console.log('\n      every arrow, against its own aim point:');
+    for (const s of shots) {
+      console.log(
+        `        ${String(s.dist).padStart(5)} m  ` +
+          `along ${s.along > 0 ? '+' : ''}${s.along} m  across ${s.across > 0 ? '+' : ''}${s.across} m  ` +
+          `(pitch ${s.pitch}°, eye ${s.eye} m, hit ${s.hit})` +
+          // The control: our own model said it would come down at `pred` m down
+          // the shot line, and it actually landed `model` m from that spot.
+          // Small means the bow is understood and the aim is at fault; large
+          // means the model is, and no amount of aiming will fix it.
+          (s.pred === null ? '' : `\n                 model said it would land at ${s.pred} m — it was ${s.model} m from there`)
+      );
+    }
+    const mean = (k) => (shots.reduce((a, s) => a + s[k], 0) / shots.length).toFixed(1);
+    console.log(`        mean: along ${mean('along')} m, across ${mean('across')} m over ${shots.length} arrows`);
+  } else {
+    console.log('\n      no arrow missed, so there is nothing to measure');
+  }
+
+  // The other half, and on the evidence the bigger half: every time the body
+  // decided NOT to shoot, with the reason and the range. A refusal produces no
+  // arrow, no event and no line anybody reads, so it is the commonest thing
+  // that happens to a hunting body and the least visible.
+  const refused = agent.refusals ?? [];
+  if (refused.length) {
+    const byReason = new Map();
+    for (const r of refused) {
+      const kind = r.why.replace(/ \d+ m out$/, '');
+      const e = byReason.get(kind) ?? { n: 0, ranges: [], outs: [] };
+      e.n++;
+      e.ranges.push(r.d);
+      const m = /(\d+) m out/.exec(r.why);
+      if (m) e.outs.push(Number(m[1]));
+      byReason.set(kind, e);
+    }
+    console.log('\n      every time it refused the shot:');
+    for (const [kind, e] of byReason) {
+      const where = e.outs.length ? `, obstruction ${Math.min(...e.outs)}-${Math.max(...e.outs)} m out` : '';
+      console.log(`        ${String(e.n).padStart(3)} x  ${kind}  (deer at ${Math.min(...e.ranges)}-${Math.max(...e.ranges)} m${where})`);
+    }
+  }
+
   agent.close();
   stop();
 

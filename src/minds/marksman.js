@@ -129,6 +129,104 @@ export function sightline(fromX, eyeY, fromZ, toX, toY, toZ, groundAt, margin = 
 }
 
 /**
+ * Does the ACTUAL ARC clear the ground, and where is it closest?
+ *
+ * `sightline` tests the straight chord from eye to mark, and an arrow does not
+ * fly a chord. At any range worth shooting it leaves at a few degrees of
+ * hold-over and spends the whole middle of its flight ABOVE the line — so a
+ * crest that the chord clips is often a crest the shaft sails over, and the
+ * body refused those shots. Measured: sixteen refusals to zero arrows in one
+ * run, the worst of them reported as "ground in the way 1 m out" — which is
+ * not a hill between archer and deer at all, it is the lip of ground under the
+ * archer's own boots, one metre in front of a crouched eye 1.05 m up.
+ *
+ * The chord is still the right test for PERCEPTION — "can I see it" is a
+ * question about a line — and it stays in the brief. This is the test for
+ * whether to loose, and it is the trajectory the bow will actually fly,
+ * integrated with the same drag and substep the projectile uses.
+ *
+ * @returns {{clear:number, at:number, blocked:boolean}}
+ */
+export function arcClearance(from, eyeY, pitch, mark, groundAt, {
+  speed = BOW.maxSpeed,
+  margin = 0.25,
+  // The shaft spawns 0.55 m along the aim line, so the ground nearer than that
+  // is behind the arrow before it exists. A little past it, to stay honest.
+  ignoreWithin = 0.8,
+} = {}) {
+  const dx = mark.x - from.x;
+  const dz = mark.z - from.z;
+  const dist = Math.hypot(dx, dz);
+  if (!(dist > 0.5)) return { clear: Infinity, at: 0, blocked: false };
+  const ux = dx / dist;
+  const uz = dz / dist;
+
+  const dt = ARROW.substep;
+  let x = 0;
+  let y = 0;
+  let vx = Math.cos(pitch) * speed;
+  let vy = Math.sin(pitch) * speed;
+  let worst = Infinity;
+  let at = 0;
+  for (let i = 0; i < 4096 && x < dist; i++) {
+    const sp = Math.hypot(vx, vy);
+    const k = ARROW.drag * sp * dt;
+    vx -= vx * k;
+    vy -= vy * k;
+    vy -= ARROW.gravity * dt;
+    x += vx * dt;
+    y += vy * dt;
+    if (x < ignoreWithin || x > dist) continue;
+    const gap = eyeY + y - groundAt(from.x + ux * x, from.z + uz * x);
+    if (gap < worst) {
+      worst = gap;
+      at = x;
+    }
+  }
+  return { clear: worst, at, blocked: worst < margin };
+}
+
+/**
+ * Where this shot will actually come down, according to our own model of it.
+ *
+ * THE CONTROL. Comparing an arrow against the animal tells you it missed;
+ * comparing it against where your own ballistics said it would land tells you
+ * WHOSE fault that was. If the two agree, the bow is understood and the error
+ * is in the aim — the lead, the target, the spread. If they disagree, the model
+ * is wrong, and no amount of adjusting the aim will ever fix it.
+ *
+ * That distinction is what three passes of constant-tuning never had, and it is
+ * why the failure kept moving instead of going away.
+ *
+ * @returns {{x:number, z:number, dist:number, flight:number}}
+ */
+export function predictLanding(from, eyeY, pitch, yaw, groundAt, speed = BOW.maxSpeed) {
+  // The bow's own convention, shared with `makeAimProxy` and the controller.
+  const ux = -Math.sin(yaw);
+  const uz = -Math.cos(yaw);
+  const dt = ARROW.substep;
+  let x = 0;
+  let y = 0;
+  let t = 0;
+  let vx = Math.cos(pitch) * speed;
+  let vy = Math.sin(pitch) * speed;
+  for (let i = 0; i < 8192; i++) {
+    const sp = Math.hypot(vx, vy);
+    const k = ARROW.drag * sp * dt;
+    vx -= vx * k;
+    vy -= vy * k;
+    vy -= ARROW.gravity * dt;
+    x += vx * dt;
+    y += vy * dt;
+    t += dt;
+    const wx = from.x + ux * x;
+    const wz = from.z + uz * x;
+    if (eyeY + y <= groundAt(wx, wz)) return { x: wx, z: wz, dist: x, flight: t };
+  }
+  return { x: from.x + ux * x, z: from.z + uz * x, dist: x, flight: t };
+}
+
+/**
  * A spot near here with a clear line to the mark, or null if there is none.
  *
  * WHAT A PERSON DOES WHEN A CREST IS IN THE WAY: steps sideways and looks
@@ -169,8 +267,21 @@ export function clearSpotNear(from, target, groundAt, { steps = [6, -6, 12, -12,
  *
  * @returns {{shoot:boolean, yaw:number, pitch:number, dist:number, why:string}}
  */
-export function aimAt(from, target, groundAt, { maxRange = 60, velocity = null, lag = 0 } = {}) {
-  const eyeY = from.y + PLAYER.eyeHeight;
+export function aimAt(
+  from,
+  target,
+  groundAt,
+  { maxRange = 60, velocity = null, lag = 0, eye = PLAYER.eyeHeight } = {}
+) {
+  // ── how high the string actually is, not how high a standing person's is ──
+  //
+  // `PLAYER.eyeHeight` is 1.72 and `PLAYER.crouchHeight` is 1.05, and a body
+  // stalking a deer is crouched — so the arc was solved for a launch two thirds
+  // of a metre above the one the bow took. The whole trajectory arrives that
+  // much low, and the mark is a deer's chest 0.75 m off the ground, so a
+  // perfectly solved shot passed under its belly and into the turf. The caller
+  // knows its own eye height; it just had no way to say so.
+  const eyeY = from.y + eye;
 
   // ── shoot where it is GOING to be ──
   //
@@ -205,17 +316,38 @@ export function aimAt(from, target, groundAt, { maxRange = 60, velocity = null, 
   const dist = Math.hypot(dx, dz);
   const yaw = Math.atan2(-dx, -dz);
 
-  if (dist > maxRange) return { shoot: false, yaw, pitch: 0, dist, why: 'too far' };
+  // ── how far away it is, counting the climb ──
+  //
+  // Horizontal range alone says a deer standing seventeen metres up a crag at
+  // eighteen metres of ground distance is "eighteen metres away". It is
+  // twenty-five, and it is a forty-three degree lob rather than a shot — this
+  // body took exactly that one, and the shaft sailed past the shoulder of the
+  // hill and came down two hundred and forty-one metres out. A bow is not a
+  // mortar; the range that matters is the one the arrow flies.
+  const slant = Math.hypot(dist, target.y - eyeY);
+  if (slant > maxRange) return { shoot: false, yaw, pitch: 0, dist, why: 'too far' };
 
-  const line = sightline(from.x, eyeY, from.z, target.x, target.y, target.z, groundAt);
-  if (line.blocked) {
-    return {
-      shoot: false, yaw, pitch: 0, dist,
-      why: `ground in the way ${line.at.toFixed(0)} m out`,
-    };
-  }
-
+  // Solve the arc BEFORE asking whether the ground is in the way, because the
+  // arc is what has to clear it. The old order asked the chord first and threw
+  // away shots the shaft would have made.
   const pitch = solvePitch(dist, target.y - eyeY);
   if (pitch === null) return { shoot: false, yaw, pitch: 0, dist, why: 'cannot reach' };
-  return { shoot: true, yaw, pitch, dist, why: 'clear' };
+
+  const mark = { x: aim.x, y: target.y, z: aim.z };
+  const arc = arcClearance(from, eyeY, pitch, mark, groundAt);
+  if (arc.blocked) {
+    return {
+      shoot: false, yaw, pitch: 0, dist,
+      why: `ground in the way ${arc.at.toFixed(0)} m out`,
+    };
+  }
+  // WHERE THIS SHOT IS MEANT TO ARRIVE, handed back rather than kept.
+  //
+  // The lead correction happens in here, so until now nobody outside could say
+  // where the body had actually aimed — only where the animal had been. That
+  // makes an over-lead and an under-lead indistinguishable from a pile of miss
+  // counts, which is exactly the state three passes of constant-tuning left
+  // this in. A shot that reports its own intended impact point can be measured
+  // against where the arrow really landed. See `Agent.remember`.
+  return { shoot: true, yaw, pitch, dist, why: 'clear', mark, eyeY };
 }

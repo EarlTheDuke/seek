@@ -948,6 +948,13 @@ export class SimWorld {
         me = { p: [round2(p.ctrl.position.x), round2(p.ctrl.position.y), round2(p.ctrl.position.z)],
                y: round3(p.ctrl.yaw), t: round3(p.ctrl.pitch),
                h: Math.round(p.body.health), f: Math.round(p.body.hunger), c: round2(p.body.coreC),
+               // How high off the ground your eye is RIGHT NOW. Crouching drops
+               // it from 1.72 to 1.05 over a tenth of a second, and an arrow
+               // leaves from there — so a body solving its own arc without this
+               // number is solving for a launch two thirds of a metre above the
+               // one it takes. Sent rather than modelled locally, for the same
+               // reason the aim is: the copy that fires the bow is this one.
+               e: round2(p.ctrl.eyeHeight),
                iv };
         continue;
       }
