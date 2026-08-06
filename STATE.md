@@ -12,8 +12,14 @@ it is the most expensive knowledge in the repo: every entry cost somebody a
 wrong diagnosis. **Skim it before you debug anything, not after.** It is kept
 here rather than cut because a closed bug can be deleted and a trap cannot.
 
-Last updated: 2026-08-06, by the run that made the step aside CLOSE — and then
-found that the thing it was aimed at was never a bug at all.
+Last updated: 2026-08-06, by the run that made the step aside CLOSE, found that
+the thing it was aimed at was never a bug — and then went and LOOKED at the
+bodies, which is where the day's best findings were.
+
+**IF YOU READ ONE THING: the four fixes in "What a body looks like" below came
+from driving a real browser client against a real server for twenty minutes.
+Three of them had been in the game for months and one of them had a green check
+sitting on top of it.** Every check in this repo passed the whole time.
 
 **QUEUE ITEM 1 IS BUILT, MEASURED AND GREEN — and the headline is the second
 finding, not the first.** A step aside now closes the range, and for the first
@@ -99,6 +105,46 @@ range and closing instead — which is what it should do.
 
 Note the lead hypothesis was the *plausible* one — a deer at 14 m/s earns ~6 m of
 lead at that flight time — and it was wrong. Printing beat arguing again.
+
+## WHAT A BODY LOOKS LIKE — four fixes, found by LOOKING
+
+Driven as a real browser client against a real server, then measured. All four
+were live in the game and none of them broke a single check.
+
+**1. The crouch squashed the HEAD and the NAME.** `avatars.js` did
+`object.scale.y = lerp(1, 0.72, crouch)` on the whole Group. For a torso and
+legs that is a cheap, good crouch and it stays. The head is not a limb — 72% is
+a head that has been stood on — and the nameplate is a **text sprite**, so the
+one thing on screen whose whole job is to be read got 28% harder to read exactly
+when somebody is sneaking toward you. Both counter-scaled; they still travel
+DOWN, they just stop deforming.
+
+**2. Every PvP kill was "killed by the cold".** `onPlayerDied` read
+`killer?.species?.name ?? 'the cold'`. A creature has `.species.name`; a PLAYER
+— which is exactly what the arrow path hands it — has `.name` and no `.species`.
+**With six models shooting at each other tomorrow night that is every
+interesting death in the run, told wrong.**
+
+**3. The palisade was a picture of a wall.** `colliders.add?.()` — and
+`ColliderField` has `addSphere`/`addCylinder`/`addBox` and has NEVER had an
+`add`. The `?.` swallowed it in silence and arrows flew through. The arguments
+were right all along; one method name.
+
+**4. ...AND `campcheck` SAID IT WAS FINE.** It asserted `built.some(b =>
+b.collided)` — a flag set on the line AFTER the dead call, unconditionally, with
+no way to fail. Now it asserts the cylinder itself, tagged, at the spec's radius.
+**A flag that says work happened is not the work.**
+
+### `avatarcheck` — 11/11, no port, no server, no wall clock
+
+Drives the REAL `Avatar.apply`. The only fake is a DOM stub for the nameplate
+canvas; the figure is built by the real constructor. **It measures WORLD scale,
+not local, and that is the entire point** — the head's own `scale.y` reads
+exactly 1.0 the whole time its parent is crushing it, so the local number proves
+the bug absent while you are looking straight at it. Counterfactual 10/11.
+
+It also pins two things nothing covered: a dead body tips 90° and hides its name,
+and you can see somebody else draw a bow.
 
 ## The instruments, cumulative
 
@@ -240,7 +286,7 @@ sidestepping in place. It did not raise the kill rate; nothing yet has.
 
 `firecheck` 57 · `companioncheck` 45 · `glidercheck` 42 · `campcheck` 36 ·
 `boardcheck` 35 · `weathercheck` 27 · `providercheck` 25 · `netcheck` 24 ·
-`personacheck` 21 · `mindcheck`/`clockcheck` 21 · `warmthcheck` 20 ·
+`personacheck` 21 · **`avatarcheck` 11** · `mindcheck`/`clockcheck` 21 · `warmthcheck` 20 ·
 `deathcheck` 19 · `bookcheck`/`reportcheck`/`raidcheck` 18 · **`detourcheck` 18** ·
 `timbercheck` 17 · `agentcheck` 17 · `ordercheck` 17 ·
 `dangercheck`/`herdcheck`/`rendercheck` 12 · `survivalcheck` 12 · `bitecheck` 10 ·
@@ -290,7 +336,37 @@ quiver and takes about three minutes.**
    without that measurement is the fourth pass of exactly what this project has
    been told three times not to do.**
 
-2. **`p.lastCraft`** (world.js:911) is written on every successful craft and read
+2. **NOTHING COLLIDES WITH ANYTHING. A body is a POINT that samples the height
+   field.** Established this run by reading every line of the movement path, and
+   it is the biggest single gap in the game. **Not started deliberately** — it is
+   feature-sized, it touches the core movement path on BOTH client and server,
+   and half-landing it is worse than leaving it.
+
+   `controller.js:174-175` is the entire horizontal step: `position.x +=
+   velocity.x * dt`, same for z, and **nothing follows** — no sweep, no push-out,
+   no radius test, no `blocked` flag. Its own header says so at
+   `controller.js:4-6`. The only solid in the player's world is `heightAt`, plus
+   a soft wade clamp for water.
+
+   So a player walks through **tree trunks, crowns, rocks, boulders, landmark
+   stones, every built structure, every creature, and every other player.**
+   Confirmed both ways: `ColliderField` has no point or capsule query at all —
+   only `segmentHit`, which exists for ARROWS — and the creature separation pass
+   (`manager.js:859-894`) iterates `this.creatures`, which never contains a
+   player. The one player-vs-player geometric test in the repo is the arrow
+   capsule (`sim/world.js:312-320`, `PLAYER_RADIUS 0.42`), and those constants
+   appear nowhere else. The spawn fan-out (`sim/world.js:353-363`) keeps two
+   arrivals from spawning inside each other and lasts exactly one frame.
+
+   **FOR THE EVENING THIS IS COSMETIC-BUT-LOUD**: six bodies and a human will
+   walk through each other and through trees on camera. **Decide whether it is
+   worth it BEFORE building it**, because the risks are real — it is on the
+   server tick and the client prediction path, so it is a determinism surface,
+   and `agent.js` already *routes* round trees for shooting (`timber()`), which
+   would start fighting a physical constraint it has never had to respect.
+   If it is built: flag-gated, default OFF, and a socket check that asserts two
+   bodies cannot end a tick inside one another.
+3. **`p.lastCraft`** (world.js:911) is written on every successful craft and read
    by nothing — a confirmed-make signal already on the server, if anyone wants it
    on the wire rather than inferred from the pack.
 3. `glider.js` samples ridge lift upwind with `(−sin, −cos)` while integrating
@@ -332,6 +408,17 @@ in a pack. Verify by driving the game, and make the check assert an OUTCOME.
 
 ## Things that will waste your time if you do not know them
 
+- **A FLAG THAT SAYS WORK HAPPENED IS NOT THE WORK, and `?.` HOLDS THE DOOR
+  OPEN.** `colliders.add?.()` — no such method, ever — silently did nothing for
+  months while `s.collided = true` on the NEXT line announced success, and
+  campcheck asserted that flag. Assert the artefact: the cylinder, in the field,
+  tagged, at the radius asked for.
+- **MEASURE WORLD TRANSFORMS, NOT LOCAL ONES.** A child being crushed by its
+  parent reports its own `scale.y` as exactly 1.0. Reading the local number
+  proves a bug absent while you are looking straight at it.
+- **COMMIT BEFORE YOU MUTATE FOR A COUNTERFACTUAL.** `git checkout -- <file>`
+  on a tracked file with UNCOMMITTED work throws the work away too, not just the
+  probe. Cost the crouch fix once this run; it had to be retyped.
 - **BUILD AN ARM SENTINEL INTO THE OUTPUT — a number that is 0 on one arm and N
   on the other BY CONSTRUCTION.** huntcheck prints "`along` was 0 of 7" on the
   control and "14 of 14" on the treatment, and says *"CLOSING IS ON AND NOT ONE
