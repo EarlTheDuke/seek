@@ -211,6 +211,16 @@ async function main() {
         `        ${String(s.dist).padStart(5)} m  ` +
           `vsModel ${s.vsModel > 0 ? '+' : ''}${s.vsModel} m  across ${s.across > 0 ? '+' : ''}${s.across} m  ` +
           `(pitch ${s.pitch}°, eye ${s.eye} m, hit ${s.hit})` +
+          // ── the deer, not the aim point ──
+          // Everything else on this line measures the arrow against where we
+          // CHOSE to aim, and `mark` is lead-adjusted — so a wrong lead reads
+          // as a perfect shot on every other column. This is the only number
+          // here that can see it.
+          (s.leadAcross === null || s.leadAcross === undefined
+            ? '\n                 the quarry had left the snapshot by the time it landed'
+            : `\n                 the deer itself was ${Math.abs(s.leadAcross)} m ` +
+              `${s.leadAcross < 0 ? 'LEFT' : 'RIGHT'} of the mark and ${Math.abs(s.leadAlong)} m ` +
+              `${s.leadAlong < 0 ? 'nearer' : 'further'} than solved for`) +
           // The control: our own model said it would come down at `pred` m down
           // the shot line, and it actually landed `model` m from that spot.
           // Small means the bow is understood and the aim is at fault; large
@@ -220,6 +230,17 @@ async function main() {
     }
     const mean = (k) => (shots.reduce((a, s) => a + (s[k] ?? 0), 0) / shots.length).toFixed(1);
     console.log(`        mean: vsModel ${mean('vsModel')} m, across ${mean('across')} m over ${shots.length} arrows`);
+    // ── the sign split, because a tolerance on the mean cannot see a bias ──
+    // Twelve arrows erring the same way is the finding whatever the magnitude
+    // is; ballisticscheck learned that the hard way and this is the same test
+    // applied to the lead. A consistent sign here is an over- or under-lead.
+    const led = shots.filter((s) => s.leadAcross !== null && s.leadAcross !== undefined);
+    if (led.length) {
+      const right = led.filter((s) => s.leadAcross > 0).length;
+      console.log(`        LEAD: mean ${(led.reduce((a, s) => a + s.leadAcross, 0) / led.length).toFixed(1)} m across ` +
+        `over ${led.length} arrows — ${right} right of the mark, ${led.length - right} left. ` +
+        'A split is spread; all one way is a lead the solver is getting wrong.');
+    }
     // ── and the number that is NOT marksmanship, kept where it can be seen ──
     // `along` is the impact against the deer's chest, and a shaft that goes
     // clean through a chest still lands ten to fourteen metres further on. It
@@ -285,11 +306,25 @@ async function main() {
       ' — the only seconds in which a shot was ever on the table');
 
     if (!killed) {
-      // Four failures, and they are NOT interchangeable: an empty hillside is a
+      // SIX failures, and they are NOT interchangeable: an empty hillside is a
       // world bug, a herd that stays at 80 m is an approach bug, a refusal at
-      // 20 m is a sightline bug, and an arrow that leaves and misses is the
-      // only one that is marksmanship. Three sessions have read the fourth into
-      // evidence for one of the first three.
+      // 20 m is a sightline bug, an arrow that goes home and leaves the animal
+      // standing is a damage bug, and only an arrow that leaves and misses is
+      // marksmanship. Three sessions have read the last into evidence for one
+      // of the others.
+      //
+      // The two at the end were added the run this block was written, because
+      // its FIRST version called a run "marksmanship" that loosed one arrow,
+      // WOUNDED the deer with it, and spent the other 149 seconds refusing for
+      // ground — the same class of lie the board told twice. A verdict line
+      // that names the wrong bug is worse than no verdict line.
+      const wounds = agent.wounds?.length ?? 0;
+      const topRefusal = [...(refused ?? [])].reduce((acc, r) => {
+        const k = r.why.replace(/ \d+ m out$/, '');
+        acc[k] = (acc[k] ?? 0) + 1;
+        return acc;
+      }, {});
+      const worst = Object.entries(topRefusal).sort((a, b) => b[1] - a[1])[0];
       const why = withDeer.length === 0
         ? 'NOT ONE DEER in the snapshot all run — an empty hillside, not an archer'
         : locked.length === 0
@@ -297,8 +332,16 @@ async function main() {
           : inRange.length === 0
             ? `it never closed to ${AGENTS.shootRange} m — nearest all run was ${ranges[0]} m, so no shot was ever possible`
             : (agent.arrows ?? 0) === 0
-              ? `it was inside ${AGENTS.shootRange} m for ${inRange.length} s and never loosed — read the refusal table above, not the ballistics`
-              : `it loosed ${agent.arrows} arrows from inside ${AGENTS.shootRange} m and none of them killed — this one IS marksmanship`;
+              ? `it was inside ${AGENTS.shootRange} m for ${inRange.length} s and never loosed` +
+                (worst ? ` — ${worst[1]} refusals, mostly "${worst[0]}"` : '') +
+                '. A SIGHTLINE problem, not ballistics'
+              : wounds > 0
+                ? `its arrows went HOME — ${wounds} wound${wounds === 1 ? '' : 's'} and no kill off ` +
+                  `${agent.arrows} shot${agent.arrows === 1 ? '' : 's'} in ${secs} s` +
+                  (worst ? `, with ${worst[1]} refusals mostly "${worst[0]}"` : '') +
+                  '. That is damage and shot RATE, not aim'
+                : `it loosed ${agent.arrows} arrows from inside ${AGENTS.shootRange} m and every one missed — ` +
+                  'this one IS the aim, and the LEAD column above is the place to read it';
       console.log(`\n      so the reason nothing died: ${why}`);
     }
   }

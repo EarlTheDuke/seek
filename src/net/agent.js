@@ -417,10 +417,23 @@ export class Agent {
    * them by adjusting constants and re-counting is how three passes moved the
    * failure around without touching it.
    *
-   *   ACROSS  the shot line — negative is left, positive is right. There is no
-   *           lead in this direction that the aim did not already put there, so
-   *           this is spread and mis-lead, and it flips sign with the animal's
-   *           direction. It means what it looks like it means.
+   *   ACROSS  the shot line — negative is left, positive is right. **THIS IS
+   *           SPREAD, AND ONLY SPREAD.** The comment here used to say it was
+   *           "spread and mis-lead" and that was the instrument's third lie:
+   *           `mark` is the LEAD-ADJUSTED aim point that `aimAt` returns, so a
+   *           mis-lead moves the ANIMAL off the mark and never moves the arrow
+   *           off it. Measured over ten arrows from two live runs it read
+   *           exactly 0.0 m every single time — a crouched, stationary body has
+   *           almost no spread, and this number was structurally incapable of
+   *           reporting the one failure that fits the evidence.
+   *
+   *   LEAD    across the shot line, and it is the number that was missing:
+   *           where the QUARRY actually stood when the shaft came down, against
+   *           where we aimed. Positive is the animal right of the mark, so the
+   *           lead was too far left — an over-lead flips the sign against the
+   *           animal's direction. A tenth of a metre of this is interpolation
+   *           lag; a metre or more of it is the aim being wrong about where the
+   *           deer was going to be.
    *
    *   VSMODEL along it, measured against `predicted` — where OUR OWN BALLISTICS
    *           said this exact shaft would come down. Negative is short of that,
@@ -471,6 +484,35 @@ export class Agent {
     // `predicted.dist` is where a flawless one would have. The difference is
     // the only along-the-line error that is not mostly geometry.
     const vsModel = s.predicted ? along + d - s.predicted.dist : null;
+    // ── AND WHERE THE DEER WAS, which nothing has ever asked ──
+    //
+    // Every column above is the arrow against OUR OWN AIM, and every one of
+    // them has said the same thing on every red run: the shaft went exactly
+    // where it was told, to within a tenth of a metre. That is a complete
+    // answer to "is the bow understood" and no answer at all to "why did it
+    // miss", because the aim point is lead-adjusted — if the lead is wrong the
+    // arrow still flies true, straight through empty grass.
+    //
+    // So look up the animal this shot was FOR, in the snapshot as it stands
+    // when the miss lands, and put it in the same shot-line frame as the
+    // impact. `leadAcross` is the lead error and `leadAlong` is how much
+    // nearer or further it is than we solved for.
+    //
+    // Honest about its own noise: the snapshot is `NET.interpolationMs` behind
+    // and the miss event arrives a tick or two after the shaft does, so a deer
+    // at walking pace carries a few tens of centimetres of lag in here. Read
+    // metres, not decimals.
+    const q = s.quarryId != null
+      ? (this.snapshot?.cr ?? []).find((c) => c.i === s.quarryId)
+      : null;
+    let leadAcross = null;
+    let leadAlong = null;
+    if (q) {
+      const qx = q.p[0] - s.from.x;
+      const qz = q.p[2] - s.from.z;
+      leadAlong = qx * ux + qz * uz - d;
+      leadAcross = qx * -uz + qz * ux;
+    }
     this.shots = this.shots ?? [];
     this.shots.push({
       dist: +d.toFixed(1),
@@ -485,6 +527,11 @@ export class Agent {
       pred: s.predicted ? +s.predicted.dist.toFixed(1) : null,
       model: model === null ? null : +model.toFixed(1),
       vsModel: vsModel === null ? null : +vsModel.toFixed(1),
+      // The quarry against the mark, in the same frame. Null when the animal
+      // has left the snapshot by the time the shaft lands — which is itself
+      // worth seeing, because it means it ran clean out of the picture.
+      leadAcross: leadAcross === null ? null : +leadAcross.toFixed(1),
+      leadAlong: leadAlong === null ? null : +leadAlong.toFixed(1),
     });
     this.lastShot = null; // one arrow, one verdict
     // ── said in the first person, and only in numbers that mean something ──
@@ -497,6 +544,13 @@ export class Agent {
       bits.push(`${Math.abs(vsModel).toFixed(0)} m ${vsModel < 0 ? 'short of' : 'past'} where the bow promised`);
     }
     if (Math.abs(across) >= 1.5) bits.push(`${Math.abs(across).toFixed(0)} m ${across < 0 ? 'left' : 'right'}`);
+    // The lesson the mind could never be taught, because nothing measured it.
+    // "My arrow flew true and the deer was four metres left of where I aimed"
+    // is an actionable sentence; "a miss, but barely" is not.
+    if (leadAcross !== null && Math.abs(leadAcross) >= 1) {
+      bits.push(`the deer was ${Math.abs(leadAcross).toFixed(0)} m to the ` +
+        `${leadAcross < 0 ? 'left' : 'right'} of my mark when it landed`);
+    }
     if (!bits.length) return `a miss, but barely — the shaft flew true and still went by at ${Math.round(d)} m`;
     return `${bits.join(' and ')}, at ${Math.round(d)} m`;
   }
@@ -1481,6 +1535,9 @@ export class Agent {
     this.lastShot = {
       from: { x: this._x, y: this._y, z: this._z },
       mark: shot.mark,
+      // WHICH ANIMAL this was for, so the miss can be measured against the deer
+      // and not only against our own aim point. See `howItMissed`.
+      quarryId: t.id,
       dist: shot.dist,
       pitch: shot.pitch,
       yaw: shot.yaw,
