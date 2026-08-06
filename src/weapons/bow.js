@@ -144,7 +144,7 @@ export class Bow extends Weapon {
     camera.getWorldDirection(_aimFwd).normalize();
     // Same origin and the same inherited motion as `fire`, or the preview would
     // quietly promise a shot the bow does not take.
-    _aimOrigin.copy(camera.position).addScaledVector(_aimFwd, 0.55);
+    _aimOrigin.copy(camera.position).addScaledVector(_aimFwd, BOW.muzzle);
     _aimVel.copy(_aimFwd).multiplyScalar(this.launchSpeed).add(controller.velocity);
 
     return projectiles.predict('arrow', _aimOrigin, _aimVel, this.ctx.ownerId ?? null);
@@ -177,7 +177,7 @@ export class Bow extends Weapon {
 
     // Spawn on the aim line rather than at the bow, so the arrow goes exactly
     // where the crosshair says. Offsetting to the bow looks nicer and lies.
-    _origin.copy(camera.position).addScaledVector(_fwd, 0.55);
+    _origin.copy(camera.position).addScaledVector(_fwd, BOW.muzzle);
 
     // `ownerId` so the shaft cannot strike the archer who loosed it — it
     // spawns half a metre in front of a capsule wider than that.

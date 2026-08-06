@@ -61,7 +61,7 @@ export function boardPortFromEnv(env = process.env) {
 }
 
 /**
- * "3 m short and 2 m left at 24 m, into the ground". Where a stray arrow went.
+ * "3 m short of the promise and 2 m left at 24 m, into the ground".
  *
  * EVERY ENTRY IN `Agent.shots` IS A MISS. It is filled from one place only —
  * `howItMissed`, called from the `'miss'` event — and `hit` on that event is
@@ -75,14 +75,31 @@ export function boardPortFromEnv(env = process.env) {
  * than no board, and it passed its own check — because the check's fixture was
  * written from the same wrong assumption. Arrows that go HOME are counted
  * somewhere else entirely: `wounds` (it stayed up) and `kills` (it did not).
+ *
+ * ── AND THE SECOND VERSION LIED TOO, more quietly ──
+ *
+ * It read `along`, which is the impact measured against the MARK — and the mark
+ * is a chest 0.75 m off the ground the animal is standing on. A shaft that goes
+ * exactly through it carries on and buries itself thirteen metres further out,
+ * because at 20 m it is descending at two degrees. So "long" was the only
+ * answer that reading could give, and a run of "+3 m long at 20 m" got written
+ * up as a systematic ballistics bias growing with range. Those arrows were each
+ * landing TEN METRES SHORT of a perfect one.
+ *
+ * `vsModel` is the honest column: the impact against `predictLanding`, which is
+ * where a flawless shaft from this bow, at this angle, over this ground, comes
+ * down. Zero means the bow did its part. See `server/ballisticscheck.js`.
  */
 function strayWords(s) {
   if (!s) return '';
   const into = s.hit ? `, into ${s.hit === 'solid' ? 'something solid' : `the ${s.hit}`}` : '';
   const bits = [];
-  if (Math.abs(s.along ?? 0) >= 1.5) bits.push(`${Math.abs(s.along).toFixed(0)} m ${s.along < 0 ? 'short' : 'long'}`);
+  const v = s.vsModel;
+  if (v != null && Math.abs(v) >= 1.5) {
+    bits.push(`${Math.abs(v).toFixed(0)} m ${v < 0 ? 'short of' : 'past'} the promise`);
+  }
   if (Math.abs(s.across ?? 0) >= 1.5) bits.push(`${Math.abs(s.across).toFixed(0)} m ${s.across < 0 ? 'left' : 'right'}`);
-  if (!bits.length) return `a hand's width off at ${Math.round(s.dist ?? 0)} m${into}`;
+  if (!bits.length) return `flew true and still missed, at ${Math.round(s.dist ?? 0)} m${into}`;
   return `${bits.join(' and ')} at ${Math.round(s.dist ?? 0)} m${into}`;
 }
 

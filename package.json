@@ -47,7 +47,8 @@
     "watchcheck": "node server/watchcheck.js",
     "rostercheck": "node server/rostercheck.js",
     "refillcheck": "node server/refillcheck.js",
-    "boardcheck": "node server/boardcheck.js"
+    "boardcheck": "node server/boardcheck.js",
+    "ballisticscheck": "node server/ballisticscheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

@@ -109,9 +109,29 @@ async function main() {
     // seven times running. A fixture written from the same guess as the code
     // does not test the code, it ratifies it. These values are copied from a
     // real `board.json`.
+    //
+    // ── AND THE SECOND VERSION OF BOTH LIED TOO, more quietly ──
+    //
+    // The first row is copied verbatim out of a live huntcheck payload, and it
+    // is here because it is the exact shape that misled this project. READ THE
+    // TWO NUMBERS TOGETHER: `along` is +2.8 — "long" — and `vsModel` is +0.3.
+    // The shaft went almost precisely where the bow promised. The +2.8 is not
+    // marksmanship at all, it is the deer's chest sitting 0.75 m above the
+    // ground the deer is standing on, and a shaft that passes clean through a
+    // chest carries on for another ten metres or more before it finds dirt.
+    //
+    // A board that prints the first number tells a watcher the archer shoots
+    // long, and eight of those in a row got written into STATE.md as a
+    // systematic ballistics bias at the top of the queue. It was geometry.
     shots: [
-      { dist: 24.2, along: -3.1, across: 0.4, high: 0.2, hit: 'ground' },
-      { dist: 18.0, along: 0.1, across: 0.1, high: 0, hit: 'solid' },
+      { dist: 22.1, along: 2.8, across: 0.1, high: -0.6, pitch: 22.99, eye: 1.05,
+        hit: 'ground', pred: 24.6, model: 0.3, vsModel: 0.3 },
+      // And a shaft that genuinely fell short of its own promise, for contrast:
+      // landed at 14.9 m down the line where the model said 19.1, and 2.4 m to
+      // the right of the aim. THIS is what a bad arrow looks like in the
+      // honest frame.
+      { dist: 18.0, along: -3.1, across: 2.4, high: 0.1, pitch: 0.61, eye: 1.05,
+        hit: 'solid', pred: 19.1, model: 4.8, vsModel: -4.2 },
     ],
     // Where an arrow that went HOME is recorded — nowhere near `shots`.
     releases: [
@@ -137,9 +157,19 @@ async function main() {
     p.deeds[0]?.text);
   check('EVERY STRAY ARROW is there, with how far off it went and into what',
     p.strays.length === 2 && p.astray === 2
-      && /3 m short.*into the ground/.test(p.strays[0].text)
-      && /into something solid/.test(p.strays[1].text),
+      && /into the ground/.test(p.strays[0].text)
+      && /4 m short of the promise and 2 m right.*into something solid/.test(p.strays[1].text),
     p.strays.map((x) => x.text).join(' | '));
+  // ── THE OTHER REGRESSION, and it is a wording one ──
+  //
+  // Row one landed 0.3 m from what the bow promised. It is a clean shaft and a
+  // missed deer, and the board must say so. What it must NEVER say about it is
+  // "long", because "long" against the animal is the reading that put a
+  // phantom ballistics bias at the top of the queue for a session. Asserted on
+  // the TEXT, because the text is what a watcher reads.
+  check('...and an arrow that flew TRUE is never described as shooting long',
+    !/long/.test(p.strays[0].text) && /flew true/.test(p.strays[0].text),
+    `"${p.strays[0].text}" — \`along\` was +2.8 m against the deer, \`vsModel\` +0.3 m against the bow`);
   // The regression that started all this. A miss whose `hit` field names a
   // surface must never be counted as a hit, and the honest denominator is the
   // number of shafts that actually left the string.

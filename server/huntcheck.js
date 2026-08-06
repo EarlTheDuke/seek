@@ -159,11 +159,11 @@ async function main() {
   // `Agent.howItMissed`.
   const shots = agent.shots ?? [];
   if (shots.length) {
-    console.log('\n      every arrow, against its own aim point:');
+    console.log('\n      every arrow, against what the bow promised:');
     for (const s of shots) {
       console.log(
         `        ${String(s.dist).padStart(5)} m  ` +
-          `along ${s.along > 0 ? '+' : ''}${s.along} m  across ${s.across > 0 ? '+' : ''}${s.across} m  ` +
+          `vsModel ${s.vsModel > 0 ? '+' : ''}${s.vsModel} m  across ${s.across > 0 ? '+' : ''}${s.across} m  ` +
           `(pitch ${s.pitch}°, eye ${s.eye} m, hit ${s.hit})` +
           // The control: our own model said it would come down at `pred` m down
           // the shot line, and it actually landed `model` m from that spot.
@@ -172,8 +172,15 @@ async function main() {
           (s.pred === null ? '' : `\n                 model said it would land at ${s.pred} m — it was ${s.model} m from there`)
       );
     }
-    const mean = (k) => (shots.reduce((a, s) => a + s[k], 0) / shots.length).toFixed(1);
-    console.log(`        mean: along ${mean('along')} m, across ${mean('across')} m over ${shots.length} arrows`);
+    const mean = (k) => (shots.reduce((a, s) => a + (s[k] ?? 0), 0) / shots.length).toFixed(1);
+    console.log(`        mean: vsModel ${mean('vsModel')} m, across ${mean('across')} m over ${shots.length} arrows`);
+    // ── and the number that is NOT marksmanship, kept where it can be seen ──
+    // `along` is the impact against the deer's chest, and a shaft that goes
+    // clean through a chest still lands ten to fourteen metres further on. It
+    // is printed because it is a fact, and labelled because a run of it was
+    // once read as a ballistics bias and put at the top of the queue.
+    console.log(`        (raw \`along\` vs the animal: ${mean('along')} m — mostly the ` +
+      `geometry of a two-degree descent, not the archer. See ballisticscheck.)`);
   } else {
     console.log('\n      no arrow missed, so there is nothing to measure');
   }

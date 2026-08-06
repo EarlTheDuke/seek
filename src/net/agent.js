@@ -415,12 +415,34 @@ export class Agent {
    * The whole point of the exercise. "Six misses at about 25 m" is compatible
    * with over-leading, under-leading, a low arc and a hill, and picking between
    * them by adjusting constants and re-counting is how three passes moved the
-   * failure around without touching it. Two numbers separate all four:
+   * failure around without touching it.
    *
-   *   ALONG   the shot line — negative is short, positive is long. A whole
-   *           trajectory sitting low lands SHORT by a lot, every time.
-   *   ACROSS  it — negative is left, positive is right. A lead error is across
-   *           and only across, and it flips sign with the animal's direction.
+   *   ACROSS  the shot line — negative is left, positive is right. There is no
+   *           lead in this direction that the aim did not already put there, so
+   *           this is spread and mis-lead, and it flips sign with the animal's
+   *           direction. It means what it looks like it means.
+   *
+   *   VSMODEL along it, measured against `predicted` — where OUR OWN BALLISTICS
+   *           said this exact shaft would come down. Negative is short of that,
+   *           positive is past it. THIS is the along-the-line number worth
+   *           reading, and `along` is not.
+   *
+   * ── why `along` is not, which cost this project a phantom bug ──
+   *
+   * `along` is measured against the MARK, and the mark is a deer's chest 0.75 m
+   * above the ground it stands on. An arrow that passes exactly through that
+   * chest does not stop: it carries on and buries itself in the dirt further
+   * out. At 20 m the shaft is descending at barely two degrees, so shedding
+   * that last 0.75 m takes it another THIRTEEN metres. A flawless archer reads
+   * "+13 m long" — the number is geometry, and its sign is a foregone
+   * conclusion for every shot that is not stopped by a bank.
+   *
+   * The board printed it as marksmanship anyway, and a run of consistent
+   * "+3 m long at 20 m" was written up as a systematic ballistics bias whose
+   * magnitude grew with range. It was neither. Every one of those arrows was
+   * landing TEN METRES SHORT of where a perfect one would have. See
+   * `server/ballisticscheck.js`, which measures the bow against its own model
+   * with the deer, the lead and the terrain taken out of the way.
    *
    * Kept in `shots` for a report to total up, and said in the first person into
    * memory so the mind that has to decide what to do next can read it.
@@ -444,6 +466,11 @@ export class Agent {
     const model = s.predicted
       ? Math.hypot(e.at[0] - s.predicted.x, e.at[2] - s.predicted.z)
       : null;
+    // Signed, and down the shot line: how much shorter or longer than the shaft
+    // OUR OWN BOW MODEL promised. `along + d` is where it really came down;
+    // `predicted.dist` is where a flawless one would have. The difference is
+    // the only along-the-line error that is not mostly geometry.
+    const vsModel = s.predicted ? along + d - s.predicted.dist : null;
     this.shots = this.shots ?? [];
     this.shots.push({
       dist: +d.toFixed(1),
@@ -453,17 +480,25 @@ export class Agent {
       pitch: +(s.pitch * 180 / Math.PI).toFixed(2),
       eye: s.eye,
       hit: e.hit,
-      // Predicted range down the shot line, and how far the real one was from it.
+      // Predicted range down the shot line, how far the real one was from it,
+      // and the same gap SIGNED along the line — short is negative.
       pred: s.predicted ? +s.predicted.dist.toFixed(1) : null,
       model: model === null ? null : +model.toFixed(1),
+      vsModel: vsModel === null ? null : +vsModel.toFixed(1),
     });
     this.lastShot = null; // one arrow, one verdict
-    const near = Math.abs(along) < 1.5 && Math.abs(across) < 1.5;
-    if (near) return `a miss, but barely — a hand's width off the mark at ${Math.round(d)} m`;
+    // ── said in the first person, and only in numbers that mean something ──
+    // This sentence goes into `memory`, which goes into the PROMPT. Telling a
+    // mind its arrow flew "3 m long" when it in fact fell ten metres short of a
+    // perfect one is not a harmless bit of wording; it is feeding the thing
+    // that has to decide what to do next a reading with the sign reversed.
     const bits = [];
-    if (Math.abs(along) >= 1.5) bits.push(`${Math.abs(along).toFixed(0)} m ${along < 0 ? 'short' : 'long'}`);
+    if (vsModel !== null && Math.abs(vsModel) >= 1.5) {
+      bits.push(`${Math.abs(vsModel).toFixed(0)} m ${vsModel < 0 ? 'short of' : 'past'} where the bow promised`);
+    }
     if (Math.abs(across) >= 1.5) bits.push(`${Math.abs(across).toFixed(0)} m ${across < 0 ? 'left' : 'right'}`);
-    return `${bits.join(' and ')} of the mark at ${Math.round(d)} m`;
+    if (!bits.length) return `a miss, but barely — the shaft flew true and still went by at ${Math.round(d)} m`;
+    return `${bits.join(' and ')}, at ${Math.round(d)} m`;
   }
 
   send(type, data) {

@@ -362,6 +362,24 @@ export const BOW = {
   fovPull: 4.5, // degrees of FOV narrowing at full draw — a subtle "focus"
   cooldown: 0.22, // seconds after a shot before you can draw again
   holdFatigue: 3.2, // seconds at full draw before your aim starts to shake
+
+  // ── where the shaft actually starts, which is NOT the eye ──
+  //
+  // `Bow.fire` spawns the arrow this far along the aim line rather than at the
+  // camera, so it clears a capsule 0.4 m wide instead of striking the archer in
+  // the first frame. It was a bare 0.55 in two places in bow.js and nowhere
+  // else, so every model of the bow launched from the eye — half a metre short
+  // and, on a downward hold, a few centimetres high.
+  //
+  // Measured rather than supposed, over a socket: twelve arrows compared
+  // against `predictLanding` all landed LONG of it, +0.05 to +0.91 m, twelve
+  // signs out of twelve. Small, but a sign that never flips is a bias and not
+  // scatter. Honouring it moves the solved pitch by about 1.4 mrad and takes
+  // 1.5 cm at 10 m to 8.5 cm at 60 m off the top of the arc — under
+  // `spreadFull`, so it is a correction and not a transformation. Named here so
+  // the bow and every model of it read the SAME number. See
+  // `server/ballisticscheck.js`.
+  muzzle: 0.55,
 };
 
 // ── The mark ────────────────────────────────────────────────────────────────

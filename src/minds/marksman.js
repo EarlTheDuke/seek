@@ -37,8 +37,14 @@ import { ARROW, BOW, PLAYER } from '../config.js';
  */
 export function arrowError(pitch, dist, dy, speed = BOW.maxSpeed) {
   const dt = ARROW.substep;
-  let x = 0;
-  let y = 0;
+  // ── FROM THE MUZZLE, NOT THE EYE ──
+  // `Bow.fire` spawns the shaft `BOW.muzzle` along the aim line so it clears
+  // the archer's own capsule. Starting the integration at the eye gives every
+  // model of this bow half a metre of free range, and — because the hold is
+  // usually downward — a few centimetres of height it does not have. Measured
+  // over a socket at twelve arrows long out of twelve. See `BOW.muzzle`.
+  let x = BOW.muzzle * Math.cos(pitch);
+  let y = BOW.muzzle * Math.sin(pitch);
   let vx = Math.cos(pitch) * speed;
   let vy = Math.sin(pitch) * speed;
   for (let i = 0; i < 4096; i++) {
@@ -167,8 +173,9 @@ export function sightline(fromX, eyeY, fromZ, toX, toY, toZ, groundAt, margin = 
 export function arcClearance(from, eyeY, pitch, mark, groundAt, {
   speed = BOW.maxSpeed,
   margin = 0.25,
-  // The shaft spawns 0.55 m along the aim line, so the ground nearer than that
-  // is behind the arrow before it exists. A little past it, to stay honest.
+  // The shaft spawns `BOW.muzzle` along the aim line, so the ground nearer than
+  // that is behind the arrow before it exists. The integration now starts there
+  // too, so this is belt and braces — a little past it, to stay honest.
   ignoreWithin = 0.8,
   // ── everything solid that is not the ground ──
   //
@@ -188,8 +195,9 @@ export function arcClearance(from, eyeY, pitch, mark, groundAt, {
   const uz = dz / dist;
 
   const dt = ARROW.substep;
-  let x = 0;
-  let y = 0;
+  // From the muzzle, like the bow — see `arrowError` and `BOW.muzzle`.
+  let x = BOW.muzzle * Math.cos(pitch);
+  let y = BOW.muzzle * Math.sin(pitch);
   let vx = Math.cos(pitch) * speed;
   let vy = Math.sin(pitch) * speed;
   let worst = Infinity;
@@ -238,8 +246,9 @@ export function predictLanding(from, eyeY, pitch, yaw, groundAt, speed = BOW.max
   const ux = -Math.sin(yaw);
   const uz = -Math.cos(yaw);
   const dt = ARROW.substep;
-  let x = 0;
-  let y = 0;
+  // From the muzzle, like the bow — see `arrowError` and `BOW.muzzle`.
+  let x = BOW.muzzle * Math.cos(pitch);
+  let y = BOW.muzzle * Math.sin(pitch);
   let t = 0;
   let vx = Math.cos(pitch) * speed;
   let vy = Math.sin(pitch) * speed;
