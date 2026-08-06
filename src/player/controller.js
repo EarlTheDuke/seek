@@ -94,8 +94,29 @@ export class Controller {
 
     // Look is applied once per frame, not per physics substep — the intent
     // carries the whole frame's mouse movement already.
-    this.targetYaw -= intent.lookYaw;
-    this.targetPitch -= intent.lookPitch;
+    //
+    // ABSOLUTE BEATS DELTA when it is offered. A local frame offers no absolute
+    // aim (`null`) and integrates the mouse exactly as it always has, so nothing
+    // about playing on your own changes. An intent off the wire DOES carry one,
+    // and the server takes it as the truth rather than adding up deltas it only
+    // half received. See the note in `intents.js` for why the deltas cannot be
+    // trusted across a rate-limited link.
+    //
+    // `yaw` is set alongside `targetYaw`, not damped towards it, because the
+    // number arriving has ALREADY been damped on the client it came from.
+    // Damping it again would leave the server permanently trailing the shot.
+    if (intent.aimYaw !== null && intent.aimYaw !== undefined) {
+      this.targetYaw = intent.aimYaw;
+      this.yaw = intent.aimYaw;
+    } else {
+      this.targetYaw -= intent.lookYaw;
+    }
+    if (intent.aimPitch !== null && intent.aimPitch !== undefined) {
+      this.targetPitch = intent.aimPitch;
+      this.pitch = intent.aimPitch;
+    } else {
+      this.targetPitch -= intent.lookPitch;
+    }
     // Never let pitch reach straight up/down; it gimbals and feels awful.
     const limit = Math.PI / 2 - 0.02;
     this.targetPitch = clamp(this.targetPitch, -limit, limit);

@@ -117,6 +117,12 @@ export class Agent {
     this.wanderAngle = rand() * Math.PI * 2;
     this.retarget = 0;
     this.target = null;
+    // ── what we have already carried away ──
+    // Deadfall is a pure function of the seed, so `nearestDeadfall` will happily
+    // name the same branch for ever. A `Pickups` instance remembers what it has
+    // collected; an agent has no `Pickups`, so it remembers here. Without this
+    // the `gather` goal walks two metres, presses E, and never moves again.
+    this.taken = new Set();
     this.hours = 0;
     this.spoke = -999;
     this.tokensIn = 0;
@@ -401,6 +407,16 @@ export class Agent {
     const i = this.intent;
     i.interact = i.drop = i.place = i.eat = i.jump = false;
 
+    // SAY WHERE WE ARE POINTING, not just how far we turned.
+    //
+    // An agent is a network client like any other, so its `lookYaw` deltas were
+    // rate-limited on the way out and the server integrated a fraction of them
+    // — the agent believed it was facing its quarry while the server had it
+    // looking somewhere else entirely. `this.yaw` is the agent's own honest
+    // answer and it is already tracked below, so stating it costs nothing and
+    // makes every model-driven player able to aim. See `intents.js`.
+    i.aimYaw = this.yaw;
+
     this._x ??= 0;
     this._z ??= 0;
 
@@ -440,6 +456,8 @@ export class Agent {
         if (this.target.act) {
           i[this.target.act] = true;
           this.acted[this.target.act] = (this.acted[this.target.act] ?? 0) + 1;
+          // Reached it and used our hands on it, so stop being offered it.
+          if (this.target.key) this.taken.add(this.target.key);
         }
         this.target = null;
       }
@@ -524,16 +542,16 @@ export class Agent {
       // terrain and the place names already use, and it is why an agent can
       // walk to a branch it was never told about. See world/pickups.js.
       case 'gather': {
-        const wood = nearestDeadfall(this._x, this._z);
-        return wood ? { x: wood.x, z: wood.z, act: 'interact' } : this.roam();
+        const wood = nearestDeadfall(this._x, this._z, undefined, this.taken);
+        return wood ? { x: wood.x, z: wood.z, key: wood.key, act: 'interact' } : this.roam();
       }
       // Camp is a place with fuel in reach, so this is gather with a reason.
       // It used to fall through to `roam()` — which meant an agent that decided
       // to make camp did precisely what an agent that decided to wander did,
       // and the report counted it as a distinct activity. It was not one.
       case 'makeCamp': {
-        const wood = nearestDeadfall(this._x, this._z, 60);
-        return wood ? { x: wood.x, z: wood.z, act: 'interact' } : this.roam();
+        const wood = nearestDeadfall(this._x, this._z, 60, this.taken);
+        return wood ? { x: wood.x, z: wood.z, key: wood.key, act: 'interact' } : this.roam();
       }
       // ── standing orders ──
       // Both resolve to "be near them", and the difference is what happens when

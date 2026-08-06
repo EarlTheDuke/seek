@@ -160,44 +160,51 @@ async function main() {
     return Math.atan2(aimY - eyeY + drop, d);
   };
 
-  // ── aiming over a wire, which is harder than it looks ──
+  // ── aiming over a wire, which used to be harder than it looks ──
   //
-  // Two rates and an accumulator, and every naive controller here oscillates.
-  // `targetYaw -= lookYaw` ACCUMULATES; the yaw you are told about lags behind
-  // it through the look smoothing; and `me` refreshes at the 20 Hz snapshot
-  // rate while intents go out at 30. Re-applying the whole remaining error
-  // every tick therefore stacks corrections for a turn already under way, AND
-  // applies each stale reading about one and a half times. Done that way the
-  // aim ended up 38° wide with the pitch 67° in the air.
+  // WHAT THIS USED TO SAY, because the scar is the point:
   //
-  // So: ONE correction per FRESH look at yourself, then hands off while it
-  // settles. Which is what a hand on a mouse actually does.
-  const cap = 0.34; // the per-tick look clamp in sanitiseIntent, less a hair
-  const clampLook = (v) => Math.max(-cap, Math.min(cap, v));
-  const freshMe = async () => {
-    const seen = archer.meTick;
-    for (let i = 0; i < 40 && archer.meTick === seen; i++) await sleep(5);
-  };
-  const nudge = async (dyaw, dpitch) => {
-    archer.intent.lookYaw = dyaw;
-    archer.intent.lookPitch = dpitch;
-    archer.sendIntent(); // sendIntent clears both, so everything after sends zero
-    target.sendIntent();
-    await freshMe();
-  };
-  const aim = async (tolerance, passes) => {
-    for (let i = 0; i < passes; i++) {
-      const err = aimError();
-      const pErr = archer.me.t - pitchWanted();
-      if (Math.abs(err) < tolerance && Math.abs(pErr) < tolerance) return;
-      await nudge(clampLook(-err), clampLook(pErr));
-      if (Math.abs(err) < cap) await driveFor(300, [archer, target]); // let it settle
+  //   "Two rates and an accumulator, and every naive controller here
+  //    oscillates. `targetYaw -= lookYaw` ACCUMULATES; the yaw you are told
+  //    about lags behind it through the look smoothing; and `me` refreshes at
+  //    the 20 Hz snapshot rate while intents go out at 30. Re-applying the
+  //    whole remaining error every tick therefore stacks corrections for a turn
+  //    already under way, AND applies each stale reading about one and a half
+  //    times. Done that way the aim ended up 38° wide with the pitch 67° in the
+  //    air. So: ONE correction per FRESH look at yourself, then hands off while
+  //    it settles."
+  //
+  // All of that was an elaborate way of coping with a channel that ate half of
+  // what was posted through it. `PlayerInput.poll` consumes and zeroes a look
+  // delta every frame at 60 Hz; `Client.sendIntent` transmits at 30. Half of
+  // every turn was destroyed before it was sent, so the server's copy of your
+  // facing drifted from your own for ever, and no field existed to correct it.
+  // The dance above still only got this check to 2/8: the pitch came out 14°
+  // high and the arrow was never seen.
+  //
+  // The intent now carries WHERE YOU ARE POINTING, not how far you turned, so
+  // there is nothing to accumulate and nothing to lose. State the angle; the
+  // server sets it. See `intents.js` for the field and the whole story.
+  // Repeated only because the GROUND is still moving under us, never because
+  // the aim needs to converge — it lands in one packet. Walking backwards down
+  // a hillside leaves you settling for a moment afterwards, and both the angle
+  // to them and the drop depend on how high you are standing while you take it.
+  const aim = async () => {
+    for (let pass = 0; pass < 6; pass++) {
+      archer.intent.aimYaw = yawTo(archer.me.p[0], archer.me.p[2], them().p[0], them().p[2]);
+      archer.intent.aimPitch = pitchWanted();
+      const seen = archer.meTick;
+      for (let i = 0; i < 40 && archer.meTick === seen; i++) {
+        archer.sendIntent();
+        target.sendIntent();
+        await sleep(1000 / 30);
+      }
     }
   };
 
   // Point at them while they are still close, where a couple of degrees cannot
   // miss — a person is 0.42 m wide, so at 3 m the tolerance is a whole 8°.
-  await aim(0.004, 40);
+  await aim();
 
   // ── then open the range, walking straight backwards ──
   //
@@ -212,7 +219,7 @@ async function main() {
   await driveFor(3000, [archer, target]);
   archer.intent.forward = 0;
   await driveFor(400, [archer, target]);
-  await aim(0.004, 12);
+  await aim();
 
   const t0 = them();
   const range = t0 ? Math.hypot(t0.p[0] - archer.me.p[0], t0.p[2] - archer.me.p[2]) : 0;
@@ -249,11 +256,33 @@ async function main() {
   // from `ctrl.position`, which is the FEET. A shot loosed from the ankles digs
   // into the hill in front of you, and every symptom downstream looks like a
   // broken hit test.
+  //
+  // MEASURED BY FLYING IT BACKWARDS, not by reading the first sighting.
+  //
+  // The first snapshot to catch an arrow is up to a full 50 ms after it left,
+  // and 50 ms is 3.7 m of flight. While the aim happened to be flat that cost
+  // nothing; now that the archer correctly holds 8° down a hillside, the shaft
+  // has already dropped half a metre before anyone sees it, and reading that
+  // sighting as the launch point says "fired from the waist" about a perfectly
+  // good shot. Reported as a failure by this very check, which is the sort of
+  // thing that sends you looking for a bug in the wrong file.
+  //
+  // So: take the sighting, work out how long it must have been flying from how
+  // far it has travelled, and put the gravity and the vertical speed back.
   const first = archer.projectiles[0];
-  const launchHeight = first ? first.p[1] - feetY : NaN;
+  let launchHeight = NaN;
+  if (first) {
+    const flownX = first.p[0] - archer.me.p[0];
+    const flownZ = first.p[2] - archer.me.p[2];
+    const vH = Math.hypot(first.v[0], first.v[2]);
+    const tof = vH > 1 ? Math.hypot(flownX, flownZ) / vH : 0;
+    launchHeight = first.p[1] - first.v[1] * tof - 0.5 * ARROW.gravity * tof * tof - feetY;
+  }
   check('and it left from eye height, not the archer\'s ankles',
     first && launchHeight > PLAYER.eyeHeight - 0.5,
-    first ? `${launchHeight.toFixed(2)} m above the feet (eye is ${PLAYER.eyeHeight})` : 'no arrow to measure');
+    first
+      ? `${launchHeight.toFixed(2)} m above the feet (eye is ${PLAYER.eyeHeight})`
+      : 'no arrow to measure');
 
   // ── and the client was told ──
   const mine = (c) => c.events.filter((e) => e.by === archer.id);

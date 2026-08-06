@@ -66,6 +66,12 @@ const INTENT_KEYS = [
   'sprint',
   'lookYaw',
   'lookPitch',
+  // Absolute facing. Without these two the server can only ever integrate the
+  // deltas above, and it receives at most half of them — see the long note in
+  // `intents.js`. They are what makes the server's copy of you point where you
+  // are actually pointing, which is what makes arrows hit anything.
+  'aimYaw',
+  'aimPitch',
   'primary',
   'interact',
   'drop',

@@ -289,7 +289,7 @@ export class Pickups {
 // deadfall; an agent over a socket needs only coordinates, and the snapshot
 // carries no pickups at all. Both ends compute the same answer from the seed,
 // exactly as they already do for the terrain and the place names.
-export function deadfallNear(px, pz, radius = PICKUP.woodRadius) {
+export function deadfallNear(px, pz, radius = PICKUP.woodRadius, taken = null) {
   const cell = PICKUP.woodCell;
   const out = [];
   for (let cj = Math.floor((pz - radius) / cell); cj <= Math.ceil((pz + radius) / cell); cj++) {
@@ -303,6 +303,15 @@ export function deadfallNear(px, pz, radius = PICKUP.woodRadius) {
       const y = heightAt(x, z);
       if (y < WATER_LEVEL + 0.5) continue;
       if (slopeAt(x, z) > 0.45) continue;
+      // ── and not one somebody has already picked up ──
+      // Where the wood IS is a pure function of the seed. Whether it is still
+      // THERE is not, and this returned branches that had been carried away
+      // hours ago. Found by playing: I told the harness "walk to the nearest
+      // branch, press E" five times and it walked two metres, pressed E five
+      // times, and gathered ONE — because after the first pickup the answer to
+      // "where is the nearest branch" never changed. An agent's `gather` does
+      // exactly the same thing and would have circled that spot for ever.
+      if (taken?.has(`w${ci},${cj}`)) continue;
       out.push({ key: `w${ci},${cj}`, x, z, y, count: 1 + (hash2i(ci, cj, 516) < 0.35 ? 1 : 0) });
     }
   }
@@ -310,10 +319,16 @@ export function deadfallNear(px, pz, radius = PICKUP.woodRadius) {
 }
 
 /** The closest branch to a point, or null if the ground here is bare. */
-export function nearestDeadfall(px, pz, radius = PICKUP.woodRadius) {
+/**
+ * @param {Set<string>} [taken] keys already collected. An agent has no
+ *   `Pickups` instance and therefore no memory of what it has carried away, so
+ *   it keeps its own set and passes it here — otherwise the nearest branch is
+ *   the same branch for ever and `gather` becomes a loop.
+ */
+export function nearestDeadfall(px, pz, radius = PICKUP.woodRadius, taken = null) {
   let best = null;
   let bestD = Infinity;
-  for (const w of deadfallNear(px, pz, radius)) {
+  for (const w of deadfallNear(px, pz, radius, taken)) {
     const d = (w.x - px) ** 2 + (w.z - pz) ** 2;
     if (d < bestD) {
       bestD = d;

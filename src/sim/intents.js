@@ -25,6 +25,27 @@ export function createIntent() {
     lookYaw: 0,
     lookPitch: 0,
 
+    // ── look, in radians, ABSOLUTE — where the producer is actually pointing ──
+    //
+    // `null` means "I am not telling you, integrate the deltas above", which is
+    // what a keyboard-and-mouse frame does locally. A NETWORK intent fills these
+    // in, and it has to, because deltas cannot survive the trip.
+    //
+    // `lookYaw` is consumed and zeroed by `PlayerInput.poll` every frame at 60
+    // Hz, while `Client.sendIntent` only transmits at `NET.intentHz` (30). Half
+    // of every turn was therefore destroyed before it was ever sent, and the
+    // server's copy of where you faced drifted from your own — permanently and
+    // cumulatively, with no field in the protocol able to correct it. Arrows
+    // launched along the server's stale facing, which is why they hit nothing
+    // and why the server appeared to "shoot from the ankles": pitch deltas were
+    // dropped the same way, so the server's pitch sat near zero for ever.
+    //
+    // The same "an accumulating value cannot go through a rate-limited channel"
+    // bug was found twice before and patched locally each time — see the notes
+    // on `Client.lightFire` and `syncCompanion`. This is the general fix.
+    aimYaw: null,
+    aimPitch: null,
+
     // ── actions ──
     primary: false, // trigger held (drawing / shooting)
     interact: false, // edge-triggered: pick up / cook / feed the fire
@@ -44,6 +65,8 @@ export function clearIntent(i) {
   i.sprint = false;
   i.lookYaw = 0;
   i.lookPitch = 0;
+  i.aimYaw = null;
+  i.aimPitch = null;
   i.primary = false;
   i.interact = false;
   i.drop = false;
@@ -62,6 +85,8 @@ export function copyIntent(to, from) {
   to.sprint = from.sprint;
   to.lookYaw = from.lookYaw;
   to.lookPitch = from.lookPitch;
+  to.aimYaw = from.aimYaw;
+  to.aimPitch = from.aimPitch;
   to.primary = from.primary;
   to.interact = from.interact;
   to.drop = from.drop;
@@ -88,6 +113,17 @@ export function sanitiseIntent(i, maxLookPerTick = 0.35) {
   i.strafe = clamp1(i.strafe);
   i.lookYaw = clampLook(i.lookYaw);
   i.lookPitch = clampLook(i.lookPitch);
+  // Absolute look is NOT rate-clamped — clamping is what deltas need, and doing
+  // it here would reintroduce exactly the drift this field exists to remove. It
+  // is range-checked instead: yaw wrapped, pitch held off the poles by the same
+  // margin `PlayerController` uses. Anything that is not a finite number becomes
+  // `null`, which means "no absolute aim given" rather than "aim at zero".
+  const angle = (v, limit) => {
+    if (typeof v !== 'number' || !Number.isFinite(v)) return null;
+    return limit ? Math.max(-limit, Math.min(limit, v)) : Math.atan2(Math.sin(v), Math.cos(v));
+  };
+  i.aimYaw = angle(i.aimYaw, 0);
+  i.aimPitch = angle(i.aimPitch, Math.PI / 2 - 0.02);
   i.jump = !!i.jump;
   i.crouch = !!i.crouch;
   i.sprint = !!i.sprint;
