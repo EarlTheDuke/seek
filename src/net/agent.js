@@ -536,6 +536,10 @@ export class Agent {
       // worth seeing, because it means it ran clean out of the picture.
       leadAcross: leadAcross === null ? null : +leadAcross.toFixed(1),
       leadAlong: leadAlong === null ? null : +leadAlong.toFixed(1),
+      // The two INPUTS to the aim, carried through from the release so a wrong
+      // answer can be read against what it was asked. See `lastShot`.
+      leadBy: s.leadBy ?? null,
+      dropTo: s.dropTo ?? null,
     });
     this.lastShot = null; // one arrow, one verdict
     // ── said in the first person, and only in numbers that mean something ──
@@ -1673,6 +1677,21 @@ export class Agent {
       pitch: shot.pitch,
       yaw: shot.yaw,
       eye: this.eye ?? PLAYER.eyeHeight,
+      // ── HOW FAR AHEAD OF THE ANIMAL WE AIMED, and how far below or above ──
+      //
+      // The first red-run reading of the LEAD column came back 3 arrows out of
+      // 3 to the LEFT, mean 3.6 m — which is the sign split that column was
+      // built to show, and it accuses the lead rather than the arc. But three
+      // arrows is not a finding, and one of those three was solved at a 3.04°
+      // pitch for a deer at 19.9 m with our own model saying it would come down
+      // at 93.4 m. Neither a lead nor an arc explains a number like that on its
+      // own, so record BOTH inputs at the moment of release: how far the mark
+      // sat from the animal's actual position, and the height difference the
+      // arc was solved against. A 9 m lead is the tracker; a 0.5 m lead with a
+      // 3° pitch is the pitch solver, and no aggregate of misses tells them
+      // apart.
+      leadBy: shot.mark ? +Math.hypot(shot.mark.x - t.x, shot.mark.z - t.z).toFixed(1) : null,
+      dropTo: +((t.y + AGENTS.aimAboveFeet) - (this._y + (this.eye ?? PLAYER.eyeHeight))).toFixed(1),
       // ...and where our own model of the bow says this arrow comes down. The
       // control for the whole measurement — see `predictLanding`.
       predicted: predictLanding(

@@ -148,6 +148,12 @@ async function main() {
         q: agent.target?.quarry === true,
         roam: !!agent.target && agent.target.quarry !== true,
         goal: agent.goal?.kind ?? '?',
+        // How many wounds had landed by this second. The wound record keeps
+        // GAME hours and this trace keeps REAL seconds, and comparing the two
+        // is how the first cut of the "did it stay on that animal" block came
+        // to count the whole run instead of the part after the arrow — it took
+        // an `atHour` argument and never used it. One clock, counted here.
+        w: agent.wounds?.length ?? 0,
         // ── WHICH deer, not just whether there was one ──
         // `resolve` re-runs every `AGENTS.retargetSeconds` and picks the
         // NEAREST match, and there are eighteen to twenty-six of them milling
@@ -220,6 +226,13 @@ async function main() {
         `        ${String(s.dist).padStart(5)} m  ` +
           `vsModel ${s.vsModel > 0 ? '+' : ''}${s.vsModel} m  across ${s.across > 0 ? '+' : ''}${s.across} m  ` +
           `(pitch ${s.pitch}°, eye ${s.eye} m, hit ${s.hit})` +
+          // What the aim was ASKED, beside what it produced. A big `led` is the
+          // tracker over-projecting; a small `led` with a wild pitch is the arc
+          // solver, and the miss columns alone cannot tell those apart.
+          (s.leadBy === null || s.leadBy === undefined
+            ? ''
+            : `\n                 aimed ${s.leadBy} m ahead of the animal, solved for a target ` +
+              `${Math.abs(s.dropTo ?? 0)} m ${(s.dropTo ?? 0) < 0 ? 'BELOW' : 'above'} the eye`) +
           // ── the deer, not the aim point ──
           // Everything else on this line measures the arrow against where we
           // CHOSE to aim, and `mark` is lead-adjusted — so a wrong lead reads
@@ -439,20 +452,26 @@ async function main() {
     const wounded = agent.wounds ?? [];
     if (wounded.length) {
       console.log('\n      after it wounded an animal, did it stay on that animal?');
-      const afterFirst = (id, atHour) => trace.filter((s) => s.qid === id).length;
-      for (const w of wounded) {
-        const secondsOnIt = afterFirst(w.id, w.h);
+      for (let k = 0; k < wounded.length; k++) {
+        const w = wounded[k];
+        // The first sample that had seen this wound land. Everything from there
+        // on is "after"; everything before it is the stalk that produced it,
+        // and lumping the two together made a body that hunted one deer all run
+        // read identically to one that hit an animal and wandered off.
+        const at = trace.findIndex((s) => s.w > k);
+        const after = at < 0 ? [] : trace.slice(at);
+        const onIt = after.filter((s) => s.qid === w.id).length;
+        const onOthers = after.filter((s) => s.qid != null && s.qid !== w.id).length;
         console.log(`        the ${w.what.toLowerCase()} it hit for ${w.dmg} (left at ${w.hp} hp, id ${w.id ?? '?'}) — ` +
-          `it was the quarry for ${secondsOnIt} s of the run in total`);
+          `of the ${after.length} s that followed it was the quarry for ${onIt} s, ` +
+          `and some OTHER animal was for ${onOthers} s`);
       }
-      const finished = wounded.filter((w) => (agent.kills ?? []).length && w.id != null).length;
-      console.log(`        ${wounded.length} wounded, ${(agent.kills ?? []).length} killed` +
-        (wounded.length && !(agent.kills ?? []).length
-          ? ' — every arrow that went home was spent on an animal it then walked away from'
-          : ''));
-      if (finished === 0 && wounded.length && !(agent.kills ?? []).length) {
-        console.log('        (a deer takes two arrows. Spread over two deer, that is two wounds and no dinner.)');
-      }
+      // Stated as counts and nothing else. The first version of this line
+      // editorialised — "an animal it then walked away from" — and printed that
+      // on a run whose own numbers showed the body stayed on the wounded deer
+      // for 68 of 133 seconds. That is the fourth instrument in this project to
+      // assert a cause it had not measured, and it was mine.
+      console.log(`        ${wounded.length} wounded, ${(agent.kills ?? []).length} killed`);
     }
 
     if (!killed) {
