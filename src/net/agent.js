@@ -49,7 +49,7 @@ import { aimAt, sightline } from '../minds/marksman.js';
 // than listed here, so a wolf added later is guarded against without an edit.
 import { SPECIES } from '../creatures/registry.js';
 import { bearingName, describePosition } from '../world/placenames.js';
-import { AGENTS, BOW, PLAYER } from '../config.js';
+import { AGENTS, BOW, PLAYER, NET } from '../config.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -171,6 +171,7 @@ export class Agent {
             break;
           }
           case S_SNAPSHOT:
+            this.trackCreatures(msg.data);
             this.snapshot = msg.data;
             this.hours = msg.data.c ?? this.hours;
             // ── the server knows better ──
@@ -234,6 +235,55 @@ export class Agent {
         }
       };
     });
+  }
+
+  /**
+   * How fast is each animal actually moving, and which way?
+   *
+   * MEASURED, because the wire does not carry it. A creature entry is id, kind,
+   * position, yaw, state and hit points — deliberately small, and rightly so.
+   * Velocity is the difference between two of those, which is a thing this end
+   * can work out for itself, exactly as `Wildlife.applySnapshot` already derives
+   * gait speed from how far a body actually travelled.
+   *
+   * Needed because an arrow is not instant. At 26 m the flight is about a third
+   * of a second and a trotting deer covers three metres in that, so a shot aimed
+   * where the animal IS lands where the animal WAS. Grazing deer died to the
+   * first arrow; walking ones were effectively immortal, for players and agents
+   * alike. See the lead solver in marksman.js.
+   *
+   * Smoothed rather than taken raw: snapshots arrive on a wobbly 20 Hz and a
+   * single late packet reads as a deer teleporting, which would throw the lead
+   * further off than having none at all.
+   */
+  trackCreatures(snap) {
+    if (!snap?.cr) return;
+    this.tracks ??= new Map();
+    const now = snap.t ?? 0;
+    const seen = new Set();
+    for (const c of snap.cr) {
+      seen.add(c.i);
+      const prev = this.tracks.get(c.i);
+      // `t` is the server tick, so the gap is in ticks at a known rate.
+      const dt = prev ? (now - prev.t) / 60 : 0;
+      if (prev && dt > 0.01 && dt < 1) {
+        const vx = (c.p[0] - prev.x) / dt;
+        const vz = (c.p[2] - prev.z) / dt;
+        // A deer does not go faster than a deer. Anything wilder than this is a
+        // cull-and-respawn elsewhere, not an animal, and leading it would send
+        // the arrow into the next glen.
+        const sp = Math.hypot(vx, vz);
+        const ok = sp < 14;
+        this.tracks.set(c.i, {
+          x: c.p[0], z: c.p[2], t: now,
+          vx: ok ? (prev.vx ?? 0) * 0.6 + vx * 0.4 : 0,
+          vz: ok ? (prev.vz ?? 0) * 0.6 + vz * 0.4 : 0,
+        });
+      } else {
+        this.tracks.set(c.i, { x: c.p[0], z: c.p[2], t: now, vx: prev?.vx ?? 0, vz: prev?.vz ?? 0 });
+      }
+    }
+    for (const id of [...this.tracks.keys()]) if (!seen.has(id)) this.tracks.delete(id);
   }
 
   /**
@@ -607,11 +657,19 @@ export class Agent {
 
     // Aim at the middle of the animal rather than the ground it stands on. Its
     // feet are a legal target and a wasted arrow.
+    // Where it is GOING, not where the last packet drew it. The track is
+    // measured here (see trackCreatures) and the interpolation lag is added on
+    // top, because the position we are aiming from is already that far stale.
+    const track = t.id != null ? this.tracks?.get(t.id) : null;
     const shot = aimAt(
       { x: this._x, y: this._y, z: this._z },
       { x: t.x, y: t.y + AGENTS.aimAboveFeet, z: t.z },
       heightAt,
-      { maxRange: AGENTS.shootRange }
+      {
+        maxRange: AGENTS.shootRange,
+        velocity: track ? { x: track.vx, z: track.vz } : null,
+        lag: NET.interpolationMs / 1000,
+      }
     );
 
     // Turn to it either way: walking toward something you are not facing is how
@@ -739,7 +797,7 @@ export class Agent {
     // needs it; anything that is only going to be walked to does not, and the
     // ground answers for itself on the way.
     const findFull = (pred) => {
-      for (const c of s?.cr ?? []) if (pred(`a ${c.k}`, c)) return { x: c.p[0], y: c.p[1], z: c.p[2] };
+      for (const c of s?.cr ?? []) if (pred(`a ${c.k}`, c)) return { x: c.p[0], y: c.p[1], z: c.p[2], id: c.i };
       for (const p of s?.pl ?? []) if (pred(this.others.get(p.id) ?? 'someone', p)) return { x: p.p[0], y: p.p[1], z: p.p[2] };
       return null;
     };
@@ -808,7 +866,7 @@ export class Agent {
       // `find` throws that away. See `act` for what is done with it.
       case 'hunt': {
         const q = findFull((label) => label === (g.quarry ?? ''));
-        return q ? { x: q.x, y: q.y, z: q.z, quarry: true } : this.roam();
+        return q ? { x: q.x, y: q.y, z: q.z, id: q.id, quarry: true } : this.roam();
       }
       case 'approach':
         return find((label) => label === (g.target ?? '')) ?? this.roam();

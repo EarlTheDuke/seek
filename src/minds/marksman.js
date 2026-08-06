@@ -121,10 +121,39 @@ export function sightline(fromX, eyeY, fromZ, toX, toY, toZ, groundAt, margin = 
  *
  * @returns {{shoot:boolean, yaw:number, pitch:number, dist:number, why:string}}
  */
-export function aimAt(from, target, groundAt, { maxRange = 60 } = {}) {
+export function aimAt(from, target, groundAt, { maxRange = 60, velocity = null, lag = 0 } = {}) {
   const eyeY = from.y + PLAYER.eyeHeight;
-  const dx = target.x - from.x;
-  const dz = target.z - from.z;
+
+  // ── shoot where it is GOING to be ──
+  //
+  // An arrow is not instant and a deer does not wait. At 26 m the flight is
+  // about 0.35 s and a trotting deer covers 3 m in that; a client also draws
+  // remote creatures `NET.interpolationMs` in the past, which is another metre.
+  // Against a body half a metre wide that is not a near miss, it is a different
+  // postcode — and it is why a moving animal was effectively unhittable for
+  // players and agents alike while a grazing one died to the first arrow.
+  //
+  // Solved by iterating rather than algebraically: the flight time depends on
+  // the range, the range depends on where it will be, and where it will be
+  // depends on the flight time. Two passes is plenty — the correction to the
+  // correction is centimetres.
+  let aim = target;
+  if (velocity && (velocity.x || velocity.z)) {
+    for (let pass = 0; pass < 2; pass++) {
+      const d = Math.hypot(aim.x - from.x, aim.z - from.z);
+      // Horizontal speed only. The arc is already accounted for by the pitch
+      // solver; what matters here is how long the shaft is in the air.
+      const flight = d / BOW.maxSpeed + lag;
+      aim = {
+        x: target.x + velocity.x * flight,
+        y: target.y,
+        z: target.z + velocity.z * flight,
+      };
+    }
+  }
+
+  const dx = aim.x - from.x;
+  const dz = aim.z - from.z;
   const dist = Math.hypot(dx, dz);
   const yaw = Math.atan2(-dx, -dz);
 
