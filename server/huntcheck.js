@@ -431,11 +431,32 @@ async function main() {
       if (m) e.outs.push(Number(m[1]));
       byReason.set(kind, e);
     }
-    console.log('\n      every time it refused the shot:');
+    // ── AND EVERY COUNT HERE IS OVER A DIFFERENT AMOUNT OF TIME ──
+    //
+    // This check STOPS ON A KILL. A run that kills ends at 36-77 s; a run that
+    // does not runs the full 150. So the raw tallies of arrows and refusals are
+    // counts over run lengths that differ by a factor of four, and comparing
+    // two arms on them straight REWARDS THE ARM THAT FAILS, for taking longer
+    // to fail. It cost this project a whole aggregate on the reach A/B: the
+    // control looked like it refused a third as often, and per second it did
+    // not. Same family as "a transition count is not a tick count".
+    //
+    // So the rate is printed beside the count rather than left derivable, and
+    // the run's own length is printed with it. Nothing here is comparable
+    // across arms except the right-hand column.
+    // `secs` is a STRING from `.toFixed(0)`, so `secs || 150` never falls back
+    // and a run that ends in under half a second divides by "0" and prints
+    // Infinity for every row. Coerce, then guard.
+    const per100 = (n) => (n / (Number(secs) || 150) * 100).toFixed(1);
+    console.log(`\n      every time it refused the shot  —  over ${secs} s of hunting, ` +
+      `so read the RATE, not the count (this check stops on a kill):`);
     for (const [kind, e] of byReason) {
       const where = e.outs.length ? `, obstruction ${Math.min(...e.outs)}-${Math.max(...e.outs)} m out` : '';
-      console.log(`        ${String(e.n).padStart(3)} x  ${kind}  (deer at ${Math.min(...e.ranges)}-${Math.max(...e.ranges)} m${where})`);
+      console.log(`        ${String(e.n).padStart(3)} x  ${String(kind).padEnd(20)} ${String(per100(e.n)).padStart(5)} /100s  ` +
+        `(deer at ${Math.min(...e.ranges)}-${Math.max(...e.ranges)} m${where})`);
     }
+    console.log(`        ${String(refused.length).padStart(3)} x  ${'ALL REFUSALS'.padEnd(20)} ${String(per100(refused.length)).padStart(5)} /100s` +
+      `  · and ${agent.arrows ?? 0} arrows is ${per100(agent.arrows ?? 0)} /100s`);
     // ── `too far` AT TWENTY METRES, WITH A TWENTY-SIX METRE BOW ──
     //
     // The open question this run left. `too far` ended detours with the deer
