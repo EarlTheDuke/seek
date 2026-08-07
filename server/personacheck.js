@@ -60,6 +60,20 @@ const BASELINE = [
   'You are not a helpful assistant. You are someone trying to get through a',
   'winter. Be brief, be practical, and prefer staying alive.',
   '',
+  // ── AND THE CONTROL MOVED A SECOND TIME, also deliberately ──
+  //
+  // The prompt said `say` existed and never said when it was worth using. This
+  // generation under-reaches for anything needing a "decide to use this" step
+  // unless the trigger is spelled out, and talk is the one behaviour a watcher
+  // actually reads — six bodies foraging in silence is a screensaver.
+  //
+  // Same argument as the tag guard below it: it is given to the control and to
+  // every persona identically, so it moves the shared floor rather than tilting
+  // persona-against-control. Still no persona results recorded at the time.
+  'Speak when someone asks you something, when you have found something the',
+  'others would want to know, or when you disagree with what was just said.',
+  'Otherwise act — an unprompted remark every few minutes is plenty.',
+  '',
   // ── THE CONTROL MOVED ONCE, DELIBERATELY, AND THIS IS THE RECORD OF IT ──
   //
   // Added when the fleet switched to running with thinking DISABLED, which is

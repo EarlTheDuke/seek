@@ -233,6 +233,21 @@ export class ModelProvider {
       'You are not a helpful assistant. You are someone trying to get through a',
       'winter. Be brief, be practical, and prefer staying alive.',
       '',
+      // ── WHEN TO SPEAK, not just how ──
+      //
+      // The prompt already said `say` exists and what it costs; it never said
+      // when it is WORTH it. This generation of models under-reaches for any
+      // capability that needs a "decide to use this" step unless the trigger
+      // condition is stated — the documented fix is prescriptive "do it when…"
+      // language rather than a description of the verb.
+      //
+      // It matters here more than anywhere: talk is the thing a watcher reads.
+      // Six bodies foraging in silence is a screensaver; two of them arguing
+      // about a carcass is the reason anybody is watching at all.
+      'Speak when someone asks you something, when you have found something the',
+      'others would want to know, or when you disagree with what was just said.',
+      'Otherwise act — an unprompted remark every few minutes is plenty.',
+      '',
       // ── ONE LINE, AND NOTHING WRAPPED AROUND IT ──
       //
       // Written for a documented behaviour of the current Claude generation

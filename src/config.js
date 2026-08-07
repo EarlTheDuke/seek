@@ -885,6 +885,19 @@ export const AGENTS = {
   // the origin no longer moves, so the answer only changes when the ANIMAL
   // does, which is exactly when it should. Every tick is affordable at one
   // sightline; the flicker was never the cost, it was the origin.
+  // ── HOW MUCH OF THE CONVERSATION A MIND IS HOLDING ──
+  //
+  // `hears` is how many recent lines go into the brief; `remembersHeard` is the
+  // ring behind it. Three and six were the old numbers and three is less than
+  // one exchange with six agents and a human on a single channel — a mind would
+  // answer a question that had already scrolled out of its own memory, and two
+  // of them could never get past hello.
+  //
+  // Eight lines is a few dozen tokens per call, which is the cheapest thing in
+  // the whole design and buys the one behaviour a watcher actually reads: bodies
+  // talking TO each other rather than merely near each other.
+  hears: 8,
+  remembersHeard: 16,
   roamDistance: 60,
   stalkWithin: 45,
   turnRate: 1.7,

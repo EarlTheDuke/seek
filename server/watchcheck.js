@@ -25,6 +25,7 @@ import { Agent } from '../src/net/agent.js';
 import { makeRandom } from '../src/world/noise.js';
 import { sanitiseGoal } from '../src/minds/goals.js';
 import { personaById } from '../src/minds/personas.js';
+import { AGENTS } from '../src/config.js';
 import { requireFreePort } from './freeport.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -130,6 +131,28 @@ async function main() {
     talker.intentions?.length
       ? `${talker.intentions.length} kept · e.g. "${talker.intentions.at(-1).goal} — ${talker.intentions.at(-1).why}"`
       : 'nothing recorded');
+
+  // ── AND IT REACHES THE MIND, not just the ring ──
+  //
+  // `heard` being full is not the same as the mind being told. The brief is the
+  // only thing a provider ever sees, and for a long time it carried the last
+  // THREE lines out of a ring of six — less than one exchange once six agents
+  // and a human share a channel. A mind would answer a question that had already
+  // scrolled out of its own memory.
+  const brief = watcher.brief();
+  check('what it heard reaches the BRIEF the mind is actually given',
+    Array.isArray(brief.heard) && brief.heard.some((l) => /Eachann:/.test(l)),
+    brief.heard?.length ? `${brief.heard.length} lines, e.g. "${brief.heard.at(-1)}"` : 'the brief heard nothing');
+
+  // Deterministic, because a live run cannot be made to produce twelve lines on
+  // a schedule. Fills the ring by hand and asserts the WIDTH.
+  const wide = Object.assign(Object.create(Object.getPrototypeOf(watcher)), watcher);
+  wide.heard = Array.from({ length: 12 }, (_, i) => `Somebody: line ${i + 1}`);
+  const wideBrief = wide.brief();
+  check('and the window is wide enough to hold a conversation in',
+    wideBrief.heard.length === AGENTS.hears && AGENTS.hears >= 8 &&
+      wideBrief.heard.at(-1) === 'Somebody: line 12',
+    `${wideBrief.heard.length} of 12 lines reach the mind (AGENTS.hears ${AGENTS.hears}), newest last`);
 
   for (const a of [watcher, talker, quiet]) a.close();
   stop();

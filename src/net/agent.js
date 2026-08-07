@@ -95,8 +95,29 @@ export class Agent {
    * the option. Neither is a fallback for the other.
    */
   constructor({ name, provider, rand, onLog = null, orders = 'decides', pet = null, persona = null, narrate = false,
-                commitDetour = false, closeDetour = false }) {
+                commitDetour = false, closeDetour = false, shootRange = AGENTS.shootRange }) {
     this.name = name;
+    // ── HOW FAR THIS BODY WILL SHOOT, and why it is an option rather than a
+    //    constant edited in config.js ──
+    //
+    // `AGENTS.shootRange` is 26 m of SLANT and the body is inside it for 5-14%
+    // of a run, which is the whole remaining tail of the hunt. The constant was
+    // cut from 45 to 26 on a DELIBERATION argument — at 45 the body considered
+    // shots the ground would never allow, 19 refusals to 2 arrows — and that
+    // argument is written out in `config.js`. It is not an accuracy argument,
+    // and until now nobody had made the accuracy measurement.
+    //
+    // `server/rangecheck.js` has now made it: a standing deer is hit 21 of 21
+    // over a real socket from 12 m to 52 m, median 0.10 m from the chest, and
+    // led at a trot 11 of 12. THE BOW IS NOT WHY THERE ARE NO SHOTS. So the
+    // number is worth moving — but this project has been told three times not
+    // to tune a constant, and every time it did, the failure moved instead of
+    // going away. So it moves behind a flag, defaulting to the exact value in
+    // `config.js`, so `huntcheck` can run it as an A/B against itself and the
+    // deliberation half of the argument gets measured too.
+    //
+    // Default is `AGENTS.shootRange`: every existing caller is byte-identical.
+    this.shootRange = shootRange;
     // ── whether a step aside is a DESTINATION or a fresh opinion every tick ──
     //
     // Off by default and deliberately so: `huntcheck` is a real-time check that
@@ -299,7 +320,16 @@ export class Agent {
           case S_CHAT:
             if (msg.data.id === this.id) break; // it does not need to hear itself
             this.heard.push(`${msg.data.n}: ${msg.data.m}`);
-            if (this.heard.length > 6) this.heard.shift();
+            // ── LONG ENOUGH TO HOLD A CONVERSATION IN ──
+            //
+            // Was six here and three in the brief, which is less than ONE
+            // exchange once six agents and a human share a channel: a mind
+            // would answer a question that had already scrolled out of its own
+            // memory, and two agents could never get past greeting each other.
+            // A few dozen tokens a call is the cheapest thing in this design and
+            // it is the difference between bodies near each other and bodies
+            // talking to each other. See `AGENTS.hears`.
+            if (this.heard.length > AGENTS.remembersHeard) this.heard.shift();
             // In 'obeys' mode a recognised instruction becomes a goal here and
             // now, without waiting for the next deliberation — which may be
             // seconds away and may cost a model call. In 'decides' mode this
@@ -537,6 +567,9 @@ export class Agent {
     this.shots = this.shots ?? [];
     this.shots.push({
       dist: +d.toFixed(1),
+      // How far this arrow was asked to fly, as the arrow flies. Carried
+      // through from the release — see `lastShot`.
+      slant: s.slant ?? null,
       along: +along.toFixed(1),
       across: +across.toFixed(1),
       high: +high.toFixed(1),
@@ -700,7 +733,10 @@ export class Agent {
         condition,
         // Only stated when it MATTERS — inside bow range. At 120 m "you have a
         // clear line" is not information, it is noise in the prompt.
-        sight: clear === null || d > AGENTS.shootRange ? null
+        // ...and "inside bow range" is THIS body's bow range, not the constant.
+        // A body raised to 40 m that is still told nothing about its line at 32
+        // is being asked to decide with the old rule's information.
+        sight: clear === null || d > this.shootRange ? null
           : clear ? 'a clear line' : 'no clear line — ground in the way',
         _m: d,
       });
@@ -754,7 +790,7 @@ export class Agent {
         : this.coreC < 34.5 ? 'badly chilled'
         : this.coreC < 35.6 ? 'shivering' : 'warm enough',
       contacts: contacts.slice(0, AGENTS.maxContacts).map(({ _m, ...r }) => r),
-      heard: this.heard.slice(-3),
+      heard: this.heard.slice(-AGENTS.hears),
       memory: this.memory.recent(this.hours),
       // ── what is in the pack ──
       // Hard-coded empty until the snapshot started carrying it. A mind that
@@ -1612,7 +1648,7 @@ export class Agent {
       { x: t.x, y: t.y + AGENTS.aimAboveFeet, z: t.z },
       heightAt,
       {
-        maxRange: AGENTS.shootRange,
+        maxRange: this.shootRange,
         velocity: track ? { x: track.vx, z: track.vz } : null,
         lag: NET.interpolationMs / 1000,
         // The body's own, off the snapshot. Not `PLAYER.eyeHeight`, which is
@@ -1656,7 +1692,7 @@ export class Agent {
         { x: t.x, y: t.y + AGENTS.aimAboveFeet, z: t.z },
         heightAt,
         {
-          maxRange: AGENTS.shootRange,
+          maxRange: this.shootRange,
           velocity: track ? { x: track.vx, z: track.vz } : null,
           lag: NET.interpolationMs / 1000,
           eye: PLAYER.eyeHeight,
@@ -1817,6 +1853,17 @@ export class Agent {
       // and not only against our own aim point. See `howItMissed`.
       quarryId: t.id,
       dist: shot.dist,
+      // ── AND THE SLANT, which is the number the rule is actually written in ──
+      //
+      // `dist` is horizontal. `AGENTS.shootRange` is compared against the
+      // SLANT — the range the arrow flies — and the difference is the climb,
+      // which on this terrain runs 6-18 m. Nothing recorded it, so no
+      // instrument downstream could say how far a loosed arrow had been asked
+      // to fly, and an A/B on the ceiling had no number that is 0 above 26 on
+      // one arm and non-zero on the other BY CONSTRUCTION. See `huntcheck`.
+      slant: shot.mark && shot.eyeY != null
+        ? +Math.hypot(shot.dist, shot.mark.y - shot.eyeY).toFixed(1)
+        : null,
       pitch: shot.pitch,
       yaw: shot.yaw,
       eye: this.eye ?? PLAYER.eyeHeight,
