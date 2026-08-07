@@ -134,6 +134,44 @@ const pick = (list, r) => list[Math.min(list.length - 1, Math.floor(r * list.len
  *     on being a competent animal. There is no failure mode where a mind stops
  *     the world.
  */
+/**
+ * A failed HTTP reply, named well enough to act on.
+ *
+ * `http 429` and `http 500` used to be the whole story, and the two want
+ * opposite responses: one means slow down and the other means something is
+ * broken. Six agents on a six-second cadence is sixty calls a minute across two
+ * vendors, so a rate limit is not an exotic case — it is Tuesday, and until now
+ * it was indistinguishable from a boring model, because both ended in the same
+ * silent fall-through to the scripted brain.
+ *
+ * `retryAfter` is seconds, off the header the vendor actually sends. Attached to
+ * the error rather than acted on here so the one place that owns retry policy
+ * — `decide` — stays the only place that owns it.
+ */
+async function httpError(res) {
+  const status = res?.status ?? 0;
+  const retryAfter = Number(res?.headers?.get?.('retry-after')) || null;
+  let detail = '';
+  try {
+    const body = await res.text();
+    detail = String(body ?? '').slice(0, 140).replace(/\s+/g, ' ').trim();
+  } catch { /* a body we cannot read is not worth failing twice over */ }
+  const named =
+    status === 429 ? 'rate limited'
+      : status === 529 || status === 503 ? 'vendor overloaded'
+        : status === 401 || status === 403 ? 'key refused'
+          : status >= 500 ? 'vendor error'
+            : `http ${status}`;
+  const err = new Error(
+    `${named}${retryAfter ? `, retry after ${retryAfter}s` : ''}${detail ? ` — ${detail}` : ''}`
+  );
+  err.status = status;
+  err.retryAfter = retryAfter;
+  // 401/403 will never come right by waiting; 429/5xx usually will.
+  err.transient = status === 429 || status >= 500;
+  return err;
+}
+
 export class ModelProvider {
   constructor({
     apiKey,
@@ -173,7 +211,15 @@ export class ModelProvider {
     // Enough for one line of JSON and a short reason; far more when the model
     // is thinking, because `max_tokens` caps thinking AND text together.
     maxTokens = null,
+    // One retry, and only for a wait short enough to be worth having. See `ask`.
+    retries = 1,
+    retryBackoffMs = 400,
+    retryMaxWaitMs = 5000,
   } = {}) {
+    this.retries = retries;
+    this.retryBackoffMs = retryBackoffMs;
+    this.retryMaxWaitMs = retryMaxWaitMs;
+    this.retried = 0;
     this.think = think;
     this.effort = effort;
     this.maxTokens = maxTokens ?? (think ? 1024 : 256);
@@ -273,11 +319,9 @@ export class ModelProvider {
     if (this.calls >= this.maxCalls) return this.fallback.decide(brief);
     if (this.budget && !this.budget.take()) return this.fallback.decide(brief);
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
       this.calls++;
-      const answer = await this.request(brief, controller.signal);
+      const answer = await this.ask(brief);
       // Recorded so a run can report what it actually cost, rather than
       // leaving you to find out from a bill.
       this.lastTokensIn = answer?.tokensIn ?? 0;
@@ -295,9 +339,46 @@ export class ModelProvider {
       this.failures++;
       this.lastError = err.message;
       return this.fallback.decide(brief);
-    } finally {
-      clearTimeout(timer);
     }
+  }
+
+  /**
+   * One question, with one retry when the vendor says "not now".
+   *
+   * A rate limit is not an exotic case at this cadence — six agents asking
+   * every six seconds is sixty calls a minute, across two vendors — and until
+   * this existed a 429 was indistinguishable from a boring model: both ended in
+   * the same silent fall-through to the scripted brain.
+   *
+   * BOUNDED ON PURPOSE. One retry, and only when the wait is short enough to be
+   * worth having: a vendor asking for sixty seconds is telling you to go and be
+   * a competent animal for a while, and the scripted brain is RIGHT THERE. A
+   * mind that blocks for a minute is exactly the "a mind can stop the world"
+   * failure this whole layer is built to prevent — the body still runs at 30 Hz
+   * either way, but its deliberation would be frozen.
+   *
+   * A fresh AbortController per attempt, because a signal that has already
+   * fired stays fired and the retry would abort before it left the building.
+   */
+  async ask(brief) {
+    let last = null;
+    for (let attempt = 0; attempt <= this.retries; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+      try {
+        return await this.request(brief, controller.signal);
+      } catch (err) {
+        last = err;
+        const waitMs = err?.retryAfter ? err.retryAfter * 1000 : this.retryBackoffMs;
+        const worthIt = err?.transient && attempt < this.retries && waitMs <= this.retryMaxWaitMs;
+        if (!worthIt) throw err;
+        this.retried = (this.retried ?? 0) + 1;
+        await new Promise((r) => setTimeout(r, waitMs));
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    throw last;
   }
 }
 
@@ -361,7 +442,7 @@ export class AnthropicProvider extends ModelProvider {
         messages: [{ role: 'user', content: briefToText(brief) }],
       }),
     });
-    if (!res.ok) throw new Error(`http ${res.status}`);
+    if (!res.ok) throw await httpError(res);
     const data = await res.json();
 
     // ── NAME THE REFUSAL AND THE TRUNCATION, or they read as "rubbish reply" ──
@@ -441,7 +522,7 @@ export class OpenAiProvider extends ModelProvider {
         ],
       }),
     });
-    if (!res.ok) throw new Error(`http ${res.status}`);
+    if (!res.ok) throw await httpError(res);
     const data = await res.json();
     return {
       // `content` is where every one of them puts it. A reasoning model may

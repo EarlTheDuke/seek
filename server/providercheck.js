@@ -66,6 +66,10 @@ const BRIEF = {
 
 /** Everything the fake vendor was asked, so the check can look at it. */
 const seen = [];
+// The rate-limit route is stateful on purpose: it refuses ONCE and then works,
+// which is the only way to tell "retried and recovered" from "never retried".
+let rateLimitHits = 0;
+let keyHits = 0;
 
 function startFakeVendor() {
   return new Promise((resolve) => {
@@ -133,6 +137,35 @@ function startFakeVendor() {
             content: [{ type: 'thinking', thinking: '' }],
             usage: { input_tokens: 412, output_tokens: 256 },
           }));
+          return;
+        }
+        // ── RATE LIMITED ONCE, THEN FINE ──
+        //
+        // Six agents on a six-second cadence is sixty calls a minute across two
+        // vendors: a 429 is Tuesday, not an exotic case. It used to be
+        // indistinguishable from a boring model, because both ended in the same
+        // silent fall-through to the scripted brain.
+        if (req.url.includes('/ratelimit')) {
+          rateLimitHits++;
+          if (rateLimitHits === 1) {
+            res.writeHead(429, { 'content-type': 'application/json', 'retry-after': '1' });
+            res.end('{"error":{"type":"rate_limit_error"}}');
+            return;
+          }
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({
+            stop_reason: 'end_turn',
+            content: [{ type: 'text', text: '{"kind":"hunt","quarry":"a deer","why":"hungry"}' }],
+            usage: { input_tokens: 412, output_tokens: 17 },
+          }));
+          return;
+        }
+        // A key that will never come right by waiting. Retrying this is burning
+        // the cadence on a certainty.
+        if (req.url.includes('/badkey')) {
+          keyHits++;
+          res.writeHead(401, { 'content-type': 'application/json' });
+          res.end('{"error":{"type":"authentication_error","message":"invalid x-api-key"}}');
           return;
         }
         if (req.url.includes('/slow')) {
@@ -251,6 +284,42 @@ async function main() {
   await cut.decide(BRIEF);
   check('and running out of tokens says THAT, not "no json in reply"',
     /token/i.test(cut.lastError ?? ''), cut.lastError ?? 'no error recorded');
+
+  // ── 1d-ii. A RATE LIMIT IS SURVIVED, AND A BAD KEY IS NOT WAITED ON ──
+  //
+  // These two look identical from inside `decide` — both are a non-2xx that
+  // falls through to the scripted brain — and they want opposite responses. One
+  // means slow down for a second; the other will never come right however long
+  // you wait, and retrying it burns the cadence on a certainty.
+  const limited = new AnthropicProvider({
+    apiKey: 'test-key', baseUrl: `${base}/ratelimit`, fallback: scripted,
+    retryMaxWaitMs: 3000,
+  });
+  const gL = await limited.decide(BRIEF);
+  check('a rate limit is waited out and the answer still arrives',
+    gL?.kind === 'hunt' && limited.failures === 0 && limited.retried === 1,
+    `${JSON.stringify(gL)} after ${limited.retried} retry, ${limited.failures} failures — server saw ${rateLimitHits} requests`);
+
+  const badKey = new AnthropicProvider({
+    apiKey: 'wrong', baseUrl: `${base}/badkey`, fallback: scripted,
+  });
+  await badKey.decide(BRIEF);
+  check('but a refused key is NOT retried, and says what it was',
+    keyHits === 1 && badKey.retried === 0 && /key refused/i.test(badKey.lastError ?? ''),
+    `${keyHits} request, ${badKey.retried} retries — "${badKey.lastError}"`);
+
+  // And a wait too long to be worth having is declined: the scripted brain is
+  // right there, and a mind that blocks for a minute is the "a mind can stop
+  // the world" failure this whole layer exists to prevent.
+  rateLimitHits = 0;
+  const impatient = new AnthropicProvider({
+    apiKey: 'test-key', baseUrl: `${base}/ratelimit`, fallback: scripted,
+    retryMaxWaitMs: 200,
+  });
+  await impatient.decide(BRIEF);
+  check('...and a wait longer than it is worth is declined, not slept through',
+    impatient.retried === 0 && /rate limited/i.test(impatient.lastError ?? ''),
+    `retried ${impatient.retried} times on a 1 s retry-after with a 200 ms ceiling — "${impatient.lastError}"`);
 
   // ── 1e. THE THINKING FLAG REACHES THE WIRE ──
   const deep = new AnthropicProvider({

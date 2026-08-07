@@ -95,7 +95,8 @@ export class Agent {
    * the option. Neither is a fallback for the other.
    */
   constructor({ name, provider, rand, onLog = null, orders = 'decides', pet = null, persona = null, narrate = false,
-                commitDetour = false, closeDetour = false, shootRange = AGENTS.shootRange }) {
+                commitDetour = false, closeDetour = false, shootRange = AGENTS.shootRange,
+                cadenceSeconds = AGENTS.cadenceSeconds }) {
     this.name = name;
     // ── HOW FAR THIS BODY WILL SHOOT, and why it is an option rather than a
     //    constant edited in config.js ──
@@ -134,6 +135,9 @@ export class Agent {
     // See `clearSpotNear` for the geometry and `AGENTS.detourAdvance` for how
     // far up the line of sight a candidate is allowed to walk.
     this.closeDetour = closeDetour;
+    // How often THIS mind reconsiders. See the note at the deliberation gate:
+    // the body keeps running at 30 Hz whatever this is set to.
+    this.cadenceSeconds = cadenceSeconds;
     this.provider = provider;
     this.rand = rand;
     this.onLog = onLog;
@@ -658,7 +662,19 @@ export class Agent {
     }
 
     this.since += dt;
-    if (!this.thinking && this.since >= AGENTS.cadenceSeconds) {
+    // ── HOW OFTEN THIS PARTICULAR MIND RECONSIDERS ──
+    //
+    // Per-agent, because the bill and the character both live here. Six minds
+    // on the six-second default is sixty model calls a minute, which empties a
+    // 4000-call session budget in about an hour — and slowing deliberation
+    // costs a watcher nothing, because THE BODY DOES NOT SLOW WITH IT. Reflex
+    // runs at 30 Hz whatever the mind is doing: an agent that reconsiders every
+    // twelve seconds still hunts, walks, aims and looses in between. That split
+    // is the best property this architecture has and it was going unused.
+    //
+    // It is also free characterisation — a ponderous mind and a twitchy one on
+    // the same hillside read as different people before either says a word.
+    if (!this.thinking && this.since >= (this.cadenceSeconds ?? AGENTS.cadenceSeconds)) {
       this.since = 0;
       this.deliberate();
     }

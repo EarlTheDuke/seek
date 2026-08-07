@@ -236,6 +236,12 @@ async function main() {
       narrate: NARRATE,
       commitDetour: COMMIT_DETOUR,
       closeDetour: CLOSE_DETOUR,
+      // Per-agent, so a ponderous mind and a twitchy one can share a hillside —
+      // and so a model-backed fleet can be slowed without slowing any BODY.
+      // CADENCE=12 npm run agents, or per entry in the roster.
+      cadenceSeconds: Number(entry?.cadenceSeconds ?? process.env.CADENCE) > 0
+        ? Number(entry?.cadenceSeconds ?? process.env.CADENCE)
+        : AGENTS.cadenceSeconds,
     });
     try {
       await a.connect(URL);
