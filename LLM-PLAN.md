@@ -71,7 +71,7 @@ that flatters the change, with a green banner on top.
 
 ---
 
-## Phase 1 — make one real call work
+## Phase 1 — make one real call work  ✅ DONE (providercheck 33/33, counterfactual 32/33)
 
 Small, mechanical, and everything else is downstream of it.
 
