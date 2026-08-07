@@ -232,6 +232,19 @@ export class ModelProvider {
       '',
       'You are not a helpful assistant. You are someone trying to get through a',
       'winter. Be brief, be practical, and prefer staying alive.',
+      '',
+      // ── ONE LINE, AND NOTHING WRAPPED AROUND IT ──
+      //
+      // Written for a documented behaviour of the current Claude generation
+      // with thinking DISABLED, which is how this fleet runs: it can leak
+      // `<thinking>` tags into the visible answer. The reply parser takes the
+      // first {...} it finds, so a tag OUTSIDE the braces is survivable and one
+      // INSIDE is not. Cheap insurance either way.
+      //
+      // Deliberately phrased as "no internal tags" rather than "do not think":
+      // an instruction not to reason measurably makes the leakage WORSE, which
+      // is the opposite of what anybody would guess.
+      'Do not include internal or system XML tags in your response.',
     ].join('\n');
   }
 

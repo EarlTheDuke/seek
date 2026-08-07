@@ -59,6 +59,21 @@ const BASELINE = [
   '',
   'You are not a helpful assistant. You are someone trying to get through a',
   'winter. Be brief, be practical, and prefer staying alive.',
+  '',
+  // ── THE CONTROL MOVED ONCE, DELIBERATELY, AND THIS IS THE RECORD OF IT ──
+  //
+  // Added when the fleet switched to running with thinking DISABLED, which is
+  // the posture that makes the current Claude generation occasionally leak
+  // `<thinking>` tags into the visible answer. The reply parser takes the first
+  // {...} it finds, so a leaked tag INSIDE the braces breaks the parse and the
+  // agent silently falls through to the scripted brain — the exact failure this
+  // whole phase of work existed to kill.
+  //
+  // It applies identically to the control and to every persona, so it does not
+  // bias persona-against-control; it moves the shared floor both stand on. No
+  // persona results had been recorded when it moved. If it moves again, say so
+  // here again — a control whose history is undocumented is not a control.
+  'Do not include internal or system XML tags in your response.',
 ].join('\n');
 
 const plain = new ModelProvider({ apiKey: 'x' });
