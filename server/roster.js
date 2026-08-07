@@ -68,6 +68,24 @@ export function loadRoster(path) {
       character: p.character ? String(p.character) : null,
       pet: p.pet ? String(p.pet) : null,
       orders: p.orders === 'obeys' ? 'obeys' : 'decides',
+      // ── HOW THIS ONE THINKS, AND HOW OFTEN ──
+      //
+      // `think` turns adaptive thinking on for this seat alone and raises its
+      // token budget to match — one thinking mind beside five that answer from
+      // reflex is a genuinely interesting thing to watch, and it is one line.
+      //
+      // `effort` may be null DELIBERATELY: `output_config.effort` is rejected by
+      // Haiku 4.5 and Sonnet 4.5, so an entry on one of those needs
+      // `"effort": null` to have the field omitted rather than sent and 400ed.
+      // `undefined` means "not stated, use the default"; null means "send none".
+      // A boolean is a STATED choice; anything else is "not stated", which must
+      // stay undefined so the MINDS_THINK environment default still applies.
+      think: typeof p.think === 'boolean' ? p.think : undefined,
+      effort: p.effort === null ? null : (p.effort ? String(p.effort) : undefined),
+      // Seconds between deliberations for this mind. The BODY is unaffected —
+      // reflex runs at 30 Hz regardless — so this is the cost lever that costs
+      // a watcher nothing. See the deliberation gate in agent.js.
+      cadenceSeconds: Number(p.cadenceSeconds) > 0 ? Number(p.cadenceSeconds) : undefined,
     })),
   };
 }
@@ -98,6 +116,11 @@ export function providerFor(entry, { env = process.env, budget = null, maxCalls,
       // PERSONAS — somebody who typed it out meant it. See minds/personas.js.
       character: entry.character ?? persona?.character ?? null,
       label: entry.name,
+      // Per-seat, and `undefined` means "not stated" so `makeProvider` falls
+      // back to the MINDS_* environment default rather than to a hard-coded
+      // one. `effort: null` is a STATED choice and must survive as null.
+      ...(entry.think === undefined ? {} : { think: entry.think }),
+      ...(entry.effort === undefined ? {} : { effort: entry.effort }),
     }
   );
 }

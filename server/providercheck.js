@@ -28,8 +28,9 @@
 //     configurations, and a missing key downgrades exactly one of them.
 
 import http from 'node:http';
-import { writeFileSync, unlinkSync } from 'node:fs';
+import { writeFileSync, unlinkSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import {
   AnthropicProvider,
@@ -320,6 +321,32 @@ async function main() {
   check('...and a wait longer than it is worth is declined, not slept through',
     impatient.retried === 0 && /rate limited/i.test(impatient.lastError ?? ''),
     `retried ${impatient.retried} times on a 1 s retry-after with a 200 ms ceiling — "${impatient.lastError}"`);
+
+  // ── 1d-iii. THE SHIPPED EXAMPLE ROSTER IS A REAL FILE ──
+  //
+  // `roster.example.json` is what anybody will copy, and a shipped example that
+  // does not parse — or that quietly carries a literal key — is worse than none.
+  // Loaded through the REAL loader rather than JSON.parse, so a field the loader
+  // silently drops shows up here.
+  try {
+    // `new URL(...).pathname` percent-encodes the spaces in this repo's own
+    // path and node then cannot open it. `fileURLToPath` is the one that works.
+    const examplePath = fileURLToPath(new URL('../roster.example.json', import.meta.url));
+    const example = loadRoster(examplePath);
+    const byName = Object.fromEntries(example.players.map((p) => [p.name, p]));
+    const raw = readFileSync(examplePath, 'utf8');
+    check('the shipped example roster loads, and carries no key',
+      example.players.length >= 5 && !/sk-[A-Za-z0-9]/.test(raw) && !/"apiKey"/.test(raw) &&
+        example.players.some((p) => p.provider === 'scripted'),
+      `${example.players.length} players, keys named not written, and a scripted control among them`);
+    check('...and the per-seat knobs survive the loader',
+      byName.Ailsa?.think === true && byName.Fingal?.effort === null &&
+        byName.Eachann?.cadenceSeconds === 10 && byName.Iseabail?.think === undefined,
+      `Ailsa thinks, Fingal omits effort (Haiku rejects it), Eachann reconsiders every ` +
+        `${byName.Eachann?.cadenceSeconds}s, and an unstated think stays undefined`);
+  } catch (err) {
+    check('the shipped example roster loads, and carries no key', false, err.message);
+  }
 
   // ── 1e. THE THINKING FLAG REACHES THE WIRE ──
   const deep = new AnthropicProvider({

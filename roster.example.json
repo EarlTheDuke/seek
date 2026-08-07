@@ -1,45 +1,78 @@
 {
-  "_": "Copy to roster.json, put the real keys in your ENVIRONMENT (never in here), and run: MINDS_ROSTER=roster.json npm run agents. Every field but `name` is optional; a line with no provider is a scripted player, and so is a line whose key is missing. See server/roster.js.",
-  "budgetCalls": 600,
+  "_comment": [
+    "Copy to roster.json and run:  MINDS_ROSTER=roster.json PERSONAS=on NARRATE=on BOARD=on npm run agents",
+    "",
+    "KEYS ARE NAMED, NEVER WRITTEN. `keyEnv` is the NAME of an environment",
+    "variable. There is no field for a literal key and adding one would be a",
+    "mistake — a roster is a file you check in and paste into chat windows.",
+    "Export the keys instead:  ANTHROPIC_API_KEY=...  XAI_API_KEY=...",
+    "",
+    "A seat whose key is missing quietly becomes scripted, and the startup",
+    "header says so beside its name. Read that header.",
+    "",
+    "WHY THIS MIX rather than six of the best model:",
+    "  · One Opus for the headliner.",
+    "  · Sonnet is on introductory pricing until 2026-08-31 and is a fraction of",
+    "    the cost for a job that is 'pick a verb and write eight words of why'.",
+    "  · Grok is the outside voice — a different company's judgement is the",
+    "    whole point of a mixed roster.",
+    "  · One SCRIPTED seat, always. It is the control: when a model does",
+    "    something startling, the scripted body beside it is the reference for",
+    "    whether that was the model or the world.",
+    "",
+    "cadenceSeconds is the cost lever that costs a watcher nothing — the BODY",
+    "still runs at 30 Hz, only deliberation slows. It is also free character:",
+    "a ponderous mind and a twitchy one read as different people."
+  ],
+
+  "budgetCalls": 4000,
+
   "players": [
     {
       "name": "Eachann",
       "provider": "anthropic",
       "model": "claude-opus-5",
       "keyEnv": "ANTHROPIC_API_KEY",
-      "character": "You hoard. Wood you have gathered is yours, and you will not share a fire you built. You are not cruel about it, you are simply certain that nobody else would share theirs."
+      "cadenceSeconds": 10,
+      "character": "You hoard. Firewood is yours and you do not share a fire, though you will trade for meat."
     },
     {
       "name": "Morag",
-      "provider": "xai",
-      "model": "grok-4",
-      "keyEnv": "XAI_API_KEY",
-      "character": "You are generous and it costs you. You offer what you have before you have counted it, and you are slow to notice when someone is taking advantage."
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "keyEnv": "ANTHROPIC_API_KEY",
+      "cadenceSeconds": 8,
+      "character": "You are generous to a fault and slow to notice you are being used."
     },
     {
       "name": "Tormod",
-      "provider": "moonshot",
-      "model": "kimi-k2",
-      "keyEnv": "MOONSHOT_API_KEY",
-      "character": "You mislead people about where the deer are — not out of malice, but because you mean to get there first. You are friendly while you do it."
+      "provider": "xai",
+      "model": "grok-4",
+      "keyEnv": "XAI_API_KEY",
+      "cadenceSeconds": 10,
+      "character": "You lie about where the deer are. Not maliciously — you want to get there first."
     },
     {
       "name": "Ailsa",
-      "provider": "deepseek",
-      "model": "deepseek-chat",
-      "keyEnv": "DEEPSEEK_API_KEY",
-      "character": "You are a coward and you know it. Below half health you break off, and you say out loud that you are going — you would rather be thought of as honest than brave."
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "keyEnv": "ANTHROPIC_API_KEY",
+      "cadenceSeconds": 14,
+      "think": true,
+      "character": "You are cautious and slow to commit. You break off any fight below half health and say so plainly."
     },
     {
       "name": "Fingal",
-      "provider": "local",
-      "model": "qwen3",
-      "baseUrl": "http://127.0.0.1:8080/v1",
-      "character": "You talk constantly. You narrate the weather, the ground and your own plans to anyone within earshot, whether or not they answered."
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5",
+      "keyEnv": "ANTHROPIC_API_KEY",
+      "cadenceSeconds": 6,
+      "effort": null,
+      "character": "You talk constantly and act on the first idea you have."
     },
     {
       "name": "Iseabail",
-      "character": "The scripted floor, playing alongside the models. Costs nothing and never stops."
+      "character": "The control — no model, no key, no network. Do not remove her."
     }
   ]
 }
