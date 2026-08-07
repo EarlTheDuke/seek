@@ -238,6 +238,32 @@ function offlineLeg() {
     touched >= sites.length * 0.9,
     `${touched}/${sites.length} came within 0.4 m of the surface`);
 
+  // ── 2b. …and it can SAY what stopped it ──
+  //
+  // `resolveBody`'s `out` is the one thing here nothing else exercises, and an
+  // untested output parameter in this repo is a liability rather than a
+  // convenience. It exists because a mind with no eyes needs to hear "a tree"
+  // rather than infer it, and the next rung will want it.
+  {
+    const t = sites[0].tree;
+    const f = fieldFor([t]);
+    const pos = new THREE.Vector3(t.x + t.trunkR, heightAt(t.x, t.z), t.z);
+    const out = { hits: 0, tag: null };
+    const moved = f.resolveBody(pos, R, H, PLAYER.maxPushPerStep, out);
+    check('the push-out can name what stopped you',
+      moved > 0 && out.hits >= 1 && out.tag === 'tree',
+      `${out.hits} solid(s), tag "${out.tag}", moved ${moved.toFixed(3)} m`);
+
+    // …and it says NOTHING when nothing stopped you, which is the half that
+    // catches a counter that only ever counts up.
+    const clear = { hits: 0, tag: null };
+    const far = new THREE.Vector3(t.x + 40, heightAt(t.x + 40, t.z), t.z);
+    const none = f.resolveBody(far, R, H, PLAYER.maxPushPerStep, clear);
+    check('  …and reports nothing at all when the way is clear',
+      none === 0 && clear.hits === 0 && clear.tag === null,
+      `${clear.hits} solids, tag ${clear.tag}, moved ${none}`);
+  }
+
   // ── 3. it does not stop dead either — it goes ROUND.
   let slid = 0;
   for (const s of sites) {

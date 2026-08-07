@@ -12,12 +12,107 @@ it is the most expensive knowledge in the repo: every entry cost somebody a
 wrong diagnosis. **Skim it before you debug anything, not after.** It is kept
 here rather than cut because a closed bug can be deleted and a trap cannot.
 
-Last updated: 2026-08-06, by the run that answered the ceiling question with an
-8-run A/B — and found the sentinel built to police that A/B was blind in exactly
-the case that mattered.
+Last updated: 2026-08-06 (second run of the day), by the run that made a body
+stop being a point. The run before it answered the ceiling question with an
+8-run A/B and found the sentinel policing that A/B was blind in exactly the
+case that mattered — that section is still below and still true.
 
-**IF YOU READ ONE THING: `shootRange: 26` IS RIGHT. DO NOT RAISE IT.** Measured,
-not argued: raising it to 40 m TRIPLES the time a body spends with a deer inside
+## THE BIGGEST GAP IN THE GAME IS CLOSED: `SOLID=on`
+
+**Queue item 2 is built.** Until this run `controller.js` integrated x and z and
+NOTHING followed — no sweep, no push-out, no radius test — so a player or an
+agent walked through tree trunks, boulders, standing stones, every built
+structure and every other person. The only geometric test any body was ever
+subject to was the capsule an ARROW is checked against, and its two constants
+appeared in no other file in the repo.
+
+```
+SOLID=on node server/server.js 8080          # the server
+?solid=on  on the join URL                   # the browser, MATCH THE SERVER
+```
+
+**Default OFF and off is byte-identical** — `Controller.solids` stays null and
+the horizontal step is the same two lines. `solidcheck` **24/24**, two legs and
+two counterfactuals (see below).
+
+**THE ONE MEASUREMENT THAT DECIDED THE DESIGN: A CROWN IS NOT SOLID TO A BODY.**
+Scanning 2,974 placed trees, the crown sphere reaches into the band a walking
+body occupies on **40.2% of them**, and on the smallest it reaches BELOW THE
+FEET. Crown radii run 2.4-4.5 m, so a solid crown is a four-metre pillar you
+cannot walk round and can be spawned inside — two trees in five would have
+become a wall. The trunk is taller than a body on **99.8%**, so the trunk alone
+is a complete solid. Crowns are `soft`: they stop arrows and not people.
+**Had this been guessed instead of measured, the next run would have been spent
+debugging "the collision code makes the forest impassable".**
+
+**AND THE RISK THAT SAID DO NOT BUILD IT IS MEASURED CLEAR.** The reason queue
+item 2 was never started was a body wedging against a trunk instead of hunting.
+A body crosses **110 m of real timber 12/12**, and the longest it ever went
+nowhere while walking is **0.6 s**. The counterfactual — crowns made solid —
+takes that to **12.3 s**, so the assertion has teeth.
+
+**People:** the server pushes two bodies apart; the browser does not predict it.
+Scenery is generated from a seed and identical on every machine, other people
+are not, and predicting a shove against a body you hear about at 20 Hz would
+rubber-band both of you. The control arm is the finding: **with SOLID off the
+server had two people 0.00 m apart** — standing in exactly the same spot.
+
+### DOES IT BREAK THE AGENTS, AND DOES IT COST ANYTHING? Measured, both no.
+
+**The tick does not move.** `rostercheck 8091 16`, both arms: **60.0 Hz** and
+**64.9 vs 65.0 KB/s** per client. The pairwise separation at a full house is 120
+pairs a tick and costs nothing you can see. That is the perf risk closed.
+
+**Hunting still works: 5 of 6 huntcheck runs killed** — 3 seeds
+(`huntcheck`/`corrie`/`braemar`) × both arms, full output kept, no `head` in the
+pipe. **THIS IS A SMOKE TEST, NOT A RATE**, and it is deliberately not written up
+as an A/B: one run per seed, on a box with somebody else's server on it.
+
+**Read the ONE failure by its MODE, not by the tally.** `corrie` with SOLID on
+wounded a deer with its only arrow and ran out of clock:
+
+| corrie | off (killed, 122 s) | on (no kill, 150 s) |
+|---|---|---|
+| arrows | 1 → **1 kill** | 1 → **1 wound**, deer to 31 hp |
+| refusals | 19.7 /100s | **13.3 /100s** — *lower* |
+| m walked per detour | 2 m over 9 | 2 m over 10 |
+
+The body walked its normal distance, refused LESS often, and put its arrow home.
+**That is verbatim the red-run mode already recorded below** ("every red run's
+arrows went HOME and banked a wound without a kill"), not a body stuck on a tree.
+A collision problem would raise the refusals and cut the metres walked; both went
+the other way.
+
+**And the variance is larger than anything being measured here:** `braemar`,
+which the ceiling A/B below recorded as failing on BOTH arms, **killed on both
+arms this time.** Do not quote a hunting rate off three runs.
+
+**NOT DONE, deliberately and stated rather than half-landed:**
+- **Animals are not in it.** Deer, goblins and companions still walk through
+  people and each other. The creature manager's separation iterates a list that
+  has never contained a player. It wants the same treatment and its own check.
+- **The server has no structures.** `Structures` is not instantiated in
+  `sim/world.js` at all, so a palisade stops arrows in a browser and stops
+  nobody on the server. Pre-existing; now it matters more.
+
+### …and a pre-existing artefact this turned up, worth knowing
+
+**Trees are planted at `latticeHeight` (an 8 m-smoothed sample) and a body walks
+on `heightAt`.** Over 2,431 real trees the two agree to a median of -0.07 m —
+but the tail runs to **4.80 m**, and on **0.7% of trees (18 of 2,431)** the whole
+trunk ends up below the walker's feet or above their head. Nothing stops a body
+at those and nothing should: the tree is DRAWN there too, so what you walk
+through is a trunk buried in the hillside. It predates this work and applies to
+arrows exactly as much.
+
+**This cost a wrong diagnosis inside this very run.** solidcheck's first pass
+picked 2 such trees out of 24 and reported a push-out bug that did not exist.
+The site scan now requires the trunk to reach the walking band, and prints the
+rejected fraction so nobody re-derives it.
+
+**IF YOU READ ONE THING ABOUT HUNTING: `shootRange: 26` IS RIGHT. DO NOT RAISE
+IT.** Measured, not argued: raising it to 40 m TRIPLES the time a body spends
+with a deer inside
 its own rule (12% → 44% of a run) and converts almost none of that into arrows
 (1.9 → 2.8 per 100 s). What it converts into is REFUSALS — "ground in the way"
 goes from 3.3 to 23.7 per 100 s, a SEVENFOLD rise — and kills went 3/4 to 2/4.
@@ -155,17 +250,13 @@ Pooled over 4 huntcheck runs an arm, alternating, `commit` against `commit,close
 the step. All four of the closing arm's successes walked 3-7 m and one recorded
 `arrived`. **That is the first evidence in this project that a step aside
 produces a shot BY STEPPING.** Every previous green was the geometry resolving
-itself while a detour happened to be open.
+itself while a detour happened to be open. The control lines read `24 m -> 24 m`
+and `27 m -> 27 m` — the range preserved to the metre, as the geometry predicts.
 
-The control lines read `24 m -> 24 m` and `27 m -> 27 m` — the range preserved
-to the metre, which is the geometric claim confirmed in the field.
-
-**Metres walked per detour did NOT climb to the 6-20 m the queue predicted.**
-Still 2 m, because 8 of 10 episodes still end inside 0.7 s. Kills went 4/4 to
-3/4, which is noise: huntcheck is red about a third of the time, and the one
-closing failure was a run with 10 detours — a harder scenario, not the same one
-failing. **The arms did not face identical worlds**; real-time jitter changes the
-trajectory, and run 1 of each arm diverged completely (0 detours vs 10).
+**It did not move the kills** (4/4 → 3/4, noise) and metres walked per detour
+stayed at 2, because 8 of 10 episodes still end inside 0.7 s. **The arms did not
+face identical worlds**: real-time jitter changes the trajectory, and run 1 of
+each arm diverged completely (0 detours vs 10).
 
 ## AND THE THING IT WAS AIMED AT WAS NEVER A BUG
 
@@ -195,43 +286,25 @@ range and closing instead — which is what it should do.
 Note the lead hypothesis was the *plausible* one — a deer at 14 m/s earns ~6 m of
 lead at that flight time — and it was wrong. Printing beat arguing again.
 
-## WHAT A BODY LOOKS LIKE — four fixes, found by LOOKING
+## WHAT A BODY LOOKS LIKE — five fixes, found by LOOKING. All shipped.
 
-Driven as a real browser client against a real server, then measured. All four
-were live in the game and none of them broke a single check.
+Driven as a real browser client against a real server. All five were live in the
+game and none of them broke a single check. Kept to a line each now that
+`avatarcheck` (11/11) and `campcheck` (38/38) hold them; the transferable
+lessons are in the trap list at the foot of this file.
 
-**1. The crouch squashed the HEAD and the NAME.** `avatars.js` did
-`object.scale.y = lerp(1, 0.72, crouch)` on the whole Group. For a torso and
-legs that is a cheap, good crouch and it stays. The head is not a limb — 72% is
-a head that has been stood on — and the nameplate is a **text sprite**, so the
-one thing on screen whose whole job is to be read got 28% harder to read exactly
-when somebody is sneaking toward you. Both counter-scaled; they still travel
-DOWN, they just stop deforming.
-
-**2. Every PvP kill was "killed by the cold".** `onPlayerDied` read
-`killer?.species?.name ?? 'the cold'`. A creature has `.species.name`; a PLAYER
-— which is exactly what the arrow path hands it — has `.name` and no `.species`.
-**With six models shooting at each other tomorrow night that is every
-interesting death in the run, told wrong.**
-
-**3. The palisade was a picture of a wall.** `colliders.add?.()` — and
-`ColliderField` has `addSphere`/`addCylinder`/`addBox` and has NEVER had an
-`add`. The `?.` swallowed it in silence and arrows flew through. The arguments
-were right all along; one method name.
-
-**4. ...AND `campcheck` SAID IT WAS FINE.** It asserted `built.some(b =>
-b.collided)` — a flag set on the line AFTER the dead call, unconditionally, with
-no way to fail. Now it asserts the cylinder itself, tagged, at the spec's radius.
-**A flag that says work happened is not the work.**
-
-**5. ...AND MAKING THE WALL REAL MADE IT IMMORTAL.** Caught by asking what
-else changed, not by a check. `Structures.remove` knew nothing about the
-collider and `ColliderField` had no way to remove one, so a wall you built and
-took down would stop arrows for the rest of the run — impossible before, because
-no wall was ever solid. Colliders are now RETIRED, not spliced: `grid` holds
-INDICES into `list`, so removing an entry would renumber every solid after it.
-campcheck asserts it through a LIVE SEGMENT QUERY, because a retired collider is
-still in the list by design and a check that counted would pass on a live wall.
+1. **The crouch squashed the HEAD and the NAMEPLATE**, a text sprite, 28% harder
+   to read exactly when somebody is sneaking toward you. Both counter-scaled.
+2. **Every PvP kill was "killed by the cold"** — `killer?.species?.name` on an
+   object that is a PLAYER and has `.name`. Every interesting death, told wrong.
+3. **The palisade was a picture of a wall.** `colliders.add?.()`; there has never
+   been an `add`, and the `?.` swallowed it in silence.
+4. **…and `campcheck` said it was fine**, asserting a flag set unconditionally on
+   the next line. It asserts the tagged cylinder now.
+5. **…and making the wall real made it IMMORTAL**, because `Structures.remove`
+   knew nothing about the collider. Colliders are RETIRED, not spliced — `grid`
+   holds INDICES into `list` — and campcheck proves it with a LIVE SEGMENT QUERY,
+   because a retired collider stays in the list by design.
 
 ### `avatarcheck` — 11/11, no port, no server, no wall clock
 
@@ -364,6 +437,37 @@ only, cannot kill the run hosting it. `boardState` is pure (agents in, JSON out)
 so the check builds boards from invented agents too. `boardcheck` **35/35, and it
 discriminates — 27/31 with three fields broken.**
 
+## `solidcheck` — 24/24, two legs, two counterfactuals
+
+**The mechanism, offline**: no port, no server, no wall clock, so it can be run
+on a busy box and believed. Real `Controller.prototype`, real terrain, 24 trees
+and 10 boulders found by SCANNING.
+
+**The wiring, over a socket**: a real server, real sockets, a real trunk and two
+real people. A flag read in `server.js` and never handed to a controller would
+sail straight through the offline leg — and the counterfactual proves that is
+the exact failure it catches.
+
+**EVERY REACH ASSERTION IS A PAIR**: *it never got inside* AND *it got to the
+surface*. The first is also true of a body that walked the other way, and this
+project has already shipped an instrument that could only see its arm when its
+arm failed.
+
+| counterfactual | result |
+|---|---|
+| crowns made solid to bodies | **19/19 → 16/19**; jam **0.6 s → 12.3 s** |
+| `SOLID` read but never handed to the controller | **19/19 → 17/19**; both trunk arms collapse |
+
+(Both were run against the 19-assertion version, before the two-people leg was
+added. Method, because two of this project's A/Bs have unknowingly run the same
+arm twice: **commit, mutate, run, `git checkout --`, then grep to prove the
+probe is gone AND the real code is back.**)
+
+Note what did NOT fall in the first counterfactual: "a body can still cross a
+wood" stayed 12/12, because a body that re-aims eventually gets round even a
+solid crown. **The JAM line is the one doing the work**, and it only exists
+because the wedging risk was named before the code was written.
+
 ## THE LADDER IS DONE. All six rungs green.
 
 **1. SURVIVE** `survivalcheck` 12/12 — forage, light, cook, eat, live the night.
@@ -398,7 +502,15 @@ on screen long enough to read.
 The header prints what is ACTUALLY about to play — a line per player, its model,
 its character, and `(no XAI_API_KEY)` beside anyone who quietly fell back to
 scripted. Read it. Other knobs, all off by default: `HOURS=1`, `RAID=6`,
-`STOCK=venison:2`, `HUNGER=52`, `DETOUR=commit,close`.
+`STOCK=venison:2`, `HUNGER=52`, `DETOUR=commit,close`, `SOLID=on`.
+
+**`SOLID=on` — read this before turning it on.** It is the difference between
+six minds standing round a fire and six minds standing INSIDE one another, and
+the check's control arm measured that literally: 0.00 m apart. If you turn it on
+for the server, **put `&solid=on` on your own join URL too** — that is the
+prediction side, and a browser that stops you at a tree the server walked you
+through rubber-bands you in a way that looks exactly like lag. Animals are NOT
+in it: deer and goblins still walk through everybody.
 
 **`DETOUR=commit,close` is safe for the evening and is now mildly RECOMMENDED**,
 which `commit` alone never was. It is the only configuration in which a step
@@ -409,7 +521,7 @@ sidestepping in place. It did not raise the kill rate; nothing yet has.
 ## Checks
 
 `firecheck` 57 · `companioncheck` 45 · `glidercheck` 42 · **`campcheck` 38** ·
-`boardcheck` 35 · `weathercheck` 27 · `netcheck` 24 ·
+`boardcheck` 35 · `weathercheck` 27 · `netcheck` 24 · **`solidcheck` 24 (port 8086)** ·
 `providercheck` 38 · `personacheck` 21 · **`avatarcheck` 11** · `mindcheck`/`clockcheck` 21 · `warmthcheck` 20 ·
 `deathcheck` 19 · `bookcheck`/`reportcheck`/`raidcheck` 18 · **`detourcheck` 18** ·
 `timbercheck` 17 · `agentcheck` 17 · `ordercheck` 17 ·
@@ -481,36 +593,24 @@ quiver and takes about three minutes.**
    around without fixing it, and the two constants left have now each been
    measured and cleared.
 
-2. **NOTHING COLLIDES WITH ANYTHING. A body is a POINT that samples the height
-   field.** Established this run by reading every line of the movement path, and
-   it is the biggest single gap in the game. **Not started deliberately** — it is
-   feature-sized, it touches the core movement path on BOTH client and server,
-   and half-landing it is worse than leaving it.
+2. **ANIMALS STILL WALK THROUGH PEOPLE.** `SOLID=on` closed the body-vs-scenery
+   and body-vs-body halves of the old queue item 2; this is the third half, left
+   out deliberately rather than half-landed. Deer, goblins and companions pass
+   straight through players and through each other, and the creature manager's
+   own separation pass (`manager.js:859-894`) iterates `this.creatures`, which
+   has never contained a player.
 
-   `controller.js:174-175` is the entire horizontal step: `position.x +=
-   velocity.x * dt`, same for z, and **nothing follows** — no sweep, no push-out,
-   no radius test, no `blocked` flag. Its own header says so at
-   `controller.js:4-6`. The only solid in the player's world is `heightAt`, plus
-   a soft wade clamp for water.
+   **It is the loudest one left for the camera** — a deer you are stalking walks
+   through you, and a goblin warband occupies one square metre. The shape is
+   already built: `ColliderField.resolveBody` is the query, and
+   `SimWorld.separatePlayers` is the pattern to copy. It wants its own socket
+   check asserting a creature and a player cannot end a tick inside one another,
+   and it should ride the SAME `SOLID` flag rather than inventing a second one.
 
-   So a player walks through **tree trunks, crowns, rocks, boulders, landmark
-   stones, every built structure, every creature, and every other player.**
-   Confirmed both ways: `ColliderField` has no point or capsule query at all —
-   only `segmentHit`, which exists for ARROWS — and the creature separation pass
-   (`manager.js:859-894`) iterates `this.creatures`, which never contains a
-   player. The one player-vs-player geometric test in the repo is the arrow
-   capsule (`sim/world.js:312-320`, `PLAYER_RADIUS 0.42`), and those constants
-   appear nowhere else. The spawn fan-out (`sim/world.js:353-363`) keeps two
-   arrivals from spawning inside each other and lasts exactly one frame.
-
-   **FOR THE EVENING THIS IS COSMETIC-BUT-LOUD**: six bodies and a human will
-   walk through each other and through trees on camera. **Decide whether it is
-   worth it BEFORE building it**, because the risks are real — it is on the
-   server tick and the client prediction path, so it is a determinism surface,
-   and `agent.js` already *routes* round trees for shooting (`timber()`), which
-   would start fighting a physical constraint it has never had to respect.
-   If it is built: flag-gated, default OFF, and a socket check that asserts two
-   bodies cannot end a tick inside one another.
+   **The other stated gap: the server has no structures at all.** `Structures`
+   is not instantiated in `sim/world.js`, so a palisade stops arrows in a browser
+   and stops nobody on the server. Pre-existing, and `SOLID` makes it matter more
+   — a wall the host can walk through is worse than a wall nobody can.
 3. **`p.lastCraft`** (world.js:911) is written on every successful craft and read
    by nothing — a confirmed-make signal already on the server, if anyone wants it
    on the wire rather than inferred from the pack.
@@ -553,6 +653,25 @@ in a pack. Verify by driving the game, and make the check assert an OUTCOME.
 
 ## Things that will waste your time if you do not know them
 
+- **A CHECK'S PRECONDITION CAN BE THE BUG, AND IT LOOKS EXACTLY LIKE A PRODUCT
+  DEFECT.** solidcheck's first run reported a push-out failure on 2 of 24 trees
+  with a 0.96 m intrusion. The push-out was fine. Its site scan had picked two
+  trees whose whole TRUNK sits below the ground a body walks on, because trees
+  are planted at `latticeHeight` and bodies walk on `heightAt` and the two
+  disagree by up to 4.8 m in the tail. **Before believing a failure, check that
+  the thing you set up could ever have passed.** Three of this project's wrong
+  diagnoses are now this shape.
+- **AIMING ONCE AND WALKING IN A STRAIGHT LINE MEASURES THE CHECK, NOT THE
+  GAME.** solidcheck read 8/12 on "can a body cross a wood" and it was the
+  check: it set the yaw at the start, so a body nudged three metres sideways by
+  a trunk then marched off at a tangent for forty seconds. A real body re-solves
+  its heading every tick. Re-aiming, it is 12/12 with a longest jam of 0.6 s.
+  **A test body that behaves less adaptively than the real one manufactures
+  failures the game does not have.**
+- **A SPHERE'S WIDTH DEPENDS ON THE HEIGHT YOU MEET IT AT.** A boulder assertion
+  computed the slice at the ground under the ROCK while the body met it standing
+  a metre away on a slope — one boulder in ten failed on the difference. Read
+  the geometry at the feet the body actually had at the moment of contact.
 - **AN INSTRUMENT CAN BE BLIND IN EXACTLY THE CASE THAT MATTERS, AND SAY
   "UNPROVEN" INSTEAD OF "WRONG".** The reach sentinel counted arrows out of
   `agent.shots` — which is pushed only by `howItMissed`, off a `miss` event, so
