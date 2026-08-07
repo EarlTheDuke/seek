@@ -53,7 +53,8 @@
     "avatarcheck": "node server/avatarcheck.js",
     "rangecheck": "node server/rangecheck.js",
     "solidcheck": "node server/solidcheck.js",
-    "keycheck": "node server/keycheck.js"
+    "keycheck": "node server/keycheck.js",
+    "chatcheck": "node server/chatcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

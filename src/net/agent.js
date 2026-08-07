@@ -875,14 +875,48 @@ export class Agent {
         // nobody ever made camp rather than nobody made camp recently.
         this.goalCounts[goal.kind] = (this.goalCounts[goal.kind] ?? 0) + 1;
 
-        if (goal.kind === 'say' && goal.text && this.hours - this.spoke > AGENTS.speakEveryHours) {
+        // ── HOW LONG SINCE THIS ONE LAST SPOKE, ACROSS MIDNIGHT ──
+        //
+        // `hours` is the world clock and it is `% 24`. `spoke` is a stamp taken
+        // off that same clock. A plain subtraction across midnight is NEGATIVE
+        // — 0.6 minus 20.0 reads as minus nineteen hours — which is never
+        // greater than the gate, so a mind that spoke in the evening was MUTE
+        // FOR THE REST OF THE RUN and nothing anywhere said so.
+        //
+        // A day here is `TIME.dayMinutes` = 26 REAL minutes, so this was not an
+        // edge case waiting for a long campaign: it fired twice an hour. It is
+        // why a human sat in the game, asked four direct questions, and was
+        // answered by nobody. See `chatcheck`.
+        //
+        // `spoke` starts at -999 to mean "never", and that sentinel must stay a
+        // sentinel: feeding it through the modulo gives an arbitrary number in
+        // [0,24) that lands under the gate for one hour of every day, which
+        // would have silenced a fresh mind at nine in the morning.
+        const sinceSpoke = this.spoke < 0 ? Infinity : (this.hours - this.spoke + 24) % 24;
+
+        if (goal.kind === 'say' && goal.text && sinceSpoke > AGENTS.speakEveryHours) {
           this.spoke = this.hours;
           this.send(C_CHAT, { m: goal.text });
           // Kept because it is the only unprompted sentence anybody in this
           // world produces — the closest thing to a player telling you
           // something in their own words.
           this.said.push(goal.text);
-          this.goal = { kind: 'wander' };
+          // ── SPEAKING DOES NOT COST YOU YOUR PLAN ──
+          //
+          // This used to set `wander`, so every sentence a mind spoke wiped
+          // whatever it was doing and sent it off aimlessly. That is a real
+          // disincentive built into the mechanics rather than into the prompt:
+          // the models were being asked to talk and quietly punished for it.
+          // Keeping the standing goal means a body can answer a question and
+          // carry on hunting, which is what a person does.
+          this.goal = this.goal ?? { kind: 'wander' };
+        } else if (goal.kind === 'say' && goal.text) {
+          // GATED, AND SAID SO. This branch used to fall through to nothing:
+          // the mind chose to speak, the gate refused, and the choice vanished
+          // without a trace in any log or counter. An intention that is thrown
+          // away silently is indistinguishable from one that was never had.
+          this.gagged = (this.gagged ?? 0) + 1;
+          this.onLog?.(`${this.name}: (wanted to say "${goal.text}" — too soon, ${sinceSpoke.toFixed(2)}h of ${AGENTS.speakEveryHours}h)`);
         } else if (changed) {
           this.memory.add(this.hours, `I decided to ${describeGoal(goal)}`);
           this.onLog?.(`${this.name}: ${describeGoal(goal)}${goal.why ? ` — ${goal.why}` : ''}`);
