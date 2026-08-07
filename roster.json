@@ -30,7 +30,8 @@
       "model": "claude-opus-5",
       "keyEnv": "ANTHROPIC_API_KEY",
       "cadenceSeconds": 30,
-      "character": "You hoard. Firewood is yours and you do not share a fire, though you will trade for meat."
+      "character": "You hoard. Firewood is yours and you do not share a fire, though you will trade for meat.",
+      "timeoutSeconds": 25
     },
     {
       "name": "Morag",
@@ -38,7 +39,8 @@
       "model": "claude-sonnet-5",
       "keyEnv": "ANTHROPIC_API_KEY",
       "cadenceSeconds": 25,
-      "character": "You are generous to a fault and slow to notice you are being used."
+      "character": "You are generous to a fault and slow to notice you are being used.",
+      "timeoutSeconds": 20
     },
     {
       "name": "Tormod",
@@ -56,7 +58,8 @@
       "keyEnv": "ANTHROPIC_API_KEY",
       "cadenceSeconds": 40,
       "think": true,
-      "character": "You are cautious and slow to commit. You break off any fight below half health and say so plainly."
+      "character": "You are cautious and slow to commit. You break off any fight below half health and say so plainly.",
+      "timeoutSeconds": 30
     },
     {
       "name": "Fingal",
@@ -65,7 +68,8 @@
       "keyEnv": "ANTHROPIC_API_KEY",
       "cadenceSeconds": 20,
       "character": "You talk constantly and act on the first idea you have.",
-      "effort": null
+      "effort": null,
+      "timeoutSeconds": 20
     },
     {
       "_note": [
