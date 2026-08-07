@@ -12,22 +12,86 @@ it is the most expensive knowledge in the repo: every entry cost somebody a
 wrong diagnosis. **Skim it before you debug anything, not after.** It is kept
 here rather than cut because a closed bug can be deleted and a trap cannot.
 
-Last updated: 2026-08-06, by the run that made the step aside CLOSE, found that
-the thing it was aimed at was never a bug — and then went and LOOKED at the
-bodies, which is where the day's best findings were.
+Last updated: 2026-08-06, by the run that answered the ceiling question with an
+8-run A/B — and found the sentinel built to police that A/B was blind in exactly
+the case that mattered.
 
-**IF YOU READ ONE THING: the four fixes in "What a body looks like" below came
-from driving a real browser client against a real server for twenty minutes.
-Three of them had been in the game for months and one of them had a green check
-sitting on top of it.** Every check in this repo passed the whole time.
+**IF YOU READ ONE THING: `shootRange: 26` IS RIGHT. DO NOT RAISE IT.** Measured,
+not argued: raising it to 40 m TRIPLES the time a body spends with a deer inside
+its own rule (12% → 44% of a run) and converts almost none of that into arrows
+(1.9 → 2.8 per 100 s). What it converts into is REFUSALS — "ground in the way"
+goes from 3.3 to 23.7 per 100 s, a SEVENFOLD rise — and kills went 3/4 to 2/4.
+**The ceiling was never the binding constraint on the shot rate. The ground is.**
 
-**QUEUE ITEM 1 IS BUILT, MEASURED AND GREEN — and the headline is the second
-finding, not the first.** A step aside now closes the range, and for the first
-time in this project's record a detour produced a shot BY WALKING. But `too far`,
-the outcome the whole thing was aimed at, turns out to be the body behaving
-CORRECTLY. Do not build the queue's old fallback for it. See below.
+That closes the first paragraph of the old queue item 1 with evidence, and it
+confirms on measurement what `config.js:827` had only ever asserted from one
+run's anecdote. The next person to touch the shot rate should touch the
+SIGHTLINE, not a constant.
 
-## WHAT SHIPPED: `DETOUR=close` — a step aside that closes the range
+## THE CEILING A/B — 4 seeds, 2 arms, and the arms were provably different
+
+`SHOOTRANGE=40 HUNTSEED=corrie npm run huntcheck`. Unset is `AGENTS.shootRange`
+and the literal 'huntcheck' seed, byte for byte — the ceiling is an ARM in the
+check, never an edit to `config.js`.
+
+| per 100 s of hunting | reach 26 | reach 40 |
+|---|---|---|
+| time a deer is inside the rule | **12.3%** | **44.0%** |
+| **arrows loosed** | **1.9** | **2.8** |
+| wounds | 0.8/run | 1.0/run |
+| **kills** | **3/4 runs** | **2/4 runs** |
+| refusals, all reasons | 11.6 | 34.8 |
+| **…"ground in the way"** | **3.3** | **23.7** |
+| …"a tree in the way" | 2.8 | 6.6 |
+
+**READ ROWS 1 AND 2 TOGETHER.** 3.6× the opportunity bought 1.5× the arrows.
+Everything else the extra reach bought was deliberation about shots the ground
+would not allow — which is, word for word, the argument `config.js` gives for
+cutting the number from 45 in the first place. `braemar-r40` is the picture:
+**110 seconds with a deer inside 40 m, 27 refusals, and not one arrow.**
+
+**Per seed, so nobody quotes the mean as if it were four agreeing runs.** Arrows
+went 3→0, 1→1, 1→10, 1→2 — the mean is carried almost entirely by one run, and
+a re-run of that same seed and arm later gave 2 arrows, not 10. In-range time is
+the robust effect (28→74, 9→8, 7→55, 5→39); the arrow count is not. **Treat the
+arrow row as suggestive and the refusal row as the finding.**
+
+**THE ARM SENTINEL READ CLEAN**, which is why the table is worth anything: the
+furthest arrow on the four control runs was 24.5, 24.9, 21.4 and 21.7 m — under
+26 by construction — and on the treatment 39.4, 39.7 and 39.8. Two A/Bs in this
+project have run the same arm twice; this one did not.
+
+## …AND THE SENTINEL POLICING IT WAS BLIND WHEN THE TREATMENT WORKED
+
+It printed *"0 of 0 arrows — no arrows, so this run says nothing about the arm"*
+on a run that loosed an arrow AND wounded a deer with it, with `agent.arrows`
+reading 1 four lines away on the same page.
+
+It counted slants out of `agent.shots`. **`shots` is pushed only by
+`howItMissed`, which only ever runs off a `miss` event** — and a `wound` sets
+`lastShot = null` because there is no miss left to measure, so an arrow that
+goes home never lands there. `shots` is the MISSES. The sentinel could therefore
+see the arm ONLY when the arm failed, and reported the treatment unproven every
+single time the treatment succeeded.
+
+Sixth instrument in this project to report something it had not measured, and
+the first to fail in the direction that HIDES A SUCCESS. `Agent.loosed` is now
+written at the moment of RELEASE — one entry per arrow, before anything can
+happen to the shaft, bounded like `refusals` — the sentinel reads that, prints
+every arrow by slant, and cross-checks its own length against `agent.arrows`
+from the other code path so a third failure announces itself.
+
+## …AND THE COUNTS IT PRINTS ARE OVER DIFFERENT AMOUNTS OF TIME
+
+**huntcheck STOPS ON A KILL.** A run that kills ends at 36-77 s; a run that does
+not runs the full 150. So every raw tally in it is a count over a denominator
+that depends on the OUTCOME, and comparing two arms on raw counts rewards the
+arm that fails, for taking longer to fail. Read straight, this A/B's control
+looked like it refused a third as often (14.3 against 43.5); per second it was
+11.6 against 34.8. The check now prints the rate, the run's length and the
+arrows on one line so the comparison cannot be got wrong again.
+
+## STILL TRUE FROM THE RUN BEFORE: `DETOUR=close` — a step aside that closes the range
 
 `clearSpotNear` offered candidates ONLY perpendicular to the line of sight, so a
 step aside held the range exactly — worse, a 6 m step at 24 m LENGTHENS the slant
@@ -327,7 +391,13 @@ sidestepping in place. It did not raise the kill rate; nothing yet has.
 `dangercheck`/`herdcheck`/`rendercheck` 12 · `survivalcheck` 12 · `bitecheck` 10 ·
 `spreadcheck` 10 · `watchcheck` 10 · `refillcheck` 9 · `scarcecheck` 9 ·
 `shotcheck` 8 · `huntcheck` 7 · `arrowcheck`/`woundcheck` 7 ·
-`ballisticscheck` 7 · `rostercheck` 6.
+`ballisticscheck` 7 · `rostercheck` 6 · **`rangecheck` 9 (port 8087)**.
+
+**`huntcheck` now takes two arms**: `SHOOTRANGE=40` raises the ceiling for that
+run only (`config.js` untouched) and `HUNTSEED=corrie` changes WHICH SCENARIO —
+the seed here was a hardcoded literal, so four runs were never four samples.
+Unset, both are byte-identical to what they were. Read the REACH SENTINEL before
+believing any reach comparison, and read the `/100s` column, not the counts.
 
 Ports: **ballisticscheck 8088**, boardcheck 8093 (plus 8090 for its own board and
 8089 for the fleet's), rostercheck 8091, watchcheck 8092, scarcecheck 8094,
@@ -353,23 +423,34 @@ quiver and takes about three minutes.**
 
 ## The queue, ranked
 
-1. **THE SHOT RATE, and it is now the only thing left in the hunting tail.** The
-   body is inside `AGENTS.shootRange` for **5-14% of a run** and every mechanism
-   fixed in the last three runs has left that untouched. Two runs have now ended
-   with "the aim is fine, the arrows go home, there are just almost no shots".
-   **Do not start another detour fix.** The detour is understood and closed.
+1. **THE SHOT RATE — and the two constants people reach for are now BOTH ruled
+   out, on measurement.** The body is inside `AGENTS.shootRange` for 5-14% of a
+   run and every mechanism fixed in the last four runs has left that untouched.
 
-   **WHERE TO LOOK FIRST, on this run's evidence:** the refusal instrument says
-   the commonest reason a shot is not on is the CLIMB — 9 of 9 `too far` refusals
-   were a deer 6-18 m above or below the eye. `shootRange` is 26 m of SLANT, so a
-   deer 12.6 m up is unshootable past 22.7 m of ground distance and the body has
-   exactly one lever, which is walking closer. **Ask whether 26 m of slant is the
-   right rule at all** — `ballisticscheck` says the bow is understood to 0.17 m
-   out to 151 m, so the limit is a judgement about hit probability, not physics,
-   and it was tuned down from 45 for a reason that is written in `config.js`.
-   Measure the hit rate by slant band before changing it. **A constant tuned
-   without that measurement is the fourth pass of exactly what this project has
-   been told three times not to do.**
+   **THE BOW IS NOT IT.** `rangecheck` (port 8087, 21/21): a standing deer is hit
+   at every band from 12 m to 52 m, median 0.10 m from the chest, and led at a
+   trot 11 of 12. So `shootRange` was never a marksmanship number.
+
+   **AND THE CEILING IS NOT IT EITHER, and this is the new one — DO NOT RAISE
+   IT.** The 8-run A/B at the top of this file gave the body 3.6× the in-range
+   time and got 1.5× the arrows, a 7× rise in "ground in the way" refusals, and
+   fewer kills. `SHOOTRANGE=` stays a measuring arm; `config.js` stays at 26.
+
+   **SO WHAT IS LEFT IS THE SIGHTLINE, and that is where the next run should
+   go.** At reach 40 the refusal mix is 61 of 78 and 57 of 66 "ground in the
+   way", deer at 17-40 m, obstruction 4-39 m out. `clearSpotNear` already comes
+   back NOWHERE TO GO on **52-54% of the times it is asked** (718 ground asks,
+   390 null, in one run) — that number is printed by huntcheck, has been for
+   several runs, and nothing has ever chased it. **Chase that before anything
+   else: half the time the body knows the ground is in the way, it cannot name
+   anywhere to stand.** Ruled out already, do not re-derive: an obstruction
+   beyond the target is impossible — `sightline` iterates `s` from 0.05 to 0.98,
+   strictly between eye and mark.
+
+   **Do not start another detour fix, and do not tune a constant.** The detour is
+   understood and closed; three passes of constant-tuning moved the failure
+   around without fixing it, and the two constants left have now each been
+   measured and cleared.
 
 2. **NOTHING COLLIDES WITH ANYTHING. A body is a POINT that samples the height
    field.** Established this run by reading every line of the movement path, and
@@ -443,6 +524,30 @@ in a pack. Verify by driving the game, and make the check assert an OUTCOME.
 
 ## Things that will waste your time if you do not know them
 
+- **AN INSTRUMENT CAN BE BLIND IN EXACTLY THE CASE THAT MATTERS, AND SAY
+  "UNPROVEN" INSTEAD OF "WRONG".** The reach sentinel counted arrows out of
+  `agent.shots` — which is pushed only by `howItMissed`, off a `miss` event, so
+  it holds the MISSES and nothing else. A `wound` sets `lastShot = null`. So it
+  could see the treatment only when the treatment FAILED, and printed *"0 of 0
+  arrows, so this run says nothing about the arm"* on a run that loosed an arrow
+  and drew blood with it. **A sentinel that fails toward "no evidence" is worse
+  than one that fails loudly, because nobody re-runs it.** Cross-check every
+  instrument against a counter from a DIFFERENT code path — `agent.arrows` sat
+  four lines away on the same page reading 1.
+- **A CHECK THAT STOPS ON SUCCESS HAS A DIFFERENT DENOMINATOR PER ARM.**
+  huntcheck ends on a kill, so a run that kills is 36-77 s and a run that does
+  not is 150. Comparing raw tallies across arms **rewards the arm that fails**,
+  for taking longer to fail: this run's control read 14.3 refusals against 43.5
+  and per second was 11.6 against 34.8. Divide by the run's own length. Third
+  time this project has been bitten by two counts with different denominators.
+- **A STRING FROM `.toFixed()` IS TRUTHY, SO `x || fallback` NEVER FIRES.**
+  `secs` is `"0"` on a sub-second run — truthy — and the guard sails past it
+  into a divide by zero. Coerce before you guard.
+- **A `broken`/`failed` FILTER MATCHED AGAINST PROSE MATCHES THE PROSE.** A
+  grep for "this instrument is wrong" flagged all 8 runs of the A/B as broken,
+  because that exact phrase is in the ORDINARY `too far` breakdown as a
+  self-indictment clause. Match the alarm line, not a phrase inside it. Fourth
+  false reading in this project from a loose string filter.
 - **A FLAG THAT SAYS WORK HAPPENED IS NOT THE WORK, and `?.` HOLDS THE DOOR
   OPEN.** `colliders.add?.()` — no such method, ever — silently did nothing for
   months while `s.collided = true` on the NEXT line announced success, and
@@ -586,21 +691,3 @@ in a pack. Verify by driving the game, and make the check assert an OUTCOME.
 - **Scatter colliders are `highlands.scatter.colliders`**; a creature's Object3D
   is `c.object`; lit fires are `highlands.fires.active`; `hud.heard` holds
   objects — read `h.text`.
-
-## How to play it
-
-Join at `http://localhost:5173/?join=ws://127.0.0.1:8080&name=Claude&danger=no-bears`,
-click a mode button (**Sandbox** for `warp`/`spawnPack`), then drive with
-`window.highlands.stepWorld(1/60)` in REAL time. **The pane does not composite
-when it is not displayed**, so `requestAnimationFrame` never fires and the world
-looks frozen-but-connected. It also reports a **0×0 viewport**, so click the mode
-button from the page rather than by element ref and check
-`highlands.ruleset.current.id`. `highlands.capture('name')` writes a JPEG to
-`shots/` — **read those images**; under ~5 KB means the blind-pane bug is back.
-
-## The trap this project falls into
-
-**A name used and never defined** — invisible to build, only found by running the
-line. Grep every identifier your new code uses. **And a clean build proves
-nothing**: one run's build was green while `gather` had never once put a branch
-in a pack. Verify by driving the game, and make the check assert an OUTCOME.
