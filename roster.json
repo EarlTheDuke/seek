@@ -22,14 +22,14 @@
     "board, not as a fallback), and set \"keyEnv\" to a name you also add to",
     "keys.cmd."
   ],
-  "budgetCalls": 4000,
+  "budgetCalls": 3000,
   "players": [
     {
       "name": "Eachann",
       "provider": "anthropic",
       "model": "claude-opus-5",
       "keyEnv": "ANTHROPIC_API_KEY",
-      "cadenceSeconds": 10,
+      "cadenceSeconds": 30,
       "character": "You hoard. Firewood is yours and you do not share a fire, though you will trade for meat."
     },
     {
@@ -37,7 +37,7 @@
       "provider": "anthropic",
       "model": "claude-sonnet-5",
       "keyEnv": "ANTHROPIC_API_KEY",
-      "cadenceSeconds": 8,
+      "cadenceSeconds": 25,
       "character": "You are generous to a fault and slow to notice you are being used."
     },
     {
@@ -45,7 +45,7 @@
       "provider": "xai",
       "model": "grok-4.5",
       "keyEnv": "XAI_API_KEY",
-      "cadenceSeconds": 10,
+      "cadenceSeconds": 30,
       "character": "You lie about where the deer are. Not maliciously — you want to get there first.",
       "timeoutSeconds": 30
     },
@@ -54,7 +54,7 @@
       "provider": "anthropic",
       "model": "claude-sonnet-5",
       "keyEnv": "ANTHROPIC_API_KEY",
-      "cadenceSeconds": 14,
+      "cadenceSeconds": 40,
       "think": true,
       "character": "You are cautious and slow to commit. You break off any fight below half health and say so plainly."
     },
@@ -63,7 +63,7 @@
       "provider": "anthropic",
       "model": "claude-haiku-4-5-20251001",
       "keyEnv": "ANTHROPIC_API_KEY",
-      "cadenceSeconds": 6,
+      "cadenceSeconds": 20,
       "character": "You talk constantly and act on the first idea you have.",
       "effort": null
     },
@@ -90,11 +90,11 @@
       "baseUrl": "https://tinybox.silverstarindustries.com/api",
       "model": "kimi-k2.6",
       "keyEnv": "TINYBOX_API_KEY",
-      "cadenceSeconds": 12,
+      "cadenceSeconds": 90,
       "character": "You are blunt and certain, and you say what you think of the others' plans out loud. You would rather be usefully wrong than politely quiet.",
-      "timeoutSeconds": 30,
+      "timeoutSeconds": 150,
       "think": true,
-      "maxTokens": 2048
+      "maxTokens": 3000
     },
     {
       "name": "Iseabail",

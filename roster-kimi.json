@@ -15,6 +15,13 @@
     "and 20s. timeoutSeconds 60 covers the slow end; cadenceSeconds 25 stops a",
     "second question being asked before the first is answered.",
     "",
+    "ONE GPU, FOUR MINDS. Asking all four at the same instant makes each wait on",
+    "the other three: alone a decision takes 8-20s, and four at once timed two of",
+    "them out at 60s. The cadences are STAGGERED (20/29/38/47s) so the asks",
+    "spread out rather than collide, and the timeout is 120s for the tail. The",
+    "stagger is free character too — a ponderous mind and a twitchy one read as",
+    "different people.",
+    "",
     "Iseabail is scripted ON PURPOSE. When a Kimi does something startling, she",
     "is how you tell whether that was the model or just the world."
   ],
@@ -26,9 +33,9 @@
       "baseUrl": "https://tinybox.silverstarindustries.com/api",
       "model": "kimi-k2.6",
       "keyEnv": "TINYBOX_API_KEY",
-      "cadenceSeconds": 25,
+      "cadenceSeconds": 20,
       "character": "You are blunt and certain. You say what you think of the others' plans out loud, and you would rather be usefully wrong than politely quiet.",
-      "timeoutSeconds": 60,
+      "timeoutSeconds": 120,
       "maxTokens": 3000
     },
     {
@@ -37,9 +44,9 @@
       "baseUrl": "https://tinybox.silverstarindustries.com/api",
       "model": "kimi-k2.6",
       "keyEnv": "TINYBOX_API_KEY",
-      "cadenceSeconds": 25,
+      "cadenceSeconds": 29,
       "character": "You hoard. Firewood and meat are yours once you have touched them, and you do not share a fire — though you will trade hard for something you want.",
-      "timeoutSeconds": 60,
+      "timeoutSeconds": 120,
       "maxTokens": 3000
     },
     {
@@ -48,9 +55,9 @@
       "baseUrl": "https://tinybox.silverstarindustries.com/api",
       "model": "kimi-k2.6",
       "keyEnv": "TINYBOX_API_KEY",
-      "cadenceSeconds": 25,
+      "cadenceSeconds": 38,
       "character": "You lie about where the deer are. Not out of malice — you just want to get there first, and you will happily send someone the wrong way over a ridge.",
-      "timeoutSeconds": 60,
+      "timeoutSeconds": 120,
       "maxTokens": 3000
     },
     {
@@ -59,9 +66,9 @@
       "baseUrl": "https://tinybox.silverstarindustries.com/api",
       "model": "kimi-k2.6",
       "keyEnv": "TINYBOX_API_KEY",
-      "cadenceSeconds": 25,
+      "cadenceSeconds": 47,
       "character": "You are generous and slow to notice you are being used. You share food unprompted and you believe what people tell you about where the deer are.",
-      "timeoutSeconds": 60,
+      "timeoutSeconds": 120,
       "maxTokens": 3000
     },
     {
