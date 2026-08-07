@@ -27,3 +27,6 @@ DO.txt
 # Dev tooling: it only reads the simulation and pushes the intents a keyboard
 # would. Never imported by the game itself.
 playharness.js
+
+# Your API keys, pasted into a copy of keys.example.cmd. NEVER commit this.
+keys.cmd

@@ -1,0 +1,75 @@
+{
+  "_readme": [
+    "WHO IS PLAYING TONIGHT. Edit the names, models and characters freely.",
+    "",
+    "THERE ARE NO KEYS IN THIS FILE AND THERE MUST NEVER BE ANY.",
+    "`keyEnv` is the NAME of an environment variable, not a key. The keys live",
+    "in keys.cmd, which is gitignored and never leaves this machine.",
+    "",
+    "A seat whose key is missing quietly becomes SCRIPTED, and the startup",
+    "header prints `(no XAI_API_KEY)` beside its name. Read that header — it is",
+    "the only thing that tells you what is actually about to play.",
+    "",
+    "cadenceSeconds = how many seconds between that mind's decisions. The BODY",
+    "still runs at 30 Hz either way; only deliberation slows. It is the cost",
+    "lever that costs a watcher nothing, and it doubles as character: a",
+    "ponderous mind and a twitchy one read as different people.",
+    "",
+    "TO ADD A KIMI / DEEPSEEK / OPENROUTER SEAT: copy a seat, set",
+    "\"provider\" to moonshot | deepseek | openrouter | together | groq |",
+    "mistral | openai, set \"model\" to whatever THAT vendor calls the model",
+    "(copy it from their docs — a wrong model name shows up as FAILED on the",
+    "board, not as a fallback), and set \"keyEnv\" to a name you also add to",
+    "keys.cmd."
+  ],
+
+  "budgetCalls": 4000,
+
+  "players": [
+    {
+      "name": "Eachann",
+      "provider": "anthropic",
+      "model": "claude-opus-5",
+      "keyEnv": "ANTHROPIC_API_KEY",
+      "cadenceSeconds": 10,
+      "character": "You hoard. Firewood is yours and you do not share a fire, though you will trade for meat."
+    },
+    {
+      "name": "Morag",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "keyEnv": "ANTHROPIC_API_KEY",
+      "cadenceSeconds": 8,
+      "character": "You are generous to a fault and slow to notice you are being used."
+    },
+    {
+      "name": "Tormod",
+      "provider": "xai",
+      "model": "grok-4",
+      "keyEnv": "XAI_API_KEY",
+      "cadenceSeconds": 10,
+      "character": "You lie about where the deer are. Not maliciously — you want to get there first."
+    },
+    {
+      "name": "Ailsa",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "keyEnv": "ANTHROPIC_API_KEY",
+      "cadenceSeconds": 14,
+      "think": true,
+      "character": "You are cautious and slow to commit. You break off any fight below half health and say so plainly."
+    },
+    {
+      "name": "Fingal",
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5",
+      "keyEnv": "ANTHROPIC_API_KEY",
+      "cadenceSeconds": 6,
+      "character": "You talk constantly and act on the first idea you have."
+    },
+    {
+      "name": "Iseabail",
+      "character": "The control — no model, no key, no network. Do not remove her: when a model does something startling, she is the reference for whether that was the model or the world."
+    }
+  ]
+}
