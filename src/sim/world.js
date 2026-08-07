@@ -21,7 +21,7 @@
 // which is a handful of kilobytes a second for a world of unbounded size.
 
 import * as THREE from 'three';
-import { SEED, WATER_LEVEL, LOADOUT, TIME, SOCIAL, SURVIVAL } from '../config.js';
+import { SEED, WATER_LEVEL, LOADOUT, TIME, SOCIAL, SURVIVAL, PLAYER } from '../config.js';
 import { placeStrangeness, darkness } from '../world/strangeness.js';
 import { describePosition } from '../world/placenames.js';
 import { findRegion } from '../world/regions.js';
@@ -41,11 +41,13 @@ import { Wildlife, segmentCylinder } from '../creatures/manager.js';
 import { Companion, ATTACK } from '../creatures/companion.js';
 import { COMPANION_IDS } from '../creatures/companions.js';
 
-// A person, as something an arrow can hit. The controller has no collider of
-// its own — it is a capsule in the movement code and nothing anywhere else —
-// so these are stated once, here, where the only thing that needs them lives.
-const PLAYER_RADIUS = 0.42;
-const PLAYER_HEIGHT = 1.8;
+// A person, as something an arrow can hit — and now, behind `solid`, as
+// something a body cannot walk through. The old note here said the controller
+// was "a capsule in the movement code and nothing anywhere else"; it was a
+// capsule NOWHERE, and these two numbers appeared in no other file in the repo.
+// They live in PLAYER now so the arrow and the shoulder agree about one body.
+const PLAYER_RADIUS = PLAYER.bodyRadius;
+const PLAYER_HEIGHT = PLAYER.bodyHeight;
 import { Projectiles } from '../world/projectiles.js';
 import { Pickups } from '../world/pickups.js';
 import { Controller } from '../player/controller.js';
@@ -138,9 +140,20 @@ const round3 = (v) => Math.round(v * 1000) / 1000;
 const ZERO = new THREE.Vector3(0, 0, 0);
 
 export class SimWorld {
-  constructor({ seed = SEED, hours = TIME.startHour, headless = true } = {}) {
+  constructor({ seed = SEED, hours = TIME.startHour, headless = true, solid = false } = {}) {
     this.seed = seed;
     this.headless = headless;
+    // ── SOLID: bodies stop being points ──
+    //
+    // Default OFF, and off is the game byte for byte: `Controller.solids` stays
+    // null, so the horizontal step is the same two lines it has always been.
+    // On, a body cannot walk through a trunk, a boulder, or another person.
+    //
+    // What the SERVER has to be solid against is `scatterColliders`, which
+    // holds trunks and rocks. It has never held a structure — `Structures` is
+    // not instantiated on this side at all — so a palisade stops arrows in a
+    // browser and stops nobody here. Stated rather than discovered later.
+    this.solid = !!solid;
     this.scene = new THREE.Scene(); // a container; never rendered server-side
     this.tick = 0;
 
@@ -390,6 +403,9 @@ export class SimWorld {
         self.dirty = true;
       },
     });
+    // Assigned once, not per tick: `refreshTimber` clears and refills this
+    // field IN PLACE, so the reference stays good for the life of the world.
+    if (this.solid) p.ctrl.solids = [this.scatterColliders];
     this.players.set(id, p);
     if (pet) this.giveCompanion(id, pet);
     return p;
@@ -828,7 +844,9 @@ export class SimWorld {
         if (seen.has(t.key)) continue;
         seen.add(t.key);
         field.addCylinder(t.x, t.y, t.z, t.trunkR, t.trunkH, 'tree');
-        field.addSphere(t.x, t.crownCentreY, t.z, t.crownR, 'tree');
+        // `soft`: an arrow hits the crown, a body walks through it. Measured —
+        // see `ColliderField.resolveBody`.
+        field.addSphere(t.x, t.crownCentreY, t.z, t.crownR, 'tree', true);
       }
       for (const r of rocksNear(s.x, s.z, R)) {
         if (seen.has(r.key)) continue;

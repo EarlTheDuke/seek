@@ -4,6 +4,12 @@
 // There is no physics engine here and there does not need to be one: the ground
 // is a pure function of (x, z), so "where is the floor" is one call, exact, with
 // no broadphase, no colliders and no tunnelling.
+//
+// That paragraph was true of the VERTICAL axis and was read for a long time as
+// though it were true of both. It is not: until `solids` was added below, the
+// horizontal step was two `+=` lines with nothing after them, and a body walked
+// through tree trunks, boulders, standing stones, every structure and every
+// other player. Only arrows were ever tested against anything.
 
 import * as THREE from 'three';
 import { PLAYER, FEEL, WATER_LEVEL } from '../config.js';
@@ -53,6 +59,17 @@ export class Controller {
     this.landImpulse = 0; // consumed by the camera and the footstep sound
     this.stepIndex = 0;
     this.steppedThisFrame = false;
+
+    // Everything solid that is not the ground, or null for the world this game
+    // shipped with, in which a body is a point that samples the height field
+    // and walks through trunks, rocks, walls and other people. Set by whoever
+    // builds the body — the server behind SOLID=on, the browser alongside it.
+    //
+    // An ARRAY of ColliderFields, the same shape `Projectiles` already takes,
+    // because a browser keeps two of them: the scatter's, rebuilt every 55 m as
+    // vegetation re-places, and the landmarks', built once. A server keeps one.
+    this.solids = null;
+    this.pushedOut = 0; // metres the last substep had to undo. 0 means clear.
 
     this._accum = 0;
   }
@@ -173,6 +190,31 @@ export class Controller {
     const beforeZ = this.position.z;
     this.position.x += this.velocity.x * dt;
     this.position.z += this.velocity.z * dt;
+
+    // ── and then, if anything is solid, do not be inside it ──
+    //
+    // `solids` is null unless somebody hands this body a ColliderField, and the
+    // three lines above are the whole of the horizontal step when it is — so
+    // the default is the old behaviour to the bit. See `resolveBody` for what
+    // is solid to a BODY (trunks, rocks, structures) and what only stops an
+    // ARROW (crowns).
+    //
+    // `moved` is deliberately read AFTER this, not before: a body leaning on a
+    // trunk has not walked anywhere, and if the gait clock were fed the
+    // uncorrected step it would keep printing footsteps for a walk that never
+    // happened. The distance travelled, the footfalls, the bob and the footstep
+    // sounds all come off this number.
+    this.pushedOut = 0;
+    if (this.solids) {
+      for (let i = 0; i < this.solids.length; i++) {
+        this.pushedOut += this.solids[i].resolveBody(
+          this.position,
+          PLAYER.bodyRadius,
+          PLAYER.bodyHeight,
+          PLAYER.maxPushPerStep
+        );
+      }
+    }
 
     const moved = Math.hypot(this.position.x - beforeX, this.position.z - beforeZ);
     this.horizontalSpeed = moved / dt;

@@ -635,7 +635,9 @@ export class Scatter {
         // Uniform scale, so column 0's length is the scale factor.
         const s = Math.hypot(arr[o], arr[o + 1], arr[o + 2]) || 1;
         field.addCylinder(x, y, z, geo.trunkR * s * 1.5, geo.trunkH * s, 'tree');
-        field.addSphere(x, y + geo.crownY * s, z, geo.crownR * s, 'tree');
+        // `soft`: solid to an arrow, walk-through for a body. Same call as the
+        // server's in `refreshTimber`, and it has to stay the same call.
+        field.addSphere(x, y + geo.crownY * s, z, geo.crownR * s, 'tree', true);
       }
     }
 

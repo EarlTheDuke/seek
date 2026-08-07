@@ -290,6 +290,22 @@ function boot() {
   // claim about the world.
   const params = new URLSearchParams(location.search);
   const joinUrl = params.get('join');
+
+  // ── ?solid=on — the same switch the server takes as SOLID=on ──
+  //
+  // OFF by default and off is the movement path this game shipped with, to the
+  // byte. On, this body cannot walk through a trunk, a boulder, a standing
+  // stone or a palisade.
+  //
+  // MATCH THE SERVER OR DO NOT SET IT. This is the PREDICTION side: turning it
+  // on here while the server has it off means the browser stops you at a tree
+  // the server walked you through, and you get rubber-banded — which looks
+  // exactly like lag and is not. Both fields go in, because a browser knows
+  // about structures and standing stones and the server has never held either.
+  if (/^(on|yes|1|true)$/i.test(params.get('solid') ?? '')) {
+    ctrl.solids = [scatterColliders, staticColliders];
+    console.log('  solid: trunks, boulders and stone stop this body');
+  }
   const avatars = new Avatars(scene);
   // Their animals as well as them. Six months of otter and nobody but its owner
   // could see it; this is the group that fixes that.

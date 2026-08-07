@@ -254,6 +254,23 @@ export const PLAYER = {
   flySpeed: 34,
   flySprintMul: 3.2,
   physicsStep: 1 / 120,
+
+  // ── how big a person is ──
+  //
+  // These two lived as private consts in sim/world.js, used by exactly one
+  // thing — the capsule an arrow is tested against — under a comment saying
+  // "the controller has no collider of its own". That comment was accurate and
+  // it was the bug: the movement path had no radius at all. They are stated
+  // here now because two different systems need the same body.
+  bodyRadius: 0.42,
+  bodyHeight: 1.8,
+  // Most a solid may shove a body in one 1/120 s substep. A body that starts
+  // deep inside something (spawned in a boulder, a wall built round it) oozes
+  // out over a few ticks rather than being flung across the hillside.
+  maxPushPerStep: 0.5,
+  // How far apart two people stand. Slightly under twice `bodyRadius`, so
+  // shoulders may brush without either of them being shoved.
+  personalSpace: 0.78,
 };
 
 export const FEEL = {

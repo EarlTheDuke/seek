@@ -30,8 +30,12 @@ export class ColliderField {
     this.list.length = 0;
   }
 
-  addSphere(x, y, z, r, tag) {
-    return this.push({ kind: SPHERE, x, y, z, r, tag }, x - r, z - r, x + r, z + r);
+  /**
+   * @param soft  Solid to an ARROW, not to a BODY. See `resolveBody`: a tree's
+   *   crown is the only thing that uses it, and it is 40% of the trees.
+   */
+  addSphere(x, y, z, r, tag, soft = false) {
+    return this.push({ kind: SPHERE, x, y, z, r, tag, soft }, x - r, z - r, x + r, z + r);
   }
 
   /** Vertical cylinder with its base at (x, y, z). */
@@ -130,7 +134,185 @@ export class ColliderField {
     normalFor(best, out.point, out.normal);
     return out;
   }
+
+  /**
+   * Push a standing body out of anything solid it has walked into.
+   *
+   * The body is a vertical cylinder: feet at `pos.y`, `height` tall, `radius`
+   * across. Only the XZ position is corrected — the ground is a height function
+   * and owns `y` entirely, so lifting a body over a rock here would fight
+   * `Controller.step` for the rest of the run.
+   *
+   * ── WHAT IS SOLID TO A BODY IS NOT WHAT IS SOLID TO AN ARROW ──
+   *
+   * A tree's crown is `soft`, and that is measured, not taste. Scanning 2,974
+   * placed trees: the crown sphere reaches into the band a walking body
+   * occupies on **40.2% of them**, and on the smallest it reaches BELOW THE
+   * FEET — crown radii run 2.4-4.5 m, so a solid crown is a four-metre pillar
+   * you cannot walk round and can be spawned inside. The trunk cylinder is
+   * taller than a body on **99.8%** of them, so the trunk alone is a complete
+   * and honest solid for a tree, and you push through branches because in a
+   * wood you do. Arrows still hit crowns: `segmentHit` never reads `soft`.
+   *
+   * ── WHY THE PUSHES ARE SUMMED AND NOT APPLIED ONE AT A TIME ──
+   *
+   * Resolving each collider against the running position is what a single-player
+   * game does, and it makes the answer depend on the order the grid hands them
+   * over. The server builds its field from `refreshTimber` and a browser builds
+   * its own from `Scatter`, in a different order, so an order-dependent solve
+   * would put the two copies of one body in two different places at a corner.
+   * A SUM is commutative; two passes converge the corner. Deterministic on both
+   * sides by construction rather than by luck.
+   *
+   * The total is capped: a body that starts deep inside a solid oozes out over
+   * a few ticks instead of teleporting. `cap` is per call, and this is called
+   * once per 1/120 s physics substep.
+   *
+   * VELOCITY IS DELIBERATELY NOT TOUCHED. Cancelling the into-surface part of
+   * the DISPLACEMENT is already exactly what makes a body slide along a trunk;
+   * the tangential part is never cancelled, so it survives untouched. Reaching
+   * into `velocity` as well would fight the `damp()` that owns it and buy
+   * nothing.
+   *
+   * @returns {number} how far the body was moved, in metres. 0 means clear.
+   */
+  resolveBody(pos, radius, height, cap = 0.5, out = null) {
+    const s = this.cell;
+    let total = 0;
+    if (out) { out.hits = 0; out.tag = null; }
+
+    for (let pass = 0; pass < 2; pass++) {
+      let px = 0;
+      let pz = 0;
+      let hits = 0;
+      let tag = null;
+      const x0 = Math.floor((pos.x - radius) / s);
+      const x1 = Math.floor((pos.x + radius) / s);
+      const z0 = Math.floor((pos.z - radius) / s);
+      const z1 = Math.floor((pos.z + radius) / s);
+      const seen = this._seenBody ??= new Set();
+      seen.clear();
+
+      for (let iz = z0; iz <= z1; iz++) {
+        for (let ix = x0; ix <= x1; ix++) {
+          const bucket = this.grid.get(`${ix},${iz}`);
+          if (!bucket) continue;
+          for (let k = 0; k < bucket.length; k++) {
+            const idx = bucket[k];
+            if (seen.has(idx)) continue;
+            seen.add(idx);
+            const c = this.list[idx];
+            if (c.dead || c.soft) continue;
+            if (!pushOut(pos, radius, height, c, _push)) continue;
+            px += _push.x;
+            pz += _push.z;
+            hits++;
+            if (tag === null) tag = c.tag;
+          }
+        }
+      }
+
+      if (hits === 0) break;
+      const mag = Math.hypot(px, pz);
+      if (mag < 1e-6) break; // wedged and the sum cancelled — say so by stopping
+      const k = Math.min(1, (cap - total) / mag);
+      if (k <= 0) break;
+      pos.x += px * k;
+      pos.z += pz * k;
+      total += mag * k;
+      if (out) { out.hits += hits; out.tag ??= tag; }
+    }
+    return total;
+  }
 }
+
+// Scratch for `resolveBody` — one push at a time, so nothing allocates in the
+// movement path.
+const _push = { x: 0, z: 0 };
+
+/**
+ * The XZ displacement that would take a standing body out of one collider,
+ * or `false` if it is already clear of it. Writes into `out`.
+ *
+ * Everything here is done on the body's HORIZONTAL cross-section against the
+ * collider's widest slice inside the body's own vertical band. That is why a
+ * crown 4 m over your head cannot stop you and a boulder at your knees can.
+ */
+function pushOut(pos, radius, height, c, out) {
+  const lo = pos.y;
+  const hi = pos.y + height;
+  let cx;
+  let cz;
+  let cr;
+
+  if (c.kind === CYLINDER) {
+    if (hi <= c.y || lo >= c.y + c.h) return false;
+    cx = c.x;
+    cz = c.z;
+    cr = c.r;
+  } else if (c.kind === SPHERE) {
+    // The sphere's widest horizontal slice within the body's band: at the
+    // height of its own centre if the band contains it, otherwise at whichever
+    // end of the band is nearer. A boulder sunk to its equator is still a
+    // full-radius obstacle at ankle height, which is right.
+    const y = clampNum(c.y, lo, hi);
+    const dy = c.y - y;
+    const rr2 = c.r * c.r - dy * dy;
+    if (rr2 <= 0) return false;
+    cx = c.x;
+    cz = c.z;
+    cr = Math.sqrt(rr2);
+  } else {
+    if (hi <= c.miny || lo >= c.maxy) return false;
+    // Box: nearest point on the XZ rectangle. Outside is a circle-vs-rect push;
+    // INSIDE has no nearest point to push from, so it leaves by the nearest
+    // face instead — the axis of least penetration.
+    const nx = clampNum(pos.x, c.minx, c.maxx);
+    const nz = clampNum(pos.z, c.minz, c.maxz);
+    const dx = pos.x - nx;
+    const dz = pos.z - nz;
+    const d2 = dx * dx + dz * dz;
+    if (d2 > radius * radius) return false;
+    if (d2 > 1e-12) {
+      const d = Math.sqrt(d2);
+      const push = radius - d;
+      out.x = (dx / d) * push;
+      out.z = (dz / d) * push;
+      return true;
+    }
+    const outs = [
+      [pos.x - c.minx + radius, -1, 0],
+      [c.maxx - pos.x + radius, 1, 0],
+      [pos.z - c.minz + radius, 0, -1],
+      [c.maxz - pos.z + radius, 0, 1],
+    ];
+    let best = outs[0];
+    for (const o of outs) if (o[0] < best[0]) best = o;
+    out.x = best[1] * best[0];
+    out.z = best[2] * best[0];
+    return true;
+  }
+
+  const dx = pos.x - cx;
+  const dz = pos.z - cz;
+  const want = cr + radius;
+  const d2 = dx * dx + dz * dz;
+  if (d2 >= want * want) return false;
+  const d = Math.sqrt(d2);
+  if (d < 1e-6) {
+    // Dead centre. Any direction is as good as any other and none of them is
+    // derivable from the body, so take one that is the same on every machine.
+    out.x = want;
+    out.z = 0;
+    return true;
+  }
+  const push = want - d;
+  out.x = (dx / d) * push;
+  out.z = (dz / d) * push;
+  return true;
+}
+
+const clampNum = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 // ── analytic segment tests. Each returns t in [0,1] or null. ────────────────
 

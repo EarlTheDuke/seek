@@ -136,7 +136,25 @@ function parseStock(raw) {
   return out;
 }
 
-const world = new SimWorld({ headless: true, ...(Number.isFinite(HOURS) ? { hours: HOURS } : {}) });
+// ── SOLID: a body stops being a point ──
+//
+//   SOLID=on node server/server.js 8080
+//
+// OFF by default and off is byte-identical, because this touches the movement
+// path of every player and every agent on the server tick. On, a body cannot
+// walk through a tree trunk, a boulder, or another person.
+//
+// Worth knowing before you turn it on: the agents were written against a world
+// with nothing in it, so `agent.js` routes round trees to get a SIGHTLINE and
+// has never had to respect a physical one. Watch for a body pressing itself
+// into a trunk instead of hunting.
+const SOLID = /^(on|yes|1|true)$/i.test(process.env.SOLID ?? '');
+
+const world = new SimWorld({
+  headless: true,
+  solid: SOLID,
+  ...(Number.isFinite(HOURS) ? { hours: HOURS } : {}),
+});
 const clients = new Map(); // ws -> { id, name, lastSeen }
 let nextId = 1;
 let raided = false;
@@ -194,6 +212,7 @@ if (scarce()) {
   console.log(`  staged: a lean valley — ${Math.round(SCARCITY.plenty * 100)}% of the usual food and fuel` +
     (SCARCITY.patchy ? `, ${Math.round(SCARCITY.patchy * 100)}% of it pulled into the good ground` : ', spread evenly'));
 }
+if (SOLID) console.log('  staged: SOLID — trunks, boulders and other people stop a body');
 console.log(`  listening on ws://0.0.0.0:${PORT}`);
 console.log(
   `  ${rivals.length} rival hunter${rivals.length === 1 ? '' : 's'} (${provider.name} minds)` +
