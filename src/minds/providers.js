@@ -515,7 +515,23 @@ export class OpenAiProvider extends ModelProvider {
       },
       body: JSON.stringify({
         model: this.model,
-        max_tokens: 120,
+        // ── `this.maxTokens`, NOT A LITERAL, and the literal was a real bug ──
+        //
+        // This said `120` while the Anthropic path six hundred lines up has
+        // always used `this.maxTokens`. Nobody noticed because the models this
+        // was written against answer in one line and 120 was plenty.
+        //
+        // A REASONING model spends this budget on reasoning FIRST and emits the
+        // answer afterwards, so 120 bought a few tokens of thought and a
+        // truncated `{"goal":"hunt","why":"h` — which arrives as "no json in
+        // reply", a message that points at the model's manners rather than at
+        // our own token cap. Measured on kimi-k2.6 through Open WebUI: the
+        // reply carries a `reasoning` field beside `content`, and at 120 the
+        // content is cut mid-string every time.
+        //
+        // `think: true` on a seat raises this to 1024, which is the knob a
+        // reasoning model needs and could not previously reach.
+        max_tokens: this.maxTokens,
         messages: [
           { role: 'system', content: this.systemPrompt() },
           { role: 'user', content: briefToText(brief) },
@@ -646,6 +662,22 @@ export function makeProvider(
     effort = /^(none|off|)$/i.test(env.MINDS_EFFORT ?? '')
       ? (env.MINDS_EFFORT ? null : 'low')
       : env.MINDS_EFFORT,
+    // ── HOW LONG THIS MIND MAY TAKE ──
+    //
+    // The 4 s default is right for a model that picks a verb and writes eight
+    // words, and it is WRONG for a reasoning model, which spends time thinking
+    // before it says anything. grok-4.5 took 2.3 s on a one-line toy prompt in
+    // testing and blew straight through 4 s on the real brief — every call
+    // aborted, and the board reported `This operation was aborted`, which reads
+    // like a network fault and is a deadline we set ourselves.
+    //
+    // Per seat rather than global, because the whole point of a mixed roster is
+    // that a fast model should not wait on a slow one's allowance.
+    timeoutMs = Number(env.MINDS_TIMEOUT_MS) > 0 ? Number(env.MINDS_TIMEOUT_MS) : undefined,
+    // Room for the whole answer. On the OpenAI shape a reasoning model spends
+    // this on reasoning FIRST, so a budget sized for one line of JSON runs out
+    // before the JSON. See the note in `OpenAiProvider.request`.
+    maxTokens = Number(env.MINDS_MAX_TOKENS) > 0 ? Number(env.MINDS_MAX_TOKENS) : undefined,
   } = {}
 ) {
   const scripted = new ScriptedProvider(rand);
@@ -662,6 +694,9 @@ export function makeProvider(
     character,
     think,
     effort,
+    // `undefined` must stay undefined so the constructor's own default stands.
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
+    ...(maxTokens === undefined ? {} : { maxTokens }),
   };
 
   if (kind === 'claude' || kind === 'anthropic') {

@@ -22,9 +22,7 @@
     "board, not as a fallback), and set \"keyEnv\" to a name you also add to",
     "keys.cmd."
   ],
-
   "budgetCalls": 4000,
-
   "players": [
     {
       "name": "Eachann",
@@ -45,10 +43,11 @@
     {
       "name": "Tormod",
       "provider": "xai",
-      "model": "grok-4",
+      "model": "grok-4.5",
       "keyEnv": "XAI_API_KEY",
       "cadenceSeconds": 10,
-      "character": "You lie about where the deer are. Not maliciously — you want to get there first."
+      "character": "You lie about where the deer are. Not maliciously — you want to get there first.",
+      "timeoutSeconds": 30
     },
     {
       "name": "Ailsa",
@@ -62,10 +61,11 @@
     {
       "name": "Fingal",
       "provider": "anthropic",
-      "model": "claude-haiku-4-5",
+      "model": "claude-haiku-4-5-20251001",
       "keyEnv": "ANTHROPIC_API_KEY",
       "cadenceSeconds": 6,
-      "character": "You talk constantly and act on the first idea you have."
+      "character": "You talk constantly and act on the first idea you have.",
+      "effort": null
     },
     {
       "_note": [
@@ -90,8 +90,11 @@
       "baseUrl": "https://tinybox.silverstarindustries.com/api",
       "model": "kimi-k2.6",
       "keyEnv": "TINYBOX_API_KEY",
-      "cadenceSeconds": 5,
-      "character": "You are blunt and certain, and you say what you think of the others' plans out loud. You would rather be usefully wrong than politely quiet."
+      "cadenceSeconds": 12,
+      "character": "You are blunt and certain, and you say what you think of the others' plans out loud. You would rather be usefully wrong than politely quiet.",
+      "timeoutSeconds": 30,
+      "think": true,
+      "maxTokens": 2048
     },
     {
       "name": "Iseabail",

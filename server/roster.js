@@ -86,6 +86,20 @@ export function loadRoster(path) {
       // reflex runs at 30 Hz regardless — so this is the cost lever that costs
       // a watcher nothing. See the deliberation gate in agent.js.
       cadenceSeconds: Number(p.cadenceSeconds) > 0 ? Number(p.cadenceSeconds) : undefined,
+      // How long this mind may take before the call is abandoned. The 4 s
+      // default suits a model that picks a verb; a REASONING model thinks
+      // first and needs far longer. Measured: grok-4.5 aborted on every call
+      // at 4 s, and the board said `This operation was aborted` — which reads
+      // as a network fault and is a deadline we set ourselves.
+      timeoutSeconds: Number(p.timeoutSeconds) > 0 ? Number(p.timeoutSeconds) : undefined,
+      // Room for the whole answer. `think: true` buys 1024, which is right for
+      // a model that thinks a little; a model that thinks a LOT needs more,
+      // because on the OpenAI shape the reasoning is spent out of this same
+      // budget before a single character of the answer is written. Measured on
+      // kimi-k2.6: 1,173-1,664 characters of reasoning per decision, so 1024
+      // ran out mid-JSON on the longer briefs and arrived as "no json in
+      // reply" — a message about the model's manners, for a cap of ours.
+      maxTokens: Number(p.maxTokens) > 0 ? Number(p.maxTokens) : undefined,
     })),
   };
 }
@@ -121,6 +135,8 @@ export function providerFor(entry, { env = process.env, budget = null, maxCalls,
       // one. `effort: null` is a STATED choice and must survive as null.
       ...(entry.think === undefined ? {} : { think: entry.think }),
       ...(entry.effort === undefined ? {} : { effort: entry.effort }),
+      ...(entry.timeoutSeconds === undefined ? {} : { timeoutMs: entry.timeoutSeconds * 1000 }),
+      ...(entry.maxTokens === undefined ? {} : { maxTokens: entry.maxTokens }),
     }
   );
 }

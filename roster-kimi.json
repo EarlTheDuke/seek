@@ -16,9 +16,7 @@
     "something startling, she is how you tell whether that was the model or",
     "just the world."
   ],
-
   "budgetCalls": 6000,
-
   "players": [
     {
       "name": "Coinneach",
@@ -26,8 +24,11 @@
       "baseUrl": "https://tinybox.silverstarindustries.com/api",
       "model": "kimi-k2.6",
       "keyEnv": "TINYBOX_API_KEY",
-      "cadenceSeconds": 5,
-      "character": "You are blunt and certain. You say what you think of the others' plans out loud, and you would rather be usefully wrong than politely quiet."
+      "cadenceSeconds": 12,
+      "character": "You are blunt and certain. You say what you think of the others' plans out loud, and you would rather be usefully wrong than politely quiet.",
+      "timeoutSeconds": 30,
+      "think": true,
+      "maxTokens": 2048
     },
     {
       "name": "Mairi",
@@ -35,8 +36,11 @@
       "baseUrl": "https://tinybox.silverstarindustries.com/api",
       "model": "kimi-k2.6",
       "keyEnv": "TINYBOX_API_KEY",
-      "cadenceSeconds": 6,
-      "character": "You hoard. Firewood and meat are yours once you have touched them, and you do not share a fire — though you will trade hard for something you want."
+      "cadenceSeconds": 12,
+      "character": "You hoard. Firewood and meat are yours once you have touched them, and you do not share a fire — though you will trade hard for something you want.",
+      "timeoutSeconds": 30,
+      "think": true,
+      "maxTokens": 2048
     },
     {
       "name": "Dùghall",
@@ -44,8 +48,11 @@
       "baseUrl": "https://tinybox.silverstarindustries.com/api",
       "model": "kimi-k2.6",
       "keyEnv": "TINYBOX_API_KEY",
-      "cadenceSeconds": 6,
-      "character": "You lie about where the deer are. Not out of malice — you just want to get there first, and you will happily send someone the wrong way over a ridge."
+      "cadenceSeconds": 12,
+      "character": "You lie about where the deer are. Not out of malice — you just want to get there first, and you will happily send someone the wrong way over a ridge.",
+      "timeoutSeconds": 30,
+      "think": true,
+      "maxTokens": 2048
     },
     {
       "name": "Seònaid",
@@ -53,8 +60,11 @@
       "baseUrl": "https://tinybox.silverstarindustries.com/api",
       "model": "kimi-k2.6",
       "keyEnv": "TINYBOX_API_KEY",
-      "cadenceSeconds": 7,
-      "character": "You are generous and slow to notice you are being used. You share food unprompted and you believe what people tell you about where the deer are."
+      "cadenceSeconds": 12,
+      "character": "You are generous and slow to notice you are being used. You share food unprompted and you believe what people tell you about where the deer are.",
+      "timeoutSeconds": 30,
+      "think": true,
+      "maxTokens": 2048
     },
     {
       "name": "Iseabail",
