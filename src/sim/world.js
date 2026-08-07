@@ -787,6 +787,9 @@ export class SimWorld {
       if (p.companion) this.stepCompanion(p, dt, worldCtx);
     }
 
+    // ── and then people stop standing inside each other ──
+    if (this.solid) this.separatePlayers();
+
     // ── the shared world ──
     // Creatures sense the NEAREST player, and the stealth profile they read is
     // that player's. A crouching player and a sprinting one standing together
@@ -803,6 +806,82 @@ export class SimWorld {
 
   playersInOrder() {
     return [...this.players.values()];
+  }
+
+  /**
+   * Nobody ends a tick standing inside anybody else.
+   *
+   * Only behind SOLID, and only on the server: this is the one place in the
+   * game that knows where everybody is. The client-side push-out in
+   * `Controller` handles the SCENERY, which is generated from a seed and so is
+   * identical on every machine; other people are not, and predicting a shove
+   * against a body you only hear about at 20 Hz would rubber-band both of you.
+   * So the browser walks through people, the server pushes them apart, and the
+   * correction arrives with the next snapshot. For a shoulder brush at walking
+   * pace that reads as contact, which is what it is.
+   *
+   * ── THE THINGS THIS DELIBERATELY DOES NOT DO ──
+   *
+   * A DEAD BODY IS NOT AN OBSTACLE. You can walk over someone who has fallen.
+   * Shoving a corpse around the hillside is a worse picture than stepping
+   * through it, and `onRespawn` teleports them anyway.
+   *
+   * ANIMALS ARE NOT IN THIS PASS. Deer, goblins and companions still walk
+   * through people and each other; the creature manager runs its own separation
+   * over `this.creatures`, which has never contained a player. Out of scope
+   * here rather than half-done — it wants the same treatment and its own check.
+   *
+   * ONLY XZ MOVES. The ground owns `y`, and the next tick's `damp` to the
+   * surface settles a few centimetres of sideways step without anybody seeing
+   * it.
+   *
+   * Deterministic: `playersInOrder` is the Map's insertion order, which is join
+   * order, which is the same on the server and in any replay. The pairs are
+   * walked i < j so each pair is considered exactly once, and both bodies move
+   * half the overlap so the answer does not depend on who joined first.
+   */
+  separatePlayers() {
+    const people = this.playersInOrder();
+    if (people.length < 2) return;
+    const want = PLAYER.personalSpace;
+    const cap = PLAYER.maxPushPerStep;
+
+    for (let i = 0; i < people.length; i++) {
+      const a = people[i];
+      if (a.body.dead) continue;
+      for (let j = i + 1; j < people.length; j++) {
+        const b = people[j];
+        if (b.body.dead) continue;
+        const dx = b.ctrl.position.x - a.ctrl.position.x;
+        const dz = b.ctrl.position.z - a.ctrl.position.z;
+        const d2 = dx * dx + dz * dz;
+        if (d2 >= want * want) continue;
+
+        let nx;
+        let nz;
+        if (d2 < 1e-8) {
+          // Standing in exactly the same spot — two arrivals on one square
+          // metre. Any direction will do and none is derivable from the
+          // bodies, so take one that is the same on every machine, and make it
+          // depend on the PAIR so a crowd does not all leave the same way.
+          const a0 = ((i * 7 + j * 13) % 16) * (Math.PI / 8);
+          nx = Math.cos(a0);
+          nz = Math.sin(a0);
+        } else {
+          const d = Math.sqrt(d2);
+          nx = dx / d;
+          nz = dz / d;
+        }
+        const overlap = want - Math.sqrt(d2);
+        const step = Math.min(overlap / 2, cap);
+        a.ctrl.position.x -= nx * step;
+        a.ctrl.position.z -= nz * step;
+        b.ctrl.position.x += nx * step;
+        b.ctrl.position.z += nz * step;
+        a.dirty = true;
+        b.dirty = true;
+      }
+    }
   }
 
   /**

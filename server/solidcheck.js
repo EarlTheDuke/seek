@@ -516,6 +516,66 @@ async function walkAtATreeOverTheWire(solid) {
   }
 }
 
+/**
+ * Two real bodies, one real server, walked head-on into each other.
+ *
+ * This is the one that shows on camera. Six models and a human share a valley
+ * tomorrow night and until now they all walked through one another, so
+ * "standing round a fire" and "standing INSIDE two other people" were the same
+ * picture. It cannot be tested from one socket, and it cannot be tested from
+ * SimWorld directly — the separation runs on the server tick and the evidence
+ * is in the snapshot each of them receives about the other.
+ */
+async function twoBodiesOverTheWire(solid) {
+  const server = spawn(process.execPath, [path.join(HERE, 'server.js'), String(PORT)], {
+    env: { ...process.env, DANGER: 'none', MINDS_HUNTERS: '0', SOLID: solid ? 'on' : '' },
+    stdio: 'ignore',
+  });
+  const stop = () => { try { server.kill(); } catch { /* already gone */ } };
+  process.on('exit', stop);
+
+  try {
+    let one = null;
+    for (let i = 0; i < 40 && !one; i++) {
+      await sleep(150);
+      one = await new WireClient('Ailsa').connect(URL).catch(() => null);
+    }
+    if (!one) throw new Error(`no server answered on ${URL}`);
+    const two = await new WireClient('Morag').connect(URL);
+    for (let i = 0; i < 20 && !(one.me && two.me); i++) await sleep(100);
+    if (!one.me || !two.me) throw new Error('the server never said where they were');
+
+    // Read the gap off the SERVER's own snapshots, on both sockets, so a
+    // disagreement between the two would show rather than be averaged away.
+    let nearest = Infinity;
+    let samples = 0;
+    const t0 = Date.now();
+    while (Date.now() - t0 < 12000) {
+      for (const [me, them] of [[one, two], [two, one]]) {
+        if (!me.me || !them.me) continue;
+        const [x, , z] = me.me.p;
+        me.intent.aimYaw = yawTo(x, z, them.me.p[0], them.me.p[2]);
+        me.intent.aimPitch = -0.03;
+        me.intent.forward = 1;
+        me.send(C_INTENT, { i: me.intent });
+      }
+      if (one.me && two.me) {
+        const d = Math.hypot(one.me.p[0] - two.me.p[0], one.me.p[2] - two.me.p[2]);
+        if (samples > 8) nearest = Math.min(nearest, d);
+        samples++;
+      }
+      await sleep(1000 / 30);
+    }
+    one.close();
+    two.close();
+    await sleep(200);
+    return { nearest, samples };
+  } finally {
+    stop();
+    await sleep(300);
+  }
+}
+
 async function socketLeg() {
   console.log('\n  ── the wiring: a real server, a real socket, a real trunk ──\n');
   await requireFreePort(PORT, 'solidcheck');
@@ -539,6 +599,21 @@ async function socketLeg() {
   check('  …and the two arms were provably different worlds',
     on.nearest - off.nearest > 0.3,
     `off got to ${off.nearest.toFixed(2)} m, on stopped at ${on.nearest.toFixed(2)} m`);
+
+  // ── and two PEOPLE, which is the picture the evening actually shows ──
+  console.log('');
+  const pOff = await twoBodiesOverTheWire(false);
+  check('SOLID off — two people walk clean through each other',
+    pOff.nearest < 0.3,
+    `closest the server ever had them: ${pOff.nearest.toFixed(2)} m apart (${pOff.samples} snapshots)`);
+
+  const pOn = await twoBodiesOverTheWire(true);
+  check('SOLID=on — the server will not let two people stand inside each other',
+    pOn.nearest >= PLAYER.personalSpace - 0.08,
+    `closest ${pOn.nearest.toFixed(2)} m, personal space ${PLAYER.personalSpace} m`);
+  check('  …and the SENTINEL: they actually walked into each other',
+    pOn.nearest <= PLAYER.personalSpace + 0.5,
+    `${pOn.nearest.toFixed(2)} m — two people who never met would also never overlap`);
 }
 
 async function main() {
