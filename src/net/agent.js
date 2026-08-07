@@ -1857,6 +1857,34 @@ export class Agent {
     i.primary = false; // release: THIS is the arrow
     this._looseWhy = 'aimed';
     this.arrows = (this.arrows ?? 0) + 1;
+    // ── ...AND A RECORD OF EVERY ARROW, NOT ONLY THE ONES THAT MISSED ──
+    //
+    // `shots` is pushed by `howItMissed`, which only ever runs off a `miss`
+    // event — and a `wound` sets `lastShot = null` because there is no miss
+    // left to measure. So `shots` is the MISSES, and anything counting arrows
+    // out of it is blind to every arrow that went home.
+    //
+    // That is not hypothetical. The reach sentinel in huntcheck counted slants
+    // out of `shots` and printed *"0 of 0 arrows — no arrows, so this run says
+    // nothing about the arm"* on a run that loosed one and wounded a deer with
+    // it. An instrument that goes silent exactly when the treatment WORKS
+    // reports the arm as unproven whenever it succeeds, which is the worst
+    // direction for a sentinel to fail in.
+    //
+    // One entry per release, written before anything can happen to the shaft,
+    // and holding the number the ceiling rule is written in. Bounded like
+    // `refusals` so a long run cannot grow it without limit.
+    const slant = shot.mark && shot.eyeY != null
+      ? +Math.hypot(shot.dist, shot.mark.y - shot.eyeY).toFixed(1)
+      : null;
+    this.loosed ??= [];
+    this.loosed.push({
+      h: +this.hours.toFixed(2),
+      dist: shot.dist == null ? null : +shot.dist.toFixed(1),
+      slant,
+      quarryId: t.id,
+    });
+    if (this.loosed.length > AGENTS.logSize) this.loosed.shift();
     // ── what this shot was FOR, kept until we hear where it went ──
     // The instrument. An aggregate miss count cannot tell an over-lead from an
     // under-lead from a systematically low arc; the same count comes out of all
@@ -1877,9 +1905,7 @@ export class Agent {
       // instrument downstream could say how far a loosed arrow had been asked
       // to fly, and an A/B on the ceiling had no number that is 0 above 26 on
       // one arm and non-zero on the other BY CONSTRUCTION. See `huntcheck`.
-      slant: shot.mark && shot.eyeY != null
-        ? +Math.hypot(shot.dist, shot.mark.y - shot.eyeY).toFixed(1)
-        : null,
+      slant,
       pitch: shot.pitch,
       yaw: shot.yaw,
       eye: this.eye ?? PLAYER.eyeHeight,

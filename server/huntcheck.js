@@ -61,15 +61,58 @@ const alwaysHunt = {
 const DETOUR = (process.env.DETOUR ?? '').toLowerCase().split(/[,\s]+/).filter(Boolean);
 const COMMIT_DETOUR = DETOUR.some((t) => /^(commit|on|yes|1|true)$/.test(t));
 const CLOSE_DETOUR = DETOUR.includes('close');
+// ── ...AND HOW FAR IT WILL SHOOT ──
+//
+//   SHOOTRANGE=40 npm run huntcheck
+//
+// The other half of the shot-rate question. `server/rangecheck.js` measured the
+// accuracy half over a socket and it is emphatic: a standing deer is hit 21 of
+// 21 from 12 m to 52 m, median 0.10 m from the chest, and led at a trot 11 of
+// 12. THE BOW IS NOT WHY THERE ARE NO SHOTS, so 26 m is not a marksmanship
+// number — it was cut from 45 on a DELIBERATION argument, which config.js
+// states honestly: at 45 the body considered shots the ground would never
+// allow, 19 refusals to 2 arrows.
+//
+// That argument is exactly what THIS check can measure and `rangecheck` cannot,
+// because rangecheck plans a clear bearing before every shot and the body in a
+// real hunt does not get to. So the ceiling is an arm here rather than an edit
+// to config.js: unset is `AGENTS.shootRange` to the byte.
+const SHOOT_RANGE = Number(process.env.SHOOTRANGE) > 0
+  ? Number(process.env.SHOOTRANGE)
+  : AGENTS.shootRange;
+
+// ── ...AND WHICH SCENARIO ──
+//
+//   HUNTSEED=b npm run huntcheck
+//
+// THE SEED HERE HAS ALWAYS BEEN THE LITERAL 'huntcheck', so four runs of this
+// check are not four samples: they differ only by real-time jitter, and the
+// last A/B in this project got three near-duplicate control runs (all 72 s
+// kills) and two identical twins in the treatment. Call it 2-3 distinct
+// scenarios from eight runs. That is written into STATE.md as a standing trap
+// and the only fix is to be able to change it.
+//
+// It seeds the AGENT's own choices, not the world — the hillside and the herds
+// come from the server's seed — so this varies which deer it picks and where it
+// wanders, which is exactly the variation that was missing. Unset is
+// 'huntcheck', byte for byte.
+const HUNT_SEED = process.env.HUNTSEED || 'huntcheck';
 // One string, used in three places, so the arm can never be reported two ways.
-const ARM = [COMMIT_DETOUR ? 'COMMITTED' : null, CLOSE_DETOUR ? 'CLOSING' : null]
-  .filter(Boolean).join('+') || 'default';
+const ARM = [
+  COMMIT_DETOUR ? 'COMMITTED' : null,
+  CLOSE_DETOUR ? 'CLOSING' : null,
+  SHOOT_RANGE !== AGENTS.shootRange ? `REACH ${SHOOT_RANGE}m` : null,
+].filter(Boolean).join('+') || 'default';
 
 async function main() {
   console.log('\n  Can an agent kill a deer?');
   console.log(`  stepping aside: ${ARM}  (DETOUR=${process.env.DETOUR || '<unset>'})`);
   console.log(`    ${COMMIT_DETOUR ? 'the spot is remembered and walked to' : 'the spot is re-solved every tick'}; ` +
-    `${CLOSE_DETOUR ? `a step aside also closes ${AGENTS.detourAdvance}x its own width` : 'a step aside is purely across the line of sight'}\n`);
+    `${CLOSE_DETOUR ? `a step aside also closes ${AGENTS.detourAdvance}x its own width` : 'a step aside is purely across the line of sight'}`);
+  console.log(`    it will shoot out to ${SHOOT_RANGE} m of slant` +
+    `${SHOOT_RANGE === AGENTS.shootRange ? '  (AGENTS.shootRange, unchanged)' : `  (RAISED from ${AGENTS.shootRange} — SHOOTRANGE=${process.env.SHOOTRANGE})`}`);
+  console.log(`    scenario seed "${HUNT_SEED}"` +
+    `${HUNT_SEED === 'huntcheck' ? '  (the default — vary it with HUNTSEED= before quoting any rate)' : ''}\n`);
   await requireFreePort(PORT, 'huntcheck');
 
   const server = spawn(process.execPath, [path.join(HERE, 'server.js'), String(PORT)], {
@@ -84,8 +127,9 @@ async function main() {
   let agent = null;
   for (let i = 0; i < 40 && !agent; i++) {
     await sleep(150);
-    agent = await new Agent({ name: 'Hunter', provider: alwaysHunt, rand: makeRandom('huntcheck'),
-                              commitDetour: COMMIT_DETOUR, closeDetour: CLOSE_DETOUR })
+    agent = await new Agent({ name: 'Hunter', provider: alwaysHunt, rand: makeRandom(HUNT_SEED),
+                              commitDetour: COMMIT_DETOUR, closeDetour: CLOSE_DETOUR,
+                              shootRange: SHOOT_RANGE })
       .connect(URL)
       .catch(() => null);
   }
@@ -262,6 +306,60 @@ async function main() {
   // wrong — an over-lead and an under-lead produce the same tally. See
   // `Agent.howItMissed`.
   const shots = agent.shots ?? [];
+
+  // ── THE REACH SENTINEL — a number that is 0 on one arm and N on the other BY
+  //    CONSTRUCTION, and it proves which code was loaded from the DATA ──
+  //
+  // Two A/Bs in this project have run the same arm twice and been read as
+  // findings. `aimAt` refuses on the slant, so on the default arm NO arrow can
+  // leave the bow at more than `AGENTS.shootRange` of slant — the count below
+  // is 0 by the geometry, not by hope. On a raised arm it must be non-zero, and
+  // if it is not, the flag did not reach the body and this run is the control
+  // wearing the treatment's label. It says so rather than leaving it derivable:
+  // the last finding in this file sat unread for a run and a half because it
+  // was derivable and nobody derived it.
+  //
+  // ── AND IT READS `loosed`, NOT `shots`, WHICH IS WHY THIS PARAGRAPH EXISTS ──
+  //
+  // Its first live reading printed *"0 of 0 arrows — no arrows, so this run says
+  // nothing about the arm"* on a run that loosed an arrow AND wounded a deer
+  // with it, while `agent.arrows` sat at 1 four lines away. `shots` is pushed by
+  // `howItMissed`, which only runs off a `miss` event — an arrow that goes home
+  // never lands in it. So the sentinel could see the arm ONLY when the arm
+  // failed, and reported "unproven" every time the treatment worked.
+  //
+  // Sixth instrument in this project to report something it had not measured,
+  // and the first to do it in the direction that hides a success. `Agent.loosed`
+  // is now written at the moment of RELEASE, one entry per arrow, before
+  // anything can happen to the shaft.
+  const loosed = agent.loosed ?? [];
+  const slants = loosed.map((s) => s.slant).filter((v) => typeof v === 'number');
+  const stretched = slants.filter((v) => v > AGENTS.shootRange + 0.05).length;
+  const raised = SHOOT_RANGE !== AGENTS.shootRange;
+  // A cross-check against the counter a human reads, from a different code path.
+  // If these two disagree the sentinel is broken again and must not be believed.
+  const fired = agent.arrows ?? 0;
+  console.log(`\n      REACH SENTINEL: ${stretched} of ${slants.length} arrows were loosed past ` +
+    `${AGENTS.shootRange} m of slant` +
+    (loosed.length !== fired
+      ? `\n      \`loosed\` HOLDS ${loosed.length} AND \`arrows\` COUNTED ${fired}: this instrument is wrong, not the arm`
+      : '') +
+    (slants.length === 0 && fired === 0 ? ' — no arrows, so this run says nothing about the arm' : '') +
+    (raised && slants.length && stretched === 0
+      ? `\n      THE REACH IS RAISED TO ${SHOOT_RANGE} m AND NOT ONE ARROW USED IT: distrust this run`
+      : '') +
+    (!raised && stretched > 0
+      ? '\n      THE REACH IS NOT RAISED AND AN ARROW WENT PAST IT: this instrument is wrong'
+      : '') +
+    (slants.length ? `\n      furthest arrow ${Math.max(...slants).toFixed(1)} m of slant` : ''));
+  if (loosed.length) {
+    console.log('      every arrow that LEFT THE BOW, hit or miss, by the range the rule is written in:');
+    for (const s of loosed) {
+      console.log(`        ${String(s.slant ?? '?').padStart(6)} m of slant  (${String(s.dist ?? '?').padStart(5)} m on the ground)` +
+        (s.slant != null && s.slant > AGENTS.shootRange + 0.05 ? '  <- past the default ceiling' : ''));
+    }
+  }
+
   if (shots.length) {
     console.log('\n      every arrow, against what the bow promised:');
     for (const s of shots) {
@@ -354,7 +452,7 @@ async function main() {
     const far = (agent.refusals ?? []).filter((r) => r.slant != null);
     if (far.length) {
       console.log(`\n      ...and the ${far.length} \`too far\` refusals, broken into their parts ` +
-        `(shootRange ${AGENTS.shootRange} m):`);
+        `(shootRange ${SHOOT_RANGE} m):`);
       for (const r of far) {
         // A refusal is `too far` because slant > shootRange. `dy` is how much of
         // that is the climb; `leadBy` is how much the body added by aiming ahead.
@@ -364,7 +462,7 @@ async function main() {
       }
       const climb = far.filter((r) => Math.abs(r.dy) > Math.abs(r.leadBy)).length;
       console.log(`        ${climb} of ${far.length} are mostly the climb, ${far.length - climb} mostly the lead` +
-        ` — and a refusal whose slant is UNDER ${AGENTS.shootRange} m is neither, and means this instrument is wrong`);
+        ` — and a refusal whose slant is UNDER ${SHOOT_RANGE} m is neither, and means this instrument is wrong`);
     }
   }
 
@@ -527,7 +625,7 @@ async function main() {
   if (trace.length) {
     const withDeer = trace.filter((s) => s.n > 0);
     const ranges = withDeer.map((s) => s.d).sort((a, b) => a - b);
-    const inRange = withDeer.filter((s) => s.d <= AGENTS.shootRange);
+    const inRange = withDeer.filter((s) => s.d <= SHOOT_RANGE);
     const locked = trace.filter((s) => s.q);
     // `resolve` genuinely failing to find a deer: a hunting goal, a target that
     // exists, and no quarry on it. Everything else that is "not locked on" is
@@ -545,7 +643,7 @@ async function main() {
     console.log(`        a quarry was LOCKED ON   ${String(locked.length).padStart(3)}/${trace.length} samples (${pc(locked.length)})`);
     console.log(`        hunting but NO deer found${String(roamed.length).padStart(3)}/${trace.length} — \`resolve\` fell through to roam() with a hunt goal` +
       (notHunting.length ? ` (and ${notHunting.length} not hunting at all)` : ''));
-    console.log(`        inside shootRange ${AGENTS.shootRange} m    ${String(inRange.length).padStart(3)}/${trace.length} samples (${pc(inRange.length)})` +
+    console.log(`        inside shootRange ${SHOOT_RANGE} m    ${String(inRange.length).padStart(3)}/${trace.length} samples (${pc(inRange.length)})` +
       ' — nearest deer, on the GROUND. Read the next two lines before quoting it');
 
     // ── ...AND THE NUMBER `aimAt` ACTUALLY TESTS ──
@@ -565,8 +663,8 @@ async function main() {
     // then every "in range" share this project has quoted is an overstatement.
     const onQ = trace.filter((s) => s.qd != null);
     if (onQ.length) {
-      const byGround = onQ.filter((s) => s.qd <= AGENTS.shootRange).length;
-      const bySlant = onQ.filter((s) => s.qs <= AGENTS.shootRange).length;
+      const byGround = onQ.filter((s) => s.qd <= SHOOT_RANGE).length;
+      const bySlant = onQ.filter((s) => s.qs <= SHOOT_RANGE).length;
       const climbs = onQ.map((s) => s.qs - s.qd).sort((a, b) => a - b);
       console.log(`        ...the QUARRY on the ground ${String(byGround).padStart(3)}/${trace.length} samples (${pc(byGround)})`);
       console.log(`        ...the QUARRY by SLANT      ${String(bySlant).padStart(3)}/${trace.length} samples (${pc(bySlant)})` +
@@ -691,9 +789,9 @@ async function main() {
         : locked.length === 0
           ? `deer were in the snapshot but a quarry never resolved — ${withDeer.length} samples saw one and \`resolve\` still roamed ${roamed.length} of them`
           : inRange.length === 0
-            ? `it never closed to ${AGENTS.shootRange} m — nearest all run was ${ranges[0]} m, so no shot was ever possible`
+            ? `it never closed to ${SHOOT_RANGE} m — nearest all run was ${ranges[0]} m, so no shot was ever possible`
             : (agent.arrows ?? 0) === 0
-              ? `it was inside ${AGENTS.shootRange} m for ${inRange.length} s and never loosed` +
+              ? `it was inside ${SHOOT_RANGE} m for ${inRange.length} s and never loosed` +
                 (worst ? ` — ${worst[1]} refusals, mostly "${worst[0]}"` : '') +
                 '. A SIGHTLINE problem, not ballistics'
               : wounds > 0
@@ -701,7 +799,7 @@ async function main() {
                   `${agent.arrows} shot${agent.arrows === 1 ? '' : 's'} in ${secs} s` +
                   (worst ? `, with ${worst[1]} refusals mostly "${worst[0]}"` : '') +
                   '. That is damage and shot RATE, not aim'
-                : `it loosed ${agent.arrows} arrows from inside ${AGENTS.shootRange} m and every one missed — ` +
+                : `it loosed ${agent.arrows} arrows from inside ${SHOOT_RANGE} m and every one missed — ` +
                   'this one IS the aim, and the LEAD column above is the place to read it';
       console.log(`\n      so the reason nothing died: ${why}`);
     }
