@@ -1,0 +1,64 @@
+{
+  "_readme": [
+    "THE KIMI NIGHT. Four minds, all running on your own tinybox, plus one",
+    "scripted body as the control.",
+    "",
+    "Four rather than one because tinybox is free for you to run, and one mind",
+    "among five scripted bodies has nobody to argue with. Four gives you the",
+    "thing worth watching: minds reacting to each other over a carcass.",
+    "",
+    "They share ONE key (TINYBOX_API_KEY) and one model. The only difference",
+    "between them is character and how often they think — which is the point:",
+    "same model, same prompt scaffolding, four dispositions. Whatever they do",
+    "differently is the character doing it.",
+    "",
+    "Iseabail is scripted ON PURPOSE and must stay that way. When a Kimi does",
+    "something startling, she is how you tell whether that was the model or",
+    "just the world."
+  ],
+
+  "budgetCalls": 6000,
+
+  "players": [
+    {
+      "name": "Coinneach",
+      "provider": "openai-compatible",
+      "baseUrl": "https://tinybox.silverstarindustries.com/api",
+      "model": "kimi-k2.6",
+      "keyEnv": "TINYBOX_API_KEY",
+      "cadenceSeconds": 5,
+      "character": "You are blunt and certain. You say what you think of the others' plans out loud, and you would rather be usefully wrong than politely quiet."
+    },
+    {
+      "name": "Mairi",
+      "provider": "openai-compatible",
+      "baseUrl": "https://tinybox.silverstarindustries.com/api",
+      "model": "kimi-k2.6",
+      "keyEnv": "TINYBOX_API_KEY",
+      "cadenceSeconds": 6,
+      "character": "You hoard. Firewood and meat are yours once you have touched them, and you do not share a fire — though you will trade hard for something you want."
+    },
+    {
+      "name": "Dùghall",
+      "provider": "openai-compatible",
+      "baseUrl": "https://tinybox.silverstarindustries.com/api",
+      "model": "kimi-k2.6",
+      "keyEnv": "TINYBOX_API_KEY",
+      "cadenceSeconds": 6,
+      "character": "You lie about where the deer are. Not out of malice — you just want to get there first, and you will happily send someone the wrong way over a ridge."
+    },
+    {
+      "name": "Seònaid",
+      "provider": "openai-compatible",
+      "baseUrl": "https://tinybox.silverstarindustries.com/api",
+      "model": "kimi-k2.6",
+      "keyEnv": "TINYBOX_API_KEY",
+      "cadenceSeconds": 7,
+      "character": "You are generous and slow to notice you are being used. You share food unprompted and you believe what people tell you about where the deer are."
+    },
+    {
+      "name": "Iseabail",
+      "character": "The control — no model, no key, no network. Do not remove her: when a Kimi does something startling, she is the reference for whether that was the model or the world."
+    }
+  ]
+}
