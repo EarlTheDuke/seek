@@ -25,8 +25,14 @@ goes from 3.3 to 23.7 per 100 s, a SEVENFOLD rise — and kills went 3/4 to 2/4.
 
 That closes the first paragraph of the old queue item 1 with evidence, and it
 confirms on measurement what `config.js:827` had only ever asserted from one
-run's anecdote. The next person to touch the shot rate should touch the
-SIGHTLINE, not a constant.
+run's anecdote.
+
+**AND THE SECOND FINDING IS THE CONTROL COLUMN, WHICH NOBODY HAS READ ON ITS
+OWN FOR SEVERAL RUNS: AT THE SETTINGS THAT SHIP, THE BODY KILLS.** 3 of 4
+control runs brought a deer down in 42-77 s, a fifth default run did it in 52,
+and the "shot rate is the whole tail" framing that has led the queue for two
+runs was generalised from the RED runs. The hunting needs nothing for the
+evening. See below before spending another run on it.
 
 ## THE CEILING A/B — 4 seeds, 2 arms, and the arms were provably different
 
@@ -60,6 +66,25 @@ arrow row as suggestive and the refusal row as the finding.**
 furthest arrow on the four control runs was 24.5, 24.9, 21.4 and 21.7 m — under
 26 by construction — and on the treatment 39.4, 39.7 and 39.8. Two A/Bs in this
 project have run the same arm twice; this one did not.
+
+### AND THE CONTROL ARM IS THE BURIED LEAD: AT THE SHIPPING SETTINGS IT KILLS
+
+Read the control column on its own, which nobody has done for several runs. **It
+killed a deer in 3 runs of 4, in 42, 55 and 77 seconds**, on one or two arrows,
+with a refusal rate of 11.6 per 100 s. A fifth default run taken afterwards
+killed in 52 s. That is 4 of 5 recent default runs bringing an animal down
+inside about a minute.
+
+**So "the shot rate is the whole tail" was diagnosed off the RED runs**, and the
+last two runs' worth of queue text has been aimed at a body that, at the
+settings that actually ship, feeds itself. The failure is not general: it is
+SPECIFIC SCENARIOS. `braemar` failed on both arms and is the one worth studying
+— deer at a median 37 m, 48 refusals, 20 ground and 17 timber, three arrows,
+three wounds and no kill.
+
+**For the evening this means the hunting is fine and needs nothing.** For the
+queue it means: stop sampling the mean, and go and look at the scenario that
+fails. `HUNTSEED=braemar` reproduces one.
 
 ## …AND THE SENTINEL POLICING IT WAS BLIND WHEN THE TREATMENT WORKED
 
@@ -436,16 +461,20 @@ quiver and takes about three minutes.**
    time and got 1.5× the arrows, a 7× rise in "ground in the way" refusals, and
    fewer kills. `SHOOTRANGE=` stays a measuring arm; `config.js` stays at 26.
 
-   **SO WHAT IS LEFT IS THE SIGHTLINE, and that is where the next run should
-   go.** At reach 40 the refusal mix is 61 of 78 and 57 of 66 "ground in the
-   way", deer at 17-40 m, obstruction 4-39 m out. `clearSpotNear` already comes
-   back NOWHERE TO GO on **52-54% of the times it is asked** (718 ground asks,
-   390 null, in one run) — that number is printed by huntcheck, has been for
-   several runs, and nothing has ever chased it. **Chase that before anything
-   else: half the time the body knows the ground is in the way, it cannot name
-   anywhere to stand.** Ruled out already, do not re-derive: an obstruction
-   beyond the target is impossible — `sightline` iterates `s` from 0.05 to 0.98,
-   strictly between eye and mark.
+   **AND CHECK THE PREMISE BEFORE SPENDING A RUN ON IT.** The control arm killed
+   3 of 4, plus a fifth default run at 52 s — 4 of 5 default runs kill inside
+   about a minute. The shot-rate problem was diagnosed off the RED runs and
+   generalised. **This is no longer the top of the queue on the evidence; it is
+   here because it is written down, not because it is hurting.**
+
+   **IF IT IS PICKED UP, GO AT A FAILING SCENARIO, NOT THE MEAN.**
+   `HUNTSEED=braemar` reproduces one that fails on both arms: 48 refusals, 20
+   ground and 17 timber, three arrows, three wounds, no kill. And the untouched
+   number to start from is `clearSpotNear` answering NOWHERE TO GO on **52-54%
+   of the times it is asked** (718 ground asks, 390 null, in one run) — printed
+   by huntcheck for several runs and never once chased. Ruled out already, do
+   not re-derive: an obstruction beyond the target is impossible, because
+   `sightline` iterates `s` from 0.05 to 0.98, strictly between eye and mark.
 
    **Do not start another detour fix, and do not tune a constant.** The detour is
    understood and closed; three passes of constant-tuning moved the failure
