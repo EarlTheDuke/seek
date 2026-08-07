@@ -118,6 +118,44 @@ function strayWords(s) {
  * @param {object[]} agents  live Agent instances
  * @param {object} meta      { seconds, minds, model, spend, url }
  */
+/**
+ * Is this mind actually a mind, right now?
+ *
+ * THE NUMBER NOBODY COULD SEE. Every failure path in `ModelProvider.decide`
+ * ends in `return this.fallback.decide(brief)` — which is the correct BEHAVIOUR
+ * (a mind that can stop the world is not a mind) and a terrible SILENCE. The
+ * counters were recorded from the first day and nothing a human ever looked at
+ * read them, so a model that had quietly become the rules engine looked exactly
+ * like a model having a quiet evening.
+ *
+ * `answered` is the honest headline: calls that came back with a usable goal.
+ * A card showing "47 calls" is not the same as one showing "47 calls, 47 failed"
+ * and until now the board showed neither.
+ *
+ * Pure — provider in, plain object out — so the check can build one from an
+ * invented provider and assert the discriminating case.
+ */
+export function mindHealth(provider) {
+  const name = provider?.name ?? 'scripted';
+  const calls = provider?.calls ?? 0;
+  const failures = provider?.failures ?? 0;
+  const answered = Math.max(0, calls - failures);
+  return {
+    provider: name,
+    model: provider?.model ?? null,
+    calls,
+    failures,
+    answered,
+    lastError: provider?.lastError ?? null,
+    // Never asked anything is not the same as asked and always failed. The
+    // first is a scripted seat by design; the second is the bug.
+    fellBack: name !== 'scripted' && calls >= 3 && answered === 0,
+    // Reported rather than inferred: a watcher reading "0.4" knows two of every
+    // five answers are the rules engine wearing the model's name.
+    failureRate: calls ? +(failures / calls).toFixed(2) : 0,
+  };
+}
+
 export function boardState(agents, meta = {}) {
   const live = (agents ?? []).filter(Boolean);
   return {
@@ -158,6 +196,12 @@ export function boardState(agents, meta = {}) {
         goal: s.goal ?? null,
         why: s.why ?? null,
         thinking: !!s.thinking,
+
+        // ── ...and whether the headline came from the model at all ──
+        // Directly above the goal on the card on purpose: "hunt the deer —
+        // hungry" means one thing from a model and another from the fallback,
+        // and for months the card could not tell you which you were reading.
+        mind: mindHealth(a.provider),
 
         // ── how it is ──
         // The agent's own words for its own body, straight off `brief` — the
@@ -233,6 +277,9 @@ export function boardHtml() {
   .tag { font-size:11px; padding:1px 6px; border-radius:9px; background:#20262a; color:#8a949e; }
   .tag.persona { background:#2c2418; color:#c9a86a; }
   .tag.model { background:#182028; color:#7fa3c0; }
+  .tag.ok { background:#16241a; color:#7fb07f; }
+  .tag.warn { background:#2c2618; color:#d0b25e; }
+  .tag.fell { background:#3a1c1c; color:#e08585; font-weight:600; }
   .goal { font-size:15px; color:#a8d5a2; margin:0 0 2px; }
   .why { color:#9aa4ae; font-style:italic; margin:0 0 9px; }
   .why:empty { display:none; }
@@ -268,6 +315,27 @@ const list = (items, render, empty) => items && items.length
   ? '<ul>' + items.map(render).join('') + '</ul>'
   : '<ul><li class="empty">' + empty + '</li></ul>';
 
+/**
+ * The tag that says whether this card's headline came from the model.
+ *
+ * Sits beside the model name deliberately: the model NAME is configuration and
+ * has always been printed; this is what actually happened. A seat that was
+ * never meant to think shows nothing at all, because "scripted" on a scripted
+ * player is not news.
+ */
+function mindTag(m) {
+  if (!m || m.provider === 'scripted') return '';
+  if (m.fellBack) {
+    return '<span class="tag fell" title="' + esc(m.lastError || 'no answer') + '">'
+      + 'SCRIPTED — ' + m.failures + '/' + m.calls + ' failed</span>';
+  }
+  if (m.failures > 0) {
+    return '<span class="tag warn" title="' + esc(m.lastError || '') + '">'
+      + m.answered + '/' + m.calls + ' answered</span>';
+  }
+  return '<span class="tag ok">' + m.answered + ' answered</span>';
+}
+
 function card(p) {
   const health = words(p.health, [[30,'nearly finished'],[60,'badly hurt'],[90,'hurt']], 'unhurt');
   const food = words(p.food, [[1,'starving'],[25,'hungry']], 'fed');
@@ -279,6 +347,7 @@ function card(p) {
       + (p.persona ? '<span class="tag persona" title="' + esc(p.persona.character || p.persona.name) + '">'
           + esc(p.persona.id) + '</span>' : '')
       + '<span class="tag model">' + esc(p.model || p.provider) + '</span>'
+      + mindTag(p.mind)
     + '</div>'
     + '<p class="goal">' + esc(p.goal || 'thinking…') + '</p>'
     + '<p class="why">' + (p.why ? '“' + esc(p.why) + '”' : '') + '</p>'

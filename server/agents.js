@@ -34,7 +34,7 @@ import { makeRandom } from '../src/world/noise.js';
 import { assignPersonas, PERSONA_IDS } from '../src/minds/personas.js';
 import { AGENTS } from '../src/config.js';
 import { buildReport, summarise } from './playreport.js';
-import { boardState, serveBoard, boardPortFromEnv } from './board.js';
+import { boardState, serveBoard, boardPortFromEnv, mindHealth } from './board.js';
 import { appendNote, NOTES_FILE } from './notes.js';
 
 const args = process.argv.slice(2);
@@ -290,13 +290,41 @@ async function main() {
         const g = a.status.goal.split(' ')[0];
         doing[g] = (doing[g] ?? 0) + 1;
       }
+      // ── HOW MANY OF THOSE CALLS CAME BACK AS A GOAL ──
+      //
+      // `spent.calls` counts what was ASKED. It has always been printed and it
+      // is not the interesting number: every failure falls through to the
+      // scripted brain, so a fleet whose every answer is the rules engine
+      // prints an identical line to one that is working perfectly. `answered`
+      // is the number a watcher actually wants.
+      const health = anyModel ? agents.map((a) => mindHealth(a.provider)) : [];
+      const failed = health.reduce((n, h) => n + h.failures, 0);
       console.log(
         `  ${Math.round(elapsed)}s · ${agents.length} alive · ${decisions} decisions · ` +
           Object.entries(doing).map(([k, n]) => `${n} ${k}`).join(', ') +
           (anyModel
-            ? ` · ${spent.calls}/${spent.of} calls, ${spent.tokensIn + spent.tokensOut} tokens`
+            ? ` · ${spent.calls}/${spent.of} calls, ${spent.tokensIn + spent.tokensOut} tokens` +
+              (failed ? `, ${failed} FAILED` : '')
             : '')
       );
+
+      // ── AND SAY SO ONCE, LOUDLY, WHEN A MIND HAS STOPPED BEING ONE ──
+      //
+      // The worst outcome for a watched session is not a model behaving badly;
+      // it is a model that is not playing while the header says it is. Said
+      // once per agent so it cannot be scrolled past and cannot become noise.
+      for (let i = 0; i < agents.length; i++) {
+        const h = health[i];
+        if (!h || h.provider === 'scripted') continue;
+        const bad = h.fellBack || (h.calls >= 5 && h.failureRate > 0.2);
+        if (!bad || agents[i]._warnedUnwell) continue;
+        agents[i]._warnedUnwell = true;
+        console.log(
+          `  ⚠ ${agents[i].name} is on ${h.model ?? h.provider} and ` +
+            `${h.failures} of ${h.calls} calls FAILED — it is answering from the scripted brain.\n` +
+            `    last error: ${h.lastError ?? 'none recorded'}`
+        );
+      }
       if (spent.exhausted && !budget.announced) {
         budget.announced = true;
         console.log('  budget spent — everyone is on scripted brains from here');

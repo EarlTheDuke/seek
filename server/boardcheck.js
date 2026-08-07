@@ -208,6 +208,63 @@ async function main() {
     bare?.error ?? 'renders with everything empty');
   check('and a board of nobody is still a board', boardState([]).players.length === 0);
 
+  // ── IS THIS MIND STILL A MIND? ──
+  //
+  // Every failure inside `decide()` falls through to the scripted brain — the
+  // right behaviour and, until now, a total silence. The counters were recorded
+  // from the first day and nothing anybody looked at read them, so a model that
+  // had quietly become the rules engine drew exactly the same card as one that
+  // was working. These assert the THREE states apart, because a health field
+  // that renders the same in all three is the fifth instrument in this project
+  // to report something it had not measured.
+  const mind = (o) => boardState([{ name: 'X', provider: o, where: () => null }]).players[0].mind;
+
+  const well = mind({ name: 'anthropic', model: 'claude-opus-5', calls: 40, failures: 0 });
+  check('a mind that is answering says how many it answered',
+    well.answered === 40 && well.fellBack === false && well.failureRate === 0,
+    `${well.answered}/${well.calls} answered, fellBack ${well.fellBack}`);
+
+  const shaky = mind({ name: 'anthropic', model: 'claude-opus-5', calls: 10, failures: 4,
+    lastError: 'http 429' });
+  check('a mind that is half failing says THAT, and says why',
+    shaky.answered === 6 && shaky.failures === 4 && shaky.failureRate === 0.4 &&
+      shaky.lastError === 'http 429' && shaky.fellBack === false,
+    `${shaky.answered}/${shaky.calls}, rate ${shaky.failureRate}, "${shaky.lastError}"`);
+
+  // The one that matters. Every call asked, every call failed: the header says
+  // claude-opus-5 and the answers are all coming from the rules engine.
+  const dead = mind({ name: 'anthropic', model: 'claude-opus-5', calls: 12, failures: 12,
+    lastError: 'no json in reply' });
+  check('AND A MIND THAT HAS STOPPED BEING ONE IS NAMED AS SUCH',
+    dead.fellBack === true && dead.answered === 0,
+    `fellBack ${dead.fellBack}, ${dead.answered}/${dead.calls} answered — "${dead.lastError}"`);
+
+  // A scripted seat is not a failure and must not be dressed as one.
+  const script = mind({ name: 'scripted' });
+  check('...but a scripted seat is not a failure', script.fellBack === false && script.calls === 0,
+    'a player that was never meant to think is not a player that stopped');
+
+  // ── AND THE CARD ACTUALLY SHOWS IT ──
+  // ── AND THE PAGE MUST ACTUALLY RENDER IT ──
+  //
+  // `boardState` carrying a field nobody draws is the same silence one layer up.
+  //
+  // Asserted from the SOURCE, because the card is BROWSER-SIDE: `card` and
+  // `mindTag` live inside boardHtml's template literal and run in the page, so
+  // there is no module export to call. This proves the wiring is present, not
+  // that it painted — the same limitation rendercheck states about a renderer,
+  // and the reason the DATA assertions above are the real test.
+  //
+  // Writing this cost a near-miss worth remembering: an `export` added to
+  // `mindTag` to make it importable landed INSIDE the template literal, where it
+  // is not an export at all — it is page text, and `export` in a plain <script>
+  // is a syntax error that would have broken the whole board silently. Same trap
+  // as the `//` comment in STATE.md, wearing different clothes.
+  const pageSrc = boardHtml();
+  check('and the page actually renders that health, rather than carrying it unused',
+    /function mindTag/.test(pageSrc) && /mindTag\(p\.mind\)/.test(pageSrc) && /SCRIPTED/.test(pageSrc),
+    'mindTag is defined in the page, card calls it, and SCRIPTED is a string it can print');
+
   check('the page is self-contained — no CDN, no build step',
     !/https?:\/\//.test(boardHtml().replace(/http:\/\/127\.0\.0\.1/g, '')),
     'a watcher on a LAN with no internet still gets a board');
