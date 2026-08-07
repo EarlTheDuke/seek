@@ -157,7 +157,7 @@ check('a dead network falls back rather than stalling', !!afterFailure?.kind && 
 const rubbishFetch = new LlmProvider({
   apiKey: 'test-key-not-real',
   fallback: provider,
-  fetchImpl: async () => ({ ok: true, json: async () => ({ content: [{ text: 'I would love to help!' }] }) }),
+  fetchImpl: async () => ({ ok: true, json: async () => ({ content: [{ type: 'text', text: 'I would love to help!' }] }) }),
 });
 const afterRubbish = await rubbishFetch.decide(nearBrief);
 check('a reply with no legal verb falls back too', !!afterRubbish?.kind,
@@ -168,7 +168,7 @@ const goodFetch = new LlmProvider({
   fallback: provider,
   fetchImpl: async () => ({
     ok: true,
-    json: async () => ({ content: [{ text: '{"kind":"hunt","quarry":"a deer","why":"hungry"}' }] }),
+    json: async () => ({ content: [{ type: 'text', text: '{"kind":"hunt","quarry":"a deer","why":"hungry"}' }] }),
   }),
 });
 const afterGood = await goodFetch.decide(nearBrief);

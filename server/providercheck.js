@@ -92,6 +92,49 @@ function startFakeVendor() {
           res.end(JSON.stringify({ content: [{ type: 'text', text: 'I think I shall go north.' }] }));
           return;
         }
+        // ── WHAT CLAUDE OPUS 5 ACTUALLY SENDS BACK ──
+        //
+        // Adaptive thinking is ON when the `thinking` field is absent — a
+        // change from Opus 4.8 — so the FIRST content block is a thinking
+        // block and the answer is the second. The old code read `content[0]`
+        // and got `undefined`, which `?? ''` turned into an empty string, so
+        // every real call fell through to the scripted brain while the header
+        // went on naming the model. This fixture is that reply, exactly.
+        if (req.url.includes('/thinking')) {
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              stop_reason: 'end_turn',
+              content: [
+                { type: 'thinking', thinking: '' },
+                { type: 'text', text: '{"kind":"hunt","quarry":"a deer","why":"hungry"}' },
+              ],
+              usage: { input_tokens: 412, output_tokens: 17 },
+            })
+          );
+          return;
+        }
+        // A 200 with no usable text, twice, for two completely different
+        // reasons. Without naming them both land in the same bucket as a model
+        // that answered in prose.
+        if (req.url.includes('/refusal')) {
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({
+            stop_reason: 'refusal',
+            stop_details: { type: 'refusal', category: 'cyber' },
+            content: [],
+          }));
+          return;
+        }
+        if (req.url.includes('/truncated')) {
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({
+            stop_reason: 'max_tokens',
+            content: [{ type: 'thinking', thinking: '' }],
+            usage: { input_tokens: 412, output_tokens: 256 },
+          }));
+          return;
+        }
         if (req.url.includes('/slow')) {
           setTimeout(() => {
             try {
@@ -162,6 +205,72 @@ async function main() {
   check('tokens came back off the reply',
     anthropic.lastTokensIn === 412 && anthropic.lastTokensOut === 17,
     `${anthropic.lastTokensIn} in / ${anthropic.lastTokensOut} out`);
+
+  // ── 1b. THE REQUEST SAYS WHAT IT WANTS, and never inherits a default ──
+  //
+  // Opus 5 thinks when `thinking` is absent. A request that does not state its
+  // posture is a request whose cost and whose reply shape are decided by
+  // whichever model happens to be named, and that is how this whole class of
+  // failure got in.
+  check('the request states its thinking posture out loud',
+    call1.body?.thinking?.type === 'disabled',
+    `thinking: ${JSON.stringify(call1.body?.thinking ?? null)}`);
+  check('...with an effort level, and room to answer in',
+    call1.body?.output_config?.effort === 'low' && call1.body?.max_tokens >= 256,
+    `effort ${call1.body?.output_config?.effort}, max_tokens ${call1.body?.max_tokens}`);
+  // These three are REMOVED on Opus 5 and Sonnet 5 — sending any of them is a
+  // 400, which would take the whole fleet scripted on the first call.
+  check('and no sampling parameters, which are a 400 on this generation',
+    call1.body?.temperature === undefined && call1.body?.top_p === undefined &&
+      call1.body?.top_k === undefined,
+    'no temperature / top_p / top_k');
+
+  // ── 1c. A THINKING REPLY STILL BECOMES A GOAL ──
+  //
+  // THE REGRESSION THIS SECTION EXISTS FOR. `content[0]` is a thinking block
+  // whenever the model thinks, so reading it got `undefined` -> `''` -> "no
+  // json in reply" -> the scripted brain, on every single call, silently.
+  const thinker = new AnthropicProvider({
+    apiKey: 'test-key', baseUrl: `${base}/thinking`, fallback: scripted,
+  });
+  const gT = await thinker.decide(BRIEF);
+  check('a reply that THINKS FIRST still becomes a goal', gT?.kind === 'hunt' && thinker.failures === 0,
+    `${JSON.stringify(gT)}, ${thinker.failures} failures — content[0] is a thinking block here`);
+
+  // ── 1d. AND THE TWO SILENT 200s ARE NAMED ──
+  const refused = new AnthropicProvider({
+    apiKey: 'test-key', baseUrl: `${base}/refusal`, fallback: scripted,
+  });
+  await refused.decide(BRIEF);
+  check('a refusal says it was refused', /refused/i.test(refused.lastError ?? ''),
+    refused.lastError ?? 'no error recorded');
+
+  const cut = new AnthropicProvider({
+    apiKey: 'test-key', baseUrl: `${base}/truncated`, fallback: scripted, think: true,
+  });
+  await cut.decide(BRIEF);
+  check('and running out of tokens says THAT, not "no json in reply"',
+    /token/i.test(cut.lastError ?? ''), cut.lastError ?? 'no error recorded');
+
+  // ── 1e. THE THINKING FLAG REACHES THE WIRE ──
+  const deep = new AnthropicProvider({
+    apiKey: 'test-key', baseUrl: base, fallback: scripted, think: true,
+  });
+  await deep.decide(BRIEF);
+  const callDeep = seen.at(-1);
+  check('`think` turns adaptive thinking on and buys room for it',
+    callDeep.body?.thinking?.type === 'adaptive' && callDeep.body?.max_tokens >= 1024,
+    `thinking ${callDeep.body?.thinking?.type}, max_tokens ${callDeep.body?.max_tokens}`);
+
+  // ...and `effort: null` omits the field, which the older models require.
+  const old = new AnthropicProvider({
+    apiKey: 'test-key', baseUrl: base, fallback: scripted,
+    model: 'claude-haiku-4-5', effort: null,
+  });
+  await old.decide(BRIEF);
+  check('`effort: null` omits it entirely, for models that reject it',
+    seen.at(-1).body?.output_config === undefined,
+    `output_config: ${JSON.stringify(seen.at(-1).body?.output_config ?? null)}`);
 
   // ── 2. Everybody else's shape ──
   const openai = new OpenAiProvider({

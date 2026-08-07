@@ -155,7 +155,28 @@ export class ModelProvider {
     // Character only SHOWS under pressure. A hoarder with infinite firewood is
     // indistinguishable from a generous one; see the roster's note on scarcity.
     character = null,
+    // ── HOW HARD THIS MIND IS ALLOWED TO THINK ──
+    //
+    // Off by default, and that is a cost decision rather than a taste one:
+    // thinking tokens bill as OUTPUT, and this call picks one verb out of a
+    // fixed list and writes eight words of `why`. A reasoning budget spent
+    // choosing between `hunt` and `goTo` buys nothing a watcher ever sees —
+    // the visible reasoning is the `why` field, which costs a dozen tokens.
+    //
+    // It is a flag rather than a constant because one agent thinking and one
+    // not, on the same persona, is a genuinely interesting thing to watch.
+    think = false,
+    // `low` unless told otherwise. NULL OMITS IT ENTIRELY, which is required
+    // for the older models: `output_config.effort` is rejected by Haiku 4.5 and
+    // Sonnet 4.5. Set `effort: null` in a roster entry for those.
+    effort = 'low',
+    // Enough for one line of JSON and a short reason; far more when the model
+    // is thinking, because `max_tokens` caps thinking AND text together.
+    maxTokens = null,
   } = {}) {
+    this.think = think;
+    this.effort = effort;
+    this.maxTokens = maxTokens ?? (think ? 1024 : 256);
     this.apiKey = apiKey;
     this.model = model ?? this.defaultModel;
     this.baseUrl = baseUrl ?? this.defaultBaseUrl;
@@ -290,15 +311,63 @@ export class AnthropicProvider extends ModelProvider {
       },
       body: JSON.stringify({
         model: this.model,
-        max_tokens: 120,
+        max_tokens: this.maxTokens,
+        // ── SAY WHAT YOU WANT; DO NOT INHERIT A DEFAULT ──
+        //
+        // Claude Opus 5 runs ADAPTIVE THINKING WHEN THIS FIELD IS ABSENT. That
+        // is a change from Opus 4.8, where omitting it meant no thinking, and
+        // it is not a detail: with thinking on, the first content block is a
+        // THINKING block, and `max_tokens` caps thinking and text TOGETHER. The
+        // 120-token budget this used to send could not reach the JSON at all.
+        //
+        // So the posture is always explicit. See `think` in the constructor.
+        thinking: this.think ? { type: 'adaptive' } : { type: 'disabled' },
+        // Omitted entirely when null — Haiku 4.5 and Sonnet 4.5 reject it.
+        // Note `disabled` thinking is only legal at effort `high` or below on
+        // Opus 5; `low` is comfortably inside that.
+        ...(this.effort ? { output_config: { effort: this.effort } } : {}),
+        // NO `temperature`, `top_p` OR `top_k`. All three are removed on Opus 5
+        // and Sonnet 5 and return a 400. Variety here comes from the persona and
+        // the seed, not from sampling.
         system: this.systemPrompt(),
         messages: [{ role: 'user', content: briefToText(brief) }],
       }),
     });
     if (!res.ok) throw new Error(`http ${res.status}`);
     const data = await res.json();
+
+    // ── NAME THE REFUSAL AND THE TRUNCATION, or they read as "rubbish reply" ──
+    //
+    // Both come back as a perfectly successful HTTP 200 with no usable text, so
+    // without these two lines they land in the same bucket as a model that
+    // answered with prose — and the board would say `no json in reply` for three
+    // completely different problems. `max_tokens` in particular is the exact
+    // failure mode of turning thinking on without raising the budget, and it is
+    // worth being told that in those words.
+    if (data?.stop_reason === 'refusal') {
+      throw new Error(`refused (${data?.stop_details?.category ?? 'no category'})`);
+    }
+
+    // ── EVERY TEXT BLOCK, NOT `content[0]` ──
+    //
+    // THE BUG THIS FILE EXISTED WITH. `content[0]` is a THINKING block whenever
+    // the model is thinking, so `.text` was `undefined`, `?? ''` made it empty,
+    // and every single call fell through to the scripted brain while the startup
+    // header went on printing the model's name. Silent, total, and flattering —
+    // the worst shape of failure this project has.
+    const text = (data?.content ?? [])
+      .filter((b) => b?.type === 'text' && typeof b.text === 'string')
+      .map((b) => b.text)
+      .join('')
+      .trim();
+
+    if (!text && data?.stop_reason === 'max_tokens') {
+      throw new Error(`ran out of tokens before answering (max_tokens ${this.maxTokens}` +
+        `${this.think ? ', thinking is ON — raise it' : ''})`);
+    }
+
     return {
-      text: data?.content?.[0]?.text ?? '',
+      text,
       tokensIn: data?.usage?.input_tokens ?? 0,
       tokensOut: data?.usage?.output_tokens ?? 0,
     };
@@ -453,7 +522,22 @@ const isLocal = (url) => /^https?:\/\/(127\.0\.0\.1|localhost|0\.0\.0\.0|\[::1\]
 export function makeProvider(
   rand,
   env = {},
-  { budget = null, maxCalls, character = null, label = null } = {}
+  {
+    budget = null,
+    maxCalls,
+    character = null,
+    label = null,
+    // ── MINDS_THINK=on, MINDS_EFFORT=low|medium|high|none ──
+    //
+    // Both off the environment so a whole fleet can be switched at once, and
+    // both overridable per entry so a roster can seat one thinking mind beside
+    // five that answer from reflex. `none` omits `effort` altogether, which is
+    // what Haiku 4.5 and Sonnet 4.5 need — they reject the field.
+    think = /^(on|yes|1|true)$/i.test(env.MINDS_THINK ?? ''),
+    effort = /^(none|off|)$/i.test(env.MINDS_EFFORT ?? '')
+      ? (env.MINDS_EFFORT ? null : 'low')
+      : env.MINDS_EFFORT,
+  } = {}
 ) {
   const scripted = new ScriptedProvider(rand);
   const kind = String(env.MINDS_PROVIDER ?? 'scripted').toLowerCase();
@@ -467,6 +551,8 @@ export function makeProvider(
     budget,
     maxCalls,
     character,
+    think,
+    effort,
   };
 
   if (kind === 'claude' || kind === 'anthropic') {
