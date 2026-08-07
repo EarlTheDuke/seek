@@ -1960,6 +1960,11 @@ function boot() {
   // Speaking. The whole party mechanic rests on this one call: an agent already
   // hears chat and hands it to its mind as "You have heard: …", so a sentence
   // typed here is the only channel by which a person directs a company.
+  // The say box and the notes box both release the pointer lock so there is a
+  // caret to type into. This is how they give it back — through the input
+  // layer, which already knows what to do when a browser refuses.
+  hud.onWantLock = () => input.requestLock();
+
   hud.wireSay((text) => {
     if (!net) {
       hud.toast('there is nobody to hear you — join a server with ?join=', 3.5);

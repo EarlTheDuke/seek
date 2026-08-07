@@ -917,6 +917,14 @@ export class Hud {
   // it in the brief it hands its mind. Speaking is the entire coordination
   // channel, and it was one-way until now.
 
+  /**
+   * Ask for the pointer lock back, set by whoever owns the input layer.
+   *
+   * Null in tests and in any embedding that has no lock to give — the boxes
+   * that release it call this and carry on if there is nobody listening.
+   */
+  onWantLock = null;
+
   wireSay(send) {
     this.sayEl = this.root.querySelector('#hl-say');
     this.sayInput = this.sayEl.querySelector('input');
@@ -939,6 +947,14 @@ export class Hud {
   closeSay() {
     this.sayEl?.classList.remove('show');
     this.sayInput?.blur();
+    // ── AND GIVE THE MOUSE BACK ──
+    //
+    // `openSay` releases the pointer lock so there is a caret to type into,
+    // which is right. Closing never took it back, so pressing Enter to send a
+    // line left the game running with a free mouse: you could still walk, but
+    // looking around was dead and the only way out was to click the canvas.
+    // Talking to the other players cost you your view of them.
+    this.onWantLock?.();
   }
 
   /** Returns true if it swallowed the key. */
@@ -1024,6 +1040,9 @@ export class Hud {
   closeNotes() {
     this.notesEl?.classList.remove('show');
     this.noteText?.blur();
+    // Same bargain as `closeSay`: the notes box took the pointer to give you a
+    // caret, so it hands it back when it is done with it.
+    this.onWantLock?.();
   }
 
   async submitNote() {
