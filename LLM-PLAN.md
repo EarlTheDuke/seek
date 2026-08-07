@@ -120,7 +120,7 @@ go red before 1.1 and green after. No key, no cost.
 
 ---
 
-## Phase 2 — make failure visible
+## Phase 2 — make failure visible  ✅ DONE (boardcheck 40/40; proved live in a browser — a card reading claude-opus-5 + SCRIPTED — 11/11 failed)
 
 **The most important phase, and the one easiest to skip.** Phase 1 is worthless if
 nobody can tell it worked.
@@ -149,7 +149,7 @@ discriminating case — a card for an agent with failures must not render as hea
 
 ---
 
-## Phase 3 — the mixed roster
+## Phase 3 — the mixed roster  ✅ DONE (providercheck 38/38; roster.example.json ships)
 
 This is the payoff: several minds, several vendors, one hillside.
 
@@ -192,7 +192,7 @@ chosen for context length, that is money spent on a constraint we do not have.
 
 ---
 
-## Phase 4 — the conversation, which is what a human actually watches
+## Phase 4 — the conversation, which is what a human actually watches  ✅ DONE (4.1 + 4.4 done, watchcheck 12/12; 4.2/4.3 still open — see below)
 
 Behaviour is legible on the board. **Talk is the thing that makes it a story.**
 Three specific limits stand between "some NPCs exist" and "watch three models
@@ -231,7 +231,7 @@ reply reaches the chat channel. That is the loop end-to-end and it needs no key
 
 ---
 
-## Phase 5 — cost, cadence and rate limits
+## Phase 5 — cost, cadence and rate limits  ✅ DONE (5.1/5.2/5.3 done; 5.4 correctly skipped)
 
 **5.1 The arithmetic to know before spending anything.** `AGENTS.cadenceSeconds`
 is 6. Six model-backed agents = **60 calls/minute**. `maxCallsTotal` is 4000, so
@@ -309,6 +309,39 @@ Board on the second monitor. Chat column says *what*; the board says *why*.
   checked against a fake endpoint. Structured outputs would be *better* long-term
   (it removes the parse failure mode entirely) but it is not portable across
   vendors, and portability is the point of this seam.
+
+---
+
+## WHERE IT ACTUALLY STANDS — everything but the key
+
+Phases 1-5 are built, checked and pushed. **The only thing between this and a
+playable evening is a key**, and the two items below that need one.
+
+**Still open, and both need a real key or a real clock:**
+
+- **4.2 — the `say` gate is unmeasured.** `AGENTS.speakEveryHours` is 0.4 GAME
+  hours and I did not measure what that is in real seconds, so I did not touch
+  it. **Measure before tuning**: print the gap between utterances over a ten
+  minute run and aim for one remark every 30-90 real seconds. Changing it blind
+  is how a fleet ends up either silent or unreadable.
+- **4.3 — a `say` still costs the agent its turn.** `agent.js` sets
+  `this.goal = { kind: 'wander' }` after speaking, which is right for an
+  unprompted remark and wrong for a reply: an agent asked "did you find the
+  deer?" should answer AND keep hunting. Left alone deliberately — it is a
+  behaviour change to the goal loop and it wants a live session to judge.
+- **Phase 6 — the rehearsal and `livecheck`.** Cannot be built without a key;
+  the shape is specified above.
+
+**What to do first when the keys arrive**, in order, about twenty minutes:
+
+1. `export ANTHROPIC_API_KEY=… XAI_API_KEY=…`
+2. `cp roster.example.json roster.json`
+3. Start a server, then
+   `MINDS_ROSTER=roster.json PERSONAS=on NARRATE=on BOARD=on npm run agents`
+4. **Read the board at :8090 before anything else.** Every card should show a
+   green `N answered` tag. A red `SCRIPTED — n/n failed` means the key or the
+   model string is wrong, and the tag carries the vendor's own error.
+5. Watch the 15-second line for `FAILED` and the budget burn rate.
 
 ## Order of work, and why this order
 

@@ -155,6 +155,32 @@ the bug absent while you are looking straight at it. Counterfactual 10/11.
 It also pins two things nothing covered: a dead body tips 90° and hides its name,
 and you can see somebody else draw a bow.
 
+## THE LLM FLEET IS BUILT — everything but the key (see LLM-PLAN.md)
+
+**A real Claude call would have returned the SCRIPTED brain on every single
+request, silently, while the header printed the model as playing.** Opus 5 runs
+adaptive thinking when the `thinking` field is absent — changed from Opus 4.8 —
+so `content[0]` is a THINKING block and `data.content[0].text` read `undefined`.
+That is fixed, and four more phases went in behind it.
+
+| | |
+|---|---|
+| the wire | reads EVERY text block; states `thinking`/`effort`/`max_tokens` out loud; names refusals and truncations |
+| failure is LOUD | `mindHealth` per card, `N FAILED` on the live line, a one-time alarm per agent |
+| the roster | `think`/`effort`/`cadenceSeconds` per seat; `roster.example.json` ships |
+| conversation | `AGENTS.hears` 8 into the brief (was 3), and the prompt now says WHEN to speak |
+| rate limits | named errors, ONE bounded retry, a refused key is never retried |
+
+**Proved live in a browser**: a card reading `claude-opus-5` with
+`SCRIPTED — 11/11 failed` beside it, driven by pointing the fleet at a dead
+endpoint. That is the whole point of Phase 2 and it works.
+
+**The persona control moved TWICE, deliberately and recorded in personacheck**
+— an XML-tag guard (thinking-disabled models can leak tags into the answer) and
+the when-to-speak lines. Both go to control and personas identically.
+
+**Open, and both need a key or a clock:** the `say` gate is unmeasured (0.4 GAME
+hours — measure before tuning), and a `say` still costs the agent its turn.
 ## The instruments, cumulative
 
 - **`slant`/`dy`/`leadBy` on a `too far` refusal**, printed one line per refusal
@@ -294,8 +320,8 @@ sidestepping in place. It did not raise the kill rate; nothing yet has.
 ## Checks
 
 `firecheck` 57 · `companioncheck` 45 · `glidercheck` 42 · **`campcheck` 38** ·
-`boardcheck` 35 · `weathercheck` 27 · `providercheck` 25 · `netcheck` 24 ·
-`personacheck` 21 · **`avatarcheck` 11** · `mindcheck`/`clockcheck` 21 · `warmthcheck` 20 ·
+`boardcheck` 35 · `weathercheck` 27 · `netcheck` 24 ·
+`providercheck` 38 · `personacheck` 21 · **`avatarcheck` 11** · `mindcheck`/`clockcheck` 21 · `warmthcheck` 20 ·
 `deathcheck` 19 · `bookcheck`/`reportcheck`/`raidcheck` 18 · **`detourcheck` 18** ·
 `timbercheck` 17 · `agentcheck` 17 · `ordercheck` 17 ·
 `dangercheck`/`herdcheck`/`rendercheck` 12 · `survivalcheck` 12 · `bitecheck` 10 ·
@@ -428,6 +454,24 @@ in a pack. Verify by driving the game, and make the check assert an OUTCOME.
 - **COMMIT BEFORE YOU MUTATE FOR A COUNTERFACTUAL.** `git checkout -- <file>`
   on a tracked file with UNCOMMITTED work throws the work away too, not just the
   probe. Cost the crouch fix once this run; it had to be retyped.
+- **A DEFAULT YOU DID NOT SET IS A DEFAULT THAT CAN CHANGE UNDER YOU.** Claude
+  Opus 5 runs adaptive thinking when the `thinking` field is absent; Opus 4.8 ran
+  none. The same request body meant opposite things on two models one version
+  apart, and the symptom was every call silently returning the scripted brain
+  while the header named the model. **State the posture on every request.**
+- **`content[0]` IS NOT THE ANSWER.** With thinking on, block zero is a THINKING
+  block and `.text` is `undefined`. Filter for `type === 'text'` and join. This
+  cost the entire LLM integration and raised no error anywhere.
+- **A FIXTURE MISSING A FIELD THE REAL API ALWAYS SENDS PASSES FOR THE WRONG
+  REASON.** mindcheck's payloads had no `type` on their content blocks, so its
+  "a rubbish reply falls back" assertion was green because the field was ABSENT,
+  not because the reply was rubbish.
+- **AN `export` INSIDE `boardHtml()`'s TEMPLATE LITERAL IS NOT AN EXPORT** — it
+  is page text, and `export` in a plain `<script>` is a syntax error that breaks
+  the entire board while every check stays green. Same trap as the `//` comment
+  in that string, new clothes. The card is browser-side; assert it from source.
+- **`new URL(...).pathname` PERCENT-ENCODES THE SPACES** in this repo's own path
+  and node cannot open the result. Use `fileURLToPath`.
 - **BUILD AN ARM SENTINEL INTO THE OUTPUT — a number that is 0 on one arm and N
   on the other BY CONSTRUCTION.** huntcheck prints "`along` was 0 of 7" on the
   control and "14 of 14" on the treatment, and says *"CLOSING IS ON AND NOT ONE
