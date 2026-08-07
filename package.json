@@ -52,7 +52,8 @@
     "detourcheck": "node server/detourcheck.js",
     "avatarcheck": "node server/avatarcheck.js",
     "rangecheck": "node server/rangecheck.js",
-    "solidcheck": "node server/solidcheck.js"
+    "solidcheck": "node server/solidcheck.js",
+    "keycheck": "node server/keycheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

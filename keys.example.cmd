@@ -16,5 +16,9 @@ set "ANTHROPIC_API_KEY="
 REM  xAI / Grok — Tormod.  https://console.x.ai
 set "XAI_API_KEY="
 
-REM  Only needed if you add a Moonshot/Kimi seat to roster.json.
+REM  Your own tinybox (Open WebUI) - Coinneach, running kimi-k2.6.
+REM  Get it from: tinybox site -> your avatar -> Settings -> Account -> API keys
+set "TINYBOX_API_KEY="
+
+REM  Only needed if you add a hosted Moonshot/Kimi seat to roster.json.
 set "MOONSHOT_API_KEY="
