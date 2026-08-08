@@ -26,12 +26,12 @@
   "players": [
     {
       "name": "Eachann",
-      "provider": "anthropic",
-      "model": "claude-opus-5",
-      "keyEnv": "ANTHROPIC_API_KEY",
-      "cadenceSeconds": 30,
+      "provider": "xai",
+      "model": "grok-4.20-0309-non-reasoning",
+      "keyEnv": "XAI_API_KEY",
+      "cadenceSeconds": 12,
       "character": "You hoard. Firewood is yours and you do not share a fire, though you will trade for meat.",
-      "timeoutSeconds": 25
+      "timeoutSeconds": 20
     },
     {
       "name": "Morag",
