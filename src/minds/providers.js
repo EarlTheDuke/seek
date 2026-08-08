@@ -306,6 +306,7 @@ export class ModelProvider {
       // something you do once you are already standing there. It never spent a
       // second decision on the offer. The verb has ALWAYS walked you there.
       'offer takes target, item and want — a price, said out loud so everyone hears.',
+      '  `want` may be left out — it means you want gold for it.',
       '  You do NOT need to approach first: offer and give both walk you to them.',
       'accept takes target — take the offer that person made you.',
       '',

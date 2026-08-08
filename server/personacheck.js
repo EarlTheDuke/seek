@@ -112,6 +112,7 @@ const BASELINE = [
   // decision on the offer. The verb has always walked you there; nothing said
   // so. Telling them the verb includes the walk is not telling them to trade.
   'offer takes target, item and want — a price, said out loud so everyone hears.',
+  '  `want` may be left out — it means you want gold for it.',
   '  You do NOT need to approach first: offer and give both walk you to them.',
   'accept takes target — take the offer that person made you.',
   '',

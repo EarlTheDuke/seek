@@ -710,8 +710,20 @@ export class SimWorld {
     const to = this.playerNamed(toName, from);
     if (!to) return;
     const item = String(itemId ?? '').trim();
-    const want = String(wantId ?? '').trim();
-    if (!item || !want) return;
+    // ── WHAT YOU WANT BACK DEFAULTS TO COIN ──
+    //
+    // `offer` took three arguments where `approach` takes one, and any one of
+    // them wrong made it a silent no-op — a missing `want` returned here having
+    // done nothing at all. Offered an easy verb and a hard verb that both move
+    // toward the goal, a model takes the easy one, and one did: it worked out a
+    // barter in plain English, wrote it in its reason, and then chose
+    // `approach`. Six of fifteen verbs have never been used.
+    //
+    // Gold is the money in this world, so "I will sell you this venison" with no
+    // price named means "for coin", which is what it means anywhere. An offer
+    // with no ITEM is still nothing — that half cannot be guessed.
+    const want = String(wantId ?? '').trim() || 'gold';
+    if (!item) return;
 
     from.offer = { to: to.id, item, want };
     this.events.push({ k: 'offer', by: from.id, from: from.name, to: to.id, n: to.name, item, want });

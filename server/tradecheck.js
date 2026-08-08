@@ -143,6 +143,38 @@ function main() {
       has(b, 'gold') === coin, `gold ${coin} -> ${has(b, 'gold')}`);
   }
 
+  // ── A PRICE YOU DID NOT NAME MEANS COIN ──
+  //
+  // `offer` took three arguments where `approach` takes one, and any one of them
+  // wrong made it a SILENT no-op — `resolveOffer` returned having done nothing.
+  // Offered an easy verb and a hard verb that both move toward the goal, a model
+  // takes the easy one, and one did: it worked out a barter in plain English,
+  // wrote it in its reason, and then chose `approach`.
+  {
+    const { w, a, b } = world2();
+    a.inventory.add('venison', 1);
+    b.inventory.add('gold', 3);
+
+    w.resolveOffer(a, 'Seonaid', 'venison', '');   // no price named
+    const ev = w.events.find((e) => e.k === 'offer');
+    check('AN OFFER WITH NO PRICE NAMED IS AN OFFER FOR GOLD',
+      ev && ev.want === 'gold', JSON.stringify(ev ?? null));
+
+    w.resolveAccept(b, 'Mairi');
+    check('  …and it can be taken, like any other',
+      has(b, 'venison') === 1 && has(a, 'gold') === 1,
+      `Seonaid ${has(b, 'venison')} venison, Mairi ${has(a, 'gold')} gold`);
+  }
+
+  {
+    // ...but an offer of NOTHING is still nothing. That half cannot be guessed.
+    const { w, a } = world2();
+    w.resolveOffer(a, 'Seonaid', '', 'gold');
+    check('SENTINEL: an offer with no ITEM is still refused',
+      !w.events.some((e) => e.k === 'offer'),
+      'a price can be assumed; a thing to sell cannot');
+  }
+
   const failed = results.filter((r) => !r.pass);
   console.log(`\n  ${results.length - failed.length}/${results.length} passed\n`);
   process.exit(failed.length ? 1 : 0);
