@@ -33,8 +33,20 @@ INSTEAD: nothing. They stand about looking like a bug. `breakAt: 0.18` and
 which suggests the rout path exists and simply is not reached, or is reached and
 does not produce visible flight.
 
+**BOTH ARMS NOW CONFIRMED IN PLAY, which narrows this to one thing.** Same
+player, same session: stood among goblins in daylight and was ignored, went out
+at night and was attacked. So the morale system is working end to end and the
+daylight suppression is doing exactly what it was written to do.
+
+That removes "goblins are broken" from the list entirely. What is left is
+strictly a POSTURE bug: a pack that has decided not to fight has no behaviour
+for it, so it mills about next to you looking like an AI that has crashed. The
+courage maths is right; the animation of cowardice is missing.
+
 **Shape:** find why a goblin below `breakAt` in daylight does not run, rather
-than adding a second daylight rule beside the one already there.
+than adding a second daylight rule beside the one already there. Nothing about
+the thresholds needs touching — do not retune `daylightFloor`, `commitAt` or
+`breakAt`, all three are demonstrably correct.
 
 **AND THE SECOND REASON IT LOOKED PASSIVE, which is not about daylight at all:**
 `countOpposition` counts every player within `cohesionRange` (34 m), and
