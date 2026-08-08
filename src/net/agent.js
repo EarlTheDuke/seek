@@ -172,6 +172,22 @@ export class Agent {
     this.heard = [];
 
     this.memory = new Memory({ flat: memoryFlat });
+    // ── WHAT YOUR LAST ACTION ACTUALLY DID ──
+    //
+    // `brief()` describes the world's PRESENT STATE and said nothing about the
+    // consequences of the mind's own last action. A mind got senses and no
+    // outcomes, and every failure mode in the 2026-08-08 run was the same shape
+    // because of it:
+    //
+    //   94 fires, five in 20 s   — never told "there is already a fire here"
+    //   400+ draws, no arrow     — never told "that shot was refused"
+    //   an hour on an empty bow  — never told "you have no arrows"
+    //   one sentence, said 3x    — never told "you said that already"
+    //
+    // An action that returns no signal is indistinguishable from one that did
+    // nothing, so it happens again. This is the channel that closes the loop:
+    // filled as things happen, drained into the brief at each decision.
+    this.outcomes = [];
     this.goal = { kind: 'wander' };
     this.since = 0;
     this.thinking = false;
@@ -884,6 +900,25 @@ export class Agent {
       carrying: Object.entries(this.carrying ?? {})
         .filter(([, n]) => n > 0)
         .map(([id, n]) => `${n} ${itemWords(id, n)}`),
+      // ── AND THE PACK STATED IN THE NEGATIVE ──
+      //
+      // The line above filters to `n > 0`, so running out of something showed
+      // up as an ABSENCE FROM A LIST. Inferring "I cannot shoot" from the
+      // non-appearance of the word "arrows" is the single thing language models
+      // are worst at, and one mind hunted for an hour on an empty bow without
+      // ever concluding it.
+      //
+      // Only the three that stop you doing something, and only when they are
+      // actually zero: a brief that lists everything you do not have is a brief
+      // nobody reads.
+      lacking: [
+        this.count('arrow') <= 0 && 'no arrows — you cannot shoot',
+        this.count('wood') <= 0 && 'no firewood — you cannot lay a fire or make arrows',
+        !EDIBLE.some((id) => this.count(id) > 0) && 'no food',
+      ].filter(Boolean),
+      // What the last stretch of acting actually did. Drained by `deliberate`,
+      // so each line is seen exactly once by exactly one decision.
+      outcome: (this.outcomes ?? []).map((o) => (o.n > 1 ? `${o.text} (${o.n} times)` : o.text)),
       _contacts: contacts,
     };
   }
@@ -922,6 +957,11 @@ export class Agent {
     for (const c of brief.contacts) {
       this.memory.add(this.hours, `${c.what} ${c.distance}, ${c.doing}`, MINDS.weight.sighting);
     }
+    // Drained AFTER the brief is built and BEFORE the answer comes back, so
+    // each outcome line is read by exactly one decision. Leaving them would
+    // repeat "you laid a fire" for ever, which is the failure this channel was
+    // built to cure rather than to reproduce in a new place.
+    this.drainOutcomes();
 
     this.thinking = true;
     Promise.resolve(this.provider.decide(brief))
@@ -984,6 +1024,9 @@ export class Agent {
           // without a trace in any log or counter. An intention that is thrown
           // away silently is indistinguishable from one that was never had.
           this.gagged = (this.gagged ?? 0) + 1;
+          // A mind said the same sentence three times over nine minutes because
+          // the gate was silent to it. Now it is not.
+          this.noteOutcome(`you have already spoken recently — "${goal.text}" was not said`);
           this.onLog?.(`${this.name}: (wanted to say "${goal.text}" — too soon, ${sinceSpoke.toFixed(2)}h of ${AGENTS.speakEveryHours}h)`);
         } else if (changed) {
           this.memory.add(this.hours, `I decided to ${describeGoal(goal)}`, MINDS.weight.decided);
@@ -1308,6 +1351,11 @@ export class Agent {
     // out at exactly the hour it matters.
     this.placeCooling = Math.max(0, (this.placeCooling ?? 0) - dt);
     const near = fire && fire.d < AGENTS.fireNearby;
+    // The two reasons a fire does not get laid, both previously invisible to
+    // the mind. `near` is the one that mattered: 94 fires went down in a single
+    // run, five inside twenty seconds.
+    if (near && this.count('wood') > 0) this.noteOutcome('there is already a fire burning here');
+    else if (this.count('wood') === 0) this.noteOutcome('you have no firewood to lay a fire with');
     if (this.count('wood') > 0 && !near && this.placeCooling === 0) {
       i.place = true;
       i.forward = 0;
@@ -1376,9 +1424,44 @@ export class Agent {
    * is a question about a whole session. So the deed is kept here as well,
    * hour-stamped, and this is what a watcher and a report read.
    */
+  /**
+   * Something happened because of me. Goes into the next brief, once.
+   *
+   * Consecutive duplicates collapse — a body that laid four fires between two
+   * thoughts should read as "you laid a fire", not as four lines saying so, and
+   * the count is the thing worth knowing anyway. Capped, because an outcome
+   * list longer than the rest of the brief is just noise with a new name.
+   */
+  noteOutcome(text) {
+    if (!text) return;
+    // Lazily, the same way `loosed` and `detourAsked` are — several checks call
+    // the bookkeeping methods on a deliberate partial stub rather than a whole
+    // Agent, which is a reasonable thing for a check to do and not worth
+    // breaking to save one token. `survivalcheck` found this the moment `did`
+    // started reporting outcomes.
+    this.outcomes ??= [];
+    const last = this.outcomes.at(-1);
+    if (last?.text === text) { last.n++; return; }
+    this.outcomes.push({ text, n: 1 });
+    if (this.outcomes.length > AGENTS.outcomesKept) this.outcomes.shift();
+  }
+
+  /** The outcome lines for one decision, in words, then emptied. */
+  drainOutcomes() {
+    this.outcomes ??= [];
+    const out = this.outcomes.map((o) => (o.n > 1 ? `${o.text} (${o.n} times)` : o.text));
+    this.outcomes = [];
+    return out;
+  }
+
   did(what, text = null) {
     this.acted[what] = (this.acted[what] ?? 0) + 1;
     if (!text) return;
+    // Every deed is an outcome by definition: it is the thing this body just
+    // did. Hooking it here rather than at each call site means gathering,
+    // crafting, eating, laying a fire and killing all report themselves for
+    // free, and a deed added later cannot forget to.
+    this.noteOutcome(text);
     this.memory.add(this.hours, text);
     this.deeds.push({ h: +this.hours.toFixed(2), what, text });
     if (this.deeds.length > AGENTS.logSize) this.deeds.shift();
@@ -1760,6 +1843,23 @@ export class Agent {
   }
 
   act_shoot(dt, i) {
+    // ── AN EMPTY QUIVER, WHICH USED TO BE INVISIBLE FROM BOTH SIDES ──
+    //
+    // One mind spent an hour of a run drawing on a bow with no arrows in it —
+    // its own `loosed` counter read 187 and climbing while nothing left the
+    // string. Nothing stopped the body and nothing told the mind: `carrying`
+    // filters to `n > 0`, so no arrows appeared as an ABSENCE IN A LIST, and a
+    // model has to notice something missing to infer it cannot shoot.
+    //
+    // Both halves fixed here. The body stops miming the shot, and the mind is
+    // told in words. Falling through to the goal is what gives `gather` and the
+    // fire the chance to make more.
+    if (this.count('arrow') <= 0) {
+      this.noteOutcome('your quiver is empty — you cannot shoot until you make arrows');
+      i.primary = false;
+      this.drawFor = 0;
+      return;
+    }
     const t = this.target;
     const dx = t.x - this._x;
     const dz = t.z - this._z;
@@ -1920,6 +2020,10 @@ export class Agent {
       if (this.shotWhy !== shot.why) {
         this.shotWhy = shot.why;
         this.memory.add(this.hours, `no shot at ${Math.round(dist)} m — ${shot.why}`, MINDS.weight.sighting);
+        // ...and SAID SO to the next decision. This fired 400+ times in one
+        // half-hour run while the mind chose `hunt` again and again, because
+        // nothing anywhere told it the shot had been refused.
+        this.noteOutcome(`your shot was refused at ${Math.round(dist)} m — ${shot.why}`);
         // ── and kept where the ring buffer cannot lose it ──
         // A refusal is the commonest thing that happens to a hunting body and
         // the least visible: it produces no arrow, no event and no line anybody

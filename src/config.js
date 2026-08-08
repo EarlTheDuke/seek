@@ -986,6 +986,11 @@ export const AGENTS = {
   noticeRange: 140,
   maxContacts: 6,
 
+  // How many "what your last action did" lines a decision is shown. Small on
+  // purpose: an outcome list longer than the rest of the brief is noise with a
+  // new name, and consecutive duplicates collapse into "(4 times)" anyway.
+  outcomesKept: 6,
+
   logSize: 400,
 
   // ── the ceiling ──

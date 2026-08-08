@@ -177,6 +177,18 @@ export function briefToText(b) {
   const body = [b.health, b.condition, b.cold, b.hunger].filter(Boolean).join(', ');
   if (body) lines.push(`You are ${body}.`);
   if (b.carrying?.length) lines.push(`You are carrying: ${b.carrying.join(', ')}.`);
+  // Stated, not left to be inferred from a gap in the line above. See the
+  // `lacking` comment in agent.js — one mind hunted for an hour on an empty bow.
+  if (b.lacking?.length) lines.push(`You have ${b.lacking.join('; ')}.`);
+  // ── WHAT YOUR LAST ACTION DID ──
+  // High up, and before the world, because it is the one thing that tells a
+  // mind whether what it decided last time worked. Everything below is the
+  // world's state and would read identically whether the last decision did
+  // anything at all.
+  if (b.outcome?.length) {
+    lines.push('Since your last decision:');
+    for (const o of b.outcome) lines.push(`  - ${o}`);
+  }
   // Stated plainly and above what it heard, because being shot outranks gossip.
   if (b.shotBy) lines.push(`${b.shotBy} shot you.`);
   if (b.heard?.length) {
