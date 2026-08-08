@@ -70,6 +70,13 @@ REM  infinite firewood is indistinguishable from a generous one. The hard
 REM  setting risks a starvation spiral ruining a run meant to go all day.
 set "SCARCE=0.7,0.5"
 
+REM  How long each seat may think for. The per-agent cap is the BINDING limit,
+REM  not budgetCalls in the roster — at 400 and a 20 s cadence the grok seat
+REM  went dark after two hours of the last run and nothing said so. 1500 is
+REM  about eight hours on that seat. The board shows a red SPENT tag when a
+REM  seat reaches it.
+set "MAX_CALLS=1500"
+
 REM  Your name in the game.
 set "MYNAME=Ben"
 
@@ -98,9 +105,14 @@ echo.
 echo    ABOUT 14p AN HOUR. Kimi is free; only the grok seat costs.
 echo    Hard stop at 6000 calls in roster-duo.json.
 echo.
-echo    WATCH FOR: the gold column moving on the board, a deed reading
-echo    "I traded ...", or an offer in the chat. Six verbs shipped
-echo    yesterday and none has ever been used by a real model.
+echo    WATCH FOR, now that the harness no longer prevents any of it:
+echo      - the "verbs refused" list on a card. A verb reached for and
+echo        refused now looks different from one nobody wants.
+echo      - "its plan" and "its notes" - the only two things a mind
+echo        writes for itself.
+echo      - an offer, a gift, or two minds naming each other.
+echo      - a red SPENT tag, which means that seat is scripted from
+echo        here on and its behaviour is no longer the model's.
 echo.
 echo    STOP.cmd when you are done.
 echo   ---------------------------------------------------------------
