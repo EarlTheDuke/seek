@@ -211,6 +211,19 @@ export function briefToText(b) {
   } else {
     lines.push('You are aware of nothing but the weather.');
   }
+  // ── AND THE PEOPLE TOO FAR TO SEE ──
+  //
+  // Deliberately below `contacts` and deliberately thinner: a name and a
+  // direction, no distance and no condition. Those belong to the near channel,
+  // and repeating them here would make 140 m mean nothing.
+  //
+  // Without this, two minds that drifted apart were unable to name each other,
+  // and every social verb takes a target that can only be named from the
+  // prompt. They were each alone in a private world with the same weather.
+  if (b.far?.length) {
+    lines.push('Also out there somewhere:');
+    for (const f of b.far) lines.push(`  - ${f.who}, off to the ${f.where}`);
+  }
   if (b.memory?.length) {
     lines.push('You remember:');
     for (const m of b.memory) lines.push(`  - ${m}`);

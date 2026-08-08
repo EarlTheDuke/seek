@@ -50,7 +50,7 @@ import { setScarcity, scarce } from '../world/scarcity.js';
 // For `guard`: what counts as a threat is read off the species table rather
 // than listed here, so a wolf added later is guarded against without an edit.
 import { SPECIES } from '../creatures/registry.js';
-import { bearingName, describePosition } from '../world/placenames.js';
+import { bearingName, describePosition, findDistrict } from '../world/placenames.js';
 // What can be made, and out of what. Pure data and one pure predicate, shared
 // with the browser's prompt and with the server that resolves the act — three
 // callers, one table, which is the only way "cook" means the same thing in all
@@ -845,9 +845,40 @@ export class Agent {
     // for ever. That exact shape has already cost this project a night, when
     // briefToText read a field an agent's brief does not have and every
     // model-driven player quietly never called the model once.
+    // ── PEOPLE, AND THE ONES TOO FAR TO SEE ──
+    //
+    // `add` drops anything past `AGENTS.noticeRange` (140 m), and every social
+    // verb resolves its target BY NAME OUT OF THE BRIEF — so past that range
+    // the other player was not in the prompt in any form and `offer`, `accept`,
+    // `give`, `attack`, `follow` and `guard` all silently became `roam()`.
+    //
+    // Measured 2026-08-08: two minds spawn 3.3 m apart, are a kilometre apart
+    // within the hour, and every one of those verbs is unreachable for the rest
+    // of the run. It retroactively explains both six-model playtests — "the
+    // models never coordinated" was never a fact about the models, they were
+    // each alone in a private world with the same weather.
+    //
+    // THE WIRE WAS NEVER THE PROBLEM. `SimWorld.snapshot` culls players by
+    // nothing at all: every player, every tick, exact coordinates. The agent
+    // already knew where everybody was and threw it away here.
+    //
+    // So: a second, deliberately coarser channel. Name and bearing, NO distance
+    // and NO condition — those are what `contacts` is for, and repeating them
+    // here would make 140 m mean nothing. Two crofters in a glen do not lose
+    // each other permanently because one walked over a rise.
+    const far = [];
     for (const p of s?.pl ?? []) {
+      const who = this.others.get(p.id) ?? 'someone';
+      const d = Math.hypot(p.p[0] - this.x, p.p[2] - this.z);
+      if (d > AGENTS.noticeRange) {
+        // Only people you can NAME. "Someone, a long way north" is a fact you
+        // cannot act on — no verb takes it — and a prompt line that can only
+        // produce a refused goal is worse than silence.
+        if (who !== 'someone') far.push({ who, where: bearingName(this.x, this.z, p.p[0], p.p[2]) });
+        continue;
+      }
       add(
-        this.others.get(p.id) ?? 'someone',
+        who,
         p.p[0], p.p[2],
         p.c ? 'crouched' : p.s > 5 ? 'running' : 'walking',
         p.x ? 'down' : p.h < 45 ? 'badly hurt' : 'unhurt',
@@ -893,6 +924,8 @@ export class Agent {
         : this.coreC < 34.5 ? 'badly chilled'
         : this.coreC < 35.6 ? 'shivering' : 'warm enough',
       contacts: contacts.slice(0, AGENTS.maxContacts).map(({ _m, ...r }) => r),
+      // Who else is out there, however far. See the comment where it is built.
+      far,
       // ── WHO SHOT YOU, kept out of the ring buffer ──
       //
       // It is in `memory` too, but memory is forty entries of noticing and an
@@ -2294,6 +2327,23 @@ export class Agent {
     // needs it; anything that is only going to be walked to does not, and the
     // ground answers for itself on the way.
     const findFull = (pred) => nearestOf(pred, true);
+    // ── EVERY PLAYER, AT ANY RANGE ──
+    //
+    // `find` is bounded by what `brief()` reports, which stops at 140 m. This
+    // is not: the server sends every player every tick with exact coordinates,
+    // and a name you have been told is out there has to be a name you can walk
+    // towards. Players only — you do not keep track of a deer over the horizon.
+    const anyone = (pred) => {
+      let best = null;
+      let nearest = Infinity;
+      for (const p of this.snapshot?.pl ?? []) {
+        const label = this.others.get(p.id);
+        if (!label || !pred(label)) continue;
+        const d = Math.hypot(p.p[0] - this._x, p.p[2] - this._z);
+        if (d < nearest) { nearest = d; best = { x: p.p[0], y: p.p[1], z: p.p[2], id: p.id }; }
+      }
+      return best;
+    };
     switch (g.kind) {
       // Walk to the nearest branch and PRESS E when you get there.
       //
@@ -2398,8 +2448,49 @@ export class Agent {
         if (!who) return this.roam();
         return { x: who.x, z: who.z, within: REACH, act: 'accept', actValue: g.target };
       }
-      case 'approach':
-        return find((label) => namesTheSame(label, g.target)) ?? this.roam();
+      // ── approach: a person you can see, OR one you only know the way to ──
+      //
+      // `find` searches the CONTACTS, which stop at `AGENTS.noticeRange`. Past
+      // that, `anyone` searches every player in the snapshot — which the server
+      // sends unculled — so a mind that has been told "also out there:
+      // Coinneach, a long way south-west" can actually set off south-west.
+      //
+      // The mind still only KNOWS the bearing; the body walks the line. That is
+      // what setting off to find somebody is.
+      case 'approach': {
+        const who = find((label) => namesTheSame(label, g.target))
+          ?? anyone((label) => namesTheSame(label, g.target));
+        if (who) return who;
+        this.noteOutcome(`there is nobody called "${g.target}" anywhere you know of`);
+        return this.roam();
+      }
+      // ── goTo: A VERB THAT HAS NEVER ONCE WORKED ──
+      //
+      // `goTo` is in GOAL_IDS, the system prompt advertises it — "goTo takes
+      // place" — and this switch had NO CASE FOR IT. It fell through to
+      // `default: return this.roam()`, so every mind that ever decided to make
+      // for a named place wandered at random instead. The 2026-08-08 run logged
+      // "make for Hollowed Beinn" and "make for Sunny Muir" and I read the
+      // convergence that followed as navigation; it was two bodies roaming near
+      // the same hill.
+      //
+      // `findDistrict` is the exact inverse of `describePosition`, which is what
+      // names a mind's own position for it — so the gazetteer it is already
+      // being read out of is the one it can now walk to. A person first,
+      // because "goTo Eachann" is a thing a model plainly means.
+      case 'goTo': {
+        // A string, defensively. `sanitiseGoal` guarantees one, but `resolve` is
+        // also called straight from orders and from checks, and a throw in here
+        // lands in the provider's catch and silently scripts the agent for ever.
+        const target = typeof (g.place ?? g.target) === 'string' ? (g.place ?? g.target) : '';
+        const who = find((label) => namesTheSame(label, target))
+          ?? anyone((label) => namesTheSame(label, target));
+        if (who) return who;
+        const place = target && findDistrict(target, this._x, this._z);
+        if (place) return { x: place.x, z: place.z };
+        this.noteOutcome(`you do not know the way to "${target}"`);
+        return this.roam();
+      }
       case 'avoid': {
         const from = find((label) => namesTheSame(label, g.target));
         if (!from) return this.roam();
