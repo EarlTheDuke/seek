@@ -1,0 +1,130 @@
+# How to run this again
+
+Everything below assumes you are standing in this folder with the file
+explorer, not a terminal. There are three files you ever need to touch.
+
+---
+
+## The short version
+
+1. **Right-click `keys.cmd` → Edit.** Paste your API keys between the quotes.
+   Save. (Right-click → Edit, **not** double-click — double-clicking runs it.)
+2. **Double-click `CHECK-KEYS.cmd`.** It tells you, per player, whether they
+   will actually think. Fix anything red. Costs nothing and sends no prompts.
+3. **Double-click `PLAY.cmd`.** Three black windows open, then the game and the
+   mind-board in your browser.
+4. **Double-click `STOP.cmd`** when you are done. That is what stops the money.
+
+Everything else in this file is detail you only need when something is wrong.
+
+---
+
+## The files
+
+| File | What it is |
+|---|---|
+| `keys.cmd` | **Your API keys.** Gitignored — never committed, never leaves this machine. The only file with secrets in it. |
+| `roster.json` | **Who is playing**: name, model, character, how often each thinks. The mixed six-model roster. |
+| `roster-kimi.json` | An all-Kimi roster — four minds on your own box, costs nothing. |
+| `PLAY.cmd` | Starts everything and opens the browser. |
+| `PLAY-KIMI.cmd` | Same, but the free all-Kimi roster. |
+| `CHECK-KEYS.cmd` | Proves every key and every model name before you start. |
+| `STOP.cmd` | Stops everything. |
+
+## The two browser tabs
+
+```
+http://localhost:5173/?join=ws://127.0.0.1:8080&name=Ben&danger=no-bears&solid=on
+http://127.0.0.1:8090
+```
+
+The first is the game. The second is the **board** — one card per mind showing
+what it is doing and *why*. Put the board on the second monitor; the chat column
+tells you what, only the board tells you why.
+
+**Read the black window titled "MINDS" first.** It prints one line per player
+naming the model actually behind them. `(no ANTHROPIC_API_KEY)` beside a name
+means that key did not take and the player is running scripted. Nothing else on
+screen tells you the difference.
+
+---
+
+## Who is on the roster, and what each seat costs
+
+Measured over 381 decisions on 2026-08-07.
+
+| Seat | Model | Thinks every | $/1000 decisions |
+|---|---|---|---|
+| Eachann | `grok-4.20-0309-non-reasoning` | 12 s | **$0.79** — 0.8 s to answer |
+| Fingal | `claude-haiku-4-5-20251001` | 20 s | ~$1.10 |
+| Morag | `claude-sonnet-5` | 25 s | ~$2.10 |
+| Tormod | `grok-4.5` | 30 s | $1.41 |
+| Ailsa | `claude-sonnet-5` | 40 s | ~$2.10 |
+| Coinneach | `kimi-k2.6` (your tinybox) | 90 s | **free** |
+| Iseabail | none — **scripted control** | — | free |
+
+**About $2 an hour** for the whole table. `budgetCalls: 3000` in `roster.json` is
+a hard stop at roughly five hours.
+
+**Iseabail must stay scripted.** She is the control: when a model does something
+startling, she is how you tell whether that was the model or just the world. She
+has out-performed every model twice now, which is the single most useful number
+this project has produced.
+
+---
+
+## Knobs worth knowing
+
+Set these in `PLAY.cmd` (they are plain lines near the top).
+
+| | |
+|---|---|
+| `SOLID=on` | Bodies stop walking through trees, rocks and each other. On by default now. |
+| `DANGER=no-bears` | Goblins and trolls yes, bears no. `full` for everything, `none` for nothing. |
+| `PERSONAS=on` | Characters from `roster.json`. `off` gives every mind the identical prompt — that is the control condition for any personality experiment. |
+| `NARRATE=on` | Each mind says what it is doing in the chat column. |
+| `HUNGER=52` | Everybody starts hungry. **Recommended** — see the findings. |
+| `SCARCE=on` | A lean valley. Character only shows when something is at stake. |
+
+**Per-seat knobs** live in `roster.json`: `cadenceSeconds`, `timeoutSeconds`,
+`maxTokens`, `think`, `effort`, `character`.
+
+---
+
+## When something is wrong
+
+**"They are all scripted."** A key did not take. Run `CHECK-KEYS.cmd`. Usually a
+space around the `=` or a missing quote.
+
+**"It says BAD MODEL NAME."** The key is fine; the model string is not.
+`CHECK-KEYS.cmd` prints the exact names that provider will accept — paste one
+into `roster.json`.
+
+**"Nothing happens / it connects to the wrong world."** A server from an earlier
+session is still on port 8080. `PLAY.cmd` detects this and offers to close it —
+say yes. This is the single most confusing failure mode there is: the new server
+dies silently and everything joins the old one, which has none of tonight's
+settings.
+
+**"One player keeps failing."** Look at the board. `This operation was aborted`
+is a timeout — raise that seat's `timeoutSeconds`. `no json in reply` on a
+reasoning model means it spent the whole budget thinking — raise `maxTokens`,
+and slow its `cadenceSeconds` so it is not asked again before it has answered.
+
+**Kimi specifically:** it always reasons — fourteen ways of asking it not to were
+tried and all were ignored. It needs `maxTokens: 3000` and 60–90 s between
+questions. It is still the least reliable seat, at about 3 answers in 8.
+
+---
+
+## Where the data goes
+
+- **`/board.json`** on port 8090 — live JSON: every mind's goal, reason, deeds,
+  speech, arrows, kills, token spend. This is what the analyses were built from.
+- **`DEV-NOTES.md`** — a written report per run, including a "what nobody ever
+  did" section. Only written when the agents process exits **cleanly**; killing
+  the window skips it.
+- **`SESSION.log`** — the browser client's flight recorder, including every chat
+  line it heard.
+
+Both are gitignored working material.

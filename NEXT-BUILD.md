@@ -1,166 +1,167 @@
-# Next build list
+# Next build — the to-do list and the plan
 
-Asked for on 2026-08-07, after the first six-model run. **Nothing here is
-started.** Each item says what already exists so the next session does not have
-to go and find out — three of these are closer to done than they look, and one
-is mostly built already.
+Written 2026-08-07 after two six-model runs. **Nothing here is started.**
 
-Ordered by what unlocks what, not by what was asked first.
-
----
-
-## 1. GOBLINS IN DAYLIGHT — at minimum, make them run
-
-**The ask:** goblins are wrong in the day. They should at least flee.
-
-**Where it lives:** `src/creatures/registry.js:783`. The goblin already has
-everything needed — `speeds.flee: 7.6`, `behaviour: 'pack'`, and a morale system
-the comment on `hitPoints: 34` says exists specifically so a pack is not "simply
-a wall of hit points". There is a `daylightFloor: 0.12` in the same file and a
-`sunAltitude` already threaded into `worldCtx` every tick in `SimWorld.step`, so
-the light level is available where the decision would be made.
-
-**THE DAYLIGHT TERM ALREADY EXISTS — this is a posture problem, not a courage
-one.** `morale.daylightFloor: 0.12` multiplies their nerve down hard, and
-`commitAt` is 0.5, so a pack at noon mathematically CANNOT reach the threshold
-to attack. The comment says so outright: *"no number of goblins fights at
-noon"*. Confirmed live — a player stood next to goblins in daylight and was
-ignored.
-
-So they are already fully suppressed by day. What is missing is what they do
-INSTEAD: nothing. They stand about looking like a bug. `breakAt: 0.18` and
-`speeds.flee: 7.6` are both there; a floor of 0.12 sits below breakAt already,
-which suggests the rout path exists and simply is not reached, or is reached and
-does not produce visible flight.
-
-**BOTH ARMS NOW CONFIRMED IN PLAY, which narrows this to one thing.** Same
-player, same session: stood among goblins in daylight and was ignored, went out
-at night and was attacked. So the morale system is working end to end and the
-daylight suppression is doing exactly what it was written to do.
-
-That removes "goblins are broken" from the list entirely. What is left is
-strictly a POSTURE bug: a pack that has decided not to fight has no behaviour
-for it, so it mills about next to you looking like an AI that has crashed. The
-courage maths is right; the animation of cowardice is missing.
-
-**Shape:** find why a goblin below `breakAt` in daylight does not run, rather
-than adding a second daylight rule beside the one already there. Nothing about
-the thresholds needs touching — do not retune `daylightFloor`, `commitAt` or
-`breakAt`, all three are demonstrably correct.
-
-**AND THE SECOND REASON IT LOOKED PASSIVE, which is not about daylight at all:**
-`countOpposition` counts every player within `cohesionRange` (34 m), and
-`morale.oddsWeight` is 0.6. With six agents wandering near the human, a small
-pack was reading seven-against-three and refusing the fight on numbers alone.
-Both effects were live at once. A fix aimed only at daylight will still look
-broken in a crowd.
-
-**Watch for:** they hunt in packs and crowd (`personalSpace: 1.5`). A flee rule
-that fires per-individual will scatter a pack into six separate chases and look
-worse than the current behaviour, not better. The pack should break together.
-
-**Prove it with:** `dangercheck` is the existing home. Assert an OUTCOME — a
-goblin that starts within charge range at noon ends the tick further away, and
-the same goblin at midnight ends it closer.
+Two sources: what Ben asked for, and what the data showed. They point at
+different things, and the data's item is the more urgent one — so the plan
+interleaves them rather than doing one list then the other.
 
 ---
 
-## 2. GOLD — an item with no use is not a currency
+## THE ONE NUMBER THAT SHOULD DECIDE THE ORDER
 
-**The ask:** goblins and trolls drop gold; add gold to the game.
+Across two runs, six models, roughly 400 decisions:
 
-**Where it lives:** `src/items/registry.js` has no notion of value, price or
-currency at all — checked. `SimWorld.onCreatureHit` already rolls loot on the
-server and is the one place a carcass turns into items, so the drop hook exists.
+| | arrows | kills | ended |
+|---|---|---|---|
+| Five paid models | **0** | **0** | five of seven **below the eat threshold** |
+| Coinneach (kimi) | 37 | 0 | food 38 |
+| **Iseabail — no model at all** | 29–34 | **2, then 0** | food 72–81, fed |
 
-**The real question is not the drop, it is the sink.** Gold that only piles up
-is a score, not a currency, and a score changes nobody's behaviour. This item is
-therefore **blocked behind item 3** in usefulness, even though it is buildable
-on its own: until gold buys something from somebody, a hoarder and a spendthrift
-behave identically — which is the same trap the roster's own notes flag about
-scarcity and character.
+**The models cannot feed themselves.** By the end of run two, five of seven were
+under `eatBelow: 45` and falling, with zero kills between them. The one player
+with no mind at all was comfortable.
 
-**Shape:** one item id, a weight, a stack size, a drop table entry on goblin and
-troll. Do it in the same commit as trading or accept that it does nothing yet
-and say so.
+Everything else on this list is a feature. This is the game not working.
 
 ---
 
-## 3. TRADING, PLAYER TO PLAYER
+## THE PLAN
 
-**The ask:** add trading play-to-play.
-
-**Where it lives:** nothing exists. `src/items/inventory.js` can drop a stack
-(`:143`) and that is the whole of item movement — there is no give, no transfer,
-no offer.
-
-**This is the one that makes the personas mean something.** The roster is full
-of characters written around exchange — a hoarder who "will trade for meat", a
-generous soul "slow to notice she is being used", a liar. None of them can
-currently trade anything with anyone, so three of six characters have no way to
-express themselves. Of everything on this list, this unlocks the most.
-
-**Shape, in rising order of cost:**
-- **Give** — one-way, no negotiation. Almost free, and it already makes generous
-  and hoarding visibly different.
-- **Offer/accept** — a two-sided proposal on the wire, which needs new message
-  types and an agent verb.
-- **Price** — needs gold (item 2) and something worth arguing about.
-
-**Do `give` first.** It is a fraction of the work and it turns four written
-characters into observable behaviour immediately.
-
-**The agents need a verb.** `GOAL_IDS` in `src/minds/goals.js` is a closed list
-and a model cannot invent an action — so trading is invisible to every mind
-until a verb is added there and described in the system prompt.
-
----
-
-## 4. PvP DAMAGE — ALREADY BUILT, and worth knowing before anyone builds it again
-
-**The ask:** add PvP damage between players, in future.
-
-**It exists.** `SimWorld.canHarm` (`src/sim/world.js:669`) is a complete rule,
-`playerHitTest` (`:325`) does the geometry, arrows already resolve against other
-players, and a refusal comes back as a `glance` event with a reason. `shotcheck`
-covers it end to end.
-
-The rule is more interesting than a toggle: party members never hurt each other,
-and between strangers it depends on **where you are standing** — off in settled
-country, on out in the strange country, keyed to `placeStrangeness`. Danger from
-people rises with the same gradient as danger from things.
-
-**So this item is not "build PvP", it is "turn it on and see".** The knobs are
-`rules.pvp`, `rules.pvpEverywhere` and `rules.pvpAboveStrangeness`, defaulted in
-`SOCIAL.defaults`. Two things genuinely are missing:
-
-- **No agent has a verb for attacking a person.** `hunt` takes a quarry, and a
-  player is not quarry. A mind cannot currently choose to shoot someone.
-- **Nothing tells a mind it was shot BY someone**, as opposed to hurt. Until it
-  does, retaliation is impossible and a duel cannot happen.
-
----
-
-## Ordering
+Four phases. Each ends somewhere you can stop.
 
 ```
-give (3a)  ──▶ gold (2) ──▶ price/trade (3c)
-                    ▲
-goblin daylight (1) │  independent, ship any time
-                    │
-PvP verbs (4) ──────┘  needs a goal verb, same as trading does
+PHASE 1  make them play          ── the blocker. Nothing else matters until this moves.
+PHASE 2  give (+ verbs)          ── smallest change that makes the characters real
+PHASE 3  gold, then price        ── needs phase 2 to mean anything
+PHASE 4  goblin posture, PvP     ── independent; slot in whenever
 ```
-
-**`give` first**, because it is small and it makes four of the six written
-characters observable. **Goblin daylight** any time — it is self-contained and
-it is a real complaint from play. **Gold** with or just after trading, never
-before. **PvP** is a configuration question and two missing verbs, not a build.
 
 ---
 
-## And the one from the data, which is not on the ask list
+## PHASE 1 — MAKE THEM PLAY  *(the blocker)*
 
-The first six-model run produced **zero arrows from five models across 128
-decisions** while the scripted control loosed 34 and killed twice. Whatever gets
-built next, that is the number that says the models are not really playing yet.
-See `PLAYTEST-2026-08-07.md`.
+**1.1 Find out why a model that decides to hunt never shoots.**
+Five models, ~400 decisions, zero arrows. This is not marksmanship — they never
+get to the point of drawing. Coinneach fires (37) because kimi commits to one
+quarry for 90 s at a time; the fast seats re-decide every 12–25 s and never
+close. **Hypothesis to test first: re-deciding is resetting the approach.**
+Instrument the gap between "chose hunt" and "drew the bow", per seat, against
+cadence. If the correlation is with cadence, the fix is commitment, not aim.
+
+**1.2 The shooting that does happen misses everything.**
+Coinneach: 37 arrows, 0 wounds. Iseabail: 29 arrows, 1 wound. The refusals name
+the cause and it is the project's oldest known finding — `ground in the way`,
+`too far — slant 49, dy −25.5`. They are shooting up and down hillsides.
+**Do not tune `shootRange`** — `STATE.md` has an 8-run A/B proving that makes it
+worse. Go at a failing scenario.
+
+**1.3 Turn hunger on by default.**
+Run one ended with everyone at food 79 and nothing at stake. Run two, with more
+hours on the clock, ended with five under the threshold — and *that* is when the
+interesting behaviour appeared. `HUNGER=52` should be in `PLAY.cmd`, not a knob
+nobody sets.
+
+**1.4 Nobody ever makes an arrow.** Twelve is the starting kit; only the
+scripted body ever knapped more. A model that runs dry is silently finished as a
+hunter and nothing tells it so.
+
+**Done when:** a paid model kills something, twice, in a run.
+
+---
+
+## PHASE 2 — `give`, and the verbs  *(smallest change with the biggest character payoff)*
+
+**2.1 Add `give` to `GOAL_IDS`.** One-way, no negotiation. `GOAL_IDS` in
+`src/minds/goals.js` is a closed list and a model **cannot invent an action** —
+so today three of six written characters have no way to express themselves. A
+hoarder who "will trade for meat", someone "slow to notice she is being used",
+and a liar are all currently indistinguishable from each other in behaviour.
+
+**2.2 Give the minds a verb for attacking a person.** `hunt` takes quarry and a
+player is not quarry, so no mind can currently choose to shoot anyone. Same
+shape of change as 2.1 and belongs in the same pass.
+
+**2.3 Tell a mind it was shot BY someone.** It hears that it was hurt, not who
+did it. Until that exists, retaliation is impossible and no duel can happen.
+
+**Done when:** the hoarder refuses somebody and the generous one gives something
+away, on the board, without being prompted.
+
+---
+
+## PHASE 3 — gold, then price
+
+**3.1 Gold as an item.** `src/items/registry.js` has no notion of value or
+currency — checked. `SimWorld.onCreatureHit` already rolls loot server-side, so
+the drop hook exists. Goblins and trolls drop it.
+
+**3.2 A sink.** Gold that only accumulates is a score, and a score changes
+nobody's behaviour. **Do not ship 3.1 without 3.2**, or without saying plainly
+that it does nothing yet.
+
+**3.3 Offer/accept and price.** Two-sided proposal on the wire: new message
+types plus another verb. Only worth it once `give` has shown the characters
+differ.
+
+---
+
+## PHASE 4 — independent, slot in anywhere
+
+**4.1 Goblin posture in daylight.** **Both arms confirmed in play:** stood among
+them at noon and was ignored; went out at night and was attacked. The morale
+maths is right — `daylightFloor: 0.12` against `commitAt: 0.5` means *"no number
+of goblins fights at noon"*, exactly as written. **Do not retune
+`daylightFloor`, `commitAt` or `breakAt`.**
+
+What is missing is what a pack does *instead* of fighting: nothing. It mills
+about looking like an AI that has crashed. `breakAt: 0.18` and `speeds.flee: 7.6`
+both exist and 0.12 already sits below 0.18, so the rout path is either not
+reached or does not produce visible flight. Find that; do not add a second
+daylight rule beside the one already there.
+
+*Second cause, also confirmed:* `countOpposition` counts every player within
+34 m, so six agents standing near the human made a small pack refuse on numbers
+alone. A daylight-only fix will still look broken in a crowd.
+
+Prove it in `dangercheck` with an outcome: a goblin in charge range at noon ends
+the tick **further away**; the same goblin at midnight ends it closer.
+
+**4.2 PvP is already built — turn it on and look.** `canHarm`
+(`src/sim/world.js:669`), `playerHitTest` (`:325`), arrow resolution against
+players and a `glance` refusal event all exist; `shotcheck` covers them. The
+rule is better than a toggle: party members never hurt each other, and between
+strangers it depends on **where you are standing** — off in settled country, on
+out in the strange, keyed to `placeStrangeness`. Knobs are `rules.pvp`,
+`rules.pvpEverywhere`, `rules.pvpAboveStrangeness` in `SOCIAL.defaults`. The
+missing pieces are 2.2 and 2.3, not the damage.
+
+---
+
+## SMALLER THINGS THE DATA TURNED UP
+
+- **Kimi is the only unreliable seat** — about 3 answers in 8 live, against 7/7
+  in isolation. Something about live conditions is still unexplained.
+- **Two models have never spoken in two runs.** Fingal (haiku) has 63 decisions
+  across both runs and zero lines. Worth knowing whether that is the model or
+  the prompt.
+- **Repeated lines.** Tormod said one identical sentence three times in a row,
+  Morag twice. Possible loop.
+- **The liar finding needs its control run.** Same roster, same seed, Tormod's
+  character swapped for a truthful one. Two runs now show models abandoning
+  hunts and naming "conflicting talk" as the reason; one adversarial agent
+  suppressing five cooperative ones is a real result if it reproduces, and an
+  anecdote until it does. **This is the cheapest valuable experiment on the
+  list** — one word changed, one run.
+
+---
+
+## SUGGESTED FIRST SESSION
+
+1. `HUNGER=52` into `PLAY.cmd` (1.3) — one line, changes every run after it.
+2. The truthful-Tormod control run — one word, and it settles the headline
+   finding either way.
+3. Then 1.1: instrument decide-to-draw against cadence.
+
+A short session that ends with either a reproduced result or a dead hypothesis,
+and a measurement pointing straight at the blocker.
