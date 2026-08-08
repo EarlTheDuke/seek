@@ -122,6 +122,45 @@ building — and it makes **A4** (the truthful-Tormod control) *more* valuable,
 not less: the question is now how much and how reliably, which needs a proper
 same-seed A/B.
 
+### A0j ††† A FAILED CALL SILENTLY BECOMES THE SCRIPTED CONTROL **[S]**
+*Found at two hours, and it contaminates every result this project has.*
+
+`OpenAiProvider.decide` catches every failure and returns
+`this.fallback.decide(brief)` — the scripted brain (`providers.js:364`). At
+kimi's measured **48% failure rate**, the seat labelled `kimi-k2.6` on the board
+is a **52/48 blend of kimi and the scripted control**.
+
+This is correct for a *game* and the comment defending it is right: *"a mind
+that can stop the world is not a mind, it is a dependency."* It is wrong for a
+*benchmark*, where a seat present half the time cannot be measured — and it
+means **the fallback gets silently credited to the model**, which is
+particularly perverse given the fallback is the thing that keeps winning.
+
+**Fix:** report per-seat **model share** (answered ÷ decisions) as a headline
+number on the board and in every report, and **disqualify** any seat below a
+threshold from a result rather than quietly publishing it. Add a `STRICT=on`
+mode for benchmark runs where a failed call retries or the run aborts, rather
+than substituting a different brain and saying nothing.
+
+Nothing in Part D is valid without this. It sits alongside `A0f`.
+
+### A0k † The sightline field IS being read — first evidence **[—]**
+Not a fix; a result worth keeping. Two kimi reasons, both attributable
+(scripted decisions come through with a null reason):
+
+```
+starving and too far for a clean shot
+ground blocks line, need clear shot
+```
+
+`brief().sight` was added because six arrows went into a slope at an animal
+standing in the open, and this is the first evidence any model uses it. It
+argues for extending the same treatment — state the obstacle, not just the
+target — to the other things a mind is currently left to infer from absence
+(`A0`, `A0d`). It also shows the limit: the mind *knows* the line is blocked,
+repositions, and still never gets a clean shot. Knowing and solving are
+different problems, and `A0d`'s draw-and-abort loop is the unsolved half.
+
 ### A0b The `place` spam **[S]**
 Eachann lit **five fires in twenty real seconds** and 21 in the sampled window.
 `AGENTS.fireNearby` (9 m) is meant to prevent exactly this and something is

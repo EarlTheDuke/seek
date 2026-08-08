@@ -464,3 +464,94 @@ failure from "never understood it", and only the second is the model's fault.
   attack / follow / guard`.
 
 ---
+
+## +120 min — game hour 7.5, 357 calls
+
+### HALF OF "KIMI" HAS BEEN THE SCRIPTED CONTROL ALL DAY
+
+`OpenAiProvider.decide` ends like this (`src/minds/providers.js:364`):
+
+```js
+} catch (err) {
+  this.failures++;
+  this.lastError = err.message;
+  return this.fallback.decide(brief);   // ← the scripted brain
+}
+```
+
+**Every failed call silently returns a scripted decision.** Coinneach's failure
+rate is **48%** (39 answered, 36 failed). So the seat I have been calling "kimi"
+all day is a **52/48 blend of kimi and the scripted control**, and every
+behavioural claim I have made about it is contaminated to that degree.
+
+This is the right decision for a *game* — the comment above it says so, and it
+is correct: *"a mind that can stop the world is not a mind, it is a
+dependency."* It is the wrong behaviour for a *benchmark*, where a seat that is
+only present half the time cannot be measured at all.
+
+**It also inverts one of today's readings.** Coinneach is materially in better
+shape than Eachann right now — 18 branches and 8 arrows against a bow and two
+hides — and recovered from food 0 to a stable 35 without help. I have been
+crediting kimi with that. **Roughly half of it belongs to the hundred lines of
+if-statements that keep beating the models**, which is the project's oldest and
+most uncomfortable finding, arriving again by the back door.
+
+Eachann, by contrast, is **275 answered / 7 failed — 2.5%** — so he is very
+nearly pure grok, and the comparison between the two seats is not a
+model-vs-model comparison at all.
+
+**For the list:** a run must report **what fraction of each seat's decisions
+actually came from the model**, prominently, and any seat below a threshold
+(80%?) should be **disqualified from a result rather than quietly reported**.
+This is not a nice-to-have — without it a benchmark silently measures the
+fallback and calls it the model.
+
+### The encouraging one: the sightline field is being read
+
+Two of Coinneach's reasons this interval:
+
+```
+15.75h  go toward deer  | starving and too far for a clean shot
+ 4.13h  go toward deer  | ground blocks line, need clear shot
+```
+
+**The mind is reading `brief().sight` and acting on it.** That field was added
+because six arrows went into a slope at an animal in the open, and this is the
+first evidence any model uses it. Scripted decisions come through with a null
+reason, so these are attributable to kimi.
+
+It still cannot shoot — `loosed` remains 0, the draw-and-abort loop is
+unbroken — so it knows the line is blocked, chooses to reposition, and still
+never gets a clean shot. Knowing and solving are different problems.
+
+### They are together, persistently, and still silent
+
+| | 90 min | 120 min |
+|---|---|---|
+| comparable samples | 60 | **139** |
+| within 140 m | 44 (73%) | **97 (70%)** |
+| within 3 m — trade range | 8 | **23** |
+
+**Twenty-three samples inside trading distance and not one trade, gift, or
+word.** At 90 minutes the "they never got close enough" defence was still
+arguable. It is not arguable now. `A0g` — the verbs are reachable and unused —
+is the correct diagnosis.
+
+Eachann is still framing him as a rival: *"claim dead deer meat before
+Coinneach"* recurs. He has never once considered asking.
+
+### Everything else
+
+- **Eachann is in trouble.** Carrying **a bow and two hides** — no arrows, no
+  wood, no food, food level 32 and falling. Seven kills to his name and nothing
+  left to show for them. He has also taken his first model failures of the day
+  (7, all `This operation was aborted` — timeouts against his 20 s ceiling).
+- **Coinneach has joined the fire spam.** 19 `place` deeds, up from 9. Combined
+  total this run: **59 fires**.
+- **The vocabulary has plateaued** at 22 distinct phrasings. No new verb has
+  appeared in half an hour, and the seven social verbs remain at zero.
+- `loosed` (89) and `astray` (89) are now identical for Eachann — both ring
+  buffers saturated. The numbers have stopped meaning anything at all.
+- **Spend:** 357 calls of 6000, ~304k in / 180k out. Roughly 35p.
+
+---
