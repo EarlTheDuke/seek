@@ -61,9 +61,12 @@ adversarial agent on an open channel suppressed five cooperative ones. **It is a
 reproduction, not a controlled result**; the control run (truthful Tormod, same
 seed) is one word and remains the cheapest valuable experiment on the list.
 
-## Before today: the run that made a body stop being a point. The run before it answered the ceiling question with an
-8-run A/B and found the sentinel policing that A/B was blind in exactly the
-case that mattered — that section is still below and still true.
+## BEFORE TODAY — still true, still worth reading
+
+The run before this one made a body stop being a point (`SOLID`), and the one
+before that answered the ceiling question with an 8-run A/B and found the
+sentinel policing it was blind in exactly the case that mattered. Both sections
+follow, unchanged.
 
 ## THE BIGGEST GAP IN THE GAME IS CLOSED: `SOLID=on`
 
