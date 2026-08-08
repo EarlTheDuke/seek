@@ -303,6 +303,19 @@ export class ModelProvider {
       'Give food to someone who says they are starving, or arrows to someone out',
       'of them, if you can spare it. What you keep and what you hand over is who',
       'you are — a mean character should refuse, and say so.',
+      // ── AND WHAT THE COIN IS FOR ──
+      //
+      // Gold is the one item that does nothing: it cannot be eaten, burned or
+      // shot. Told plainly, because a mind that does not know a thing is money
+      // will treat it as litter and drop it — and then there is no economy to
+      // observe, only a metal disc nobody picked up.
+      //
+      // Stated as a FACT about the world, not as an instruction to trade.
+      // Whether six models from three vendors will actually accept a coin for
+      // food they could eat is the experiment; telling them to would answer it
+      // for them.
+      'Gold is no use in itself — you cannot eat it or burn it. It is what people',
+      'here trade with, so it is worth exactly what somebody will give you for it.',
       '',
       'Speak when someone asks you something, when you have found something the',
       'others would want to know, or when you disagree with what was just said.',

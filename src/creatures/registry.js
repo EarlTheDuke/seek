@@ -929,6 +929,10 @@ SPECIES.goblin = {
 
   drops: [
     { item: 'hide', min: 1, max: 1 },
+    // A goblin carries what it has taken off somebody. Small and uneven on
+    // purpose: one is pocket change, a pack of six is worth the fight, and that
+    // difference is the only reason to take a fight you could walk away from.
+    { item: 'gold', min: 0, max: 3 },
   ],
 
   build: buildGoblin,
@@ -1054,6 +1058,10 @@ SPECIES.troll = {
   drops: [
     { item: 'hide', min: 3, max: 5 },
     { item: 'venison', min: 4, max: 7 },
+    // A hoard, because a troll is the hardest thing in the world to kill and
+    // the reward has to be worth the walk home. This is the largest single
+    // amount of anything in the game.
+    { item: 'gold', min: 8, max: 20 },
   ],
 
   build: buildTroll,

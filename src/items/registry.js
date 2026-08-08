@@ -252,6 +252,41 @@ ITEMS.hide = {
   makeObject: () => new THREE.Mesh(ITEMS.hide.geometry(), itemMaterial),
 };
 
+// ── the one thing here nobody can eat, burn or shoot ────────────────────────
+//
+// Gold exists to be WANTED, and that is the whole design problem with it. Every
+// other item in this table does something: wood burns, venison feeds you, an
+// arrow kills a deer. Gold does nothing at all, which is exactly what makes it
+// a currency and exactly what makes it worthless on the day it ships.
+//
+// THE SINK IS OTHER PEOPLE, and that is stated plainly rather than dressed up.
+// A coin is worth something because somebody will take it, and in this world
+// the only somebodies are five other minds. `give` is the machinery; whether
+// six models from three vendors will accept a metal disc for food they can eat
+// is not a thing this project can decide by writing it down. It is an
+// experiment, and an unusually clean one: the hoarder, the generous soul and
+// the liar now all have the same coin and different reasons to want it.
+//
+// Stacks high because a purse of forty coins should not fill a pack, and heavy
+// enough to be a real choice against carrying meat is a knob for later — weight
+// is not modelled yet, so a coin costs nothing to carry today.
+let goldGeo = null;
+
+ITEMS.gold = {
+  id: 'gold',
+  name: 'Gold',
+  kind: 'material',
+  stack: 99,
+  geometry: () => {
+    if (goldGeo) return goldGeo;
+    // A small flat disc, edge-on to the ground so it catches the light.
+    const g = new THREE.CylinderGeometry(0.055, 0.055, 0.014, 12);
+    g.rotateX(Math.PI / 2);
+    return (goldGeo = finish([paint(g, new THREE.Color(0xc9a227), 0.55)]));
+  },
+  makeObject: () => new THREE.Mesh(ITEMS.gold.geometry(), itemMaterial),
+};
+
 // ── survival items ──────────────────────────────────────────────────────────
 // Fuel, food and clothing. `kind` is what the rest of the game switches on:
 // 'fuel' can feed a fire, 'food' can be eaten, 'clothing' insulates while it is
@@ -460,6 +495,7 @@ const SOURCES = {
   cloak: 'stitch one at a fire',
   fish_cooked: 'cook a trout at a fire',
   venison_cooked: 'cook venison at a fire',
+  gold: 'off goblins and trolls — no use but what somebody will trade for it',
 };
 for (const [id, source] of Object.entries(SOURCES)) {
   // Assign rather than merge, so a typo'd id here is a loud undefined rather

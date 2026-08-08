@@ -98,6 +98,18 @@ const BASELINE = [
   'Give food to someone who says they are starving, or arrows to someone out',
   'of them, if you can spare it. What you keep and what you hand over is who',
   'you are — a mean character should refuse, and say so.',
+  // ── AND A FIFTH TIME, when gold was added, same commit ──
+  //
+  // A statement of FACT about the world — gold is inedible and it is what
+  // people trade with — and deliberately not an instruction to trade. A mind
+  // that does not know a thing is money treats it as litter, and then there is
+  // no economy to observe. But telling six models to accept a coin for food
+  // would answer the very question the coin was added to ask.
+  //
+  // Identical for the control and every persona. No persona results had been
+  // recorded that measured trading; the two on file measured hunting and talk.
+  'Gold is no use in itself — you cannot eat it or burn it. It is what people',
+  'here trade with, so it is worth exactly what somebody will give you for it.',
   '',
   'Speak when someone asks you something, when you have found something the',
   'others would want to know, or when you disagree with what was just said.',

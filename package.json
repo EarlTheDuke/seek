@@ -57,7 +57,8 @@
     "chatcheck": "node server/chatcheck.js",
     "quarrycheck": "node server/quarrycheck.js",
     "givecheck": "node server/givecheck.js",
-    "duelcheck": "node server/duelcheck.js"
+    "duelcheck": "node server/duelcheck.js",
+    "goldcheck": "node server/goldcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",
