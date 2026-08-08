@@ -33,6 +33,7 @@ import { briefToText } from '../src/minds/perception.js';
 import { makeRandom } from '../src/world/noise.js';
 import { AGENTS } from '../src/config.js';
 import { describePosition } from '../src/world/placenames.js';
+import { heightAt } from '../src/world/noise.js';
 
 const results = [];
 const check = (name, pass, detail) => {
@@ -44,14 +45,18 @@ const check = (name, pass, detail) => {
  * One mind, standing at the origin, with `others` at the given offsets.
  * Off the wire on purpose: this is about what the prompt says, not the socket.
  */
-function seeing(others) {
+function seeing(others, ox = 0, oz = 0) {
   const a = new Agent({
     name: 'Mairi',
     provider: new ScriptedProvider(makeRandom('p')),
     rand: makeRandom('b'),
   });
   a.hours = 12;
-  a._x = 0; a._y = 0; a._z = 0;
+  // ON THE GROUND, not at y=0. The first version of this harness stood the
+  // archer at zero regardless of where the hillside actually was, so it was
+  // buried and EVERY sightline came back blocked — which read as a bug in the
+  // code under test rather than in the setup.
+  a._x = ox; a._z = oz; a._y = heightAt(ox, oz);
   a.health = 100; a.food = 60;
   a.carrying = { bow: 1, arrow: 5, wood: 3, venison_cooked: 1 };
   a.snapshot = {
@@ -59,7 +64,7 @@ function seeing(others) {
     w: { s: 'clear' },
     cr: [],
     pl: others.map((o, i) => ({
-      id: 10 + i, p: [o.x, 0, o.z], h: 100, s: 0, c: false, x: false,
+      id: 10 + i, p: [ox + o.x, 0, oz + o.z], h: 100, s: 0, c: false, x: false,
     })),
   };
   others.forEach((o, i) => a.others.set(10 + i, o.name));
@@ -169,6 +174,65 @@ function main() {
     check('goTo also takes a person',
       to && Math.abs(to.z - -FAR) < 1,
       to ? `${Math.round(to.x)},${Math.round(to.z)}` : 'roamed');
+  }
+
+  // ── SIGHT BEYOND BOW RANGE, WHICH USED TO GO SILENT ENTIRELY ──
+  //
+  // The old rule reported the line only inside the body's own bow range, on the
+  // argument that at 120 m "you have a clear line" is noise rather than
+  // information. Right about the positive, WRONG ABOUT THE NEGATIVE: between
+  // about 30 and 90 m a mind was handed a target and nothing at all about
+  // whether it could be hit. It closed, drew, and the solver refused — 400+
+  // releases in one half-hour run with nothing leaving the string.
+  //
+  // SWEEPS ORIGINS AS WELL AS BEARINGS. The first version of this stood at
+  // 0,0 — which happens to be inside a tree, so all 72 close bearings came back
+  // blocked by timber and it read as a bug in the code under test. Real terrain
+  // is not uniform and a check standing in one spot is measuring that spot.
+  const SPOTS = [[0, 0], [400, 400], [-1200, 300], [900, -700]];
+  const sweep = (R, want) => {
+    for (const [ox, oz] of SPOTS) {
+      for (let i = 0; i < 72; i++) {
+        const th = (i / 72) * Math.PI * 2;
+        const x = Math.cos(th) * R;
+        const z = Math.sin(th) * R;
+        const a = seeing([], ox, oz);
+        a.snapshot.cr = [{
+          k: 'deer', h: 100, s: 'grazing',
+          p: [ox + x, heightAt(ox + x, oz + z), oz + z],
+        }];
+        const c = a.brief().contacts[0];
+        if (c && want(c)) return { c, at: [ox, oz] };
+      }
+    }
+    return null;
+  };
+
+  {
+    const MID = Math.round((AGENTS.shootRange + AGENTS.noticeRange) / 2); // ~83 m
+    const blocked = sweep(MID, (c) => c.sight != null);
+    const clear = sweep(MID, (c) => c.sight === null);
+
+    check(`GROUND IN THE WAY IS REPORTED AT ${MID} m, well beyond bow range`,
+      blocked && /rises between you/.test(blocked.c.sight),
+      blocked ? `"${blocked.c.sight}"` : 'no blocked bearing found anywhere');
+
+    // THE ASSERTION THAT KEEPS THE PROMPT QUIET. A clear line at 83 m is not
+    // information, and saying so on every contact is how a brief becomes noise.
+    check('  …and a CLEAR line at that range is NOT reported',
+      clear !== null,
+      clear ? 'sight = null, as it should be' : 'never found a clear bearing');
+  }
+
+  // ...and inside bow range, BOTH halves still speak.
+  {
+    const NEAR = Math.round(AGENTS.shootRange * 0.6);
+    const said = sweep(NEAR, (c) => c.sight === 'a clear line');
+    const refused = sweep(NEAR, (c) => c.sight === 'no clear line — ground in the way');
+    check(`SENTINEL: inside bow range a clear line IS still stated — ${NEAR} m`,
+      !!said, said ? `"${said.c.sight}" from ${said.at}` : 'never said it anywhere');
+    check('  …and so is a blocked one, in the wording that belongs to close range',
+      !!refused, refused ? `"${refused.c.sight}" from ${refused.at}` : 'never said it anywhere');
   }
 
   const failed = results.filter((r) => !r.pass);

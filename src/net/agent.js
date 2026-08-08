@@ -828,13 +828,31 @@ export class Agent {
         distance: howFar(d),
         doing,
         condition,
-        // Only stated when it MATTERS — inside bow range. At 120 m "you have a
-        // clear line" is not information, it is noise in the prompt.
-        // ...and "inside bow range" is THIS body's bow range, not the constant.
-        // A body raised to 40 m that is still told nothing about its line at 32
-        // is being asked to decide with the old rule's information.
-        sight: clear === null || d > this.shootRange ? null
-          : clear ? 'a clear line' : 'no clear line — ground in the way',
+        // ── ASYMMETRIC, AND THAT IS THE WHOLE TRICK ──
+        //
+        // This used to go silent entirely past bow range, on the argument that
+        // at 120 m "you have a clear line" is not information, it is noise in
+        // the prompt. THAT ARGUMENT IS RIGHT ABOUT THE POSITIVE AND WRONG ABOUT
+        // THE NEGATIVE. "There is a hill between you and that deer" is useful at
+        // any distance you might walk toward it; "you have a clear line" at
+        // 120 m is not.
+        //
+        // Measured: between about 30 and 90 m a mind was handed a target and
+        // NOTHING about whether it could be hit. It closed, drew, and the solver
+        // refused — 400+ releases in one half-hour run with nothing leaving the
+        // string, and a refusal log full of "ground in the way 11 m out".
+        //
+        // So: inside bow range, both halves as before. Beyond it, out to
+        // `noticeRange`, say something ONLY when blocked. The prompt gains a
+        // warning and no noise.
+        //
+        // "Inside bow range" is THIS body's range and not the constant — a body
+        // raised to 40 m that is told nothing about its line at 32 is being
+        // asked to decide with the old rule's information.
+        sight: clear === null ? null
+          : d <= this.shootRange
+            ? (clear ? 'a clear line' : 'no clear line — ground in the way')
+            : (clear ? null : 'the ground rises between you'),
         _m: d,
       });
     };
