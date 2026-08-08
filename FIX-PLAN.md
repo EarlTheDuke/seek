@@ -254,3 +254,64 @@ Items 1–3 are about four hours together and all three are low-risk. They would
 also make the *next* run interpretable, which the last one was not.
 
 **Starting with item 1** unless told otherwise.
+
+---
+
+# What actually happened — all six, 2026-08-08
+
+| item | done | check |
+|---|---|---|
+| 1. Minds find each other at 140 m | ✅ | `farcheck` 17 |
+| 2. Silent degradation | ✅ | `feedbackcheck` 15 → 20 |
+| 3. `sight` beyond bow range | ✅ | `farcheck` |
+| 4. Loot on the wire | ✅ | `lootcheck` 13 |
+| 5. Fire cost + guards | ✅ | `firecheck` 57 → 64 |
+| 6. The verb measurement | prepared, not yet read | needs a paid run |
+
+## Three bugs found while fixing others
+
+**`goTo` had never once worked.** It is in `GOAL_IDS`, the system prompt
+advertises it — *"goTo takes place"* — and the agent's resolve switch had **no
+case for it**. It fell through to `default: return this.roam()`. Every mind that
+ever decided to make for a named place wandered at random.
+
+*That corrects something I reported during the run.* I read "make for Hollowed
+Beinn" followed by both minds converging on that hill as the first time either
+had navigated to a named place. It was two bodies roaming near the same hill.
+
+**`follow` and `guard` used `label === g.target`** — a strict equality. Same
+class as the original quarry mismatch, where `label === g.quarry` against labels
+carrying their article meant five models fired zero arrows across 400 decisions.
+
+**`resolveOffer` silently did nothing on a missing `want`.** Three required
+arguments against `approach`'s one is a real gradient, and a model takes the easy
+verb. A price you do not name now means coin.
+
+## The fire cost, measured rather than assumed
+
+Six scripted bodies, `SCARCE=on` (the *hard* setting), one full day:
+
+```
+hour 10-16   zero fires, wood banking up      2 -> 26 branches
+hour 17-21   fires begin as the cold bites    wood 26 -> 0-6
+hour 22-23   hp dips to 25 / 26 / 32          three of six in trouble
+hour  2.8    ONE DEATH                        recovered by morning
+hour  6.1    all six at 100, wood rebuilding  3-13 branches
+```
+
+**Fires per player-hour fell roughly fortyfold** — against 106 fires from two
+minds in seven hours before.
+
+**And one scripted body died.** That is worth stating plainly rather than
+filing under "stakes are the point". Three things about it:
+
+- `SCARCE=on` is the harsh setting; the duo roster runs `0.7,0.5`, and the
+  default runs neither.
+- Three bodies were at **food 0** in the same window, so starvation was in play
+  as much as cold.
+- The scripted brain does not bank wood before dusk. A mind that plans might.
+
+**If the floor keeps dying, the number is wrong, not the world.** That is a
+measurement to take on the next run, not a reason to re-tune blind — this
+project has three separate records of a constant being moved on an argument and
+the failure simply relocating.

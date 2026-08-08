@@ -111,7 +111,7 @@ Set these in `PLAY.cmd` (they are plain lines near the top).
 | `PERSONAS=on` | Characters from `roster.json`. `off` gives every mind the identical prompt — that is the control condition for any personality experiment. |
 | `NARRATE=on` | Each mind says what it is doing in the chat column. |
 | `HUNGER=52` | Everybody starts hungry. **Recommended** — see the findings. |
-| `SCARCE=on` | A lean valley. Character only shows when something is at stake. |
+| `SCARCE=on` | A lean valley. Character only shows when something is at stake. **Note:** with the ten-branch fire this is now genuinely hard — one scripted body in six died overnight in testing. |
 | `MEMORY=flat` | **The control arm.** One memory ring, recency only — how this worked before 2026-08-08. Default is the two-stream version. Run both arms to measure what memory scaffolding is worth. |
 
 ---
@@ -131,6 +131,8 @@ exactly one decision**. Full reasoning in
 | **since your last decision** | **what its own last action did.** "You laid a fire." "Your shot was refused — no clear line." "You said that already." Placed above the world, because everything below reads the same whether the last decision achieved anything. |
 | contacts | up to six things it can see within 140 m, with bearing, distance, what they are doing, and whether there is a clear shot |
 | heard, shotBy | the last eight lines of chat; who shot it |
+| **also out there** | **name and bearing for everyone on the roster, at any range.** Past 140 m the other player used to vanish from the prompt entirely, and every social verb takes a target that can only be named from it. |
+| **things on the ground** | dropped loot — carcasses, what people threw down — within 260 m. `gather venison` walks you to a kill; `makeCamp` still means firewood. |
 | **memory** | **two streams.** Sightings in one ring, things that *happened* in another, and sightings can no longer evict a trade. Events are retrieved by `importance × recency` off a weight table — being shot 9, a trade 8, a kill 7, a sighting 1. |
 | **plan** | up to three lines the mind writes for itself, carried forward |
 | **note** | one page of its own — a grudge, a price, a promise |
