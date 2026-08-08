@@ -440,8 +440,18 @@ export class Agent {
         else this.memory.add(this.hours, `${e.from} gave ${e.id} to ${e.n}`);
         break;
       case 'hit':
-        if (mine) this.memory.add(this.hours, `my arrow struck someone for ${e.dmg}`);
-        else if (atMe) this.memory.add(this.hours, `an arrow hit me for ${e.dmg}`);
+        // ── AND WHO DID IT, WHICH IS THE WHOLE POINT ──
+        //
+        // This said "an arrow hit me for 11" and nothing else. A body knew it
+        // had been shot and not by whom, so retaliation was impossible and no
+        // duel could ever happen — the mind had no name to put in `attack`.
+        // The event has carried the shooter's id all along; nobody resolved it.
+        if (mine) this.memory.add(this.hours, `my arrow struck ${e.n ?? 'someone'} for ${e.dmg}`);
+        else if (atMe) {
+          const who = e.n ?? this.others.get(e.by) ?? 'someone';
+          this.memory.add(this.hours, `${who} shot me for ${e.dmg}`);
+          this.shotBy = who;
+        }
         break;
       case 'wound':
         // The one thing a hunting body could never hear. A miss was announced
@@ -2164,6 +2174,15 @@ export class Agent {
           x: who.x, z: who.z, within: REACH,
           act: 'give', actValue: g.target, actAlso: { giveItem: g.item ?? '' },
         };
+      }
+      // Same shape as `hunt`, because from the body's point of view it IS hunt:
+      // `quarry: true` is what routes a target into the shoot path, and the bow
+      // does not care what it is pointed at. The judgement stays upstairs and
+      // the world still has the last word — `canHarm` refuses on settled ground
+      // and inside a party, and says so with a `glance`.
+      case 'attack': {
+        const who = findFull((label) => namesTheSame(label, g.target));
+        return who ? { x: who.x, y: who.y, z: who.z, id: who.id, quarry: true } : this.roam();
       }
       case 'approach':
         return find((label) => namesTheSame(label, g.target)) ?? this.roam();

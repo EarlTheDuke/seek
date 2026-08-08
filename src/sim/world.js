@@ -346,7 +346,10 @@ export class SimWorld {
       }
       target.body.damage(damage, by ? { name: by.name } : null);
       target.dirty = true;
-      this.events.push({ k: 'hit', id: target.id, by: byId, dmg: Math.round(damage) });
+      // `n` is the SHOOTER'S NAME. The id has always been here and nothing on
+      // the far side could turn it into a name — a body knew it had been shot
+      // and not by whom, which is why no agent could ever return fire.
+      this.events.push({ k: 'hit', id: target.id, by: byId, n: by?.name ?? null, dmg: Math.round(damage) });
       if (target.body.dead) this.onPlayerDied(target, by);
     };
 
