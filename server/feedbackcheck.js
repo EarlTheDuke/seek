@@ -26,6 +26,7 @@
 import { Agent } from '../src/net/agent.js';
 import { ScriptedProvider } from '../src/minds/providers.js';
 import { briefToText } from '../src/minds/perception.js';
+import { sanitiseGoal } from '../src/minds/goals.js';
 import { makeRandom } from '../src/world/noise.js';
 import { AGENTS } from '../src/config.js';
 
@@ -159,6 +160,45 @@ function main() {
       outcomeAt >= 0 && worldAt >= 0 && outcomeAt < worldAt,
       `outcome at ${outcomeAt}, world at ${worldAt} — the world reads the same ` +
       'whether the last decision did anything, so the outcome has to come first');
+  }
+
+  // ── SILENT DEGRADATION, WHICH WAS THE ONE PLACE THIS WAS NOT FIXED ──
+  //
+  // Two paths, both previously invisible: a goal missing its parameter became
+  // `wander` inside `sanitiseGoal`, and a target name not in the brief became
+  // `roam()` inside `resolve`. In both cases the mind chose something, the world
+  // did something else, and nothing told it.
+  //
+  // The COUNTER matters as much as the sentence. Six of fifteen verbs went
+  // unused across two days of runs with no way to tell "reached for and
+  // refused" from "never wanted" — completely different findings about a model,
+  // and only one of them is the model's fault.
+  {
+    const g = sanitiseGoal({ kind: 'hunt', why: 'hungry' }); // no quarry
+    check('A GOAL MISSING ITS PARAMETER SAYS SO instead of quietly wandering',
+      g.kind === 'wander' && /"hunt" needs quarry/.test(g.refused ?? ''),
+      JSON.stringify(g));
+
+    const ok = sanitiseGoal({ kind: 'hunt', quarry: 'a deer' });
+    check('  …and the SENTINEL: a well-formed goal is refused nothing',
+      ok.kind === 'hunt' && ok.refused === undefined, JSON.stringify(ok));
+  }
+
+  {
+    const a = loneAgent({ bow: 1, arrow: 5 });
+    a.resolve({ kind: 'offer', target: 'Somebody Absent', item: 'wood', want: 'meat' });
+    check('A NAME NOBODY HAS IS REPORTED, not silently roamed',
+      a.outcomes.some((o) => /nobody called "Somebody Absent"/.test(o.text)),
+      JSON.stringify(a.outcomes.map((o) => o.text)));
+    check('  …and it is COUNTED, so a refused verb stops looking like an unwanted one',
+      a.refusedVerbs?.offer === 1, JSON.stringify(a.refusedVerbs));
+
+    a.resolve({ kind: 'attack', target: 'Somebody Absent' });
+    a.resolve({ kind: 'accept', target: 'Somebody Absent' });
+    a.resolve({ kind: 'follow', target: 'Somebody Absent' });
+    check('  …for every social verb, not just the one that was checked',
+      a.refusedVerbs.attack === 1 && a.refusedVerbs.accept === 1 && a.refusedVerbs.follow === 1,
+      JSON.stringify(a.refusedVerbs));
   }
 
   const failed = results.filter((r) => !r.pass);

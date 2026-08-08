@@ -264,6 +264,13 @@ export function boardState(agents, meta = {}) {
         // for a watcher they are far and away the most interesting thing here.
         plan: a.plan ?? [],
         note: a.note ?? '',
+        // ── VERBS REACHED FOR AND REFUSED ──
+        //
+        // Six of fifteen verbs went unused across two days of runs and there
+        // was no way to tell "reached for and refused" from "never wanted".
+        // Those are completely different findings about a model and only one of
+        // them is the model's fault. This is the column that separates them.
+        refusedVerbs: a.refusedVerbs ?? {},
       };
     }),
   };
@@ -319,6 +326,7 @@ export function boardHtml() {
   ol.plan { margin:0; padding-left:1.2em; color:#9fd0b0; }
   ol.plan li { margin:0.15em 0; }
   p.note { margin:0.2em 0 0; color:#c9a86a; font-style:italic; white-space:pre-wrap; }
+  li.refused { color:#d08a70; }
   .empty { color:#4a5259; font-style:italic; }
   footer { padding:10px 18px 24px; color:#4a5259; font-size:12px; }
 </style>
@@ -409,6 +417,11 @@ function card(p) {
           + p.plan.map((l) => '<li>' + esc(l) + '</li>').join('') + '</ol>'
         : '')
     + (p.note ? '<h2>its notes</h2><p class="note">' + esc(p.note) + '</p>' : '')
+    + (p.refusedVerbs && Object.keys(p.refusedVerbs).length
+        ? '<h2>verbs refused</h2><ul>' + Object.entries(p.refusedVerbs)
+            .sort((a, b) => b[1] - a[1])
+            .map(([v, n]) => '<li class="refused">' + esc(v) + ' ×' + n + '</li>').join('') + '</ul>'
+        : '')
   + '</div>';
 }
 

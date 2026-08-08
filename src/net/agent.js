@@ -1015,7 +1015,16 @@ export class Agent {
     Promise.resolve(this.provider.decide(brief))
       .then((raw) => {
         const goal = sanitiseGoal(raw);
-        if (!goal) return;
+        if (!goal) {
+          // NOT SILENT ANY MORE. A reply the door threw away used to vanish
+          // without a trace in any log or counter, which is indistinguishable
+          // from a decision that was never made.
+          const kind = typeof raw?.kind === 'string' ? raw.kind.slice(0, 24) : null;
+          this.refuse(kind ?? '(none)',
+            kind ? `there is no verb called "${kind}"` : 'your last answer was not a decision');
+          return;
+        }
+        if (goal.refused) this.refuse(goal.kind, goal.refused);
 
         // ── SPEECH AND ACTION ARE TWO ANSWERS, NOT ONE ──
         //
@@ -1524,6 +1533,20 @@ export class Agent {
     if (last?.text === text) { last.n++; return; }
     this.outcomes.push({ text, n: 1 });
     if (this.outcomes.length > AGENTS.outcomesKept) this.outcomes.shift();
+  }
+
+  /**
+   * A verb was reached for and would not resolve. Say so, and COUNT it.
+   *
+   * The counter is the point as much as the sentence. Six of fifteen verbs went
+   * unused across two days of runs and there was no way to tell "reached for
+   * and refused" from "never wanted" — which are completely different findings
+   * about a model, and only one of them is the model's fault.
+   */
+  refuse(verb, text) {
+    this.refusedVerbs ??= {};
+    this.refusedVerbs[verb] = (this.refusedVerbs[verb] ?? 0) + 1;
+    this.noteOutcome(text);
   }
 
   /** The outcome lines for one decision, in words, then emptied. */
@@ -2372,8 +2395,17 @@ export class Agent {
       // is worse company than one twelve metres away.
       case 'follow':
       case 'guard': {
-        const who = find((label) => label === (g.target ?? ''));
-        if (!who) return this.roam();
+        // `label === g.target` was a STRICT equality here — the same class of
+        // bug as the original quarry mismatch, where `label === g.quarry`
+        // against labels carrying their article meant five models fired zero
+        // arrows across 400 decisions. "Follow Eachann" worked; anything a
+        // model actually writes around a name did not.
+        const who = find((label) => namesTheSame(label, g.target))
+          ?? anyone((label) => namesTheSame(label, g.target));
+        if (!who) {
+          this.refuse(g.kind, `there is nobody called "${g.target}" to ${g.kind}`);
+          return this.roam();
+        }
 
         // Guarding means watching THEM, not waiting to be told. An agent gets
         // senses, not events — there is no "so-and-so was attacked" message on
@@ -2409,15 +2441,23 @@ export class Agent {
       // `find` throws that away. See `act` for what is done with it.
       case 'hunt': {
         const q = findFull((label) => namesTheSame(label, g.quarry));
-        return q ? { x: q.x, y: q.y, z: q.z, id: q.id, quarry: true } : this.roam();
+        if (q) return { x: q.x, y: q.y, z: q.z, id: q.id, quarry: true };
+        // Common and not an error — but the mind has to know the difference
+        // between hunting and walking, or it will keep choosing `hunt` at an
+        // empty hillside. Consecutive lines collapse to "(N times)".
+        this.refuse('hunt', `there is no ${g.quarry ?? 'quarry'} in sight — you are searching, not hunting`);
+        return this.roam();
       }
       // Walk to the person and hand it over. `within: REACH` and not the
       // six-metre `arriveWithin`, for the reason `gather` learned the hard way:
       // arriving somewhere and being able to touch something are different
       // distances, and a verb that uses its hands has to say which it means.
       case 'give': {
-        const who = find((label) => namesTheSame(label, g.target));
-        if (!who) return this.roam();
+        const who = find((label) => namesTheSame(label, g.target)) ?? anyone((label) => namesTheSame(label, g.target));
+        if (!who) {
+          this.refuse('give', `there is nobody called "${g.target}" to give anything to`);
+          return this.roam();
+        }
         return {
           x: who.x, z: who.z, within: REACH,
           act: 'give', actValue: g.target, actAlso: { giveItem: g.item ?? '' },
@@ -2430,22 +2470,30 @@ export class Agent {
       // and inside a party, and says so with a `glance`.
       case 'attack': {
         const who = findFull((label) => namesTheSame(label, g.target));
-        return who ? { x: who.x, y: who.y, z: who.z, id: who.id, quarry: true } : this.roam();
+        if (who) return { x: who.x, y: who.y, z: who.z, id: who.id, quarry: true };
+        this.refuse('attack', `there is nobody called "${g.target}" in sight to attack`);
+        return this.roam();
       }
       // A bargain costs the same walk a gift does. `offer` could in principle be
       // shouted across a clearing, but making both halves of a trade require
       // arriving keeps the whole economy physical — you go to the market.
       case 'offer': {
-        const who = find((label) => namesTheSame(label, g.target));
-        if (!who) return this.roam();
+        const who = find((label) => namesTheSame(label, g.target)) ?? anyone((label) => namesTheSame(label, g.target));
+        if (!who) {
+          this.refuse('offer', `there is nobody called "${g.target}" to make an offer to`);
+          return this.roam();
+        }
         return {
           x: who.x, z: who.z, within: REACH, act: 'offer', actValue: g.target,
           actAlso: { offerItem: g.item ?? '', offerWant: g.want ?? '' },
         };
       }
       case 'accept': {
-        const who = find((label) => namesTheSame(label, g.target));
-        if (!who) return this.roam();
+        const who = find((label) => namesTheSame(label, g.target)) ?? anyone((label) => namesTheSame(label, g.target));
+        if (!who) {
+          this.refuse('accept', `there is nobody called "${g.target}" whose offer you could take`);
+          return this.roam();
+        }
         return { x: who.x, z: who.z, within: REACH, act: 'accept', actValue: g.target };
       }
       // ── approach: a person you can see, OR one you only know the way to ──
@@ -2493,7 +2541,10 @@ export class Agent {
       }
       case 'avoid': {
         const from = find((label) => namesTheSame(label, g.target));
-        if (!from) return this.roam();
+        if (!from) {
+          this.refuse('avoid', `there is no "${g.target}" near you to keep away from`);
+          return this.roam();
+        }
         const dx = this._x - from.x;
         const dz = this._z - from.z;
         const len = Math.hypot(dx, dz) || 1;
