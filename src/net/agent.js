@@ -903,6 +903,19 @@ export class Agent {
         p.p[1]
       );
     }
+    // ── AND WHAT IS LYING ON THE GROUND ──
+    //
+    // A mind was told "a deer went down near 320,-140" by the kill event and
+    // then had no way to SEE the carcass, because nothing shipped dropped loot.
+    // `gather` navigates to `nearestDeadfall` — firewood specifically — so a
+    // mind standing over its own kill that chose "pick up what is lying about"
+    // walked off to a branch. One starved doing exactly that with three kills.
+    //
+    // No `y` passed, so no sightline is computed: you do not need a clear shot
+    // at a dead deer, and asking for one on every carcass is work for nothing.
+    for (const l of s?.lo ?? []) {
+      add(`${l.n} ${itemWords(l.i, l.n)}`, l.p[0], l.p[2], 'on the ground', null);
+    }
     for (const c of s?.cr ?? []) {
       // A creature that has broken and run itself out of breath is a DIFFERENT
       // proposition from a healthy one standing in a field, and saying
@@ -2393,9 +2406,31 @@ export class Agent {
       // ends compute it rather than shipping it. That is the same trick the
       // terrain and the place names already use, and it is why an agent can
       // walk to a branch it was never told about. See world/pickups.js.
+      // ── gather: WHATEVER IS LYING ABOUT, not firewood specifically ──
+      //
+      // This used to go to `nearestDeadfall` and nothing else, so "pick up what
+      // is lying about" meant "walk to the nearest branch" — even standing on a
+      // fresh carcass. With an item named it goes to that; without one it goes
+      // to whichever of the nearest drop and the nearest branch is ACTUALLY
+      // nearer, which is what the English means.
+      //
+      // `makeCamp` is deliberately left alone below: it means "a place with fuel
+      // in reach" and must not start walking to carcasses.
       case 'gather': {
-        const wood = nearestDeadfall(this._x, this._z, undefined, this.taken);
-        return wood ? { x: wood.x, z: wood.z, key: wood.key, act: 'interact', within: REACH } : this.roam();
+        const want = typeof g.item === 'string' ? g.item : '';
+        const drop = this.nearestDrop(want);
+        const wood = want && !namesTheSame('wood', want) && !namesTheSame('branches', want)
+          ? null
+          : nearestDeadfall(this._x, this._z, undefined, this.taken);
+        if (want && !drop && !wood) {
+          this.refuse('gather', `there is no ${want} lying about that you can see`);
+          return this.roam();
+        }
+        const dDrop = drop ? Math.hypot(drop.x - this._x, drop.z - this._z) : Infinity;
+        const dWood = wood ? Math.hypot(wood.x - this._x, wood.z - this._z) : Infinity;
+        if (drop && dDrop <= dWood) return { x: drop.x, z: drop.z, act: 'interact', within: REACH };
+        if (wood) return { x: wood.x, z: wood.z, key: wood.key, act: 'interact', within: REACH };
+        return this.roam();
       }
       // Camp is a place with fuel in reach, so this is gather with a reason.
       // It used to fall through to `roam()` — which meant an agent that decided
@@ -2573,6 +2608,24 @@ export class Agent {
       default:
         return this.roam();
     }
+  }
+
+  /**
+   * The nearest thing lying on the ground, optionally by name.
+   *
+   * Off `snapshot.lo`, which carries only DROPPED things — kill loot and what
+   * people threw down. Deadfall is not in there and does not need to be: it is
+   * a pure function of the seed and `nearestDeadfall` computes it locally.
+   */
+  nearestDrop(want = '') {
+    let best = null;
+    let nearest = Infinity;
+    for (const l of this.snapshot?.lo ?? []) {
+      if (want && !namesTheSame(itemWords(l.i, l.n), want) && !namesTheSame(l.i, want)) continue;
+      const d = Math.hypot(l.p[0] - this._x, l.p[2] - this._z);
+      if (d < nearest) { nearest = d; best = { x: l.p[0], z: l.p[2], item: l.i, count: l.n }; }
+    }
+    return best;
   }
 
   roam() {

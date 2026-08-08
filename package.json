@@ -63,7 +63,8 @@
     "memcheck": "node server/memcheck.js",
     "feedbackcheck": "node server/feedbackcheck.js",
     "plancheck": "node server/plancheck.js",
-    "farcheck": "node server/farcheck.js"
+    "farcheck": "node server/farcheck.js",
+    "lootcheck": "node server/lootcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

@@ -55,6 +55,14 @@ const BASELINE = [
   '',
   `Verbs: ${GOAL_IDS.join(', ')}.`,
   'hunt takes quarry. approach and avoid take target. goTo takes place.',
+  // ── A NINTH TIME, when dropped loot reached the wire. Same commit. ──
+  //
+  // `gather` went to the nearest BRANCH and nothing else, so "pick up what is
+  // lying about" walked a mind off its own carcass. Mechanics again, not
+  // strategy: it states what the verb can take, and says nothing about when to
+  // take it.
+  'gather takes an optional item — "venison" walks you to a carcass, none walks',
+  'you to whatever is nearest, branch or kill.',
   // ── A SEVENTH TIME, when speech stopped being a verb. Same commit. ──
   //
   // `say` WAS a verb, so speaking meant not hunting — a cost built into the

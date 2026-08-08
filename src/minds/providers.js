@@ -274,6 +274,8 @@ export class ModelProvider {
       '',
       `Verbs: ${GOAL_IDS.join(', ')}.`,
       'hunt takes quarry. approach and avoid take target. goTo takes place.',
+      'gather takes an optional item — "venison" walks you to a carcass, none walks',
+      'you to whatever is nearest, branch or kill.',
       // ── SPEAKING IS FREE, AND THE PROMPT HAS TO SAY SO ──
       //
       // `say` used to be a VERB, so speaking meant not hunting — a real cost,

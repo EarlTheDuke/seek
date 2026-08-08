@@ -474,6 +474,19 @@ export const PICKUP = {
   lootRadius: 420, // spawned within this range of the player
   arrowsPerBundle: [3, 7], // inclusive range
 
+  // ── HOW FAR DROPPED LOOT TRAVELS ON THE WIRE ──
+  //
+  // Deadfall does not need to be sent — it is a pure function of the seed and
+  // both ends compute it. DROPPED things are not: a carcass exists because
+  // something died there. So nothing ever shipped them, and a mind could be
+  // told "a deer went down near 320,-140" and then have no way to see or take
+  // it. One starved with three kills to its name.
+  //
+  // Comfortably past `AGENTS.noticeRange` (140), because a body walks toward a
+  // kill it heard about before it can see it, and a carcass that pops into
+  // existence at 140 m is worse than one that was there all along.
+  wireRadius: 260,
+
   // Deadfall firewood. Denser than quivers because you need a lot of it, and
   // placed by the woodland mask — so the sheltered valleys have fuel and the
   // cold, exposed tops do not.

@@ -21,7 +21,7 @@
 // which is a handful of kilobytes a second for a world of unbounded size.
 
 import * as THREE from 'three';
-import { SEED, WATER_LEVEL, LOADOUT, TIME, SOCIAL, SURVIVAL, PLAYER } from '../config.js';
+import { SEED, WATER_LEVEL, LOADOUT, TIME, SOCIAL, SURVIVAL, PLAYER, PICKUP } from '../config.js';
 import { placeStrangeness, darkness } from '../world/strangeness.js';
 import { describePosition } from '../world/placenames.js';
 import { findRegion } from '../world/regions.js';
@@ -1490,6 +1490,24 @@ export class SimWorld {
       // (see `Body.applyRemoteCore`) the warmth. Only `f` is still ignored, and
       // only because nothing can yet feed the body this is taken from.
       me,
+      // ── WHAT IS LYING ON THE GROUND BECAUSE SOMETHING PUT IT THERE ──
+      //
+      // Only `pickups.dropped` — kill drops and things people threw down. The
+      // hash-placed deadfall and quivers stay off the wire because they are a
+      // pure function of the seed and both ends already compute them; sending
+      // them would be a few hundred entries a tick to say what the receiver
+      // could work out for itself.
+      //
+      // Bounded by `PICKUP.wireRadius` around the viewer. `dropped` is a handful
+      // of entries in practice, but it is unbounded in principle — a long run
+      // with a lot of dying in it should not turn the snapshot into a landfill.
+      lo: this.pickups.dropped
+        .filter((d) => !me || Math.hypot(d.obj.position.x - me.p[0], d.obj.position.z - me.p[2]) <= PICKUP.wireRadius)
+        .map((d) => ({
+          i: d.item,
+          n: d.count,
+          p: [round2(d.obj.position.x), round2(d.obj.position.y), round2(d.obj.position.z)],
+        })),
       cr: creatures,
       co: companions,
       // What is burning, for everybody. See the note where it is built.

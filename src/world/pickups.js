@@ -309,7 +309,11 @@ export class Pickups {
     let bestD = best ? best.distance : PICKUP.radius;
 
     const wood = nearestDeadfall(pos.x, pos.z, PICKUP.radius, this.taken);
-    if (wood && wood.distance <= bestD) {
+    // STRICTLY NEARER, not "no further". At `<=` a branch beat a carcass they
+    // were both standing on, so a mind that walked to its own kill and pressed
+    // E came away with firewood. Deadfall is everywhere and meat is not; when
+    // they are the same distance the meat is what was meant.
+    if (wood && wood.distance < bestD) {
       const added = inventory.add('wood', wood.count);
       if (added === 0) return null;
       this.taken.add(wood.key);
