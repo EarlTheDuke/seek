@@ -1,0 +1,53 @@
+{
+  "_readme": [
+    "TWO MINDS, FOR A LONG CHEAP RUN. One grok, one kimi, and nobody else.",
+    "",
+    "COST: about 14 pence an hour. Kimi is free (your own tinybox) and the grok",
+    "seat is the non-reasoning one — measured at $0.79 per 1000 decisions and",
+    "0.8 s to answer, the cheapest and fastest thing on any of the three",
+    "vendors. At a 20 s cadence that is ~180 calls an hour, so this can run all",
+    "day for the price of a coffee.",
+    "",
+    "NO SCRIPTED CONTROL IN THIS ONE, on purpose. Iseabail is normally the most",
+    "valuable seat on the board — but a third body in a TWO-mind conversation is",
+    "noise, and what is being watched here is whether two minds talk to each",
+    "other and trade. Put her back for any run where the question is 'was that",
+    "the model or the world'.",
+    "",
+    "THE CHARACTERS ARE CHOSEN TO COLLIDE. One hoards and prices everything; the",
+    "other is blunt and asks for what it wants. Six verbs shipped yesterday —",
+    "give, offer, accept, attack, and a loose quarry match — and NOT ONE has",
+    "ever been used by a real model. This roster is the smallest, cheapest world",
+    "in which any of them could possibly happen.",
+    "",
+    "What to look for on the board: the `gold` column moving, a `deeds` line",
+    "reading 'I traded ...', and an `offer` in the chat column. If a whole",
+    "evening passes with none of those, the session report will say so in its",
+    "'what nobody ever did' section — which is a real finding, not a failure."
+  ],
+
+  "budgetCalls": 6000,
+
+  "players": [
+    {
+      "name": "Eachann",
+      "provider": "xai",
+      "model": "grok-4.20-0309-non-reasoning",
+      "keyEnv": "XAI_API_KEY",
+      "cadenceSeconds": 20,
+      "timeoutSeconds": 20,
+      "character": "You hoard. What you pick up is yours and you do not hand it over for nothing — but you will name a price for anything, and you drive a hard bargain. Gold interests you more than company."
+    },
+    {
+      "name": "Coinneach",
+      "provider": "openai-compatible",
+      "baseUrl": "https://tinybox.silverstarindustries.com/api",
+      "model": "kimi-k2.6",
+      "keyEnv": "TINYBOX_API_KEY",
+      "cadenceSeconds": 75,
+      "timeoutSeconds": 150,
+      "maxTokens": 3000,
+      "character": "You are blunt and you ask for what you need rather than going without. You would rather owe somebody than starve, and you say plainly what you think a thing is worth."
+    }
+  ]
+}
