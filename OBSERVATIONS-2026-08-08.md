@@ -778,3 +778,80 @@ is a thief. Neither was told a human was special.
 - **Spend:** 510 calls of 6000, ~51p.
 
 ---
+
+## +210 min — THE MODEL SEAT WENT DARK AND NOTHING SAID SO
+
+### Eachann has been the scripted brain since 174 minutes
+
+`AGENTS.maxCallsPerAgent` is **400** (`src/config.js:996`), and
+`OpenAiProvider.decide` does this at line 348:
+
+```js
+if (this.calls >= this.maxCalls) return this.fallback.decide(brief);
+```
+
+**Eachann hit exactly 400 calls at sample 523, 174 real minutes in.** Every
+decision since has come from the scripted brain — **111 samples, 18% of the
+run.**
+
+And the board says none of it:
+
+```json
+"Eachann": { "model": "grok-4.20-0309-non-reasoning",
+             "calls": 400, "answered": 393, "fellBack": false }
+"spend":   { "calls": 527, "of": 6000, "exhausted": false }
+```
+
+`fellBack` is **false**. `exhausted` is **false**. The model name is still
+displayed. A seat silently converted from the model under test into the control
+and **every indicator that exists for exactly this purpose stayed green.**
+
+**Sixth instrumentation defect, and the worst of the day** — the other five
+produced wrong numbers; this one produces a wrong *experiment*. Anybody reading
+the board right now would report Eachann's behaviour as grok's.
+
+### Two corrections I owe
+
+**1. I told Ben the run had a "hard stop at 6000 calls."** That is the shared
+budget in `roster-duo.json`. The binding limit is the **per-agent 400**, so the
+real ceiling is 800 calls total and the model content of this run ends there,
+not at 6000. The 14p/hour estimate was right; the *duration* estimate was wrong
+by a factor of seven.
+
+**2. The +180 entry describes Eachann's then-current state** — *"food 13 with 8
+kills"* — and that sample was already past the cap, so those particular figures
+are the scripted brain's, not grok's.
+
+**What is NOT affected:** the survival-correlation finding at +180 was computed
+over 544 samples of which only ~21 were post-cap — 96% pre-cap. `r = 0.686` and
+the 3-point median difference stand.
+
+### Where that leaves the run
+
+- **Eachann: scripted, permanently.** 400/400.
+- **Coinneach: 128 of 400** — 272 calls left, about **5.7 hours** at a 75-second
+  cadence. Still a real model seat, still failing 43% of the time.
+
+So the **model-versus-model window closed at 174 minutes**. What is left running
+is *one intermittent kimi against the scripted control*, which is — awkwardly —
+the most informative comparison this project has ever run, and it arrived by
+accident. Letting it continue is free and I have left it alone.
+
+**For the list:** `maxCallsPerAgent` should be surfaced in the setup screen
+(`B3`) as *"how long this seat can think for"*, converted to hours at the chosen
+cadence, and a seat reaching it should turn a visible colour on the board and
+write a line to the event log.
+
+### Everything else
+
+- **Eachann is hoarding wood and starving.** Carrying **48 branches** and at
+  **food 8**, with 80 `gather` deeds and 60 fires. That is scripted behaviour
+  now, and worth noting as the control's failure mode: it gathers relentlessly
+  and does not eat.
+- **Coinneach: food 80, health 100, carrying only a bow.** `loosed` back up to
+  192 — the draw-abort loop again, with an empty quiver again.
+- **Kimi: 73 answered / 54 failed — 57%.**
+- **Fires: 106 combined.**
+- **Spend:** 527 calls, ~53p. It will not rise much — only one seat still bills.
+
+---

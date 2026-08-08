@@ -201,6 +201,33 @@ than substituting a different brain and saying nothing.
 
 Nothing in Part D is valid without this. It sits alongside `A0f`.
 
+### A0l ††† A SEAT RUNS OUT OF CALLS AND EVERY INDICATOR STAYS GREEN **[S]**
+*Found at 210 minutes. The worst instrumentation defect of the day, because the
+other five produced wrong numbers and this one produces a wrong experiment.*
+
+`AGENTS.maxCallsPerAgent` is **400**. At the cap, `decide()` returns
+`this.fallback.decide(brief)` for ever (`providers.js:348`). Eachann hit it at
+174 minutes and spent the last 18% of the run as the scripted brain — while the
+board reported:
+
+```
+"model": "grok-4.20-0309-non-reasoning",  "fellBack": false
+"spend": { "exhausted": false }
+```
+
+**`fellBack` false. `exhausted` false. Model name still displayed.** Anybody
+reading that board would report the control's behaviour as grok's.
+
+Three fixes, all small:
+1. **Set `fellBack` when the cap is hit** — the flag exists for this and does
+   not fire.
+2. **Surface the cap in the setup screen** (`B3`) as *"how long this seat can
+   think for"*, converted to hours at the chosen cadence. The per-agent 400 is
+   the binding limit, not the roster's shared `budgetCalls`, and it is seven
+   times tighter — easy to plan a run around the wrong number.
+3. **Turn the seat a visible colour** on the board and write a line to the event
+   log the moment it goes dark.
+
 ### A0k † The sightline field IS being read — first evidence **[—]**
 Not a fix; a result worth keeping. Two kimi reasons, both attributable
 (scripted decisions come through with a null reason):
