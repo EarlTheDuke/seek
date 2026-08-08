@@ -156,6 +156,23 @@ behaviour in mixed-motive games).
 
 # Part 3 — What I would give a mind, in order
 
+> **BUILT 2026-08-08, all seven, same day.** F1, F2, F3, F4, F5 and F6 are in.
+> F7 (a coarse "who else is out there") and F8 (agreeing on a landmark) are not.
+> Checks: `memcheck` 13, `feedbackcheck` 15, `plancheck` 14, `chatcheck` 9→15.
+> `MEMORY=flat` restores the old behaviour exactly, so the A/B is runnable.
+>
+> Four things the checks caught that the design had wrong:
+> **eviction by age** (sixty small events pushed a weight-9 "somebody shot me"
+> out of the ring before scoring ever saw it); **the wrapping clock**, for the
+> third time in this project (`hours` is `% 24`, so "older than a day" was
+> inexpressible and nothing ever expired); **the wrap threshold** (12 read a
+> 12.0→0.5 step as time going forwards); and **a vacuous assertion** —
+> chatcheck's "speaking does not wipe what a mind was doing" called the reflex
+> layer with a goal where a delta-time goes, so it never touched the decision
+> path and could not have failed however broken that path was. That is why the
+> nine-minute pin survived two days.
+
+
 ## F1 †††  Split the memory stream in two **[S]**
 The cheapest fix with the largest effect. **Perception must not evict events.**
 Two rings — `noticed` (sightings, small, disposable) and `happened` (kills,

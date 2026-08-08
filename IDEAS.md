@@ -45,7 +45,7 @@ to turn that accident into a measurement.
 
 Small, concrete, mostly known-good.
 
-### THE ONE FIX ††††  A MIND IS NEVER TOLD WHAT ITS OWN LAST ACTION DID **[M]**
+### ~~THE ONE FIX~~ ✅ **BUILT 2026-08-08** — A MIND IS NEVER TOLD WHAT ITS OWN LAST ACTION DID **[M]**
 *The organising finding of 2026-08-08. Five separate pathologies turned out to
 be one bug wearing five hats. Do this before anything else in Part A.*
 
@@ -126,7 +126,7 @@ go and find somebody can. Half a day's work; unlocks D3's entire social half.
 **Everything in Part D that involves trade, honesty, deception or coordination
 is blocked on this.** Until it lands, those axes measure zero over zero.
 
-### A0g ††† THE VERBS ARE REACHABLE AND STILL UNUSED **[S]**
+### ~~A0g~~ ✅ **BUILT (the prompt half)** — THE VERBS ARE REACHABLE AND STILL UNUSED **[S]**
 *Found at 90 minutes, and it revises A0 above. Do this one first — it is two
 prompt lines.*
 
@@ -265,7 +265,7 @@ but on this evidence it is incidental rather than chosen. This is the second
 half of "the models cannot feed themselves", and the quarry fix exposed it:
 now that they can hunt, we can see they cannot eat what they kill.
 
-### A0d †† An empty quiver is invisible, and fatal **[S]**
+### ~~A0d~~ ✅ **BUILT** — An empty quiver is invisible, and fatal **[S]**
 *Found at the 30-minute mark.* A mind carrying **one bow and nothing else** has
 a `loosed` count of 187 and climbing. It is drawing on an empty bow for ever and
 nothing tells it so: `brief().carrying` filters to `n > 0`, so no arrows shows

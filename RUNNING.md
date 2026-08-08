@@ -112,6 +112,37 @@ Set these in `PLAY.cmd` (they are plain lines near the top).
 | `NARRATE=on` | Each mind says what it is doing in the chat column. |
 | `HUNGER=52` | Everybody starts hungry. **Recommended** — see the findings. |
 | `SCARCE=on` | A lean valley. Character only shows when something is at stake. |
+| `MEMORY=flat` | **The control arm.** One memory ring, recency only — how this worked before 2026-08-08. Default is the two-stream version. Run both arms to measure what memory scaffolding is worth. |
+
+---
+
+## What a mind is given each decision
+
+Rebuilt 2026-08-08 after the measurement that a memory here had a **half-life of
+exactly one decision**. Full reasoning in
+[WHAT-A-MIND-IS-GIVEN.md](WHAT-A-MIND-IS-GIVEN.md).
+
+| in the brief | what it is |
+|---|---|
+| place, hour, light, weather, wind | where and when |
+| health, hunger, cold | its own body, in words |
+| **carrying** | the pack |
+| **lacking** | *and what it has run out of* — "no arrows, you cannot shoot". Absence from a list is not a fact a model reliably notices; one mind hunted for an hour on an empty bow. |
+| **since your last decision** | **what its own last action did.** "You laid a fire." "Your shot was refused — no clear line." "You said that already." Placed above the world, because everything below reads the same whether the last decision achieved anything. |
+| contacts | up to six things it can see within 140 m, with bearing, distance, what they are doing, and whether there is a clear shot |
+| heard, shotBy | the last eight lines of chat; who shot it |
+| **memory** | **two streams.** Sightings in one ring, things that *happened* in another, and sightings can no longer evict a trade. Events are retrieved by `importance × recency` off a weight table — being shot 9, a trade 8, a kill 7, a sighting 1. |
+| **plan** | up to three lines the mind writes for itself, carried forward |
+| **note** | one page of its own — a grudge, a price, a promise |
+
+**Two fields a mind writes and nobody else reads: `plan` and `note`.** They show
+on the board in their own colour. Everything else on a card is what the mind did
+or what the world did to it; those two are the only things it authored.
+
+**Speech is no longer a verb.** `say` rides along on any decision —
+`{"kind":"hunt","quarry":"deer","say":"that one is mine"}` — so talking costs
+nothing. It used to be a `kind`, which meant speaking instead of acting, and
+across two days and six models this world produced one sentence between them.
 
 **Per-seat knobs** live in `roster.json`: `cadenceSeconds`, `timeoutSeconds`,
 `maxTokens`, `think`, `effort`, `character`.
