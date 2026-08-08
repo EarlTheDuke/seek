@@ -112,6 +112,31 @@ reached 187.
 the "5% hit rate" in the first version of today's observations. Any combat axis
 in Part D is blocked on making this counter mean what its name says.
 
+### A0f ††† A run must emit an event log, because the board is a bad instrument **[M]**
+*The theme of 2026-08-08. Three separate defects, one cause.*
+
+1. `loosed` counts **draws the mind meant to make**, not arrows that left.
+2. `loosed` is also a **sliding window over a 400-entry ring**, so it rolls over
+   silently and can go **down**. One mind's count read 187, then 0, with no
+   respawn — it had let the string down 400+ times in between.
+3. **Nothing records whether one mind ever saw another.** `brief()` builds a
+   `contacts` list; the board does not serve it. The single most important
+   question in a multi-agent run has no answer in any artefact produced.
+
+Plus the one I inflicted on myself: position is served as **prose**
+(*"379 m south-west of Rowan Moor"*), so any tool that wants a distance has to
+invent coordinates — and mine did, and I quoted the results twice before
+catching it.
+
+**The board is a good live dashboard and a bad instrument.** Every ranking and
+every axis in Part D is built on exactly these numbers. Before any benchmarking
+work: a run emits an **append-only JSONL event log** of *outcomes* — arrow
+released with a real shaft, contact seen at range R, item changed hands, deal
+offered, deal honoured, death — with raw coordinates, and the dashboard becomes
+a **view** of that log rather than the only place the data exists.
+
+Nothing else in Part D is worth starting before this.
+
 ### A1 † A fire should cost about 10 branches, not 1 **[S]**
 Ben's call, and he's right. Right now `place` spends exactly one `wood` in two
 hardcoded places — `src/sim/world.js:1209` and `src/main.js:2491` — and the gate

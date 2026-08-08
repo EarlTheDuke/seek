@@ -232,3 +232,120 @@ pick up what is lying about · walk the country and see what is about
 Never chosen: `say offer accept give attack follow guard makeCamp avoid hold`.
 
 ---
+
+## +60 min — game hour 1.6, 196 calls
+
+### First, a correction: my separation figures were built on a broken metric
+
+**The "786 m → 1575 m → 3166 m" numbers in the two entries above are not
+trustworthy and should be ignored.**
+
+The board reports position as prose — *"379 m south-west of Rowan Moor"*. My
+analyser turned that into coordinates by giving each new landmark a synthetic
+base one kilometre from the last. So whenever the two minds were quoted off
+**different** landmarks, the tool invented a kilometre of separation and then let
+me quote it back as a measurement. That is exactly the class of error this
+project has already been burned by twice.
+
+Rebuilt to compare **only samples where both minds are quoted off the same
+landmark**. On that basis, out of 186 samples:
+
+| | |
+|---|---|
+| comparable at all | **16** |
+| not comparable (different landmarks) | 170 |
+| closest | ~1 m — *see the caveat* |
+| mean | 370 m |
+| within `noticeRange` (140 m) | **2 of 16** |
+
+**The caveat matters as much as the number.** Bearings are quantised to eight
+compass points, so "349 m north-east" and "350 m north-east of Rowan Moor"
+describes an arc roughly 275 m wide at that radius. Those two minds were
+somewhere between 1 m and 275 m apart. **I cannot tell which, and neither can
+anything else in this project.**
+
+### The finding that replaces it: THEY CONVERGED, AND NOTHING HAPPENED
+
+The raw position trace is more interesting than the botched statistic. Between
+samples 163 and 181, both minds independently moved onto the same hill:
+
+```
+166  E: 424 m north-west of Heather Scaur   |  C: in Hollowed Beinn
+173  E: 293 m north-east of Hollowed Beinn  |  C: 141 m east of Hollowed Beinn
+175  E: 291 m north-east of Hollowed Beinn  |  C: 197 m north-east of Hollowed Beinn
+181  E: 361 m north of Hollowed Beinn       |  C: 332 m south-east of Hollowed Beinn
+```
+
+At sample 175 they are on the **same bearing off the same landmark**, 94 m apart
+in the crude model. They came from opposite ends of the map to orbit the same
+hill for about ten minutes.
+
+**And still: no `say`, no `offer`, no `give`, no acknowledgement of any kind.**
+
+This is a better test of the A0 hypothesis than the run had any right to
+produce, and it is genuinely ambiguous. Either they never got inside 140 m and
+A0 still explains everything — or they did, and there is a *second* problem
+underneath it: that a model given a companion in its brief does not find the
+companion interesting enough to act on.
+
+### THE BOARD CANNOT ANSWER THE ONLY QUESTION THAT MATTERS
+
+**Nothing anywhere records whether one mind ever saw another.**
+
+`Agent.brief()` builds a `contacts` list and the top two entries go into
+`memory` — but the board serves `goal, why, health, food, where, carrying,
+gold, kills, wounds, loosed, astray, intentions, deeds, strays, refusals,
+said`. No contacts. No memory. So the single most important question in a
+multi-agent run — *did these two minds perceive each other* — has no answer in
+any artefact this project produces.
+
+**This is the top instrumentation item on the list now.** Everything about
+cooperation, trade, honesty and deception is unmeasurable until a run records
+who could see whom, when.
+
+### The arrow counter went backwards, and here is why
+
+Coinneach's `loosed` read **187** last entry and reads **0** now. Not a
+respawn — `kills` (2) and `astray` (17) both held across the change.
+
+`releases` is a **ring buffer of 400** (`AGENTS.logSize`), and the board's
+`loosed` is a *filter over whatever is currently in it*. Coinneach has released
+the bowstring **400+ times in half an hour and not one arrow left the bow** —
+enough let-downs to flush all 187 real shots out of the window.
+
+`if (this._looseWhy !== 'aimed') this.intent.letdown = true;` — so every one of
+those was the shot solver refusing. It is in a **permanent draw-and-abort
+loop**, and it is now doing it *with 8 arrows and 28 branches in the pack*. It
+recovered materially — gathered, built a fire, made arrows — and still cannot
+shoot, because it keeps choosing targets behind terrain.
+
+So the board's `loosed` is neither a lifetime total nor a rate: it is "how many
+of the last 400 string-releases threw an arrow", which is a number nobody would
+guess from the label. **Third instrumentation defect of the day.**
+
+### Three broken numbers is a theme, not a coincidence
+
+`loosed` counts intent rather than outcome. `loosed` is also a sliding window
+that silently rolls over. Separation was computable only because my own tool
+made a value up. **The board is a fine live dashboard and a bad instrument**,
+and Part D of `IDEAS.md` — every ranking, every axis, every claim about which
+model is better — is built on exactly these numbers.
+
+Before any benchmarking work: a run must emit an **append-only event log** with
+outcomes rather than intentions, and the dashboard should be a *view* of that
+log rather than the only place the data exists.
+
+### Everything else
+
+- **Kimi has halved again: 20 answered / 20 failed — 50%.** It was 80%, then
+  61%. All `no json in reply`. Grok remains **155 / 0**.
+- **Eachann has run out of arrows too** — carrying `bow, hide x2, wood x2` with
+  6 kills to his name. Both minds are now unarmed hunters.
+- **Fire spam:** 31 `place` deeds and climbing.
+- **The vocabulary widened, which is the one encouraging sign.** New this hour:
+  *"keep away from a goblin"*, *"stay still and watch"*, *"make for Hollowed
+  Beinn"* — the first avoidance, the first deliberate pause, and the first time
+  either mind has navigated to a **named place** rather than to an animal.
+  Eachann is up to 29 distinct intentions from 7.
+
+---
