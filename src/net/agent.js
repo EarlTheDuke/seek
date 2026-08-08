@@ -1474,12 +1474,30 @@ export class Agent {
     // The two reasons a fire does not get laid, both previously invisible to
     // the mind. `near` is the one that mattered: 94 fires went down in a single
     // run, five inside twenty seconds.
-    if (near && this.count('wood') > 0) this.noteOutcome('there is already a fire burning here');
-    else if (this.count('wood') === 0) this.noteOutcome('you have no firewood to lay a fire with');
-    if (this.count('wood') > 0 && !near && this.placeCooling === 0) {
+    // ── THREE REASONS NOT TO LAY ONE, ALL OF THEM SAID OUT LOUD ──
+    //
+    // 106 fires went down in one seven-hour run, five of them inside twenty
+    // real seconds. `fireNearby` is the guard and it has been widened; the
+    // price has gone from one branch to `SURVIVAL.woodToLight`; and this body
+    // now remembers where it laid its own, which is the part `nearestFire`
+    // could not do — a fire that has not reached the snapshot yet is a fire
+    // this body knows about and the world has not told it about.
+    const mine = this.myFires ?? (this.myFires = []);
+    const nearMine = mine.some((f) => Math.hypot(f.x - this._x, f.z - this._z) < AGENTS.fireNearby);
+    const short = SURVIVAL.woodToLight - this.count('wood');
+
+    if ((near || nearMine) && short <= 0) this.noteOutcome('there is already a fire burning here');
+    else if (short > 0) {
+      this.noteOutcome(`a fire takes ${SURVIVAL.woodToLight} branches and you have ${this.count('wood')}`);
+    }
+    if (short <= 0 && !near && !nearMine && this.placeCooling === 0) {
       i.place = true;
       i.forward = 0;
       this.placeCooling = AGENTS.relightSeconds;
+      // Remembered here rather than waiting for the snapshot: the whole point
+      // of `relightSeconds` was to cover that gap and it plainly did not.
+      mine.push({ x: this._x, z: this._z });
+      if (mine.length > AGENTS.firesRemembered) mine.shift();
       this.did('place', 'I set a fire going');
       return true;
     }

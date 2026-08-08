@@ -972,13 +972,31 @@ export const AGENTS = {
   // ...and how close a fire has to be before lighting another is silly. Under
   // this, `place` would land on top of the fire already there and simply feed
   // it — which burns the branch you were saving for the next camp.
-  fireNearby: 9,
+  //
+  // RAISED FROM 9. Nine metres is the distance at which laying a second fire is
+  // ABSURD; it is not the distance at which it is WASTEFUL. A body that wanders
+  // — which is what a body does — clears nine metres constantly, so the guard
+  // almost never fired: 106 fires went down in one run with this in place. At
+  // 35 m a fire you laid a moment ago is still yours to walk back to, which is
+  // what `fireWalkRange` (45) already assumes about somebody else's.
+  fireNearby: 35,
   // A pause after asking for a fire, so a body does not lay six of them while
   // the snapshot that would have told it about the first is still in flight.
   relightSeconds: 4,
+  // How many of its own fires a body keeps track of. `nearestFire` reads the
+  // snapshot, which cannot know about a fire laid a moment ago — that gap is
+  // what `relightSeconds` was meant to cover and plainly did not.
+  firesRemembered: 12,
   // Fletching is fuel spent on arrows, so it only happens with fuel to spare:
   // below this many branches in the pack, the wood is for the fire.
-  spareWood: 4,
+  //
+  // RAISED WITH `SURVIVAL.woodToLight`, in the same commit and for one reason:
+  // at 4 this meant "keep enough for a fire" back when a fire cost one branch.
+  // Leaving it there while lighting costs ten would have a body fletching away
+  // the very wood it needs to get warm, which is the failure mode this number
+  // exists to prevent. Kept a little above the fire's price so there is
+  // something spare rather than exactly enough.
+  spareWood: 14,
   // ...and only when the quiver is genuinely low. A body that fletches at 11
   // arrows spends its whole night at the fire making arrows it already has.
   lowArrows: 5,
@@ -1605,6 +1623,27 @@ export const SURVIVAL = {
   fireLightRange: 26,
   fireBurnPerSec: 0.34, // fuel units consumed
   fireFuelPerWood: 45, // seconds of burn per branch
+
+  // ── WHAT IT COSTS TO LAY A FIRE, AS OPPOSED TO FEEDING ONE ──
+  //
+  // Lighting cost ONE branch, the same as feeding, and that was the whole
+  // problem. `place` was the cheapest action in the game, and a body that finds
+  // a cheap action repeats it: 106 fires in a seven-hour run, five of them
+  // inside twenty real seconds, laid across a hillside like breadcrumbs.
+  //
+  // It is also why firewood was worthless. Deadfall is the one thing in this
+  // world that is both abundant and useful, and a hoarder with infinite
+  // firewood takes the same actions as a generous one — which is the reason
+  // `SCARCE` exists at all. At ten branches a fire, wood becomes the first real
+  // currency here: something you can run out of on a cold night, something
+  // worth asking for, and something for gold to be priced AGAINST.
+  //
+  // Ten is Ben's number and it is about right in real terms: a night's fire is
+  // an armful of wood, not a stick. Feeding stays at one, which is what makes
+  // keeping a fire alive cheaper than walking away and lighting another — the
+  // opposite of the old arrangement, where both cost the same and nobody ever
+  // bothered to feed one.
+  woodToLight: 10,
   fireMaxFuel: 240,
   cookSeconds: 22, // per item, standing beside it
 

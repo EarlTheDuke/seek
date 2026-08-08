@@ -2478,8 +2478,12 @@ function boot() {
 
     // ── light a fire ──
     if (intent.place) {
-      if (inventory.countOf('wood') < 1) {
-        hud.toast('you need a branch to build a fire', 2);
+      if (inventory.countOf('wood') < SURVIVAL.woodToLight) {
+        // The NUMBER, and how short you are. "You need a branch" was true when a
+        // fire cost one; a player carrying six and told they need "a branch" has
+        // been told nothing they can act on.
+        const short = SURVIVAL.woodToLight - inventory.countOf('wood');
+        hud.toast(`a fire takes ${SURVIVAL.woodToLight} branches — ${short} more`, 2);
       } else {
         camera.getWorldDirection(_drop).setY(0).normalize();
         // `SURVIVAL.firePlaceDistance`, not a literal: at the old 1.6 m the pit
@@ -2488,7 +2492,9 @@ function boot() {
         const fz = ctrl.position.z + _drop.z * SURVIVAL.firePlaceDistance;
         const result = fires.light(fx, fz);
         if (result.ok) {
-          inventory.remove('wood', 1);
+          // `SURVIVAL.woodToLight`, and it MUST match the server's arithmetic
+          // in world.js or the two ends disagree about what is in your pack.
+          inventory.remove('wood', SURVIVAL.woodToLight);
           hud.toast('a fire', 1.6);
           // ── and tell the server, so ITS copy of you is beside it too ──
           // Until this the fire existed in exactly one browser. The server's

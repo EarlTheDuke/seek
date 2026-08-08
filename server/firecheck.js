@@ -345,6 +345,51 @@ check('feeding a fire goes up the wire too',
 check('and every feed goes through it, none left writing only locally',
   !/inventory\.remove\('wood', 1\);\s*\n\s*fires\.addFuel\(/.test(mainSrc));
 
+// ── WHAT A FIRE COSTS, AND THAT BOTH ENDS AGREE ────────────────────────────
+//
+// Lighting cost ONE branch, the same as feeding, so `place` was the cheapest
+// action in the game — and a body that finds a cheap action repeats it. 106
+// fires went down in a seven-hour run, five of them inside twenty real seconds,
+// laid across a hillside like breadcrumbs.
+//
+// It also kept firewood worthless. Deadfall is the one thing here that is both
+// abundant and useful, and a hoarder with infinite firewood takes the same
+// actions as a generous one — the reason SCARCE exists at all.
+{
+  const { SURVIVAL: S } = await import('../src/config.js');
+  const worldSrc = readFileSync(new URL('../src/sim/world.js', import.meta.url), 'utf8');
+  check(`lighting costs SURVIVAL.woodToLight, and it is more than one — ${S.woodToLight}`,
+    S.woodToLight >= 5);
+
+  // BOTH ENDS, from the source, because a browser and a server that disagree
+  // about the price disagree about what is in your pack.
+  check('the server spends woodToLight, not a literal',
+    /inventory\.remove\('wood', SURVIVAL\.woodToLight\)/.test(worldSrc),
+    'src/sim/world.js');
+  check('  …and so does the browser',
+    /inventory\.remove\('wood', SURVIVAL\.woodToLight\)/.test(mainSrc),
+    'src/main.js');
+  check('  …and both GATE on it too, so you cannot light one you cannot pay for',
+    /countOf\('wood'\) >= SURVIVAL\.woodToLight/.test(worldSrc)
+      && /countOf\('wood'\) < SURVIVAL\.woodToLight/.test(mainSrc));
+
+  // FEEDING STAYS AT ONE. That is what makes keeping a fire alive cheaper than
+  // walking away and lighting another — the opposite of the old arrangement,
+  // where both cost the same and nobody ever bothered to feed one.
+  check('feeding a fire still costs ONE branch',
+    /inventory\.remove\('wood', 1\)/.test(mainSrc),
+    'lighting is the expensive act; feeding is not');
+
+  // And the heuristic that has to move with it: at spareWood 4 a body would
+  // fletch away the very wood it needs to get warm.
+  const { AGENTS: A } = await import('../src/config.js');
+  check(`spareWood was raised with it — ${A.spareWood} against a fire at ${S.woodToLight}`,
+    A.spareWood > S.woodToLight);
+  check(`fireNearby was widened — ${A.fireNearby} m`,
+    A.fireNearby >= 20,
+    'nine metres is where a second fire is absurd, not where it is wasteful; a body that wanders clears nine constantly');
+}
+
 const passed = results.filter(Boolean).length;
 console.log(`\n  ${passed}/${results.length}\n`);
 process.exit(passed === results.length ? 0 : 1);

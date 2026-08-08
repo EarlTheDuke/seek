@@ -1197,7 +1197,10 @@ export class SimWorld {
       }
     }
 
-    if (intent.place && p.inventory.countOf('wood') > 0) {
+    // A fire costs `SURVIVAL.woodToLight` branches to LAY and one to feed. See
+    // the note on the constant: at one apiece, `place` was the cheapest action
+    // in the game and 106 of them went down in a single run.
+    if (intent.place && p.inventory.countOf('wood') >= SURVIVAL.woodToLight) {
       // In front of them, at the same reach the browser uses. Facing is
       // (-sin, -cos) — the convention `yawTo` and the controller share.
       const fx = p.ctrl.position.x - Math.sin(p.ctrl.yaw) * SURVIVAL.firePlaceDistance;
@@ -1206,7 +1209,7 @@ export class SimWorld {
       // that lands on an existing fire as fuel for it. This is simply its first
       // caller that is not a packet from a browser.
       if (this.lightFireFor(p.id, fx, fz).ok) {
-        p.inventory.remove('wood', 1);
+        p.inventory.remove('wood', SURVIVAL.woodToLight);
         p.dirty = true;
       }
     }
