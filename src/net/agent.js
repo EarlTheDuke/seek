@@ -2127,13 +2127,13 @@ export class Agent {
       // hillside is how far above or below you the animal is standing, and
       // `find` throws that away. See `act` for what is done with it.
       case 'hunt': {
-        const q = findFull((label) => label === (g.quarry ?? ''));
+        const q = findFull((label) => namesTheSame(label, g.quarry));
         return q ? { x: q.x, y: q.y, z: q.z, id: q.id, quarry: true } : this.roam();
       }
       case 'approach':
-        return find((label) => label === (g.target ?? '')) ?? this.roam();
+        return find((label) => namesTheSame(label, g.target)) ?? this.roam();
       case 'avoid': {
-        const from = find((label) => label === (g.target ?? ''));
+        const from = find((label) => namesTheSame(label, g.target));
         if (!from) return this.roam();
         const dx = this._x - from.x;
         const dz = this._z - from.z;
@@ -2172,6 +2172,50 @@ export class Agent {
       tokens: this.tokensIn + this.tokensOut,
     };
   }
+}
+
+/**
+ * Does what a mind SAID match what the world CALLS the thing?
+ *
+ * ── THIS WAS AN `===` AND IT WAS THE WHOLE BLOCKER ──
+ *
+ * Every contact is labelled with its article — `a deer`, `a goblin` (see the
+ * `weigh(\`a ${c.k}\`, …)` calls in `resolve`). The goal came back from the
+ * model as whatever the model felt like writing, and the two were compared with
+ * `label === g.quarry`. Anything that did not match EXACTLY fell through to
+ * `roam()`, silently: the mind had decided to hunt and the body wandered off,
+ * with no refusal, no log line and no counter anywhere saying so.
+ *
+ * Measured over two live runs of six models and ~400 decisions:
+ *
+ *     "a deer"                      matched   -> 37 arrows   (kimi, the only one)
+ *     "deer"                        no match  -> wandered
+ *     "deer south-west"             no match  -> wandered
+ *     "deer close to the north"     no match  -> wandered
+ *     "deer 180 m north"            no match  -> wandered
+ *
+ * Five models, zero arrows, and it was one missing indefinite article. It broke
+ * `avoid` the same way, so "keep away from goblin" was a body strolling about
+ * near a goblin. This is why the SCRIPTED control out-hunted every model twice:
+ * it calls `setOrder({ quarry: \`a ${…}\` })` and matched by construction.
+ *
+ * Matched on the WORD rather than by substring so `deer` cannot match
+ * `deerhound` and `goblin` can never match a `deer`. A model that says
+ * something genuinely unmatchable still falls through to `roam()` exactly as
+ * before — this widens what counts as a match, it does not invent one.
+ */
+export function namesTheSame(label, said) {
+  if (!label || !said) return false;
+  const bare = (v) => String(v).toLowerCase().replace(/^(?:a|an|the)\s+/, '').trim();
+  const l = bare(label);
+  const s = bare(said);
+  if (!l || !s) return false;
+  if (l === s) return true;
+  // Escape anything regex-special in a label before it becomes a pattern —
+  // labels come from the species table and from player names, and a name with
+  // a bracket in it should not be able to build a broken expression.
+  const word = l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${word}\\b`).test(s);
 }
 
 // Which foods are already a meal, built from the same table `EDIBLE` is built

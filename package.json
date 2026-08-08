@@ -54,7 +54,8 @@
     "rangecheck": "node server/rangecheck.js",
     "solidcheck": "node server/solidcheck.js",
     "keycheck": "node server/keycheck.js",
-    "chatcheck": "node server/chatcheck.js"
+    "chatcheck": "node server/chatcheck.js",
+    "quarrycheck": "node server/quarrycheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",
