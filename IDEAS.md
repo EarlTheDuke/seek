@@ -38,6 +38,57 @@ to turn that accident into a measurement.
 
 Small, concrete, mostly known-good.
 
+### A0 †††  MINDS LOSE EACH OTHER FOR EVER AT 140 METRES **[S]**
+*Found live on 2026-08-08, three hours after this document was written. It
+outranks everything else here and it changes what several other items mean. Full
+trace in `OBSERVATIONS-2026-08-08.md`.*
+
+Two minds spawn **3.3 m apart**. Within the hour they are **a kilometre** apart.
+`AGENTS.noticeRange` is 140 m and `Agent.brief()` drops anything beyond it — so
+past 140 m **the other player is not in the prompt at all**, and every social
+verb takes a target that can only be named from the prompt. `offer`, `accept`,
+`give`, `attack`, `follow`, `guard` all silently become `roam()`.
+
+**Consequence:** within ten minutes of any run, all six of yesterday's verbs
+become physically unreachable and stay that way. It retroactively explains both
+six-model playtests — "the models never coordinated" was never a fact about the
+models, they were each alone in a private world with the same weather. And it
+explains why the scripted control keeps winning: it never needed anybody.
+
+**The fix is not "raise the range."** 140 m is right for *seeing* somebody. What
+is missing is that people who know each other keep a rough idea of where each
+other are — two crofters in a glen do not lose each other permanently because
+one walked over a rise. Add a coarse second channel to the brief:
+
+> `also out there: Coinneach, a long way south-west`
+
+Name and bearing only, no condition, no distance, for anyone on the roster at
+any range. Plus `goTo <person>` resolving against it, so a mind that decides to
+go and find somebody can. Half a day's work; unlocks D3's entire social half.
+
+**Everything in Part D that involves trade, honesty, deception or coordination
+is blocked on this.** Until it lands, those axes measure zero over zero.
+
+### A0b The `place` spam **[S]**
+Eachann lit **five fires in twenty real seconds** and 21 in the sampled window.
+`AGENTS.fireNearby` (9 m) is meant to prevent exactly this and something is
+getting past it. Worth an hour with a `firecheck` before assuming A1's cost
+change fixes it on its own — a cheap action that a model has learned to repeat
+will just become an expensive action it repeats until the wood runs out.
+
+### A0c There is no verb that means "take the meat" **[M]**
+A mind killed a deer, stood over the carcass, chose *"pick up what is lying
+about"* — and walked away with **two branches**, then starved. `case 'gather'`
+navigates to `nearestDeadfall`, which is firewood specifically, and dropped loot
+is **not in the snapshot at all** (`src/net/agent.js:2137` says so outright:
+deadfall is a pure function of the seed, loot is not). So a mind can see that a
+kill happened, cannot see the carcass, and has no word for harvesting it.
+
+Harvesting clearly *can* happen — the other mind is carrying cooked venison —
+but on this evidence it is incidental rather than chosen. This is the second
+half of "the models cannot feed themselves", and the quarry fix exposed it:
+now that they can hunt, we can see they cannot eat what they kill.
+
 ### A1 † A fire should cost about 10 branches, not 1 **[S]**
 Ben's call, and he's right. Right now `place` spends exactly one `wood` in two
 hardcoded places — `src/sim/world.js:1209` and `src/main.js:2491` — and the gate
@@ -366,16 +417,21 @@ cheap to give them both.
 
 If it were my call and nothing else changed:
 
-1. **A1 + A2** (fire costs 10) — half a day, and it makes scarcity real, which
-   every trade and personality measurement silently depends on.
-2. **B1–B3** (the setup page) — the thing Ben asked for, and the thing that
+1. **A0** (minds can find each other) — half a day, and without it there is no
+   multiplayer game and no social benchmark, only two single-player games
+   sharing a weather system. Everything social is blocked on this one item.
+2. **A0c + A1 + A2** (harvest a kill; fire costs 10) — the other half of "can a
+   mind feed itself", and the change that makes scarcity real. Every trade and
+   personality measurement silently depends on something being scarce.
+3. **B1–B3** (the setup page) — the thing Ben asked for, and the thing that
    stops me being the bottleneck on his own experiments.
-3. **D1 + D2** (a score, and same-seed re-runs) — turns opinions into numbers.
+4. **D1 + D2** (a score, and same-seed re-runs) — turns opinions into numbers.
    Depends on B3 existing.
-4. **C4** (named places) — unlocks coordination as a measurable thing at all.
-5. **C1 + C3** (commentary and the recap) — makes a run watchable and makes
+5. **C4** (named places) — the *second* half of coordination. A0 lets two minds
+   know the other exists; C4 lets them agree where to meet.
+6. **C1 + C3** (commentary and the recap) — makes a run watchable and makes
    being away for three hours fine.
-6. **E1** (winter) — the big one, once the foundation holds it.
+7. **E1** (winter) — the big one, once the foundation holds it.
 
 Items 1–4 are roughly a week and would leave this a genuinely different project:
 one where Ben can set up his own experiments, get a number out of them, and have
