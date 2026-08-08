@@ -1029,7 +1029,19 @@ export const AGENTS = {
   // Not a suggestion: the harness stops asking and every agent falls back to
   // its scripted brain, which is a fully playable outcome rather than a
   // failure. Nothing here should ever be able to run up a bill unattended.
-  maxCallsPerAgent: 400,
+  // A hard per-seat cap. Past it every decision returns the scripted brain for
+  // the rest of the run — which on 2026-08-08 happened at 174 minutes with
+  // nothing on the board saying so, and the last 18% of that run was read as
+  // the model's behaviour. The board now shows a SPENT tag; this is the number
+  // behind it, and it is the BINDING limit, not the roster's shared
+  // `budgetCalls`. At a 20 s cadence it is a little over two hours.
+  //
+  // `typeof process` guarded because THIS FILE IS BUNDLED FOR THE BROWSER, where
+  // `process` does not exist and a bare reference throws at module load — which
+  // would take the whole game down, not just this constant.
+  maxCallsPerAgent: (typeof process !== 'undefined' && Number(process.env?.MAX_CALLS) > 0)
+    ? Number(process.env.MAX_CALLS)
+    : 400,
   maxCallsTotal: 4000,
 };
 

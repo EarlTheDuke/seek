@@ -150,6 +150,20 @@ export function mindHealth(provider) {
     // Never asked anything is not the same as asked and always failed. The
     // first is a scripted seat by design; the second is the bug.
     fellBack: name !== 'scripted' && calls >= 3 && answered === 0,
+    // ── AND THE ONE THAT MATTERS MOST: THE SEAT HAS GONE DARK ──
+    //
+    // `AGENTS.maxCallsPerAgent` is a hard per-seat cap, and past it every
+    // decision returns `fallback.decide(brief)` — the scripted brain — for the
+    // rest of the run. On 2026-08-08 a seat hit it at 174 minutes and spent the
+    // last 18% of the run as the control while this board still displayed
+    // "grok-4.20-0309-non-reasoning", `fellBack: false` and `exhausted: false`.
+    // Every indicator that exists for exactly this stayed green, and the run
+    // was read as the model's behaviour.
+    //
+    // The other five instrumentation defects that day produced wrong NUMBERS.
+    // This one produces a wrong EXPERIMENT.
+    spent: name !== 'scripted' && provider?.maxCalls != null && calls >= provider.maxCalls,
+    ofMaxCalls: provider?.maxCalls ?? null,
     // Reported rather than inferred: a watcher reading "0.4" knows two of every
     // five answers are the rules engine wearing the model's name.
     failureRate: calls ? +(failures / calls).toFixed(2) : 0,
@@ -327,6 +341,7 @@ export function boardHtml() {
   ol.plan li { margin:0.15em 0; }
   p.note { margin:0.2em 0 0; color:#c9a86a; font-style:italic; white-space:pre-wrap; }
   li.refused { color:#d08a70; }
+  .tag.spent { background:#4a1f1f; color:#ff9a8a; }
   .empty { color:#4a5259; font-style:italic; }
   footer { padding:10px 18px 24px; color:#4a5259; font-size:12px; }
 </style>
@@ -358,6 +373,10 @@ const list = (items, render, empty) => items && items.length
  */
 function mindTag(m) {
   if (!m || m.provider === 'scripted') return '';
+  if (m.spent) {
+    bits.push('<span class="tag spent" title="this seat has used its whole call budget and is now the scripted brain">'
+      + 'SPENT — scripted from here</span>');
+  }
   if (m.fellBack) {
     return '<span class="tag fell" title="' + esc(m.lastError || 'no answer') + '">'
       + 'SCRIPTED — ' + m.failures + '/' + m.calls + ' failed</span>';
