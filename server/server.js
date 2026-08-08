@@ -174,6 +174,19 @@ let raided = false;
 // It matters most for exactly the case it was missing from. A person who turns
 // bears off has hands and can run; an agent is being tested on whether the
 // FOOD loop works and should not be eaten while we find out.
+// ── PVP_EVERYWHERE: a straight brawl, including at the spawn ──
+//
+// PvP damage has been built and covered by `shotcheck` for months. The default
+// rule is better than a toggle — party members never hurt each other, and
+// between strangers it depends on where you are standing, keyed to
+// `placeStrangeness`. This only exists for the case that rule cannot express:
+// six models and a human who want a fight NOW, on the shore, without walking
+// out to the strange country first.
+if (/^(on|yes|1|true)$/i.test(process.env.PVP_EVERYWHERE ?? '')) {
+  world.rules.pvpEverywhere = true;
+  console.log('  staged: PVP_EVERYWHERE — strangers can fight anywhere, even at the spawn');
+}
+
 const DANGER = process.env.DANGER ?? 'full';
 const banned = bannedSpecies(DANGER);
 world.wildlife.setBanned(banned);

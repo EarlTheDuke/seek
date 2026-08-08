@@ -73,6 +73,15 @@ REM  decorative and nothing was ever at stake. Character only shows under
 REM  pressure. Delete this line for a gentler world.
 set "HUNGER=52"
 
+REM  ── PvP ──
+REM  Already on, and it is NOT a toggle: party members never hurt each other,
+REM  and between strangers it depends on WHERE YOU ARE STANDING. Off in the
+REM  settled country round the lake, on out in the strange country. Danger from
+REM  people rises with the same gradient as danger from things.
+REM
+REM  Uncomment for a straight brawl anywhere, including at the spawn:
+REM  set "PVP_EVERYWHERE=on"
+
 REM  Your name in the game. Change it if you like.
 set "MYNAME=Ben"
 

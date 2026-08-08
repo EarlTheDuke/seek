@@ -1,6 +1,25 @@
-# Next build — the to-do list and the plan
+# Next build — the plan, and what it turned into
 
-Written 2026-08-07 after two six-model runs. **Nothing here is started.**
+Written 2026-08-07 after two six-model runs. **ALL FOUR PHASES ARE NOW BUILT.**
+Kept as written, with the outcome of each recorded against it — the plan is more
+useful as a record of what was predicted versus what was found than as a tidy
+list of done items.
+
+## OUTCOME, in one table
+
+| phase | predicted | what it actually was |
+|---|---|---|
+| 1 make them play | "a commitment problem" | **an `===`.** `label === g.quarry` against labels carrying their article, so "hunt deer" ≠ "a deer" and the body silently roamed. One missing indefinite article cost two playtests. `quarrycheck` 5/5 |
+| 2 `give` + verbs | small, big payoff | correct, and it found **two socket-only bugs**: `INTENT_KEYS` is an allow-list that silently drops unknown fields, and `give` was not edge-detected so a held press handed over the whole stack. `givecheck` 9/9, `duelcheck` 7/7 |
+| 3 gold | "blocked behind trading" | correct, shipped with the sink stated plainly as *other people*. `goldcheck` 11/11 — and it deliberately does not assert gold is valuable, because that is the experiment |
+| 4 goblins | "the animation of cowardice is missing" | **narrower.** The cowardice was fully animated; it was never DESCRIBED. `goneToGround` lived only on the server, so a routed pack reported itself as `"alert"` while standing still. One bit on the wire |
+
+Nothing in phase 4 needed a behaviour change, and `daylightFloor`, `commitAt`
+and `breakAt` were not touched — exactly as the plan insisted.
+
+---
+
+## The plan as written
 
 Two sources: what Ben asked for, and what the data showed. They point at
 different things, and the data's item is the more urgent one — so the plan
