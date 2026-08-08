@@ -55,8 +55,22 @@ are, what you see, how you feel, what you carry. It contains **nothing about
 the consequences of your own last action.** A mind gets senses and no outcomes.
 
 That is why every failure mode is a **repetition loop**. An action that returns
-no signal cannot be distinguished from an action that did nothing, so the model
-does it again — and the more capable the model, the more confidently it repeats.
+no signal cannot be distinguished from an action that did nothing, so it happens
+again.
+
+**Where the repeating actually happens — measured, and not where I first said.**
+Neither model repeats its decisions: across 142 logged decisions, **0% were
+identical to the previous one**, and not even the opening verb repeated. The
+loops split in two:
+
+- **Body-level** (fires, draws) — one standing goal drives the same action every
+  tick until something changes. That is how 5 fires land in 20 seconds against a
+  20-second cadence. **The body needs a guard**: do not lay a fire where one
+  burns, do not draw on an empty quiver, do not re-press what was just refused.
+- **Model-level** (the speech, said three times across three separate decisions
+  with three different stated reasons) — **the model needs the feedback line.**
+
+Same root cause, same work, two call sites.
 
 **The fix is one mechanism:** every action a mind takes produces a line in its
 next brief saying what happened.
@@ -474,15 +488,37 @@ But right now there is **no score.** Without one, every run ends in me writing
 prose about what I noticed, which is exactly as reliable as it sounds.
 
 ### D1 † A score **[M]**
-Pick a primary number and defend it. My recommendation: **days survived**, with
-calories banked as the tiebreak. It's the thing the world is actually about, it's
-unambiguous, and the scripted control already provides the baseline.
+**Rewritten 2026-08-08 after three hours of data killed the first version.**
 
-Report it **relative to the scripted control on the same seed.** Not "Sonnet
-scored 4.2" but "Sonnet scored 0.87× the scripted floor" — because the absolute
-number is meaningless and the ratio is the finding. It's also the format that
-makes the current embarrassing result legible: *every paid model has scored
-below 1.0.*
+*My original recommendation was **days survived**, with calories banked as the
+tiebreak. The run disproved it.* Over 544 samples the two minds' food levels
+correlate at **r = 0.686** with a **median absolute difference of 3 points out
+of 100** — despite one being a pure paid model making 393 decisions and the
+other being 62% scripted fallback on 68. Food follows a clean diurnal sawtooth
+(trough 14:00, peak 18:00): **the world drives survival, not the mind.**
+
+A survival-scored benchmark would report grok, kimi and a hundred lines of
+if-statements as a three-way tie — not because they are equal but because the
+metric is blind. That is the worst failure available to a benchmark: a
+confident number measuring the wrong thing.
+
+**What a score has to measure instead** — things the world does not hand out for
+free:
+
+| candidate | why it discriminates |
+|---|---|
+| kills per arrow **that actually left the bow** | needs `A0e` fixed first |
+| meat harvested per kill | one mind starved on top of its own carcass |
+| **decisions that changed the world** ÷ decisions taken | the single best signal seen today — a mind can spend an hour achieving nothing |
+| distinct verbs reached | 6 of 15 used in 510 decisions |
+| deals struck, and deals honoured | needs `A0`/`A0g` |
+| score per pound, per second | already measurable, and nobody reports it |
+
+Still report everything **relative to the scripted control on the same seed** —
+"0.87× the scripted floor" rather than an absolute — because the ratio is the
+finding. But pick metrics the control can actually lose at.
+
+**Every one of these needs `A0f`'s event log before it can be computed.**
 
 ### D2 † The protocol: same seed, one variable **[M]**
 The benchmark is not "run a game and see." It's:

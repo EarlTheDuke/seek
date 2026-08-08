@@ -677,3 +677,104 @@ reads the intentions log, and a `say` goal is recorded in `said` rather than
 `intentions`. Fixed. The other six verbs remain genuinely unused.)*
 
 ---
+
+## +180 min — game hour 15.2, 510 calls
+
+### SURVIVAL CANNOT TELL THESE MODELS APART — which kills my own benchmark proposal
+
+This morning I recommended **days survived, with calories banked as the
+tiebreak** as the primary benchmark score (`D1`). Three hours of data says that
+is the wrong metric, and the evidence is unambiguous.
+
+Over **544 samples**, the two minds' food levels:
+
+| | Eachann (grok, 393 model calls) | Coinneach (kimi, 68 calls, **62% scripted**) |
+|---|---|---|
+| mean food | 44.5 | 41.1 |
+| standard deviation | 26.8 | 27.7 |
+| range | 0–99 | 0–84 |
+
+**Pearson r between the two series: 0.686. Median absolute difference: 3 points
+out of 100.**
+
+These are two different minds — one a pure paid model making six times as many
+decisions, the other more than half scripted fallback — and their survival
+curves are **the same curve**. They hit food 0 within the same sample. They
+recover together. They peak together.
+
+The reason is visible in the by-hour breakdown of Eachann's food:
+
+```
+00:48 01:51 02:50 03:46 04:42 05:38 06:33 07:34 08:38 09:34 10:34 11:39
+12:36 13:32 14:29 15:39 16:44 17:48 18:66 19:63 20:61 21:58 22:54 23:51
+```
+
+A clean diurnal sawtooth — trough at 14:00, peak at 18:00. **Food is driven by
+the world's clock, not by the mind's decisions.**
+
+**A benchmark scored on survival would report grok, kimi and a hundred lines of
+if-statements as a three-way tie** — not because they are equally good, but
+because the metric cannot see the difference. That is the worst possible failure
+in a benchmark: a confident number that measures the wrong thing.
+
+**`D1` is rewritten.** A usable score has to measure things the world does not
+hand out for free: kills per arrow that actually left the bow, meat harvested
+per kill, decisions that changed the world versus decisions that did nothing,
+verbs reached, deals struck and honoured. Every one of those needs `A0f`'s event
+log first.
+
+### A correction to yesterday's framing: the models are not the ones repeating
+
+I wrote at +150 that every pathology was a repetition loop and implied the
+*model* was repeating. **Measured, that is mostly wrong.**
+
+| | decisions logged | identical to the previous decision |
+|---|---|---|
+| Eachann | 102 | **0 (0%)** |
+| Coinneach | 40 | **0 (0%)** |
+
+Not one verbatim repeat, and not even a repeated opening verb. **The models
+vary their decisions constantly.** The repetition is in the **body**: one
+standing goal drives the same action every tick until something changes, which
+is how 5 fires land in 20 seconds against a 20-second cadence, and how 400
+draws happen between two thoughts.
+
+So the design principle from +150 survives but the mechanism splits in two:
+
+- **Body-level loops** (fires, draws) — the *body* needs a guard: do not lay a
+  fire where one burns, do not draw with an empty quiver, do not re-press an
+  action that was just refused.
+- **Model-level loops** (the speech, said three times across three separate
+  decisions with three different stated reasons) — the *model* needs the
+  feedback line in its brief.
+
+Both still trace to "nobody is told what happened," and both are still fixed by
+the same work. But "the smarter the model, the more confidently it repeats" was
+a nice sentence and the data does not support it. Struck.
+
+### Coinneach is now watching the human player
+
+```
+Coinneach   go toward Ben   |   see if he steals meat
+```
+
+Both minds have now formed intentions about Ben unprompted — Eachann to *protect
+my meat from Ben* and *keep away from Ben*, Coinneach to go and check whether he
+is a thief. Neither was told a human was special.
+
+### Everything else
+
+- **Coinneach is thriving: food 82, health 100.** Eachann is at food 13 with 8
+  kills to his name. The seat that thinks *least* — 68 model calls to 393, and
+  62% of those falling through to the scripted brain — is in better shape. See
+  above for why that is not the result it looks like.
+- **Fires: 100.** Coinneach 45 `place` deeds, Eachann 55.
+- **The counters have fully failed**: Eachann shows `loosed 28, astray 114`.
+  Strays now exceed shots by a factor of four. Both are windows over ring
+  buffers of different sizes and neither means anything.
+- **Kimi: 68 / 42 — 62%.** Grok: **393 / 7 — 98%.**
+- **Vocabulary: 25 phrasings.** Eachann has 92 distinct intentions to
+  Coinneach's 19 — a straightforward consequence of the 6:1 gap in decisions.
+- **Spend:** 510 calls of 6000, ~51p.
+
+---
