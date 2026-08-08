@@ -801,7 +801,13 @@ export class Agent {
       );
     }
     for (const c of s?.cr ?? []) {
-      add(`a ${c.k}`, c.p[0], c.p[2], c.s, c.h < 30 ? 'wounded' : 'unhurt', c.p[1]);
+      // A creature that has broken and run itself out of breath is a DIFFERENT
+      // proposition from a healthy one standing in a field, and saying
+      // "unhurt" of it is true and useless. It is the difference between a
+      // fight and a free kill, and a mind that cannot tell them apart walks
+      // past meat or walks into a pack.
+      add(`a ${c.k}`, c.p[0], c.p[2], c.g ? 'cowering, out of breath' : c.s,
+        c.h < 30 ? 'wounded' : 'unhurt', c.p[1]);
     }
     contacts.sort((a, b) => a._m - b._m);
 

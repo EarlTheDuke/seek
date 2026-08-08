@@ -1331,6 +1331,18 @@ export class SimWorld {
         y: round3(c.yaw),
         s: c.state,
         h: Math.round(c.hp),
+        // ── IT HAS GIVEN UP, AND NOBODY COULD TELL ──
+        //
+        // A goblin routed in daylight runs until its breath is gone and then
+        // hunkers where it stands. That is correct and tested (`raidcheck`:
+        // 109 m in 40 s, then 0 m/s) — but `goneToGround` lived only on the
+        // server, so from outside a pack that had given up was indistinguishable
+        // from one that had crashed. Reported from play as "I am standing by
+        // goblins, why are they not killing me?"
+        //
+        // One bit, and only when true, so a world full of ordinary animals pays
+        // nothing for it.
+        ...(c.goneToGround ? { g: 1 } : {}),
       });
     }
 
