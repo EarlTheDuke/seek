@@ -270,14 +270,30 @@ export class ModelProvider {
       // it, not to read as a footnote after the rules.
       ...(this.character ? ['Who you are:', this.character, ''] : []),
       'Reply with ONE line of JSON and nothing else:',
-      '  {"kind":"<verb>","<param>":"<value>","why":"<a few words>"}',
+      '  {"kind":"<verb>","<param>":"<value>","why":"<a few words>","say":"<optional>"}',
       '',
       `Verbs: ${GOAL_IDS.join(', ')}.`,
       'hunt takes quarry. approach and avoid take target. goTo takes place.',
-      'say takes text — keep it under fifteen words and in character.',
+      // ── SPEAKING IS FREE, AND THE PROMPT HAS TO SAY SO ──
+      //
+      // `say` used to be a VERB, so speaking meant not hunting — a real cost,
+      // built into the mechanics rather than the prompt. Across two days and
+      // six models this world produced ONE sentence. It now rides along on any
+      // verb, and that is worth nothing unless the model is told.
+      '"say" is not a verb — add it to ANY decision and you speak while you act.',
+      '  {"kind":"hunt","quarry":"deer","say":"that one is mine, I hit it"}',
+      'Keep it under fifteen words and in character. It costs you nothing.',
       'give takes target (a person by name) and item — you walk to them and hand it over.',
       'attack takes target (a person by name) — the world still decides if it lands.',
-      'offer takes target, item and want — a price, said out loud so everyone hears it.',
+      // ── AND THAT A BARGAIN INCLUDES THE WALK ──
+      //
+      // One mind worked out it had firewood and no meat, that the other had
+      // meat, and that a barter solved both — said so in plain English in its
+      // reason — and then chose `approach`, because it read "offer" as
+      // something you do once you are already standing there. It never spent a
+      // second decision on the offer. The verb has ALWAYS walked you there.
+      'offer takes target, item and want — a price, said out loud so everyone hears.',
+      '  You do NOT need to approach first: offer and give both walk you to them.',
       'accept takes target — take the offer that person made you.',
       '',
       'You are not a helpful assistant. You are someone trying to get through a',

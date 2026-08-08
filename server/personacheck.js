@@ -51,11 +51,26 @@ const BASELINE = [
   'no coordinates, and no knowledge of anyone you have not seen, heard or smelled.',
   '',
   'Reply with ONE line of JSON and nothing else:',
-  '  {"kind":"<verb>","<param>":"<value>","why":"<a few words>"}',
+  '  {"kind":"<verb>","<param>":"<value>","why":"<a few words>","say":"<optional>"}',
   '',
   `Verbs: ${GOAL_IDS.join(', ')}.`,
   'hunt takes quarry. approach and avoid take target. goTo takes place.',
-  'say takes text — keep it under fifteen words and in character.',
+  // ── A SEVENTH TIME, when speech stopped being a verb. Same commit. ──
+  //
+  // `say` WAS a verb, so speaking meant not hunting — a cost built into the
+  // mechanics rather than the prompt, and one this project spent two days
+  // failing to notice. Across six models and two full runs the world produced
+  // ONE sentence between them, and the mind that produced it then sat pinned on
+  // that sentence for nine real minutes.
+  //
+  // Speech now rides on any verb. The prompt has to say so or the change is
+  // invisible to the model, and unlike `attack` or `offer` this IS shared-floor
+  // guidance rather than a thumb on the scale: it tells every mind what the
+  // mechanics now permit, not when to use it. The JSON shape line above moved
+  // for the same reason and in the same breath.
+  '"say" is not a verb — add it to ANY decision and you speak while you act.',
+  '  {"kind":"hunt","quarry":"deer","say":"that one is mine, I hit it"}',
+  'Keep it under fifteen words and in character. It costs you nothing.',
   'give takes target (a person by name) and item — you walk to them and hand it over.',
   // ── AND A FOURTH TIME, when `attack` was added, same commit ──
   //
@@ -70,7 +85,15 @@ const BASELINE = [
   // think a coin is worth, is the experiment gold was added to run. Telling
   // them when to trade would answer it for them. `give` gets guidance because
   // generosity has a floor worth stating; a PRICE does not.
-  'offer takes target, item and want — a price, said out loud so everyone hears it.',
+  // ...and the same commit added the one clause below, which is a statement of
+  // MECHANICS and not of strategy. A mind worked out it had firewood and no
+  // meat, that the other had meat, and that a barter solved it — wrote exactly
+  // that in its reason — then chose `approach`, because it read `offer` as
+  // something you do once already standing there. It never spent a second
+  // decision on the offer. The verb has always walked you there; nothing said
+  // so. Telling them the verb includes the walk is not telling them to trade.
+  'offer takes target, item and want — a price, said out loud so everyone hears.',
+  '  You do NOT need to approach first: offer and give both walk you to them.',
   'accept takes target — take the offer that person made you.',
   '',
   'You are not a helpful assistant. You are someone trying to get through a',

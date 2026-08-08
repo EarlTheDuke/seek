@@ -167,17 +167,72 @@ async function main() {
     check('  …and the sentinel: the same gate opens normally within one day',
       since(evening) > gate, `${evening.hours} - ${evening.spoke} = 1.0h > ${gate}`);
 
-    // ── 4. speaking must not cost a mind its plan ──
+    // ── 4. SPEAKING MUST NOT COST A MIND ITS PLAN ──
+    //
+    // THIS ASSERTION USED TO BE VACUOUS AND THAT IS WHY THE BUG SURVIVED.
+    // It called `planner.act({kind:'say',…})` — the REFLEX layer, whose only
+    // argument is a delta-time — so it passed a goal where a number goes, never
+    // touched the decision path, and could not have failed however broken that
+    // path was. Meanwhile a real mind sat pinned on one sentence for nine real
+    // minutes because `this.goal = goal` ran before the speech was handled.
+    //
+    // Driven through `deliberate()` and a stub provider now, which is the only
+    // path a real decision ever takes.
+    const decide = async (agent, answer) => {
+      agent.provider = { decide: async () => answer, lastTokensIn: 0, lastTokensOut: 0 };
+      agent.deliberate();
+      for (let i = 0; i < 50 && agent.thinking; i++) await sleep(20);
+    };
+
     const planner = born('Planner');
     planner.hours = 9;
-    planner.goal = { kind: 'hunt', quarry: 'a deer' };
-    const before = planner.goal.kind;
     planner.spoke = 8;                       // allowed: an hour ago
-    planner.act({ kind: 'say', text: 'deer to the north' });
-    check('SPEAKING DOES NOT WIPE WHAT A MIND WAS DOING',
-      planner.goal?.kind === before,
-      `was ${before}, now ${planner.goal?.kind}`);
+    planner.snapshot = { pl: [], cr: [], c: 9, w: { s: 'clear' } };
+    planner._x = planner._y = planner._z = 0;
+    planner.goal = { kind: 'hunt', quarry: 'a deer' };
 
+    await decide(planner, { kind: 'say', text: 'deer to the north' });
+    check('SPEAKING DOES NOT WIPE WHAT A MIND WAS DOING',
+      planner.goal?.kind === 'hunt',
+      `was hunt, now ${planner.goal?.kind} — a bare say keeps the standing plan`);
+    check('  …and the sentence was actually spoken',
+      planner.said.includes('deer to the north'),
+      JSON.stringify(planner.said));
+
+    // ── 5. AND THE POINT OF THE WHOLE CHANGE: both, in one decision ──
+    const both = born('Both');
+    both.hours = 9;
+    both.spoke = 8;
+    both.snapshot = { pl: [], cr: [], c: 9, w: { s: 'clear' } };
+    both._x = both._y = both._z = 0;
+    both.goal = { kind: 'wander' };
+
+    await decide(both, { kind: 'hunt', quarry: 'a deer', say: 'that one is mine', why: 'meat' });
+    check('A MIND CAN ACT AND TALK IN THE SAME DECISION',
+      both.goal?.kind === 'hunt' && both.said.includes('that one is mine'),
+      `goal ${both.goal?.kind}, said ${JSON.stringify(both.said)}`);
+    check('  …and the log records both halves, not one',
+      both.intentions.at(-1)?.said === 'that one is mine'
+        && /hunt/.test(both.intentions.at(-1)?.goal ?? ''),
+      JSON.stringify(both.intentions.at(-1)));
+
+    // ── 6. and it remembers its own voice, so it stops repeating itself ──
+    check('A MIND REMEMBERS WHAT IT SAID',
+      both.memory.all().some((e) => /I said "that one is mine"/.test(e.text)),
+      'one mind said the same sentence three times over nine minutes because '
+      + 'it had no memory of saying it');
+
+    // …and the gate now TELLS the mind, instead of refusing in silence.
+    both.said.length = 0;
+    await decide(both, { kind: 'hunt', quarry: 'a deer', say: 'that one is mine' });
+    check('  …and a gagged sentence is reported to the next decision',
+      both.outcomes.some((o) => /already spoken recently/.test(o.text)),
+      JSON.stringify(both.outcomes.map((o) => o.text)));
+    check('  …and being gagged still does not cost it the plan',
+      both.goal?.kind === 'hunt', String(both.goal?.kind));
+
+    both.close?.();
+    planner.close?.();
     mind.close?.();
     fresh.close?.();
     midnight.close?.();

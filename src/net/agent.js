@@ -968,8 +968,24 @@ export class Agent {
       .then((raw) => {
         const goal = sanitiseGoal(raw);
         if (!goal) return;
-        const changed = goal.kind !== this.goal.kind;
-        this.goal = goal;
+
+        // ── SPEECH AND ACTION ARE TWO ANSWERS, NOT ONE ──
+        //
+        // `this.goal = goal` used to run BEFORE the speech was handled, so a
+        // mind that chose to talk had its plan replaced by the sentence. It
+        // then sat on that sentence: one mind was pinned on "Eachann, that deer
+        // is mine" for twenty-seven consecutive samples — nine real minutes —
+        // saying it three times and doing nothing else.
+        //
+        // Now `say` rides on any verb, and the bare `say` KIND means "speak and
+        // carry on", so the standing plan survives either way. A person talks
+        // while they walk.
+        const said = goal.say ?? (goal.kind === 'say' ? goal.text : null);
+        const action = goal.kind === 'say' ? this.goal : goal;
+
+        const changed = action.kind !== this.goal.kind
+          || describeGoal(action) !== describeGoal(this.goal);
+        this.goal = action;
         this.decisions++;
         this.tokensIn += this.provider.lastTokensIn ?? 0;
         this.tokensOut += this.provider.lastTokensOut ?? 0;
@@ -981,7 +997,8 @@ export class Agent {
         // Tallying goals out of it would silently undercount exactly the long
         // runs worth reporting on, and "nobody ever made camp" has to mean
         // nobody ever made camp rather than nobody made camp recently.
-        this.goalCounts[goal.kind] = (this.goalCounts[goal.kind] ?? 0) + 1;
+        this.goalCounts[action.kind] = (this.goalCounts[action.kind] ?? 0) + 1;
+        if (said) this.goalCounts.say = (this.goalCounts.say ?? 0) + 1;
 
         // ── HOW LONG SINCE THIS ONE LAST SPOKE, ACROSS MIDNIGHT ──
         //
@@ -1002,23 +1019,25 @@ export class Agent {
         // would have silenced a fresh mind at nine in the morning.
         const sinceSpoke = this.spoke < 0 ? Infinity : (this.hours - this.spoke + 24) % 24;
 
-        if (goal.kind === 'say' && goal.text && sinceSpoke > AGENTS.speakEveryHours) {
+        // ── TWO INDEPENDENT BLOCKS, AND THE INDEPENDENCE IS THE FIX ──
+        //
+        // This was one if/else chain, so speaking and deciding were mutually
+        // exclusive: a mind that spoke could not also be recorded as having
+        // decided anything, and its plan was replaced by its sentence. Now a
+        // decision can do both, which is what a person does.
+        if (said && sinceSpoke > AGENTS.speakEveryHours) {
           this.spoke = this.hours;
-          this.send(C_CHAT, { m: goal.text });
+          this.send(C_CHAT, { m: said });
           // Kept because it is the only unprompted sentence anybody in this
           // world produces — the closest thing to a player telling you
           // something in their own words.
-          this.said.push(goal.text);
-          // ── SPEAKING DOES NOT COST YOU YOUR PLAN ──
-          //
-          // This used to set `wander`, so every sentence a mind spoke wiped
-          // whatever it was doing and sent it off aimlessly. That is a real
-          // disincentive built into the mechanics rather than into the prompt:
-          // the models were being asked to talk and quietly punished for it.
-          // Keeping the standing goal means a body can answer a question and
-          // carry on hunting, which is what a person does.
-          this.goal = this.goal ?? { kind: 'wander' };
-        } else if (goal.kind === 'say' && goal.text) {
+          this.said.push(said);
+          // ...and into MEMORY, weighted, so it does not say the same thing
+          // again three minutes later. A mind that cannot remember its own
+          // voice repeats itself, which is exactly what was observed.
+          this.memory.add(this.hours, `I said "${said}"`, MINDS.weight.spoke);
+          this.noteOutcome(`you said "${said}" out loud`);
+        } else if (said) {
           // GATED, AND SAID SO. This branch used to fall through to nothing:
           // the mind chose to speak, the gate refused, and the choice vanished
           // without a trace in any log or counter. An intention that is thrown
@@ -1026,11 +1045,13 @@ export class Agent {
           this.gagged = (this.gagged ?? 0) + 1;
           // A mind said the same sentence three times over nine minutes because
           // the gate was silent to it. Now it is not.
-          this.noteOutcome(`you have already spoken recently — "${goal.text}" was not said`);
-          this.onLog?.(`${this.name}: (wanted to say "${goal.text}" — too soon, ${sinceSpoke.toFixed(2)}h of ${AGENTS.speakEveryHours}h)`);
-        } else if (changed) {
-          this.memory.add(this.hours, `I decided to ${describeGoal(goal)}`, MINDS.weight.decided);
-          this.onLog?.(`${this.name}: ${describeGoal(goal)}${goal.why ? ` — ${goal.why}` : ''}`);
+          this.noteOutcome(`you have already spoken recently — "${said}" was not said`);
+          this.onLog?.(`${this.name}: (wanted to say "${said}" — too soon, ${sinceSpoke.toFixed(2)}h of ${AGENTS.speakEveryHours}h)`);
+        }
+
+        if (changed) {
+          this.memory.add(this.hours, `I decided to ${describeGoal(action)}`, MINDS.weight.decided);
+          this.onLog?.(`${this.name}: ${describeGoal(action)}${action.why ? ` — ${action.why}` : ''}`);
           // ── the thread a watcher follows ──
           // Kept out of `Memory`'s forty-entry ring buffer, which fills with
           // noticing: an hour of walking past deer and a body has forgotten it
@@ -1040,12 +1061,16 @@ export class Agent {
           // you can only tell if each of them said why.
           this.intentions.push({
             h: +this.hours.toFixed(2),
-            goal: describeGoal(goal),
-            why: goal.why ?? null,
+            goal: describeGoal(action),
+            why: action.why ?? null,
             where: this.where(),
+            // What it said, if anything, alongside what it decided. The whole
+            // point of splitting the two is that a decision can carry both, and
+            // a log that records only one of them cannot show that it did.
+            ...(said ? { said } : {}),
           });
           if (this.intentions.length > AGENTS.logSize) this.intentions.shift();
-          this.narrate(goal);
+          this.narrate(action);
         }
       })
       .catch((err) => {
