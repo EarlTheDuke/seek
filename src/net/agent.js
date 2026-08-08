@@ -57,7 +57,7 @@ import { bearingName, describePosition } from '../world/placenames.js';
 // three places.
 import { RECIPES, canCraft } from '../items/recipes.js';
 import { EDIBLE, getItem } from '../items/registry.js';
-import { AGENTS, BOW, PLAYER, NET, SURVIVAL, PICKUP } from '../config.js';
+import { AGENTS, BOW, PLAYER, NET, SURVIVAL, PICKUP, MINDS } from '../config.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -96,7 +96,16 @@ export class Agent {
    */
   constructor({ name, provider, rand, onLog = null, orders = 'decides', pet = null, persona = null, narrate = false,
                 commitDetour = false, closeDetour = false, shootRange = AGENTS.shootRange,
-                cadenceSeconds = AGENTS.cadenceSeconds }) {
+                cadenceSeconds = AGENTS.cadenceSeconds,
+                // ── the memory arm ──
+                // `true` is the pre-2026-08-08 behaviour: one ring, recency
+                // only, perception evicting everything. An OPTION and not a
+                // constant because "how much is memory scaffolding worth" is a
+                // question this project has to be able to answer with a run
+                // rather than an opinion, and that needs both arms. Defaults to
+                // the new behaviour; `MEMORY=flat` in the launcher restores the
+                // old one exactly.
+                memoryFlat = false }) {
     this.name = name;
     // ── HOW FAR THIS BODY WILL SHOOT, and why it is an option rather than a
     //    constant edited in config.js ──
@@ -162,7 +171,7 @@ export class Agent {
     this.others = new Map();
     this.heard = [];
 
-    this.memory = new Memory();
+    this.memory = new Memory({ flat: memoryFlat });
     this.goal = { kind: 'wander' };
     this.since = 0;
     this.thinking = false;
@@ -340,7 +349,7 @@ export class Agent {
             // does nothing at all and the sentence simply travels on into the
             // brief, which is the whole point of the mode.
             if (this.orders === 'obeys') this.takeOrder(msg.data.n, msg.data.m);
-            this.memory.add(this.hours, `${msg.data.n} said "${msg.data.m}"`);
+            this.memory.add(this.hours, `${msg.data.n} said "${msg.data.m}"`, MINDS.weight.heard);
             break;
           case S_ERROR:
             this.onLog?.(`${this.name}: server says ${msg.data.m}`);
@@ -420,7 +429,7 @@ export class Agent {
         // The one event that carries a lesson in a number. Kept with the range
         // so a mind can compare it against how far off the quarry was — and,
         // when we know what the shot was aimed at, WHICH WAY it was wrong.
-        if (mine) this.memory.add(this.hours, `my arrow hit ${e.hit} ${e.d} m away — ${this.howItMissed(e)}`);
+        if (mine) this.memory.add(this.hours, `my arrow hit ${e.hit} ${e.d} m away — ${this.howItMissed(e)}`, MINDS.weight.hurt);
         break;
 
       // ── being given something is a social fact, not an inventory event ──
@@ -441,21 +450,21 @@ export class Agent {
       // undercut another, or notice that somebody has promised the same venison
       // twice.
       case 'offer':
-        if (e.to === this.id) this.memory.add(this.hours, `${e.from} offers me ${e.item} for ${e.want}`);
-        else if (mine) this.memory.add(this.hours, `I offered ${e.item} to ${e.n} for ${e.want}`);
-        else this.memory.add(this.hours, `${e.from} offers ${e.n} ${e.item} for ${e.want}`);
+        if (e.to === this.id) this.memory.add(this.hours, `${e.from} offers me ${e.item} for ${e.want}`, MINDS.weight.trade);
+        else if (mine) this.memory.add(this.hours, `I offered ${e.item} to ${e.n} for ${e.want}`, MINDS.weight.trade);
+        else this.memory.add(this.hours, `${e.from} offers ${e.n} ${e.item} for ${e.want}`, MINDS.weight.trade);
         break;
 
       case 'trade':
         if (mine) this.did('trade', `I traded ${e.gave} to ${e.n} for ${e.got}`);
         else if (e.to === this.id) this.did('trade', `I got ${e.gave} from ${e.from} for ${e.got}`);
-        else this.memory.add(this.hours, `${e.from} traded ${e.gave} to ${e.n} for ${e.got}`);
+        else this.memory.add(this.hours, `${e.from} traded ${e.gave} to ${e.n} for ${e.got}`, MINDS.weight.trade);
         break;
 
       case 'gift':
-        if (e.to === this.id) this.memory.add(this.hours, `${e.from} gave me ${e.id}`);
+        if (e.to === this.id) this.memory.add(this.hours, `${e.from} gave me ${e.id}`, MINDS.weight.trade);
         else if (mine) this.did('give', `I gave ${e.id} to ${e.n}`);
-        else this.memory.add(this.hours, `${e.from} gave ${e.id} to ${e.n}`);
+        else this.memory.add(this.hours, `${e.from} gave ${e.id} to ${e.n}`, MINDS.weight.trade);
         break;
       case 'hit':
         // ── AND WHO DID IT, WHICH IS THE WHOLE POINT ──
@@ -464,10 +473,10 @@ export class Agent {
         // had been shot and not by whom, so retaliation was impossible and no
         // duel could ever happen — the mind had no name to put in `attack`.
         // The event has carried the shooter's id all along; nobody resolved it.
-        if (mine) this.memory.add(this.hours, `my arrow struck ${e.n ?? 'someone'} for ${e.dmg}`);
+        if (mine) this.memory.add(this.hours, `my arrow struck ${e.n ?? 'someone'} for ${e.dmg}`, MINDS.weight.hurt);
         else if (atMe) {
           const who = e.n ?? this.others.get(e.by) ?? 'someone';
-          this.memory.add(this.hours, `${who} shot me for ${e.dmg}`);
+          this.memory.add(this.hours, `${who} shot me for ${e.dmg}`, MINDS.weight.shot);
           this.shotBy = who;
         }
         break;
@@ -483,17 +492,18 @@ export class Agent {
           this.wounds.push({ h: +this.hours.toFixed(2), what: e.n, dmg: e.dmg, hp: e.hp, id: e.i });
           this.lastShot = null; // it hit; there is no miss to measure
           this.memory.add(this.hours,
-            `my arrow went into the ${e.n.toLowerCase()} — ${e.dmg} damage, it is still up with ${e.hp} left`);
+            `my arrow went into the ${e.n.toLowerCase()} — ${e.dmg} damage, it is still up with ${e.hp} left`,
+            MINDS.weight.hurt);
         }
         break;
       case 'glance':
-        if (mine || atMe) this.memory.add(this.hours, `an arrow was refused — ${e.why}`);
+        if (mine || atMe) this.memory.add(this.hours, `an arrow was refused — ${e.why}`, MINDS.weight.refused);
         break;
       case 'kill':
         // Not gated on `mine`: a carcass on the ground is worth knowing about
         // however it got there. This is the entry that makes scavenging
         // somebody else's kill a thing a mind can decide to do.
-        this.memory.add(this.hours, `a ${e.n.toLowerCase()} went down near ${Math.round(e.at[0])},${Math.round(e.at[2])}`);
+        this.memory.add(this.hours, `a ${e.n.toLowerCase()} went down near ${Math.round(e.at[0])},${Math.round(e.at[2])}`, MINDS.weight.kill);
         // ...but WHOSE it was is now on the event, and a body should know the
         // difference between meat it earned and meat it found. Everything that
         // asks "can this thing hunt" has to read this rather than the sentence
@@ -504,7 +514,7 @@ export class Agent {
         }
         break;
       case 'death':
-        this.memory.add(this.hours, `${e.n} was killed by ${e.by} ${e.where ?? ''}`.trim());
+        this.memory.add(this.hours, `${e.n} was killed by ${e.by} ${e.where ?? ''}`.trim(), MINDS.weight.kill);
         break;
     }
   }
@@ -702,7 +712,7 @@ export class Agent {
       this.noticing = 0;
       try {
         const seen = this.brief().contacts.slice(0, 2);
-        for (const c of seen) this.memory.add(this.hours, `${c.what} ${c.distance}, ${c.doing}`);
+        for (const c of seen) this.memory.add(this.hours, `${c.what} ${c.distance}, ${c.doing}`, MINDS.weight.sighting);
       } catch { /* a brief we cannot build is not worth a crash */ }
     }
 
@@ -910,7 +920,7 @@ export class Agent {
       return;
     }
     for (const c of brief.contacts) {
-      this.memory.add(this.hours, `${c.what} ${c.distance}, ${c.doing}`);
+      this.memory.add(this.hours, `${c.what} ${c.distance}, ${c.doing}`, MINDS.weight.sighting);
     }
 
     this.thinking = true;
@@ -976,7 +986,7 @@ export class Agent {
           this.gagged = (this.gagged ?? 0) + 1;
           this.onLog?.(`${this.name}: (wanted to say "${goal.text}" — too soon, ${sinceSpoke.toFixed(2)}h of ${AGENTS.speakEveryHours}h)`);
         } else if (changed) {
-          this.memory.add(this.hours, `I decided to ${describeGoal(goal)}`);
+          this.memory.add(this.hours, `I decided to ${describeGoal(goal)}`, MINDS.weight.decided);
           this.onLog?.(`${this.name}: ${describeGoal(goal)}${goal.why ? ` — ${goal.why}` : ''}`);
           // ── the thread a watcher follows ──
           // Kept out of `Memory`'s forty-entry ring buffer, which fills with
@@ -1826,7 +1836,7 @@ export class Agent {
         this.endDetour('stood up instead');
         if (this.shotWhy !== 'stand') {
           this.shotWhy = 'stand';
-          this.memory.add(this.hours, `standing up to see over the ground at ${Math.round(dist)} m`);
+          this.memory.add(this.hours, `standing up to see over the ground at ${Math.round(dist)} m`, MINDS.weight.sighting);
         }
         return;
       }
@@ -1897,7 +1907,7 @@ export class Agent {
         i.crouch = dist < AGENTS.stalkWithin;
         if (this.shotWhy !== 'detour') {
           this.shotWhy = 'detour';
-          this.memory.add(this.hours, `stepping ${Math.abs(detour.step)} m aside for a clear line`);
+          this.memory.add(this.hours, `stepping ${Math.abs(detour.step)} m aside for a clear line`, MINDS.weight.sighting);
           this.openDetour(dist, detour.step, shot.blockedBy, detour.along ?? 0);
         }
         this.walkDetour(dt, dist, detour.step);
@@ -1909,7 +1919,7 @@ export class Agent {
       i.crouch = dist < AGENTS.stalkWithin; // stop spooking it
       if (this.shotWhy !== shot.why) {
         this.shotWhy = shot.why;
-        this.memory.add(this.hours, `no shot at ${Math.round(dist)} m — ${shot.why}`);
+        this.memory.add(this.hours, `no shot at ${Math.round(dist)} m — ${shot.why}`, MINDS.weight.sighting);
         // ── and kept where the ring buffer cannot lose it ──
         // A refusal is the commonest thing that happens to a hunting body and
         // the least visible: it produces no arrow, no event and no line anybody
@@ -2095,7 +2105,9 @@ export class Agent {
     this.goal = goal;
     this.goalCounts[goal.kind] = (this.goalCounts[goal.kind] ?? 0) + 1;
     this.ordered = true;
-    this.memory.add(this.hours, `I was told to ${describeGoal(goal)}`);
+    // A HUMAN gave this order. Weighted like being shot, because the one thing
+    // worse than a companion that ignores you is one that forgets you asked.
+    this.memory.add(this.hours, `I was told to ${describeGoal(goal)}`, MINDS.weight.shot);
     this.onLog?.(`${this.name}: ${describeGoal(goal)} (ordered)`);
   }
 
@@ -2270,7 +2282,7 @@ export class Agent {
       why: this.goal?.why ?? null,
       goal: describeGoal(this.goal),
       decisions: this.decisions,
-      remembers: this.memory.entries.length,
+      remembers: this.memory.all().length,
       others: this.others.size,
       thinking: this.thinking,
       lastError: this.lastError ?? null,

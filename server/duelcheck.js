@@ -102,7 +102,7 @@ async function main() {
     // arrow flight is `shotcheck`'s job and already covered, and what is being
     // asked here is whether a NAME reaches the mind.
     victim.remember({ k: 'hit', id: victim.id, by: 9, n: 'Tormod', dmg: 11 });
-    const said = victim.memory.entries.map((e) => e.text ?? String(e)).join(' | ');
+    const said = victim.memory.all().map((e) => e.text ?? String(e)).join(' | ');
     check('A BODY LEARNS WHO SHOT IT, not merely that it was shot',
       /Tormod shot me/.test(said),
       said.split(' | ').filter((t) => /shot me/.test(t))[0] ?? said.slice(0, 90));
@@ -119,7 +119,7 @@ async function main() {
     stray.id = 5;
     stray.others = new Map();
     stray.remember({ k: 'hit', id: 5, by: 99, dmg: 7 });
-    const strayText = stray.memory.entries.map((e) => e.text ?? String(e)).join(' | ');
+    const strayText = stray.memory.all().map((e) => e.text ?? String(e)).join(' | ');
     check('  …and an unknown shooter reads as "someone", never as undefined',
       /someone shot me/.test(strayText) && !/undefined/.test(strayText),
       strayText.slice(0, 80));

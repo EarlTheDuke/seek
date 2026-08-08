@@ -59,7 +59,8 @@
     "givecheck": "node server/givecheck.js",
     "duelcheck": "node server/duelcheck.js",
     "goldcheck": "node server/goldcheck.js",
-    "tradecheck": "node server/tradecheck.js"
+    "tradecheck": "node server/tradecheck.js",
+    "memcheck": "node server/memcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

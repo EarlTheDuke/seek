@@ -79,6 +79,20 @@ const PET = process.env.PET ?? null;
 // can play straight.
 const NARRATE = /^(on|yes|1|true)$/i.test(process.env.NARRATE ?? '');
 
+// ── MEMORY=flat: the control arm for the memory split ──
+//
+// `flat` is one undifferentiated ring with recency-only recall — exactly how
+// this project worked until 2026-08-08, when it was measured that an event
+// survived precisely ONE decision before perception evicted it. The default is
+// the two-stream, importance-scored version.
+//
+// It is a switch and not a rewrite because "how much of a model's competence is
+// the scaffolding rather than the model" is a question that needs BOTH arms of
+// a run to answer, and this project has now twice concluded a model was
+// incompetent when the harness was at fault. See lmgame-Bench's modular
+// scaffolds, and WHAT-A-MIND-IS-GIVEN.md.
+const MEMORY_FLAT = /^(flat|off|old)$/i.test(process.env.MEMORY ?? '');
+
 // ── DETOUR=commit: a step aside becomes a DESTINATION ──
 //
 //   DETOUR=commit npm run agents
@@ -210,6 +224,9 @@ if (cast.some(Boolean)) {
 if (NARRATE) {
   console.log('  narrating: each mind says what it is doing and why, in the chat column');
 }
+console.log(MEMORY_FLAT
+  ? '  memory: FLAT — one ring, recency only. The pre-2026-08-08 control arm.'
+  : '  memory: two streams — sightings cannot evict what happened (MEMORY=flat for the old behaviour)');
 console.log('');
 
 const agents = [];
@@ -234,6 +251,7 @@ async function main() {
       // itself went into the provider above.
       persona: entry?.character ? null : cast[i],
       narrate: NARRATE,
+      memoryFlat: MEMORY_FLAT,
       commitDetour: COMMIT_DETOUR,
       closeDetour: CLOSE_DETOUR,
       // Per-agent, so a ponderous mind and a twitchy one can share a hillside —

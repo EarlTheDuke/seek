@@ -252,7 +252,7 @@ async function main() {
         qid: agent.target?.quarry ? agent.target.id : null,
       });
     }
-    if (agent.memory.entries.some((e) => e.text.includes('went down'))) anyDeerDown = true;
+    if (agent.memory.all().some((e) => e.text.includes('went down'))) anyDeerDown = true;
     await sleep(1000 / 30);
   }
   const killed = agent.kills.length > 0;
@@ -291,8 +291,8 @@ async function main() {
 
   // The bit that makes a miss worth having: an agent that shot and missed
   // should be able to say so afterwards, in a sentence with a number in it.
-  const misses = agent.memory.entries.filter((e) => e.text.includes('a miss'));
-  const noShot = agent.memory.entries.filter((e) => e.text.startsWith('no shot'));
+  const misses = agent.memory.all().filter((e) => e.text.includes('a miss'));
+  const noShot = agent.memory.all().filter((e) => e.text.startsWith('no shot'));
   check('it can say what went wrong', misses.length + noShot.length > 0 || killed,
     `${misses.length} remembered misses, ${noShot.length} refused shots`);
   if (misses.length) console.log(`\n      e.g. "${misses.at(-1).text}"`);

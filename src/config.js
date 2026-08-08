@@ -1015,9 +1015,62 @@ export const MINDS = {
   speakEveryHours: 0.4, // in-game hours between remarks
 
   // Memory, in words rather than coordinates.
-  memorySize: 40, // kept
-  memoryRecall: 5, // handed to a decision
+  memorySize: 40, // kept — the flat ring, used only by MEMORY=flat
+  memoryRecall: 5, // handed to a decision, ditto
   memoryHours: 24, // how long something still feels recent
+
+  // ── TWO STREAMS, BECAUSE PERCEPTION WAS EATING EVERYTHING ──
+  //
+  // Measured 2026-08-08: a memory in this game had a half-life of exactly ONE
+  // decision. `Memory` was a single 40-entry ring handing the model its last 5
+  // entries, and perception wrote ~26 entries between two thoughts — two
+  // sightings every `AGENTS.noticeSeconds`, plus `maxContacts` more at each
+  // deliberation. So "I brought down a deer" and "Eachann offers me venison for
+  // wood" were visible for one decision and then gone, and four of the five
+  // lines a model ever saw were "a deer, somewhere, walking".
+  //
+  // That single fact explains most of a seven-hour run: a mind said the same
+  // sentence three times because it had no memory of saying it, a barter died
+  // between step one and step two, and an apparent sustained grudge turned out
+  // to be the same thought had forty times, re-derived from what was in front
+  // of it. The code already half-knew — see the comment on `intentions` in
+  // agent.js, which moved the DECISION log out of this ring for the report
+  // while leaving what the MODEL sees alone.
+  //
+  // So: sightings go in one ring and things that HAPPENED go in another, and
+  // the second is never evicted by the first. This is the cheap half of the
+  // Generative Agents design (recency + importance); relevance and reflection
+  // are deliberately not here yet.
+  eventsKept: 60, // things that happened — kills, trades, shots, speech
+  noticedKept: 12, // sightings — cheap, disposable, overwritten constantly
+  eventsRecalled: 6, // events handed to a decision, best-scoring first
+  noticedRecalled: 3, // and this many recent sightings, for situational sense
+
+  // Scoring is `importance × 0.5^(age / halfLife)`, so a 9 stays ahead of a 1
+  // for about three half-lives. In GAME hours: a day is 26 real minutes, so 6
+  // game-hours is about six and a half real minutes of relevance for a middling
+  // memory and most of an hour for being shot.
+  memoryHalfLife: 6,
+
+  // The table. Hand-written on purpose: the full Generative Agents version asks
+  // the model to rate its own memories 1-10 when they are written, which costs
+  // a call per memory. A table is free and captures most of the benefit — and
+  // being wrong about the weights is cheap to fix, whereas having no weights at
+  // all is the thing that lost every event in the run above.
+  weight: {
+    shot: 9, // somebody put an arrow in me
+    trade: 8, // an offer, a gift, a bargain struck
+    kill: 7, // meat exists somewhere, mine or not
+    spoke: 7, // what I said, so I do not say it again
+    heard: 6, // what somebody said to me
+    hurt: 6, // an arrow of mine hit something
+    decided: 5, // "I decided to ..." — the thread of my own intent
+    refused: 4, // an act the world would not allow
+    event: 3, // anything else that HAPPENED. The default: fail toward
+    //           remembering, because an unweighted event scored as a sighting
+    //           is exactly the bug this table exists to kill.
+    sighting: 1, // "a deer, close, walking"
+  },
 
   // The decision log, which is what makes a run with a model in it replayable.
   logSize: 500,

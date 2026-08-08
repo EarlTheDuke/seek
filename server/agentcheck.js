@@ -109,8 +109,8 @@ check('they actually walk', moved >= 2, `${moved} of ${agents.length} moved more
 check('and the server still governs them', fastest < 10,
   `fastest ${fastest.toFixed(1)} m/s — a sprint is 8.6, so nothing is teleporting`);
 
-check('they build memories from what they see', agents.some((a) => a.memory.entries.length > 0),
-  `${agents.map((a) => a.memory.entries.length).join('/')} memories`);
+check('they build memories from what they see', agents.some((a) => a.memory.all().length > 0),
+  `${agents.map((a) => a.memory.all().length).join('/')} memories`);
 // Give them long enough to actually deliberate, or this passes vacuously with
 // nought decisions and nought log entries — which it did.
 const t1 = Date.now();

@@ -107,8 +107,10 @@ console.log('');
 await run(20);
 check('the scripted mind decides', rival.mind.decisions > 0,
   `${rival.mind.decisions} decisions, currently "${rival.mind.status.goal}"`);
-check('and it remembers what it saw', rival.mind.memory.entries.length > 0,
-  `${rival.mind.memory.entries.length} memories, e.g. "${rival.mind.memory.entries.at(-1)?.text}"`);
+// `memory.all()` and not `memory.entries` — there are two streams now and
+// `entries` belongs to the flat control arm. See src/minds/mind.js.
+check('and it remembers what it saw', rival.mind.memory.all().length > 0,
+  `${rival.mind.memory.all().length} memories, e.g. "${rival.mind.memory.all().at(-1)?.text}"`);
 
 const startedAt = { x: rp.x, z: rp.z };
 await run(25);
