@@ -216,6 +216,18 @@ export function boardState(agents, meta = {}) {
           .filter(([, n]) => n > 0)
           .map(([id, n]) => ({ id, n })),
 
+        // ── THE PURSE, pulled out of the pack ──
+        //
+        // Gold is in `carrying` already, sitting between the branches and the
+        // arrows, which is where a number nobody can find lives. It is the one
+        // item whose whole meaning is the count — six branches and seven
+        // branches are the same story, six coins and seventeen coins are not —
+        // and watching an economy means watching that number move.
+        //
+        // Always present, zero included, so a column does not appear and vanish
+        // as somebody spends up.
+        gold: a.carrying?.gold ?? 0,
+
         // ── tallies ──
         decisions: s.decisions ?? 0,
         tokens: s.tokens ?? 0,

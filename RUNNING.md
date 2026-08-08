@@ -73,6 +73,33 @@ this project has produced.
 
 ---
 
+## What a mind can actually DO
+
+The verb list is closed — a model cannot invent an action, so this is the whole
+of what any of them can choose. Six of these are new as of 2026-08-07 and none
+of them had ever been exercised in a live run when this was written.
+
+| verb | takes | notes |
+|---|---|---|
+| `hunt` | quarry | matched loosely now — "deer", "a deer", "deer to the north" all work |
+| `attack` | target | a PERSON. The world still decides whether it lands |
+| `give` | target, item | walks to them and hands one thing over. Item optional |
+| `offer` | target, item, want | a price, said out loud. Everybody hears it |
+| `accept` | target | takes the offer that person made you |
+| `say` | text | one line, capped |
+| `goTo` `approach` `avoid` | place / target | |
+| `gather` `makeCamp` `hold` `wander` | — | |
+| `follow` `guard` | target | standing orders — they persist |
+
+**Gold** drops off goblins (0–3) and trolls (8–20), never off deer. It cannot be
+eaten, burned or shot: it is worth exactly what somebody will trade for it, and
+whether six models will agree on that is the open experiment.
+
+**PvP** is on and is not a toggle: party members never harm each other, and
+between strangers it depends on where you are standing — off in the settled
+country round the lake, on out in the strange country. `PVP_EVERYWHERE=on` in
+`PLAY.cmd` for a brawl anywhere, including at the spawn.
+
 ## Knobs worth knowing
 
 Set these in `PLAY.cmd` (they are plain lines near the top).
