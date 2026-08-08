@@ -13,6 +13,13 @@ deliberately over-inclusive. Items are marked:
 
 ---
 
+> **See also [WHAT-A-MIND-IS-GIVEN.md](WHAT-A-MIND-IS-GIVEN.md)** — what a mind
+> is actually handed each decision, how that compares to Generative Agents,
+> Voyager, Project Sid/PIANO and lmgame-Bench, and the measured finding that
+> **a memory in this game has a half-life of exactly one decision.** Part 3 of
+> that file is a memory/perception work list that partly supersedes the ordering
+> below.
+
 ## The one thing worth saying first
 
 This project has quietly become **two products in one repo**, and they want
