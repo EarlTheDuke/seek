@@ -87,6 +87,17 @@ export function createIntent() {
     // `goTo` already follow.
     give: '',
     giveItem: '',
+
+    // ── A BARGAIN, in four strings ──
+    //
+    // `offer` is who it is for; `offerItem` what is on the table; `offerWant`
+    // what is wanted back. `accept` is whose offer is being taken. Nothing is
+    // reserved by making an offer — it is a promise, and it is checked against
+    // both packs only at the moment somebody accepts.
+    offer: '',
+    offerItem: '',
+    offerWant: '',
+    accept: '',
     // ── ease the string down without loosing ──
     //
     // Edge-triggered. The trigger above is EDGE-DETECTED — the shot happens on
@@ -133,6 +144,10 @@ export function clearIntent(i) {
   i.craft = '';
   i.give = '';
   i.giveItem = '';
+  i.offer = '';
+  i.offerItem = '';
+  i.offerWant = '';
+  i.accept = '';
   i.letdown = false;
   i.alternate = false;
   i.selectSlot = -1;
@@ -158,6 +173,10 @@ export function copyIntent(to, from) {
   to.craft = from.craft;
   to.give = from.give;
   to.giveItem = from.giveItem;
+  to.offer = from.offer;
+  to.offerItem = from.offerItem;
+  to.offerWant = from.offerWant;
+  to.accept = from.accept;
   to.letdown = from.letdown;
   to.alternate = from.alternate;
   to.selectSlot = from.selectSlot;
@@ -212,6 +231,10 @@ export function sanitiseIntent(i, maxLookPerTick = 0.35) {
   const name = (v, n) => (typeof v === 'string' ? v.replace(/[ -]/g, '').trim().slice(0, n) : '');
   i.give = name(i.give, 24);
   i.giveItem = name(i.giveItem, 24);
+  i.offer = name(i.offer, 24);
+  i.offerItem = name(i.offerItem, 24);
+  i.offerWant = name(i.offerWant, 24);
+  i.accept = name(i.accept, 24);
   i.letdown = !!i.letdown;
   i.alternate = !!i.alternate;
   i.selectSlot = Number.isInteger(i.selectSlot) ? i.selectSlot : -1;

@@ -692,6 +692,94 @@ export class SimWorld {
   }
 
   /**
+   * Say what you will take for something. A promise, not an escrow.
+   *
+   * NOTHING IS RESERVED, and that is the design rather than a shortcut. An
+   * offer is words: it is checked against both packs only at the instant
+   * somebody accepts it, so a mind can offer what it does not have and be found
+   * out, and a hoarder can promise the same venison to three people and deliver
+   * it once. Reserving the goods would make every offer honest by construction,
+   * which is exactly the thing this roster has a liar in it to test.
+   *
+   * Broadcast, not whispered. The whole table hears a price — that is what
+   * makes it a market rather than six private conversations, and it is the only
+   * way a watcher can see one mind undercut another.
+   */
+  resolveOffer(from, toName, itemId, wantId) {
+    if (from.body.dead) return;
+    const to = this.playerNamed(toName, from);
+    if (!to) return;
+    const item = String(itemId ?? '').trim();
+    const want = String(wantId ?? '').trim();
+    if (!item || !want) return;
+
+    from.offer = { to: to.id, item, want };
+    this.events.push({ k: 'offer', by: from.id, from: from.name, to: to.id, n: to.name, item, want });
+  }
+
+  /**
+   * Take somebody up on it. THIS is the transaction, and it is all-or-nothing.
+   *
+   * Checked at THIS moment, not at the moment of the offer: both people have to
+   * still be here, still be in reach, and still be holding what they said. An
+   * offer that was true five minutes ago and is not true now simply fails, and
+   * fails quietly — the mind that promised has already been seen to promise, in
+   * the event log, which is the part that matters for a liar.
+   *
+   * The swap is ordered so nothing can be minted: both removals are attempted
+   * first and rolled back together if either falls short. Crediting anybody
+   * before both debits have succeeded is how a shared world gets a money
+   * printer, and there is no recovering from one of those.
+   */
+  resolveAccept(taker, fromName) {
+    if (taker.body.dead) return;
+    const giver = this.playerNamed(fromName, taker);
+    if (!giver) return;
+
+    const deal = giver.offer;
+    if (!deal || deal.to !== taker.id) return;
+
+    const d = Math.hypot(
+      taker.ctrl.position.x - giver.ctrl.position.x,
+      taker.ctrl.position.z - giver.ctrl.position.z
+    );
+    if (d > SOCIAL.giveRange) return;
+
+    // Neither side may hand over the bow, by the same rule `giftFrom` follows:
+    // the thing that makes you a hunter is not tradeable.
+    if (KEEP_ON_DEATH.has(deal.item) || KEEP_ON_DEATH.has(deal.want)) return;
+    if (giver.inventory.countOf(deal.item) < 1) return;
+    if (taker.inventory.countOf(deal.want) < 1) return;
+
+    if (giver.inventory.remove(deal.item, 1) !== 1) return;
+    if (taker.inventory.remove(deal.want, 1) !== 1) {
+      giver.inventory.add(deal.item, 1); // put it back; nobody loses a thing
+      return;
+    }
+    taker.inventory.add(deal.item, 1);
+    giver.inventory.add(deal.want, 1);
+
+    giver.offer = null;
+    giver.dirty = true;
+    taker.dirty = true;
+    this.events.push({
+      k: 'trade', by: giver.id, from: giver.name, to: taker.id, n: taker.name,
+      gave: deal.item, got: deal.want,
+    });
+  }
+
+  /** The one person of that name who is not you, or null. */
+  playerNamed(name, notThis = null) {
+    const want = String(name ?? '').trim().toLowerCase();
+    if (!want) return null;
+    for (const q of this.playersInOrder()) {
+      if (q === notThis || q.body.dead || !q.connected) continue;
+      if (String(q.name).trim().toLowerCase() === want) return q;
+    }
+    return null;
+  }
+
+  /**
    * What to hand over when a mind did not say.
    *
    * Food first — it is what a hungry person needs, and "generous" in this world
@@ -1058,6 +1146,20 @@ export class SimWorld {
       this.resolveGive(p, wantsGive, intent.giveItem);
     }
     p.giveWasHeld = wantsGive;
+
+    // Both edge-detected for the same reason `give` is: the intent persists
+    // between packets and packets arrive at half the tick rate.
+    const wantsOffer = intent.offer || '';
+    if (wantsOffer && wantsOffer !== p.offerWasHeld) {
+      this.resolveOffer(p, wantsOffer, intent.offerItem, intent.offerWant);
+    }
+    p.offerWasHeld = wantsOffer;
+
+    const wantsAccept = intent.accept || '';
+    if (wantsAccept && wantsAccept !== p.acceptWasHeld) {
+      this.resolveAccept(p, wantsAccept);
+    }
+    p.acceptWasHeld = wantsAccept;
     // ── E picks up what is at YOUR feet, not what is at the anchor's ──
     //
     // `Pickups.collect` takes whatever `update` last found, and `update` is

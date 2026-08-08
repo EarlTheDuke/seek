@@ -434,6 +434,24 @@ export class Agent {
       // being given to, giving, and watching somebody else be generous. The
       // last one is what lets a mind form an opinion about a person it has
       // never traded with.
+      // ── A PRICE IS PUBLIC ──
+      //
+      // Everybody hears every offer, which is what makes this a market rather
+      // than six private conversations — and it is the only way one mind can
+      // undercut another, or notice that somebody has promised the same venison
+      // twice.
+      case 'offer':
+        if (e.to === this.id) this.memory.add(this.hours, `${e.from} offers me ${e.item} for ${e.want}`);
+        else if (mine) this.memory.add(this.hours, `I offered ${e.item} to ${e.n} for ${e.want}`);
+        else this.memory.add(this.hours, `${e.from} offers ${e.n} ${e.item} for ${e.want}`);
+        break;
+
+      case 'trade':
+        if (mine) this.did('trade', `I traded ${e.gave} to ${e.n} for ${e.got}`);
+        else if (e.to === this.id) this.did('trade', `I got ${e.gave} from ${e.from} for ${e.got}`);
+        else this.memory.add(this.hours, `${e.from} traded ${e.gave} to ${e.n} for ${e.got}`);
+        break;
+
       case 'gift':
         if (e.to === this.id) this.memory.add(this.hours, `${e.from} gave me ${e.id}`);
         else if (mine) this.did('give', `I gave ${e.id} to ${e.n}`);
@@ -839,6 +857,13 @@ export class Agent {
         : this.coreC < 34.5 ? 'badly chilled'
         : this.coreC < 35.6 ? 'shivering' : 'warm enough',
       contacts: contacts.slice(0, AGENTS.maxContacts).map(({ _m, ...r }) => r),
+      // ── WHO SHOT YOU, kept out of the ring buffer ──
+      //
+      // It is in `memory` too, but memory is forty entries of noticing and an
+      // hour of walking past deer scrolls a grudge straight out of it. The one
+      // fact a body needs to return fire is who it should return it AT, and
+      // that is worth a field of its own. Null for anybody nobody has shot.
+      shotBy: this.shotBy ?? null,
       heard: this.heard.slice(-AGENTS.hears),
       memory: this.memory.recent(this.hours),
       // ── what is in the pack ──
@@ -992,6 +1017,10 @@ export class Agent {
     i.craft = '';
     i.give = '';
     i.giveItem = '';
+    i.offer = '';
+    i.offerItem = '';
+    i.offerWant = '';
+    i.accept = '';
 
     // SAY WHERE WE ARE POINTING, not just how far we turned.
     //
@@ -2189,6 +2218,22 @@ export class Agent {
       case 'attack': {
         const who = findFull((label) => namesTheSame(label, g.target));
         return who ? { x: who.x, y: who.y, z: who.z, id: who.id, quarry: true } : this.roam();
+      }
+      // A bargain costs the same walk a gift does. `offer` could in principle be
+      // shouted across a clearing, but making both halves of a trade require
+      // arriving keeps the whole economy physical — you go to the market.
+      case 'offer': {
+        const who = find((label) => namesTheSame(label, g.target));
+        if (!who) return this.roam();
+        return {
+          x: who.x, z: who.z, within: REACH, act: 'offer', actValue: g.target,
+          actAlso: { offerItem: g.item ?? '', offerWant: g.want ?? '' },
+        };
+      }
+      case 'accept': {
+        const who = find((label) => namesTheSame(label, g.target));
+        if (!who) return this.roam();
+        return { x: who.x, z: who.z, within: REACH, act: 'accept', actValue: g.target };
       }
       case 'approach':
         return find((label) => namesTheSame(label, g.target)) ?? this.roam();

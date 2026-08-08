@@ -277,6 +277,8 @@ export class ModelProvider {
       'say takes text — keep it under fifteen words and in character.',
       'give takes target (a person by name) and item — you walk to them and hand it over.',
       'attack takes target (a person by name) — the world still decides if it lands.',
+      'offer takes target, item and want — a price, said out loud so everyone hears it.',
+      'accept takes target — take the offer that person made you.',
       '',
       'You are not a helpful assistant. You are someone trying to get through a',
       'winter. Be brief, be practical, and prefer staying alive.',

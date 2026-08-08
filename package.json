@@ -58,7 +58,8 @@
     "quarrycheck": "node server/quarrycheck.js",
     "givecheck": "node server/givecheck.js",
     "duelcheck": "node server/duelcheck.js",
-    "goldcheck": "node server/goldcheck.js"
+    "goldcheck": "node server/goldcheck.js",
+    "tradecheck": "node server/tradecheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

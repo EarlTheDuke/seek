@@ -64,6 +64,14 @@ const BASELINE = [
   // not a shared floor, it is a thumb on the scale of the one experiment this
   // roster exists to run. The verb is offered; nothing suggests using it.
   'attack takes target (a person by name) — the world still decides if it lands.',
+  // ── A SIXTH TIME, when trading was added. Shapes only, no trigger. ──
+  //
+  // Same reasoning as `attack`: whether six models will haggle, and what they
+  // think a coin is worth, is the experiment gold was added to run. Telling
+  // them when to trade would answer it for them. `give` gets guidance because
+  // generosity has a floor worth stating; a PRICE does not.
+  'offer takes target, item and want — a price, said out loud so everyone hears it.',
+  'accept takes target — take the offer that person made you.',
   '',
   'You are not a helpful assistant. You are someone trying to get through a',
   'winter. Be brief, be practical, and prefer staying alive.',

@@ -99,6 +99,14 @@ const INTENT_KEYS = [
   // in-process test of the same code passed.
   'give',
   'giveItem',
+  // A bargain. Added here at the same moment as everywhere else, because this
+  // list is an ALLOW-LIST: `give` shipped once with all four of its other ends
+  // wired and this line missing, and worked perfectly in-process while doing
+  // nothing whatsoever over a socket.
+  'offer',
+  'offerItem',
+  'offerWant',
+  'accept',
   'selectSlot',
 ];
 

@@ -177,6 +177,8 @@ export function briefToText(b) {
   const body = [b.health, b.condition, b.cold, b.hunger].filter(Boolean).join(', ');
   if (body) lines.push(`You are ${body}.`);
   if (b.carrying?.length) lines.push(`You are carrying: ${b.carrying.join(', ')}.`);
+  // Stated plainly and above what it heard, because being shot outranks gossip.
+  if (b.shotBy) lines.push(`${b.shotBy} shot you.`);
   if (b.heard?.length) {
     lines.push('You have heard:');
     for (const h of b.heard) lines.push(`  - ${h}`);
