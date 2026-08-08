@@ -256,6 +256,14 @@ export function boardState(agents, meta = {}) {
         strays: strays.slice(-SHOW.strays).map((x) => ({ into: x.hit ?? null, text: strayWords(x) })),
         refusals: (a.refusals ?? []).slice(-SHOW.refusals),
         said: (a.said ?? []).slice(-SHOW.said),
+        // ── THE TWO THINGS A MIND WROTE FOR ITSELF ──
+        //
+        // Everything else on this card is what the mind DID or what the world
+        // did to it. These are the only fields it authored on its own behalf,
+        // handed back to it each decision and never read by the world — and
+        // for a watcher they are far and away the most interesting thing here.
+        plan: a.plan ?? [],
+        note: a.note ?? '',
       };
     }),
   };
@@ -306,6 +314,11 @@ export function boardHtml() {
   li.miss { color:#a8767a; }
   li.hit { color:#a8d5a2; }
   li.said { color:#c9a86a; }
+  /* A mind's own words get their own colour: everything else on a card is
+     reported by the world, and these two are not. */
+  ol.plan { margin:0; padding-left:1.2em; color:#9fd0b0; }
+  ol.plan li { margin:0.15em 0; }
+  p.note { margin:0.2em 0 0; color:#c9a86a; font-style:italic; white-space:pre-wrap; }
   .empty { color:#4a5259; font-style:italic; }
   footer { padding:10px 18px 24px; color:#4a5259; font-size:12px; }
 </style>
@@ -389,6 +402,13 @@ function card(p) {
     + (p.said && p.said.length
         ? '<h2>said</h2><ul>' + p.said.map((s) => '<li class="said">“' + esc(s) + '”</li>').join('') + '</ul>'
         : '')
+    // The mind's own two fields, last, because they are what a watcher lingers
+    // on once they have taken in what it is doing.
+    + (p.plan && p.plan.length
+        ? '<h2>its plan</h2><ol class="plan">'
+          + p.plan.map((l) => '<li>' + esc(l) + '</li>').join('') + '</ol>'
+        : '')
+    + (p.note ? '<h2>its notes</h2><p class="note">' + esc(p.note) + '</p>' : '')
   + '</div>';
 }
 

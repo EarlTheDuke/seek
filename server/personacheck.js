@@ -71,6 +71,17 @@ const BASELINE = [
   '"say" is not a verb — add it to ANY decision and you speak while you act.',
   '  {"kind":"hunt","quarry":"deer","say":"that one is mine, I hit it"}',
   'Keep it under fifteen words and in character. It costs you nothing.',
+  // ── AN EIGHTH TIME, when a mind got somewhere to put step two. Same commit. ──
+  //
+  // `plan` and `note` are the only two things in the brief a mind writes for
+  // itself. Shared-floor mechanics again, not strategy: they describe a place to
+  // keep an intention, and say nothing about what to intend. Every mind gets
+  // them identically, personas on or off.
+  '"plan" is up to three short lines you write for yourself, handed back to',
+  'you next time. Leave it out to keep it; send [] to clear it.',
+  '  {"kind":"goTo","place":"the loch","plan":["get meat","trade wood to Eachann for some"]}',
+  '"note" is a page of your own — a grudge, a price, a promise. Nobody else',
+  'reads it. Same rule: leave it out to keep it, send "" to clear it.',
   'give takes target (a person by name) and item — you walk to them and hand it over.',
   // ── AND A FOURTH TIME, when `attack` was added, same commit ──
   //

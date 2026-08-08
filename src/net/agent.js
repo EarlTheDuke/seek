@@ -188,6 +188,16 @@ export class Agent {
     // nothing, so it happens again. This is the channel that closes the loop:
     // filled as things happen, drained into the brief at each decision.
     this.outcomes = [];
+    // ── THE STANDING PLAN, AND THE PAGE ──
+    //
+    // Both are written by the mind and handed straight back to it, and neither
+    // is ever read by the world. `plan` is up to three short lines; `note` is
+    // one unstructured page. They exist because every decision used to start
+    // from nothing but a one-line goal, so a mind that formed a two-step
+    // intention — "go to Eachann, offer branches for meat" — had nowhere to
+    // keep step two, and step two never happened.
+    this.plan = [];
+    this.note = '';
     this.goal = { kind: 'wander' };
     this.since = 0;
     this.thinking = false;
@@ -919,6 +929,11 @@ export class Agent {
       // What the last stretch of acting actually did. Drained by `deliberate`,
       // so each line is seen exactly once by exactly one decision.
       outcome: (this.outcomes ?? []).map((o) => (o.n > 1 ? `${o.text} (${o.n} times)` : o.text)),
+      // Handed back unchanged. The world neither reads nor acts on either of
+      // these — they are a mind's own working memory, and the only thing that
+      // makes a multi-step intention survive the decision that formed it.
+      plan: this.plan ?? [],
+      note: this.note ?? '',
       _contacts: contacts,
     };
   }
@@ -982,6 +997,13 @@ export class Agent {
         // while they walk.
         const said = goal.say ?? (goal.kind === 'say' ? goal.text : null);
         const action = goal.kind === 'say' ? this.goal : goal;
+
+        // OMITTED MEANS KEEP. `undefined` and `[]` mean different things here on
+        // purpose: a decision that simply does not mention the plan must not
+        // destroy it, or the plan lives exactly as long as the goal did and
+        // nothing has been fixed.
+        if (goal.plan !== undefined) this.plan = goal.plan;
+        if (goal.note !== undefined) this.note = goal.note;
 
         const changed = action.kind !== this.goal.kind
           || describeGoal(action) !== describeGoal(this.goal);

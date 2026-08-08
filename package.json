@@ -61,7 +61,8 @@
     "goldcheck": "node server/goldcheck.js",
     "tradecheck": "node server/tradecheck.js",
     "memcheck": "node server/memcheck.js",
-    "feedbackcheck": "node server/feedbackcheck.js"
+    "feedbackcheck": "node server/feedbackcheck.js",
+    "plancheck": "node server/plancheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

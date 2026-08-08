@@ -283,6 +283,17 @@ export class ModelProvider {
       '"say" is not a verb — add it to ANY decision and you speak while you act.',
       '  {"kind":"hunt","quarry":"deer","say":"that one is mine, I hit it"}',
       'Keep it under fifteen words and in character. It costs you nothing.',
+      // ── SOMEWHERE TO PUT STEP TWO ──
+      //
+      // A mind worked out it had firewood and no meat, that the other had meat,
+      // and that a barter solved both. It chose step one — walk over — and step
+      // two existed only in the reason field and was gone by the next tick.
+      // These two fields are the only thing in the brief a mind writes itself.
+      '"plan" is up to three short lines you write for yourself, handed back to',
+      'you next time. Leave it out to keep it; send [] to clear it.',
+      '  {"kind":"goTo","place":"the loch","plan":["get meat","trade wood to Eachann for some"]}',
+      '"note" is a page of your own — a grudge, a price, a promise. Nobody else',
+      'reads it. Same rule: leave it out to keep it, send "" to clear it.',
       'give takes target (a person by name) and item — you walk to them and hand it over.',
       'attack takes target (a person by name) — the world still decides if it lands.',
       // ── AND THAT A BARGAIN INCLUDES THE WALK ──

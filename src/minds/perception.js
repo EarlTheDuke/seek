@@ -216,5 +216,16 @@ export function briefToText(b) {
     for (const m of b.memory) lines.push(`  - ${m}`);
   }
   lines.push(`Your current intention is: ${b.goal ?? 'nothing in particular'}.`);
+  // ── THE PLAN AND THE PAGE, last, next to the intention they belong with ──
+  //
+  // A mind's own words, handed straight back. Below the world because they are
+  // what it does ABOUT the world, and immediately after the current intention
+  // because "here is what you are doing / here is why / here is what comes
+  // next" is one thought in three lines.
+  if (b.plan?.length) {
+    lines.push('Your plan:');
+    b.plan.forEach((p, i) => lines.push(`  ${i + 1}. ${p}`));
+  }
+  if (b.note) lines.push(`Your notes: ${b.note}`);
   return lines.join('\n');
 }
