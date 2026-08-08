@@ -74,6 +74,19 @@ export function createIntent() {
     // could kill a deer and carry raw venison for ever: raw venison fills 16 and
     // cooked fills 34, and the gap between those two numbers is most of a night.
     craft: '',
+
+    // ── HANDING SOMETHING TO SOMEBODY ──
+    //
+    // `give` is WHO, by name, and empty means nobody. `giveItem` is WHAT, and
+    // empty means "you choose" — the server picks something sensible rather
+    // than refusing, because a mind that wants to be generous should not have
+    // to also be right about item ids.
+    //
+    // A name rather than an id because that is all a mind has: it is told who
+    // it can see in words and may answer in words. The same rule `hunt` and
+    // `goTo` already follow.
+    give: '',
+    giveItem: '',
     // ── ease the string down without loosing ──
     //
     // Edge-triggered. The trigger above is EDGE-DETECTED — the shot happens on
@@ -118,6 +131,8 @@ export function clearIntent(i) {
   i.place = false;
   i.eat = false;
   i.craft = '';
+  i.give = '';
+  i.giveItem = '';
   i.letdown = false;
   i.alternate = false;
   i.selectSlot = -1;
@@ -141,6 +156,8 @@ export function copyIntent(to, from) {
   to.place = from.place;
   to.eat = from.eat;
   to.craft = from.craft;
+  to.give = from.give;
+  to.giveItem = from.giveItem;
   to.letdown = from.letdown;
   to.alternate = from.alternate;
   to.selectSlot = from.selectSlot;
@@ -187,6 +204,14 @@ export function sanitiseIntent(i, maxLookPerTick = 0.35) {
   // typo, a hallucinated recipe, a hostile string — becomes "nothing", which is
   // the same treatment `sanitiseGoal` gives a verb that does not exist.
   i.craft = typeof i.craft === 'string' && RECIPES[i.craft] ? i.craft : '';
+  // A NAME off a socket ends up in front of other players, so it is capped and
+  // stripped like any other. Not checked against the roster here — the server
+  // has to look the person up anyway, and a name that matches nobody simply
+  // gives to nobody, which is the same "refuse quietly" this file already does
+  // for a hallucinated recipe.
+  const name = (v, n) => (typeof v === 'string' ? v.replace(/[ -]/g, '').trim().slice(0, n) : '');
+  i.give = name(i.give, 24);
+  i.giveItem = name(i.giveItem, 24);
   i.letdown = !!i.letdown;
   i.alternate = !!i.alternate;
   i.selectSlot = Number.isInteger(i.selectSlot) ? i.selectSlot : -1;

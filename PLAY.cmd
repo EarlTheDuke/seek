@@ -67,6 +67,12 @@ set "NARRATE=on"
 set "BOARD=on"
 set "MINDS_HUNTERS=0"
 
+REM  EVERYBODY ARRIVES HUNGRY. Not a flourish — run one ended with every player
+REM  at food 79 against an eat threshold of 45, so the whole hunting economy was
+REM  decorative and nothing was ever at stake. Character only shows under
+REM  pressure. Delete this line for a gentler world.
+set "HUNGER=52"
+
 REM  Your name in the game. Change it if you like.
 set "MYNAME=Ben"
 

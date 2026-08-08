@@ -629,6 +629,90 @@ export class SimWorld {
   }
 
   /**
+   * Hand something to somebody standing next to you.
+   *
+   * SERVER-SIDE ONLY, and that is not a style choice: this is the one place
+   * that holds both inventories, so it is the only place that can move a thing
+   * out of one and into the other without two clients disagreeing about who has
+   * it. Same argument as rolling loot here rather than on each client.
+   *
+   * BY NAME, because a name is all a mind has — it is told who it can see in
+   * words and may answer in words, the rule `hunt` and `goTo` already follow.
+   * Matched case-insensitively and nothing else: a name is not a sentence.
+   *
+   * The item is OPTIONAL and that is the interesting part. A mind that wants to
+   * be generous should not also have to be right about item ids, so an unnamed
+   * gift falls to `bestGift` — food first, because food is what a hungry person
+   * needs and what a generous character is written to hand over. Naming the
+   * item is how a mind is specific, not how it is correct.
+   *
+   * Refusals are silent by design in every direction EXCEPT the one that
+   * matters: out of reach, nobody by that name, nothing to give, all just do
+   * nothing. A gift that lands pushes an event, because two people need to know
+   * and a watcher wants to see it.
+   */
+  resolveGive(from, toName, itemId) {
+    if (from.body.dead) return;
+    const want = String(toName).trim().toLowerCase();
+    if (!want) return;
+
+    let to = null;
+    for (const q of this.playersInOrder()) {
+      if (q === from || q.body.dead || !q.connected) continue;
+      if (String(q.name).trim().toLowerCase() !== want) continue;
+      to = q;
+      break;
+    }
+    if (!to) return;
+
+    const d = Math.hypot(
+      to.ctrl.position.x - from.ctrl.position.x,
+      to.ctrl.position.z - from.ctrl.position.z
+    );
+    if (d > SOCIAL.giveRange) return;
+
+    const id = this.giftFrom(from, itemId);
+    if (!id) return;
+    // `remove` returns HOW MANY it actually took, not a boolean. Checking it
+    // for truth is the whole safety here: if the stack vanished between the
+    // look-up and the removal, this returns 0 and nobody is credited.
+    if (from.inventory.remove(id, 1) !== 1) return;
+    // Only credit the receiver once the giver has ACTUALLY lost it. Doing this
+    // the other way round would mint an item on any inventory that refused the
+    // removal, and money you can print is the one bug a shared world cannot
+    // recover from.
+    to.inventory.add(id, 1);
+
+    from.dirty = true;
+    to.dirty = true;
+    this.events.push({ k: 'gift', by: from.id, to: to.id, n: to.name, id, from: from.name });
+  }
+
+  /**
+   * What to hand over when a mind did not say.
+   *
+   * Food first — it is what a hungry person needs, and "generous" in this world
+   * means feeding somebody. Never the bow: handing over the thing that makes
+   * you a hunter is not generosity, it is a bug, and no character in the roster
+   * was written to do it.
+   */
+  giftFrom(p, itemId) {
+    const named = String(itemId ?? '').trim();
+    if (named && p.inventory.countOf(named) > 0 && !KEEP_ON_DEATH.has(named)) return named;
+    for (const id of EDIBLE) if (p.inventory.countOf(id) > 0) return id;
+    // A slot is `{item, count}` — NOT `{id}`. Getting that wrong reads fine and
+    // silently gives nothing, which is the failure mode this whole verb exists
+    // to avoid.
+    let best = null;
+    for (const slot of p.inventory.slots ?? []) {
+      const sid = slot?.item;
+      if (!sid || KEEP_ON_DEATH.has(sid)) continue;
+      if (!best || slot.count > best.count) best = { id: sid, count: slot.count };
+    }
+    return best?.id ?? null;
+  }
+
+  /**
    * A creature swings. Who wears it?
    *
    * Nearest, but only among the people actually in reach — and a creature that
@@ -956,6 +1040,21 @@ export class SimWorld {
       else p.weapons.endPrimary();
     }
     if (intent.selectSlot >= 0) p.inventory.select(intent.selectSlot);
+    // ── EDGE-DETECTED, like the trigger and for the same reason ──
+    //
+    // The intent PERSISTS on the server between packets, and packets arrive at
+    // 30 Hz against a 60 Hz tick. A held `give` therefore handed over one item
+    // per tick: `givecheck` held it for eight packets and twelve arrows changed
+    // hands, which is the entire stack and not what anybody asked for.
+    //
+    // Firing on the RISING EDGE makes one press one item no matter how long the
+    // field stays set or how the rates drift — the same contract `primary`
+    // already has, and the reason a bow fires once when you let go.
+    const wantsGive = intent.give || '';
+    if (wantsGive && wantsGive !== p.giveWasHeld) {
+      this.resolveGive(p, wantsGive, intent.giveItem);
+    }
+    p.giveWasHeld = wantsGive;
     // ── E picks up what is at YOUR feet, not what is at the anchor's ──
     //
     // `Pickups.collect` takes whatever `update` last found, and `update` is

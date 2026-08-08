@@ -422,6 +422,23 @@ export class Agent {
         // when we know what the shot was aimed at, WHICH WAY it was wrong.
         if (mine) this.memory.add(this.hours, `my arrow hit ${e.hit} ${e.d} m away — ${this.howItMissed(e)}`);
         break;
+
+      // ── being given something is a social fact, not an inventory event ──
+      //
+      // The pack arrives in the snapshot either way, so a body would notice it
+      // had another arrow. What it would NOT know is WHO put it there, and that
+      // is the only part worth remembering: generosity you cannot attribute
+      // buys the giver nothing and teaches the taker nothing.
+      //
+      // Three arms because the three vantage points are genuinely different —
+      // being given to, giving, and watching somebody else be generous. The
+      // last one is what lets a mind form an opinion about a person it has
+      // never traded with.
+      case 'gift':
+        if (e.to === this.id) this.memory.add(this.hours, `${e.from} gave me ${e.id}`);
+        else if (mine) this.did('give', `I gave ${e.id} to ${e.n}`);
+        else this.memory.add(this.hours, `${e.from} gave ${e.id} to ${e.n}`);
+        break;
       case 'hit':
         if (mine) this.memory.add(this.hours, `my arrow struck someone for ${e.dmg}`);
         else if (atMe) this.memory.add(this.hours, `an arrow hit me for ${e.dmg}`);
@@ -957,6 +974,8 @@ export class Agent {
     const i = this.intent;
     i.interact = i.drop = i.place = i.eat = i.jump = i.letdown = false;
     i.craft = '';
+    i.give = '';
+    i.giveItem = '';
 
     // SAY WHERE WE ARE POINTING, not just how far we turned.
     //
@@ -1043,7 +1062,11 @@ export class Agent {
         // there. Cleared at the top of act(), so it is false again next tick
         // without anything having to remember to unset it.
         if (this.target.act) {
-          i[this.target.act] = true;
+          // Most acts are edge-triggered booleans (`interact`, `place`). Some
+          // carry a value — `give` needs to say WHO, because the server cannot
+          // read a mind's target off a keypress. `actAlso` carries the rest.
+          i[this.target.act] = this.target.actValue ?? true;
+          for (const [k, v] of Object.entries(this.target.actAlso ?? {})) i[k] = v;
           this.acted[this.target.act] = (this.acted[this.target.act] ?? 0) + 1;
           // Reached it and used our hands on it, so stop being offered it.
           if (this.target.key) this.taken.add(this.target.key);
@@ -2129,6 +2152,18 @@ export class Agent {
       case 'hunt': {
         const q = findFull((label) => namesTheSame(label, g.quarry));
         return q ? { x: q.x, y: q.y, z: q.z, id: q.id, quarry: true } : this.roam();
+      }
+      // Walk to the person and hand it over. `within: REACH` and not the
+      // six-metre `arriveWithin`, for the reason `gather` learned the hard way:
+      // arriving somewhere and being able to touch something are different
+      // distances, and a verb that uses its hands has to say which it means.
+      case 'give': {
+        const who = find((label) => namesTheSame(label, g.target));
+        if (!who) return this.roam();
+        return {
+          x: who.x, z: who.z, within: REACH,
+          act: 'give', actValue: g.target, actAlso: { giveItem: g.item ?? '' },
+        };
       }
       case 'approach':
         return find((label) => namesTheSame(label, g.target)) ?? this.roam();

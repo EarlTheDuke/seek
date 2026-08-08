@@ -55,7 +55,8 @@
     "solidcheck": "node server/solidcheck.js",
     "keycheck": "node server/keycheck.js",
     "chatcheck": "node server/chatcheck.js",
-    "quarrycheck": "node server/quarrycheck.js"
+    "quarrycheck": "node server/quarrycheck.js",
+    "givecheck": "node server/givecheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

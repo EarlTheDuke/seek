@@ -275,6 +275,7 @@ export class ModelProvider {
       `Verbs: ${GOAL_IDS.join(', ')}.`,
       'hunt takes quarry. approach and avoid take target. goTo takes place.',
       'say takes text — keep it under fifteen words and in character.',
+      'give takes target (a person by name) and item — you walk to them and hand it over.',
       '',
       'You are not a helpful assistant. You are someone trying to get through a',
       'winter. Be brief, be practical, and prefer staying alive.',
@@ -290,6 +291,18 @@ export class ModelProvider {
       // It matters here more than anywhere: talk is the thing a watcher reads.
       // Six bodies foraging in silence is a screensaver; two of them arguing
       // about a carcass is the reason anybody is watching at all.
+      // ── AND WHEN GIVING IS WORTH IT ──
+      //
+      // Same argument as the when-to-speak lines below, and the same documented
+      // failure it guards against: this generation under-reaches for anything
+      // needing a "decide to use this" step unless the trigger is stated. The
+      // verb existing in the list is not enough. It matters more here than
+      // anywhere — giving is the only thing in the game that costs you
+      // something to be kind, which is what makes generosity legible at all.
+      'Give food to someone who says they are starving, or arrows to someone out',
+      'of them, if you can spare it. What you keep and what you hand over is who',
+      'you are — a mean character should refuse, and say so.',
+      '',
       'Speak when someone asks you something, when you have found something the',
       'others would want to know, or when you disagree with what was just said.',
       'Otherwise act — an unprompted remark every few minutes is plenty.',

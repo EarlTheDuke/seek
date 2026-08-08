@@ -56,6 +56,7 @@ const BASELINE = [
   `Verbs: ${GOAL_IDS.join(', ')}.`,
   'hunt takes quarry. approach and avoid take target. goTo takes place.',
   'say takes text — keep it under fifteen words and in character.',
+  'give takes target (a person by name) and item — you walk to them and hand it over.',
   '',
   'You are not a helpful assistant. You are someone trying to get through a',
   'winter. Be brief, be practical, and prefer staying alive.',
@@ -70,6 +71,27 @@ const BASELINE = [
   // Same argument as the tag guard below it: it is given to the control and to
   // every persona identically, so it moves the shared floor rather than tilting
   // persona-against-control. Still no persona results recorded at the time.
+  // ── AND THE CONTROL MOVED A THIRD TIME, when `give` was added ──
+  //
+  // Two lines: the verb's shape, up with the other verb shapes, and WHEN it is
+  // worth reaching for, down here with the other trigger guidance. Both for the
+  // same documented reason as the speak block above — this generation
+  // under-reaches for anything needing a "decide to use this" step unless the
+  // trigger is stated, and a verb merely existing in the list is not enough.
+  //
+  // It matters more for `give` than for anything else in the table: giving is
+  // the only act in the game that costs you something to be kind, which is what
+  // makes generosity legible at all. Before it existed, a hoarder, a generous
+  // soul and a liar were IDENTICAL in what they could do.
+  //
+  // Given to the control and to every persona identically, so it moves the
+  // shared floor rather than tilting persona-against-control. No persona
+  // results had been recorded when it moved — the two playtests on record
+  // measured hunting and talking, not giving.
+  'Give food to someone who says they are starving, or arrows to someone out',
+  'of them, if you can spare it. What you keep and what you hand over is who',
+  'you are — a mean character should refuse, and say so.',
+  '',
   'Speak when someone asks you something, when you have found something the',
   'others would want to know, or when you disagree with what was just said.',
   'Otherwise act — an unprompted remark every few minutes is plenty.',

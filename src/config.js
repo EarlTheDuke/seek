@@ -1073,6 +1073,18 @@ export const SOCIAL = {
   // How close two people have to be to count as standing together, for the
   // purpose of a pack sizing you up.
   groupRange: 26,
+
+  // ── HOW CLOSE YOU STAND TO HAND SOMETHING OVER ──
+  //
+  // Arm's length plus a step, and deliberately much shorter than `groupRange`:
+  // shouting at somebody across a clearing is not the same act as putting food
+  // in their hands, and the whole point of `give` is that it costs a walk. A
+  // generous mind has to go to the hungry one.
+  //
+  // Comfortably wider than `PLAYER.personalSpace` (0.78) so two bodies pushed
+  // apart by SOLID can still trade — a rule that made people unable to reach
+  // each other the moment collision was switched on would be a fine bug.
+  giveRange: 3.0,
 };
 
 // ── Networking ──────────────────────────────────────────────────────────────

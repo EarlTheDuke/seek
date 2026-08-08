@@ -86,6 +86,19 @@ const INTENT_KEYS = [
   // arrow: a body that changed its mind mid-draw shot the hillside. Measured at
   // five strays to two aimed shots in one huntcheck run.
   'letdown',
+  // ── HANDING SOMETHING TO SOMEBODY ──
+  //
+  // `give` is who, by name; `giveItem` is what, and may be empty for "you
+  // choose". Both are strings and both are clamped in `sanitiseIntent`.
+  //
+  // THIS LIST IS AN ALLOW-LIST AND THAT IS THE TRAP. Adding a field to
+  // `createIntent`, to `sanitiseIntent`, to the agent AND to the server is not
+  // enough — anything missing from here is dropped silently at the socket, so
+  // the feature works perfectly in-process and does nothing at all over the
+  // wire. `givecheck` caught it because it drives a real socket; every
+  // in-process test of the same code passed.
+  'give',
+  'giveItem',
   'selectSlot',
 ];
 
