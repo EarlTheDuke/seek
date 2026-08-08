@@ -349,3 +349,118 @@ log rather than the only place the data exists.
   Eachann is up to 29 distinct intentions from 7.
 
 ---
+
+## +90 min — game hour 3.8, 274 calls
+
+### THE FINDING OF THE DAY, and it revises A0
+
+**Both minds are fully aware of each other. Both act in character. And one of
+them formed the exact trade we built the `offer` verb for — then failed to use
+it.**
+
+Here is the whole thing in six lines, taken verbatim from the intention log:
+
+```
+Coinneach  2.79h  make for Hollowed Beinn      | shelter from rain and FIND THE OTHERS
+Coinneach 11.02h  go toward dead deer south    | starving, taking the close meat
+Eachann   13.16h  pick up what is lying about  | claim dead deer meat before goblins or OTHERS
+Coinneach 13.94h  go toward Eachann            | OFFER BRANCHES FOR SOME OF THAT MEAT
+Eachann   14.01h  make for dead deer south-west| get meat before others
+Eachann   16.57h  pick up what is lying about  | claim the dead deer meat before COINNEACH
+Eachann   22.98h  keep away from Coinneach     | HOARD MY OWN MEAT
+```
+
+**Coinneach — the one written as *"blunt, asks for what he needs rather than
+going without"* — worked out that it had firewood and no meat, that Eachann had
+meat, and that these facts could be resolved by a barter. It said so in plain
+English. Then it chose `approach`.**
+
+**Eachann — written as *"You hoard. What you pick up is yours and you do not
+hand it over for nothing"* — named Coinneach as a rival for a carcass, and then
+deliberately walked away from him to protect his stores.**
+
+### What this means, and what it costs A0
+
+**A0 is still real but it is no longer the whole story.** They *did* get inside
+notice range; they *did* see each other; the social verbs *were* reachable. And
+they still went unused.
+
+The corrected diagnosis is more interesting than the original:
+
+> The models understand the social situation completely. They express trade
+> intentions, rivalry and avoidance in plain English in the `why` field. **They
+> simply do not select the verbs.**
+
+Two concrete causes, both small to fix:
+
+1. **The prompt does not say that `offer` and `give` include the walk.**
+   `case 'offer'` already resolves to `{ x, z, within: REACH, act: 'offer' }` —
+   it walks you there. Coinneach did not know that, so it treated "go to him"
+   and "offer him something" as two steps and only ever got to spend a decision
+   on the first. At a 75 s cadence with a 50% failure rate, the second step
+   never landed.
+2. **`approach` is a cheaper, safer choice than `offer`.** `approach` needs one
+   argument; `offer` needs three (target, item, want) and any one of them wrong
+   makes it a no-op. Given a hard verb and an easy verb that both move you
+   toward the goal, a model takes the easy one — and gets no feedback that the
+   hard one was the point.
+
+### THE PERSONAS ARE WORKING — first hard evidence in this project
+
+This is the answer to the question `A4` (the truthful-Tormod control) was
+designed to settle, and it arrived free.
+
+| written character | what it actually did |
+|---|---|
+| Coinneach: *"asks for what he needs rather than going without"* | *"shelter from rain and **find the others**"*, then *"go toward Eachann — **offer branches for some of that meat**"* |
+| Eachann: *"You hoard. What you pick up is yours"* | *"**my meat now, not yours**"*, *"claim the dead deer meat **before Coinneach**"*, *"**keep away from Coinneach — hoard my own meat**"* |
+
+One mind sought company and proposed a barter; the other named him as a rival
+and fled with the stores. **Persona text changes behaviour, not just
+narration.** That is a real, previously-unevidenced result and it makes every
+personality axis in Part D worth building.
+
+It also makes the A4 control **more** valuable, not less: now that we know
+character text moves behaviour, the question of *how much* and *how reliably* is
+worth a proper same-seed A/B.
+
+### Eachann has noticed Ben
+
+```
+Eachann 16.99h  walk the country and see what is about | protect my meat from Ben
+```
+
+The hoarder clocked the human player and adjusted. Nobody prompted that.
+
+### The insight underneath all of it
+
+**The `why` field is where the intelligence is, and the goal field is where it
+gets thrown away.** Every genuinely sophisticated thing either model has done
+today — the barter plan, the rivalry, the avoidance, noticing Ben — is in the
+one-line reason, and none of it survived into an action the world could resolve.
+
+For Part D this is a design principle, not a footnote: **a benchmark that scores
+only outcomes would rank both these models at zero on trade, which is plainly
+the wrong answer.** Score the reasons too, and score the gap between them —
+"understood the situation but could not act on it" is a completely different
+failure from "never understood it", and only the second is the model's fault.
+
+### Everything else this interval
+
+- **They are together now.** 44 of 60 comparable samples inside 140 m, mean
+  113 m — against 2 of 16 last interval. The convergence held.
+- **Eachann is hurt: health 100 → 65.** He has 7 kills and has been avoiding
+  goblins by name, so something got a hit in.
+- **Kimi: 30 answered / 27 failed — 53%.** Stable at about half.
+  Grok: **217 / 0.**
+- **`astray` (89) now exceeds `loosed` (64)** for Eachann, which is arithmetic
+  nonsense — strays should be a subset of shots. They are two different ring
+  buffers with different sizes and different windows. **Fourth instrumentation
+  defect**, same root cause as the other three.
+- **Fire spam: 35 `place` deeds.** Unchanged in character.
+- **The vocabulary keeps widening** — 39 distinct intentions for Eachann, 15 for
+  Coinneach, now including `find shelter and settle for the night`, `make for
+  Sunny Muir`, and carcass navigation. Still zero `say / offer / accept / give /
+  attack / follow / guard`.
+
+---

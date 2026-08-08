@@ -69,6 +69,59 @@ go and find somebody can. Half a day's work; unlocks D3's entire social half.
 **Everything in Part D that involves trade, honesty, deception or coordination
 is blocked on this.** Until it lands, those axes measure zero over zero.
 
+### A0g ††† THE VERBS ARE REACHABLE AND STILL UNUSED **[S]**
+*Found at 90 minutes, and it revises A0 above. Do this one first — it is two
+prompt lines.*
+
+They found each other. Both named the other. And one of them formed the exact
+barter `offer` was built for and **still chose `approach`**:
+
+```
+Coinneach 13.94h  go toward Eachann  |  offer branches for some of that meat
+```
+
+**The models understand the social situation completely and simply do not select
+the verbs.** Two causes, both trivial:
+
+1. **The prompt never says `offer` and `give` include the walk.** They do —
+   `case 'offer'` resolves to `{ x, z, within: REACH, act: 'offer' }`. The model
+   treated "go to him" and "offer him something" as two decisions and only ever
+   spent one. At a 75 s cadence with a 50% failure rate the second never landed.
+   **One sentence in the prompt fixes this.**
+2. **`approach` takes one argument; `offer` takes three** (target, item, want),
+   and any one of them wrong makes it a silent no-op. Offered an easy verb and a
+   hard verb that both move toward the goal, a model takes the easy one and gets
+   no feedback that the hard one was the point. Consider making `offer`'s `want`
+   optional, and logging every near-miss so a refused verb is visible.
+
+This is the cheapest high-value item in the whole document.
+
+### A0h †† Score the reasons, not just the outcomes **[M]**
+Every sophisticated thing either model did today lives in the one-line `why` and
+died before reaching an action: the barter plan, the rivalry over a carcass, the
+avoidance, noticing the human player unprompted.
+
+**A benchmark that scores only outcomes would rank both models at zero on trade,
+which is plainly the wrong answer.** Score the stated reasons as well, and score
+the *gap* — "understood the situation but could not act on it" is a completely
+different failure from "never understood it", and only the second belongs to the
+model. This also gives Part D a second, cheaper signal that does not wait on
+`A0f`'s event log.
+
+### A0i †† Personas move behaviour — confirmed, so build on it **[S]**
+The two written characters produced two visibly different animals, unprompted:
+
+| written | did |
+|---|---|
+| *"asks for what he needs rather than going without"* | sought company, planned a barter |
+| *"You hoard. What you pick up is yours"* | *"my meat now, not yours"*, then fled with the stores |
+
+First hard evidence in this project that character text changes **behaviour**
+rather than narration. It makes every personality axis in Part D worth
+building — and it makes **A4** (the truthful-Tormod control) *more* valuable,
+not less: the question is now how much and how reliably, which needs a proper
+same-seed A/B.
+
 ### A0b The `place` spam **[S]**
 Eachann lit **five fires in twenty real seconds** and 21 in the sampled window.
 `AGENTS.fireNearby` (9 m) is meant to prevent exactly this and something is
