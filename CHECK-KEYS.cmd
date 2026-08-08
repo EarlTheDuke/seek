@@ -21,7 +21,10 @@ if not exist "keys.cmd" (
   exit /b 1
 )
 
-call "keys.cmd"
+REM  `.\` on purpose. Some shells run with NoDefaultCurrentDirectoryInExePath
+REM  set, and then `call keys.cmd` fails with "not recognized" even though the
+REM  file is right there — which reads as "your keys are empty" and is not.
+call ".\keys.cmd"
 call npm run keycheck
 
 echo.

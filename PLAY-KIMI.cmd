@@ -23,7 +23,10 @@ if not exist "keys.cmd" (
   pause
   exit /b 1
 )
-call "keys.cmd"
+REM  `.\` on purpose. Some shells run with NoDefaultCurrentDirectoryInExePath
+REM  set, and then `call keys.cmd` fails with "not recognized" even though the
+REM  file is right there — which reads as "your keys are empty" and is not.
+call ".\keys.cmd"
 
 if not defined TINYBOX_API_KEY (
   echo   TINYBOX_API_KEY is still empty in keys.cmd.

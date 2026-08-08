@@ -29,7 +29,10 @@ if not exist "keys.cmd" (
   copy /y "keys.example.cmd" "keys.cmd" >nul 2>&1 && echo   ^(I have just made you a blank keys.cmd to fill in.^)
   echo.
 ) else (
-  call "keys.cmd"
+  REM  `.\` on purpose. Some shells run with NoDefaultCurrentDirectoryInExePath
+REM  set, and then `call keys.cmd` fails with "not recognized" even though the
+REM  file is right there — which reads as "your keys are empty" and is not.
+call ".\keys.cmd"
 )
 
 REM -------------------------------------------------------------- checks ----
