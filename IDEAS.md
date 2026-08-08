@@ -89,6 +89,29 @@ but on this evidence it is incidental rather than chosen. This is the second
 half of "the models cannot feed themselves", and the quarry fix exposed it:
 now that they can hunt, we can see they cannot eat what they kill.
 
+### A0d †† An empty quiver is invisible, and fatal **[S]**
+*Found at the 30-minute mark.* A mind carrying **one bow and nothing else** has
+a `loosed` count of 187 and climbing. It is drawing on an empty bow for ever and
+nothing tells it so: `brief().carrying` filters to `n > 0`, so no arrows shows
+up as **absence in a list** rather than as a fact, and the shoot path never
+checks ammunition before drawing. It cannot recover either — arrows need wood
+and a fire, and it has neither.
+
+Two fixes, both small: **state the pack in the negative when it matters**
+("your quiver is empty", "you have no fuel"), and **refuse the draw upstairs**
+instead of miming it. Same principle as the `sight` field — a mind that cannot
+tell two situations apart is not choosing between them, it is guessing.
+
+### A0e †† `loosed` counts draws, not arrows **[S]**
+The board's arrow count comes from the agent's own `releases` log filtered on
+"did I mean it" (`src/net/agent.js:747`), not on whether a shaft left the bow.
+For a body with an empty quiver every entry is a phantom, which is how one mind
+reached 187.
+
+**This invalidates every accuracy number this project has produced**, including
+the "5% hit rate" in the first version of today's observations. Any combat axis
+in Part D is blocked on making this counter mean what its name says.
+
 ### A1 † A fire should cost about 10 branches, not 1 **[S]**
 Ben's call, and he's right. Right now `place` spends exactly one `wood` in two
 hardcoded places — `src/sim/world.js:1209` and `src/main.js:2491` — and the gate

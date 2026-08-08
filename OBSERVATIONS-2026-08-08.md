@@ -153,3 +153,82 @@ is 80%, better than the 3-in-8 seen before but still the weak seat.
 under the 14p/hour estimate.
 
 ---
+
+## +30 min — game hour 20.4, 110 calls
+
+### They are still diverging, and faster
+
+Mean separation has doubled: **786 m → 1575 m**, furthest now **3166 m**. Over
+91 samples, still **zero** within notice range. This is not two minds who
+happened to drift; it is two minds actively walking away from each other for
+half an hour, each with no idea the other is in the world.
+
+### A MIND WITH AN EMPTY QUIVER SHOOTS FOR EVER — and is never told
+
+Coinneach is carrying **one bow and nothing else**. No arrows, no wood, no food.
+Its `loosed` count is **187 and still climbing** — it went 184 → 187 while I was
+reading it.
+
+It has no arrows. It is drawing on an empty bow, over and over, and nothing
+anywhere tells it so:
+
+- `brief().carrying` filters to `n > 0`, so an empty quiver appears as
+  **absence** rather than as a statement. The model has to notice something
+  *missing* from a list to infer it cannot shoot, which is the single thing
+  language models are worst at.
+- The body's shoot path does not check ammunition before drawing, so the mind
+  gets no feedback either. It chooses `hunt deer`, the string goes slack, the
+  deer does not die, and it tries again. 187 times.
+- It cannot recover: making arrows needs wood *and* a fire, and it has neither.
+
+**This is a death spiral the mind cannot perceive.** It is alive only because it
+ate earlier — food went 0 → 37, health 43 → 100, so it did feed itself once —
+but it can no longer hunt and does not know it.
+
+**Fix, for the list:** state the pack in the negative when it matters — *"your
+quiver is empty"* — and refuse the draw upstairs rather than miming it. Same
+shape as the `sight` fix: a mind that cannot tell two situations apart is not
+choosing between them, it is guessing.
+
+### A correction to my own number
+
+**I reported a "5% hit rate" earlier. That number is not trustworthy and I
+should not have given it.**
+
+`loosed` on the board counts entries in the agent's own `releases` log where it
+*meant* to shoot (`src/net/agent.js:747`) — it counts **draws, not arrows**. For
+a body with an empty quiver, every one of those is a phantom. Coinneach's 187 is
+mostly nothing at all.
+
+Eachann's figures are the ones worth quoting, because he has actually had arrows
+throughout: **58 loosed, 36 astray, 4 kills** — and even that denominator is
+inflated by whatever fraction of his draws were on an empty quiver between
+crafting runs. The honest statement is: **accuracy is bad, and this project
+cannot currently measure how bad.** Fixing the counter to mean "an arrow left
+the bow" is a prerequisite for any combat axis in the benchmark.
+
+### Kimi is getting worse, not better
+
+**14 answered / 9 failed — 61%.** It was 80% at the eight-minute mark. All
+failures are `no json in reply`, the reasoning-budget symptom, at
+`maxTokens: 3000` and a 75 s cadence. Grok remains **87 answered / 0 failed**.
+
+### Fire spam continues
+
+**26 `place` deeds** for Eachann. He is down to 11 branches from 27 and has
+spent the interval alternating between gathering wood and setting it alight.
+
+### The verb list is still four words wide
+
+Eight distinct phrasings across both minds in 110 decisions, every one of them
+about deer or wandering:
+
+```
+hunt deer · hunt a deer · hunt deer right here to the west
+go toward deer · go toward deer close to the north-west · make for deer
+pick up what is lying about · walk the country and see what is about
+```
+
+Never chosen: `say offer accept give attack follow guard makeCamp avoid hold`.
+
+---
