@@ -12,8 +12,56 @@ it is the most expensive knowledge in the repo: every entry cost somebody a
 wrong diagnosis. **Skim it before you debug anything, not after.** It is kept
 here rather than cut because a closed bug can be deleted and a trap cannot.
 
-Last updated: 2026-08-06 (second run of the day), by the run that made a body
-stop being a point. The run before it answered the ceiling question with an
+Last updated: 2026-08-07, by the session that put SIX REAL MODELS IN THE WORLD
+and played them against a human for two hours.
+
+## THE FLEET IS LIVE AND THE DOCS ARE THE ENTRY POINT NOW
+
+Read these three before anything else — they are current, they are short, and
+they replace re-deriving today's work:
+
+- **[RUNNING.md](RUNNING.md)** — how to start it. Three files you ever touch
+  (`keys.cmd`, `PLAY.cmd`, `STOP.cmd`), the per-seat costs, the knobs, and a
+  troubleshooting section built from failures actually hit.
+- **[PLAYTEST-2026-08-07.md](PLAYTEST-2026-08-07.md)** — two six-model runs,
+  what the models did, and the numbers.
+- **[NEXT-BUILD.md](NEXT-BUILD.md)** — the plan, ordered by the blocker.
+
+**IF YOU READ ONE NUMBER: five paid models made ~400 decisions across two runs
+and loosed ZERO arrows, while five of seven ended below the eat threshold and
+the SCRIPTED control fed itself.** The minds talk, coordinate, lie to each other
+and reason about ambushes — and they cannot feed themselves. That is the blocker
+and it is phase 1 of the plan.
+
+**Six bugs fixed today, each of which made a model look boring when it was not:**
+1. **The OpenAI path ignored its own token budget** (`max_tokens: 120` literal
+   against `this.maxTokens` on the Anthropic side). A reasoning model spent it
+   all thinking and returned a truncated answer — reported as "no json in reply".
+2. **A 4-second deadline** killed every grok-4.5 and Opus-5 call. Reported as
+   "This operation was aborted", which reads as a network fault and was ours.
+3. **Haiku 4.5 rejects `effort`** outright, 400 every call. Documented in
+   `roster.js` since the day it was written; the roster just never set it null.
+4. **A mind that spoke before midnight was mute for the rest of the run.**
+   `hours - spoke` across a `% 24` clock is negative, and a day here is 26 real
+   minutes. It is why a human asked four direct questions and nobody answered.
+   `chatcheck` 9/9 is new and covers it.
+5. **Speaking wiped a mind's plan** (goal reset to `wander`) and a gated `say`
+   vanished without trace. Both in the same ten lines.
+6. **Pressing Enter to chat cost you the pointer lock** — `closeSay` never took
+   it back. Talking to the players cost you your view of them.
+
+**New checks:** `chatcheck` 9/9 (can a person talk to the minds, and they back),
+`keycheck` (proves every key AND every model name, no tokens spent).
+
+**And the persona experiment produced a result.** Tormod is written as a liar.
+Over two runs he made contradictory claims naming every compass direction, and
+his own private reason field read `"mislead others, claim first"`. Ailsa — the
+same seat both times — abandoned a hunt citing "too much conflicting talk". One
+adversarial agent on an open channel suppressed five cooperative ones. **It is a
+reproduction, not a controlled result**; the control run (truthful Tormod, same
+seed) is one word and remains the cheapest valuable experiment on the list.
+
+## Before today: the run that made a body stop being a point. The run before it answered the ceiling question with an
 8-run A/B and found the sentinel policing that A/B was blind in exactly the
 case that mattered — that section is still below and still true.
 
