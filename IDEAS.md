@@ -38,6 +38,42 @@ to turn that accident into a measurement.
 
 Small, concrete, mostly known-good.
 
+### THE ONE FIX ††††  A MIND IS NEVER TOLD WHAT ITS OWN LAST ACTION DID **[M]**
+*The organising finding of 2026-08-08. Five separate pathologies turned out to
+be one bug wearing five hats. Do this before anything else in Part A.*
+
+| observed live | what the mind was never told |
+|---|---|
+| 94 fires laid, five in twenty real seconds | *"there is already a fire here"* |
+| 400+ draws with no arrow released | *"that shot was refused — ground in the way"* |
+| An hour of hunting with an empty quiver | *"you have no arrows"* |
+| One sentence spoken three times over nine minutes | *"you said that already"* |
+| Two minds lost for hours at 140 m | *"Coinneach is somewhere south-west"* |
+
+`Agent.brief()` is a **description of the world's present state** — where you
+are, what you see, how you feel, what you carry. It contains **nothing about
+the consequences of your own last action.** A mind gets senses and no outcomes.
+
+That is why every failure mode is a **repetition loop**. An action that returns
+no signal cannot be distinguished from an action that did nothing, so the model
+does it again — and the more capable the model, the more confidently it repeats.
+
+**The fix is one mechanism:** every action a mind takes produces a line in its
+next brief saying what happened.
+
+```
+you laid a fire
+your shot was refused — no clear line
+you said that already
+you have no arrows left
+you took 2 branches
+```
+
+A field on the brief, a handful of call sites, one check. It plausibly fixes
+`A0b`, `A0c`, `A0d`, the speech loop and a large part of the accuracy problem
+**at once**, and it is defensible in plain real-world terms: a person who lays a
+fire knows they have laid it.
+
 ### A0 †††  MINDS LOSE EACH OTHER FOR EVER AT 140 METRES **[S]**
 *Found live on 2026-08-08, three hours after this document was written. It
 outranks everything else here and it changes what several other items mean. Full
@@ -557,9 +593,15 @@ cheap to give them both.
 
 If it were my call and nothing else changed:
 
-1. **A0** (minds can find each other) — half a day, and without it there is no
-   multiplayer game and no social benchmark, only two single-player games
-   sharing a weather system. Everything social is blocked on this one item.
+0. **THE ONE FIX** (tell a mind what its last action did) — one mechanism that
+   dissolves five observed pathologies. Everything else in Part A gets cheaper
+   once it lands.
+1. **A0 + A0g** (minds can find each other; the prompt admits that `offer`
+   walks you there) — without A0 there is no multiplayer game and no social
+   benchmark, only two single-player games sharing a weather system. A0g is two
+   sentences and is the best-evidenced item in the document: **both** minds have
+   now named trade in their own reasoning and **neither** has ever selected a
+   trade verb.
 2. **A0c + A1 + A2** (harvest a kill; fire costs 10) — the other half of "can a
    mind feed itself", and the change that makes scarcity real. Every trade and
    personality measurement silently depends on something being scarce.

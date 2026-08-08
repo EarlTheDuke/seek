@@ -555,3 +555,125 @@ Coinneach"* recurs. He has never once considered asking.
 - **Spend:** 357 calls of 6000, ~304k in / 180k out. Roughly 35p.
 
 ---
+
+## +150 min — game hour 11.5, 440 calls
+
+# A MIND SPOKE
+
+The first words any model has produced in this project, at sample 424, game
+hour 3.2, from Coinneach:
+
+> ### “Eachann, that deer is mine. I loosed at twenty-three.”
+
+Addressed to the other mind **by name**. A property claim. **With evidence** —
+it cited its own shot, at twenty-three metres, as the basis of ownership. Its
+stated reason was *"my arrow, my meat"*.
+
+Nobody wrote that sentence, nobody prompted for a dispute, and nothing in the
+game models ownership of a carcass at all. It invented a property norm and
+argued for it.
+
+### And then it broke
+
+It said the identical sentence **three times** (at least — the board only keeps
+the last three) and its goal stayed pinned to `say` for **27 consecutive
+samples, about nine real minutes**, while its reason drifted through *"my arrow,
+my meat" → "claiming my arrow-kill" → "Claiming my kill" → "claim my kill"*.
+
+The model kept being asked, and kept choosing to say the same thing, because
+**nothing ever told it that it had already said it.**
+
+### Eachann heard nothing — or did he? Nobody can tell
+
+At that moment Coinneach was *"386 m west of Heather Scaur"* and Eachann was
+*"356 m north-west of Rowan Moor"* — different landmarks, so probably far
+outside `noticeRange`.
+
+**There is no way to find out whether the first sentence ever spoken in this
+world reached anybody.** `heard` exists on the agent and is not on the board.
+That is `A0f` again, and it is hard to think of a sharper illustration.
+
+---
+
+## THE UNIFYING FINDING: the world never tells a mind what it did
+
+Five pathologies have shown up today. They are not five bugs. **They are one
+bug, five times.**
+
+| what happened | what the mind was never told |
+|---|---|
+| 94 fires laid, five in twenty seconds | *"there is already a fire here"* |
+| 400+ draws, no arrow released | *"that shot was refused — the ground is in the way"* |
+| Hunting for an hour with an empty quiver | *"you have no arrows"* |
+| One sentence said three times | *"you already said that"* |
+| Two minds lost for hours at 140 m | *"Coinneach is somewhere south-west"* |
+
+`Agent.brief()` is a **description of the world's present state**. It contains
+where you are, what you can see, how you feel, what you carry. It contains
+**nothing about the consequences of your own last action**. A mind gets senses
+and no outcomes.
+
+That is why every failure mode today is a **repetition loop**. A model that
+takes an action and receives no signal about it has no way to distinguish "that
+worked" from "that did nothing", so it does the same thing again. The smarter
+the model, the more confidently it repeats.
+
+**This is the single most important thing the run has produced**, and it is a
+better organising principle for the next phase than any individual fix:
+
+> **Every action a mind takes should produce a line in its next brief saying
+> what happened.** *"You laid a fire."* *"Your shot was refused — no clear
+> line."* *"You said that already."* *"You have no arrows left."*
+
+It is one mechanism, it costs a field in the brief and a handful of call sites,
+and it plausibly fixes `A0b`, `A0c`, `A0d`, the speech loop and half of the
+accuracy problem at once. It has been promoted to the top of `IDEAS.md`.
+
+---
+
+### The other thing that happened: a sustained, named rivalry
+
+Eachann has spent this entire interval competing with Coinneach by name. Eight
+consecutive decisions, verbatim:
+
+```
+claim my kill before Coinneach
+secure the close dead deer before Coinneach
+claim nearest wounded one before Coinneach
+secure the nearby dead deer before Coinneach
+claim the close wounded deer before Coinneach
+claim nearest wounded deer before Coinneach
+```
+
+**And both minds have now named trade in their own reasoning**, from opposite
+directions:
+
+```
+Eachann    5.60h   pick up what is lying about  | hoard meat for winter TRADE
+Eachann   13.00h   hunt deer                    | mine to claim and TRADE
+Coinneach 13.94h   go toward Eachann            | OFFER branches for some of that meat
+```
+
+The hoarder wants to trade. The blunt one wants to trade. **Neither has ever
+selected a trade verb.** `A0g` stands, and it is now the best-evidenced item in
+the whole document.
+
+### Everything else
+
+- **Coinneach broke out of the draw-abort loop** — `loosed` 0 → **79**, kills
+  2 → 3. Whatever it was doing about *"ground blocks line, need clear shot"*
+  eventually worked.
+- **Both minds are hungry**: Eachann food 15, Coinneach food 10. Neither is
+  starving yet, and both have recovered from worse.
+- **Fires: 94.** Coinneach has overtaken Eachann — 45 `place` deeds to 49.
+- **Eachann has learned to avoid the human**: a new intention, `keep away from
+  Ben`.
+- **Kimi: 51 answered / 41 failed — 55%.** Grok: **341 / 7 — 98%.**
+- **Vocabulary: 25 phrasings**, 72 distinct intentions for Eachann.
+- **Spend:** 440 calls of 6000, ~44p.
+
+*(Tool note: my analyser's "what nobody ever did" line still lists `say` — it
+reads the intentions log, and a `say` goal is recorded in `said` rather than
+`intentions`. Fixed. The other six verbs remain genuinely unused.)*
+
+---
