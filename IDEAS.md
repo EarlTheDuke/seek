@@ -994,3 +994,62 @@ a fixed per-call odds. The socially strongest model gets 32 decisions where grok
 gets 245. Either add a one-shot repair retry on unparseable output (cheap, and
 A5's isolation test says the model is 7-in-7 when it does answer), or the run
 economics of the interesting seat stay broken.
+
+## Added 2026-08-08 19:03, from RUN 2 FOURTH LOOK — the first transfer, and it sent the wrong goods
+
+Two corrections first:
+
+- **A23's second candidate is WITHDRAWN.** Raw eating works, proven:
+  `h7.8 Eachann "I ate what I had, raw"`. Do not go looking for an `eat` that
+  refuses raw ids. The carcass problem is candidate (1) only — a kill produces
+  no event saying *there is meat here now*, so 5 of 8 carcasses were abandoned.
+- **A25's "failure rate is RISING" is WITHDRAWN.** 45% → 51% → 43% (36 of 83).
+  Fixed odds with noise, not drift. The one-shot repair retry is still the
+  single highest-value cheap fix — **46 real decisions to grok's 310** — but the
+  urgency argument was over-read from three data points.
+
+### A26 ††† `giftFrom` SILENTLY SUBSTITUTES THE WRONG ITEM **[S]**
+**The most damaging bug found so far, and the cheapest to fix.**
+`src/sim/world.js:802` — when the named item is not in the pack, `giftFrom` does
+not refuse. It walks `EDIBLE`, then **returns the largest stack**, and
+`resolveGive` hands that over and logs *"I gave hide to Coinneach"*.
+
+Evidence: Eachann held `venison: 0` at sample 5178, formed
+`goal: "give venison to Coinneach"` at 5193, and held it for twelve straight
+samples. What left his pack: **hide ×5, arrow ×5, gold ×1** — 7/7/2 down to
+1/2/1. Coinneach's food fell 81 → 63 across the whole window; **no food ever
+arrived.** The model then read its own deed log and re-formed the goal as
+*"give hide to Coinneach — he starves"*, which is what the live board says now.
+A mind was made to look stupid by its own body, for the eighth time.
+
+Fix, three lines: if `named` is set and not held, `refuse('give', "you have no
+venison to give")` and return null. **Never** fall through to largest-stack, and
+never let currency (`gold`) be chosen by a fallback the mind did not name. The
+`EDIBLE` fallback is defensible *only* when the mind named nothing at all.
+
+### A27 †† AN OFFER IS INVISIBLE TO THE BOARD **[S]**
+`offer` is a memory event, not a deed (`src/net/agent.js:478`) — only `trade`
+and `gift` call `did()`. So the instrument **cannot show whether `offer` was
+ever reached for**, and my 18:31 line "zero offer deeds in the whole run" was
+measuring nothing. The verb the entire program is about is the one verb the rig
+is blind to.
+
+Fix: add `offers: [{ to, item, want, h, taken }]` to each card — open offers
+made and received, and whether they resolved. Without it, no future run can
+report on trade at all. Pairs with A22 (put humans on the board too).
+
+### A28 †† A PRICE IS AGREED IN ENGLISH AND BINDS NOTHING **[M]**
+Both minds negotiated a complete deal in speech: *"Coinneach, one hide for two
+venison?"* → *"I'll take that deal, Eachann"* → *"deal struck"* → *"Done. Hand
+over the meat."* Then it executed as **one-way charity** — 11 gifts out of
+Eachann, zero out of Coinneach, zero `trade` deeds ever. `give` is unilateral and
+free; nothing in the world knows a price was agreed, so nothing can hold the
+second half to it.
+
+Both models also invented **debt** unprompted — *"I'll owe you for a meal"*,
+*"Taking it. Debt stands."*, *"Rather owe him than starve."* — with no mechanism
+behind it. Fix in that order: (1) land the `offer`/`accept` path so a spoken
+price can actually bind (with A26 and A27 first, or it will fail silently
+again); (2) a visible **debt ledger** on the card — `owes: [{who, what, since}]`
+— since two models from two vendors both reached for it without being told it
+existed. That is the strongest signal in the run about what to build next.

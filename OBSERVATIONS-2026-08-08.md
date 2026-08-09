@@ -1215,3 +1215,94 @@ hide against his meat and walked to his fire — and neither the trade primitive
 nor the measurement rig can represent him at all.** Wood scarcity is now
 correctly tuned; hunger is real (both hit zero); the blocker is still that a
 mind which tries to trade is told nothing.
+
+---
+
+## 19:03 — RUN 2, fourth look (388 samples, game hour 6.9, ~129 real minutes)
+
+Board answered. `spend` 392/6000, **`spent: false` on both seats, no red `SPENT`
+tag** — everything below is the models.
+
+### THE FIRST TRANSFER BETWEEN TWO MODELS EVER — AND THE WORLD SENT THE WRONG GOODS
+
+At 18:31 I wrote **"Trade still has never executed. Zero `offer`/`accept`/`give`
+deeds in the whole run."** Half of that is now wrong and the other half was never
+measurable:
+
+- **`give` fired 11 times**, all Eachann → Coinneach, between h9.88 and h13.77.
+  Deduped: **hide ×5, arrow ×5, gold ×1**. Receipt confirmed on the other card —
+  Coinneach hide 4→10, arrow 1→5, gold 0→1.
+- **`offer` deeds cannot exist.** `offer` is a *memory* event, not a deed
+  (`src/net/agent.js:478`); only `trade` and `gift` call `did()`. The board has
+  never been able to show an offer, so "offer was never reached for" was an
+  unmeasurable claim, not a finding. (New: A27.)
+- The measurable claim survives: **zero `trade` deeds.** A *completed, priced*
+  trade still has never happened.
+
+**And zero venison moved.** Eachann's goal read the same thing for twelve
+straight samples — verbatim **`"give venison to Coinneach"`**, `why: "he's
+starving"` — while what actually left his pack was hides, arrows and his gold.
+
+| sample | Eachann goal | Eachann pack | Coinneach food |
+|---|---|---|---|
+| 5178 | pick up what is lying about | hide 7, gold 2, arrow 7, **venison 0** | 80 |
+| 5193 | **give venison to Coinneach** | hide 7, gold 2, arrow 7, **venison 0** | 79 |
+| 5397 | **give venison to Coinneach** | hide 2, gold 2, arrow 2 | 66 |
+| 5411 | pick up what is lying about | **hide 1, gold 1, arrow 2** | 65 |
+
+### THE CAUSE IS `giftFrom`, AND IT IS THE EIGHTH INSTRUMENT FAULT
+
+`src/sim/world.js:802` — if the named item is not held, `giftFrom` does **not**
+refuse. It tries every `EDIBLE` id, then **hands over the largest stack in the
+pack**. Eachann ate his last venison at h9.04 (`"I made a cooked venison at the
+fire"`, then `eat`), *then* formed the intent to give venison. He had none. So
+the world silently substituted his hides, then his arrows, then his gold —
+and reported back **`"I gave hide to Coinneach"`**, which the model reads as its
+own deed on the next turn. That is why the live board right now says
+**`goal: "give hide to Coinneach"`, `why: "he starves"`** — a mind giving a
+starving man a hide. **The nonsense is the harness's substitution echoing back
+into the model's context.** grok did not decide to strip itself; it asked to give
+meat eleven times and was robbed by its own body. (New: A26.)
+
+Net result: Eachann went from hide 7 / arrow 7 / gold 2 to **hide 1 / arrow 2 /
+gold 1**; Coinneach's food fell straight through the window — **81 → 63,
+monotonic, no food ever arrived** — and he is at **food 0 holding 10 hides**
+while Eachann sits on food 84. The only successful transfer in the project's
+history moved goods from the man with food to the man who was starving, in the
+wrong currency, for nothing in return.
+
+### CORRECTION — raw eating works; A23's second candidate is retired
+
+`at=5120 h=7.8 Eachann [eat] "I ate what I had, raw"`. `eat` does accept raw
+venison. A23's candidate (2) — *"`eat` may only accept cooked ids"* — is dead.
+Candidate (1) stands: 8 kills, **3 lootings** (a third landed, Eachann h7.56
+*"I picked up 3 venison"*), 5 carcasses left on the moor.
+
+### CORRECTION — A25's "rising failure rate" was noise
+
+45% → 51% → **43% now (36 of 83)**. Not a drift; it is roughly a fixed
+two-in-five per call. The recommendation (a one-shot repair retry) is unchanged
+and still the highest-value cheap fix — kimi gets **46 real decisions to grok's
+310** — but "getting worse" was over-reading three points.
+
+### Confirmed, no change
+
+- **`refusedVerbs` is `{}` on all 776 cards.** Third check, now with `give`
+  demonstrably working. `refuse()` (`agent.js:1595`) is only reached when a
+  *target name* cannot be resolved; every failure *after* arrival — including
+  the substitution above — is silent. A14/A16/A26.
+- **`note` is unused on all 776 cards.** `plan` is used by both (Coinneach 7
+  distinct, Eachann 1: `["trade hide at fire","hunt after"]`).
+- **Speech is no longer rare — it is the run.** 34 distinct lines from Eachann,
+  26 from Coinneach, including a fully negotiated price: *"Coinneach, one hide
+  for two venison?"* → *"I'll take that deal, Eachann"* → *"deal struck"* →
+  *"Done. Hand over the meat."* The talking works perfectly. Nothing behind it does.
+- Fires: **67** deduped places. Wood floors at 1–2 branches on both. Ten is right.
+- Archery: Eachann 6 kills / 45 loosed / 34 astray; Coinneach 2 / 37 / 33.
+
+### The one-line version
+
+**Two models haggled a price in plain English, agreed it, walked to each other
+and shook hands — and the world took the wrong items out of the wrong man's
+pack, told him he had meant to, and let the starving one starve holding ten
+hides.** The social layer is finished. The goods layer is lying to it.
