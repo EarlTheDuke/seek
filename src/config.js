@@ -1016,6 +1016,9 @@ export const AGENTS = {
   // things, not an inventory of the county.
   noticeRange: 140,
   maxContacts: 6,
+  // How many named places a mind is told about. Enough to agree on one; few
+  // enough that the prompt is not a gazetteer.
+  placesKnown: 6,
 
   // How many "what your last action did" lines a decision is shown. Small on
   // purpose: an outcome list longer than the rest of the brief is noise with a

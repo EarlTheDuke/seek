@@ -55,7 +55,7 @@ import { StealthProfile } from '../player/stealth.js';
 import { Body } from '../player/body.js';
 import { Fires } from '../world/fires.js';
 import { sampleEnvironment } from '../world/environment.js';
-import { insulationOf, EDIBLE, getItem } from '../items/registry.js';
+import { insulationOf, EDIBLE, getItem, resolveItemId } from '../items/registry.js';
 import { Inventory } from '../items/inventory.js';
 // Cooking, knapping, stitching and fletching, as data and two pure functions.
 // Shared with the browser's interaction prompt rather than copied — the whole
@@ -777,7 +777,17 @@ export class SimWorld {
     if (from.body.dead) return;
     const to = this.playerNamed(toName, from);
     if (!to) return;
-    const item = String(itemId ?? '').trim();
+    // ── WHAT THEY MEANT, AS AN ID ──
+    //
+    // The nouns are a free string where the verbs are a closed list, so a mind
+    // can offer "flint" — which does not exist — or "branches", which does but
+    // is spelled `wood`. Both used to fail in the same silent way. Two minds
+    // spent most of an hour of a live run bargaining over flint.
+    const item = resolveItemId(itemId) ?? '';
+    if (!item && String(itemId ?? '').trim()) {
+      this.events.push({ k: 'nosuch', by: from.id, n: from.name, word: String(itemId).slice(0, 24) });
+      return;
+    }
     // ── WHAT YOU WANT BACK DEFAULTS TO COIN ──
     //
     // `offer` took three arguments where `approach` takes one, and any one of
@@ -790,7 +800,11 @@ export class SimWorld {
     // Gold is the money in this world, so "I will sell you this venison" with no
     // price named means "for coin", which is what it means anywhere. An offer
     // with no ITEM is still nothing — that half cannot be guessed.
-    const want = String(wantId ?? '').trim() || 'gold';
+    const want = resolveItemId(wantId) ?? (String(wantId ?? '').trim() ? '' : 'gold');
+    if (!want) {
+      this.events.push({ k: 'nosuch', by: from.id, n: from.name, word: String(wantId).slice(0, 24) });
+      return;
+    }
     if (!item) return;
 
     from.offer = { to: to.id, item, want };
@@ -868,7 +882,10 @@ export class SimWorld {
    * was written to do it.
    */
   giftFrom(p, itemId) {
-    const named = String(itemId ?? '').trim();
+    // Through `resolveItemId`, so "a branch" finds `wood` — the id nobody in
+    // this world ever says out loud, because the game calls it a branch
+    // everywhere a person can read it.
+    const named = resolveItemId(itemId) ?? '';
     if (named && p.inventory.countOf(named) > 0 && !KEEP_ON_DEATH.has(named)) return named;
     for (const id of EDIBLE) if (p.inventory.countOf(id) > 0) return id;
     // A slot is `{item, count}` — NOT `{id}`. Getting that wrong reads fine and

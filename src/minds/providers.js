@@ -19,6 +19,7 @@
 
 import { GOAL_IDS, sanitiseGoal } from './goals.js';
 import { briefToText } from './perception.js';
+import { itemVocabulary } from '../items/registry.js';
 
 /**
  * A rule set that reads the same brief a model would.
@@ -309,6 +310,11 @@ export class ModelProvider {
       '  `want` may be left out — it means you want gold for it.',
       '  You do NOT need to approach first: offer and give both walk you to them.',
       'accept takes target — take the offer that person made you.',
+      // The nouns were open where the verbs are closed, and two minds spent an
+      // hour bargaining over flint. This is the list of things that exist.
+      `The only goods in this country: ${itemVocabulary().join(', ')}.`,
+      'There is no flint, no rope, no coin but gold. Asking for anything else',
+      'wastes the day — the answer will always be that there is no such thing.',
       '',
       'You are not a helpful assistant. You are someone trying to get through a',
       'winter. Be brief, be practical, and prefer staying alive.',

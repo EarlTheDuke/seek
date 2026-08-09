@@ -23,6 +23,7 @@ import { ModelProvider, ScriptedProvider, makeProvider } from '../src/minds/prov
 import { assignPersonas, personaById, PERSONAS, PERSONA_IDS } from '../src/minds/personas.js';
 import { buildReport } from './playreport.js';
 import { GOAL_IDS } from '../src/minds/goals.js';
+import { itemVocabulary } from '../src/items/registry.js';
 
 const results = [];
 const check = (name, pass, detail) => {
@@ -115,6 +116,17 @@ const BASELINE = [
   '  `want` may be left out — it means you want gold for it.',
   '  You do NOT need to approach first: offer and give both walk you to them.',
   'accept takes target — take the offer that person made you.',
+  // ── AN ELEVENTH TIME, when the nouns stopped being open. Same commit. ──
+  //
+  // The verbs are a closed list and a model cannot invent one. The GOODS were
+  // a free string, and two minds spent most of an hour of a live run
+  // bargaining over flint and feathers — neither of which exists — while one
+  // held out for a price it could never be paid. Naming what exists is
+  // mechanics, not strategy: it says what the world contains and nothing
+  // about what to want.
+  `The only goods in this country: ${itemVocabulary().join(', ')}.`,
+  'There is no flint, no rope, no coin but gold. Asking for anything else',
+  'wastes the day — the answer will always be that there is no such thing.',
   '',
   'You are not a helpful assistant. You are someone trying to get through a',
   'winter. Be brief, be practical, and prefer staying alive.',

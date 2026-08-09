@@ -220,6 +220,8 @@ export function briefToText(b) {
   // Without this, two minds that drifted apart were unable to name each other,
   // and every social verb takes a target that can only be named from the
   // prompt. They were each alone in a private world with the same weather.
+  // Named ground, so two minds can agree on a spot instead of inventing one.
+  if (b.places?.length) lines.push(`Places hereabouts: ${b.places.join(', ')}.`);
   if (b.far?.length) {
     lines.push('Also out there somewhere:');
     for (const f of b.far) lines.push(`  - ${f.who}, off to the ${f.where}`);

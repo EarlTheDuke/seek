@@ -50,7 +50,7 @@ import { setScarcity, scarce } from '../world/scarcity.js';
 // For `guard`: what counts as a threat is read off the species table rather
 // than listed here, so a wolf added later is guarded against without an edit.
 import { SPECIES } from '../creatures/registry.js';
-import { bearingName, describePosition, findDistrict } from '../world/placenames.js';
+import { bearingName, describePosition, findDistrict, nearbyDistricts } from '../world/placenames.js';
 // What can be made, and out of what. Pure data and one pure predicate, shared
 // with the browser's prompt and with the server that resolves the act — three
 // callers, one table, which is the only way "cook" means the same thing in all
@@ -522,6 +522,17 @@ export class Agent {
             MINDS.weight.hurt);
         }
         break;
+      // ── A WORD FOR SOMETHING THAT DOES NOT EXIST ──
+      //
+      // Two minds bargained over flint and feathers for most of an hour of a
+      // live run, and neither could ever be paid, because nothing anywhere said
+      // the word meant nothing. Told out loud so it can stop asking.
+      case 'nosuch':
+        if (mine) {
+          this.refuse('offer', `there is no such thing as "${e.word}" in this country`);
+          this.memory.add(this.hours, `there is no such thing as ${e.word}`, MINDS.weight.refused);
+        }
+        break;
       case 'glance':
         if (mine || atMe) this.memory.add(this.hours, `an arrow was refused — ${e.why}`, MINDS.weight.refused);
         break;
@@ -957,6 +968,14 @@ export class Agent {
       contacts: contacts.slice(0, AGENTS.maxContacts).map(({ _m, ...r }) => r),
       // Who else is out there, however far. See the comment where it is built.
       far,
+      // ── PLACES THAT EXIST ──
+      //
+      // Minds arrange to meet at places they invent — two agents told a
+      // playtester "meet me at the Black Moss", which is nowhere, and `goTo`
+      // could only answer that it did not know the way. The gazetteer is a pure
+      // function of the seed and both ends already compute it; naming the near
+      // ones is the difference between agreeing on a spot and inventing one.
+      places: nearbyDistricts(this.x, this.z, 1).slice(0, AGENTS.placesKnown).map((d) => d.name),
       // ── WHO SHOT YOU, kept out of the ring buffer ──
       //
       // It is in `memory` too, but memory is forty entries of noticing and an

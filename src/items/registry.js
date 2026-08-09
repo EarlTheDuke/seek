@@ -554,6 +554,65 @@ export const getItem = (id) => ITEMS[id] ?? null;
  *
  * Now one worn garment insulates, once, and putting it on is something you do.
  */
+/**
+ * What a person MEANT, as an item id — or null if there is no such thing.
+ *
+ * ── THE VERBS ARE A CLOSED VOCABULARY AND THE NOUNS ARE NOT ──
+ *
+ * `GOAL_IDS` means a model cannot invent an action. `offerItem`, `offerWant`
+ * and `giveItem` are free strings, so it can and does invent GOODS — two minds
+ * spent most of an hour of a live run bargaining over flint and feathers,
+ * neither of which exists, and one held out for a price it could never be paid:
+ *
+ *     "got feathers or flint?"      "arrow for flint"      "No flint."
+ *
+ * And the quieter half: a REAL item named the wrong way failed just as hard.
+ * The id is `wood` and every mind in this world calls it a branch, because that
+ * is what the game calls it everywhere a person can read — "8 branches", "3
+ * branches", "Branch" on the hotbar. `countOf('branch')` is 0.
+ *
+ * So: ids, display names, and plain plurals, all pointing at the id. Anything
+ * else returns null, and the caller says so out loud rather than doing nothing
+ * — which is what a mind needs in order to stop asking.
+ */
+const SPOKEN = new Map();
+function learnWord(word, id) {
+  const k = String(word).trim().toLowerCase();
+  if (k && !SPOKEN.has(k)) SPOKEN.set(k, id);
+}
+function buildSpoken() {
+  if (SPOKEN.size) return;
+  for (const [id, def] of Object.entries(ITEMS)) {
+    learnWord(id, id);
+    learnWord(id.replace(/_/g, ' '), id);
+    // "venison_cooked" is spoken as "cooked venison", which is how `itemWords`
+    // already reads it out and therefore how a model will say it back.
+    const parts = id.split('_');
+    if (parts.length === 2) learnWord(`${parts[1]} ${parts[0]}`, id);
+    if (def?.name) {
+      learnWord(def.name, id);
+      learnWord(`${def.name}s`, id);
+      learnWord(`${def.name}es`, id);
+    }
+    learnWord(`${id}s`, id);
+  }
+}
+
+export function resolveItemId(word) {
+  if (typeof word !== 'string') return null;
+  buildSpoken();
+  const k = word.trim().toLowerCase().replace(/^(?:a|an|the|some)\s+/, '').trim();
+  if (!k) return null;
+  return SPOKEN.get(k) ?? SPOKEN.get(k.replace(/s$/, '')) ?? null;
+}
+
+/** Everything that exists, as the words a person would use. For the prompt. */
+export function itemVocabulary() {
+  return Object.entries(ITEMS)
+    .filter(([id]) => id !== 'quiver')
+    .map(([, def]) => def.name.toLowerCase());
+}
+
 export function insulationOf(inventory) {
   let total = 0;
   // Older saves and the headless sim may hand us a plain object without a worn
