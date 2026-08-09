@@ -3599,3 +3599,47 @@ plans name trade.** The 13:05 entry called Eachann the lone abstainer on 70 samp
 in the run and every other seat is `""` across 122 samples. Keep the axis, narrow the claim to
 `note`, and **re-read any earlier entry that split models on "writes a plan"** — that separation
 was a sampling artefact of reading a run before it finished.
+
+### A174 †† THE BOARD CANNOT SAY WHETHER TWO MINDS EVER MET — AND THE ANSWER SWINGS 0–34% ON THE READING **[S]**
+
+Position is prose: `"323 m north-west of Broad Loch"` — landmark, **8-point** bearing, range.
+Reconstructing coordinates from it across all 28 melee3 seat-pairs gives **271 of 806
+pair-observations within 3 m (33.6%)** and 517 within 140 m. A bearing-independent bound that
+cannot be wrong (`separation ≤ r1 + r2`) gives **0 of 806 provably within 140 m**. Same data,
+same run. At 250 m a 45° bucket is a ~200 m wide arc, so the first number assumes away exactly
+the quantity it claims to measure — and the analyser's own "within 3 m: 3/73" line compares
+**one pair out of 28**.
+
+This is load-bearing. "They were never close enough to trade" and "they were in each other's
+laps and the verbs failed" are the two competing explanations for the whole trade programme,
+and the board cannot distinguish them. **Fix:** put `x`/`y` (or metres-from-origin) on each
+card, and — better, and what the file has wanted since the 02:35 entry — an explicit
+`near: [{name, m}]` contacts array per card, populated at the same range the engine already
+uses for `noticeRange`. The engine has the real coordinates; only the board is throwing them
+away. Until then, **quote no distance finding in either direction.**
+
+### A175 † THE EVAL TASK READS A STALE LOG AND DESCRIBES A ROSTER THAT NO LONGER RUNS **[S]**
+
+`highlands-evaluate` names `duo2.jsonl` and a two-mind roster (Eachann `grok-4.20`, Coinneach
+`kimi-k2.6`, "no scripted control"). `duo2.jsonl` holds an **eight-seat melee including the
+scripted control**, and was last written **11:28** — superseded by `melee2.jsonl` (12:32) and
+`melee3.jsonl` (13:19). Its priority list still asks whether `plan`, speech, trade and `accept`
+have ever been seen working; all four were answered between 10:35 and 13:40.
+
+Two runs' worth of eval effort is aimed at a four-hour-old file. **Fix:** point the task at
+**the newest `*.jsonl` in the scratchpad** rather than a fixed name, have it read the roster
+off the log's own `board.model` line instead of prose, and cut the seven-fixes checklist that
+is now closed. **[S]**, and it is the cheapest correctness win on this list.
+
+### A176 THE SAMPLE RATE IS FINE — STOP HEDGING THE SPEECH AND DEED COUNTS **[S]**
+
+`said` is capped at 3 (3,164 of 4,160 cards across three logs sit at exactly 3; **none has 4**)
+and `deeds` at 5, both rolling. The standing worry has been that a 20 s sample drops events
+between frames. Measured: full-window turnover between consecutive samples is **0 of 733
+(melee3), 0 of 1,167 (duo2), 0 of 1,020 (melee2)** for `said`, and **0 of 439** for `deeds`.
+**Nothing was lost.** The 217 / 266 / 271 distinct-sentence counts and the 13:40 give/trade
+counts are real, not floors. Drop the caveat from future entries — but keep it if the cadence
+is ever raised above 20 s, because it is the sample interval, not the cap, that is buying this.
+
+**Also retired: a suspected 5-stack cap on `carrying`.** melee3 maxes at 5 with 67 cards there;
+`duo2.jsonl` has a card at **6**. There is no cap and the inventory readings are sound.

@@ -5279,3 +5279,70 @@ See A171.
   Wood is not scarce — Coinneach picked up **58 branches in one gather**. The 10-branch price
   is correct and settled; stop re-checking it.
 - **Speech: 218 distinct lines across 7 model seats. The scripted control said nothing, ever.**
+
+## 2026-08-09 14:05 PDT — THE BOARD IS DOWN. And the one number this file has leaned on hardest — "how far apart were they" — can be moved from 0% to 34% by changing how you read it
+
+**The run is over.** `http://127.0.0.1:8090/board.json` refuses the connection (curl exit 7,
+no HTTP status). Per standing orders it was **not** restarted. The Vite dev server on :5173 is
+still up and reloading `src/main.js`, `src/loop.js`, `src/items/inventory.js` and
+`src/items/registry.js` between **13:25 and 13:42** — the world was stopped so the code could
+be worked on, which is the expected end, not a crash. **No samples exist after `melee3.jsonl`
+at 13:19.** The 13:40 entry already wrote this run's ending up and nothing below contradicts it.
+
+### The eval task points at the wrong file, and describes a world that no longer exists
+
+The scheduled task names `duo2.jsonl` and a **two-mind roster** — Eachann on
+`grok-4.20-0309-non-reasoning`, Coinneach on `kimi-k2.6`, "two minds, no scripted control."
+`duo2.jsonl` in fact holds an **eight-seat melee** (Morag, Eachann, Tormod, Coinneach, Seonaid,
+Ailsa, Fingal, Iseabail — one of them the scripted control), and it is **stale: last written
+11:28**, superseded by `melee2.jsonl` (12:32) and `melee3.jsonl` (13:19). A run that reads only
+`duo2.jsonl` grades a world four hours dead. See A175.
+
+Its priority list is stale too — it asks whether `plan`, speech, trade and `accept` have ever
+been seen working, and all four were answered in the 10:35–13:40 entries.
+
+### The distance figures in this file are not measurements. They are one arbitrary reading of an ambiguous string
+
+The board gives position as prose: `"323 m north-west of Broad Loch"` — a landmark, an
+**8-point** bearing, and a range. Reconstructing polar coordinates from that and taking the
+Euclidean distance, across **all 28 seat-pairs** in melee3 (the analyser only ever compares
+two), gives:
+
+> 806 shared-landmark pair-observations · within 140 m: **517 (64.1%)** · within 3 m: **271 (33.6%)**
+
+That reads as a world where minds are constantly in each other's laps and trade fails purely
+for mechanical reasons. Now the same data under a bound that **cannot** be wrong — separation
+is at most `r1 + r2` whatever the bearings are, so `r1 + r2 ≤ 3` proves trade range:
+
+> **provably within 140 m: 0 of 806. Provably within 3 m: 0 of 806.**
+
+Both numbers are honest. The first assumes the bearing bucket is the true bearing; at 250 m a
+45° bucket is a **~200 m wide arc**, so it is assuming away the entire quantity being measured.
+The second is rigorous and useless — it can only fire when both seats are nearly standing on
+the landmark. **The truth is somewhere in a 0–34% band and the board cannot narrow it.**
+
+Every "they met" / "they never met" claim in this file rests on a quantity the instrument does
+not carry. **Nothing here says the minds were far apart — it says we have never once known.**
+See A174.
+
+### Three counting caveats settled, one of them against me
+
+- **`said` is capped at 3** — 3,164 of 4,160 cards across melee3, melee2 and duo2 sit at
+  exactly 3, and **not one card in any log has 4**. But the window **never once turned over
+  completely** between consecutive samples (**0 of 733, 0 of 1,167, 0 of 1,020**). At 20 s
+  sampling no sentence was lost: **the 217 / 266 / 271 distinct-sentence counts stand.**
+- **`deeds` is the documented 5-window, and it cost nothing here** — full-window deed lists
+  entirely replaced between samples: **0 of 439** in melee3. The 13:40 give/trade counts are
+  not undercounts.
+- **Correction, mine, same session: `carrying` is NOT capped at 5.** melee3 maxes at 5 stacks
+  and 67 cards sit there, which looked like a cap and would have invalidated every inventory
+  claim in this file. **`duo2.jsonl` has a card carrying 6.** No cap. The inventory readings
+  are fine; I nearly filed a bug against a coincidence in a single log.
+
+### `refusals` is the archery log, not the verb log — `refusedVerbs` really is empty
+
+`refusals` sits at its 4-deep cap on **556** melee3 cards while `refusedVerbs` reads `{}` on all
+976, which looked like a populated sibling shadowing a broken aggregator. It is not: `refusals`
+holds **shot** rejections — `{"d":29,"why":"too far","slant":34.9,"dy":-5.8,"leadBy":5.9}`,
+`{"d":20,"why":"ground in the way 11 m out"}` — 138 distinct entries, Iseabail alone 80.
+**A155 stands unchanged and this is the seventh empty check.**
