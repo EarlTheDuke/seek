@@ -57,6 +57,7 @@ export class PlayerInput {
     this.pressedPlace = false;
     this.pressedEat = false;
     this.pressedAlternate = false;
+    this.pressedMake = false;
     this.pendingSlot = -1;
     // Crouch is a state, not a held key. See the note on `onKeyDown`.
     this.crouchToggled = false;
@@ -154,7 +155,10 @@ export class PlayerInput {
       // feeding the fire before it would cook anything, because a fire below
       // 35% fuel outranks a workbench. That rule is correct. Being unable to
       // overrule it is not.
-      if (e.code === 'KeyF') this.pressedAlternate = true;
+      // F is still "the other thing"; SHIFT+F is every thing — the chooser a
+      // fire has needed since `bestAvailable` started hiding recipes below
+      // whatever you could already afford.
+      if (e.code === 'KeyF') { if (e.shiftKey) this.pressedMake = true; else this.pressedAlternate = true; }
       if (e.code === 'KeyG') this.pressedPlace = true;
       if (e.code === 'KeyR') this.pressedEat = true;
       if (/^Digit[1-5]$/.test(e.code)) this.pendingSlot = Number(e.code.slice(5)) - 1;
@@ -336,6 +340,7 @@ export class PlayerInput {
     i.place = this.pressedPlace;
     i.eat = this.pressedEat;
     i.alternate = this.pressedAlternate;
+    i.makeMenu = this.pressedMake;
     i.selectSlot = this.pendingSlot;
     this.pressedInteract = false;
     this.pressedDrop = false;
@@ -345,6 +350,7 @@ export class PlayerInput {
     this.pressedPlace = false;
     this.pressedEat = false;
     this.pressedAlternate = false;
+    this.pressedMake = false;
     this.pendingSlot = -1;
 
     return i;

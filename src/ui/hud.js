@@ -399,6 +399,7 @@ const KEYS = [
   ['Mouse 1', 'draw the bow — hold to aim, release to loose'],
   ['E', 'pick up · cut · quarry · cook · use · take bearings'],
   ['F', 'the other thing — at a fire, cook instead of feed it, or the reverse'],
+  ['Shift + F', 'at a fire: choose from everything you could make'],
   // The number, not "a branch" — lighting went from 1 to SURVIVAL.woodToLight
   // and this line was left behind, which is how a player learns the wrong price.
   ['G', `light a fire (${SURVIVAL.woodToLight} branches)`],
@@ -414,7 +415,7 @@ const KEYS = [
   ['T', 'hand what you are holding to whoever is in reach'],
   ['Shift + T', 'hand over half of it'],
   ['1 2 / wheel', 'change item'],
-  ['F', 'free-fly camera'],
+  ['Y', 'free-fly camera'],
   ['[ ]', 'move the sun'],
   ['P', 'save a screenshot'],
   ['H', 'hide this interface'],

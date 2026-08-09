@@ -1,3 +1,4 @@
+import { amountText } from '../ui/book.js';
 // ── recipes.js ──────────────────────────────────────────────────────────────
 // Turning things into other things, as data.
 //
@@ -128,7 +129,10 @@ export function craft(recipe, inventory) {
   const made = [];
   for (const [item, n] of Object.entries(recipe.outputs)) {
     inventory.add(item, n);
-    made.push(`${n} ${item.replace(/_/g, ' ')}`);
+    // The name a person uses, pluralised. `${item.replace(/_/g,' ')}` gave
+    // "4 arrow" and "1 venison cooked" — this world already calls one thing
+    // `wood`, "BRANCH", "8 branch" and "3 branches" without adding more.
+    made.push(amountText(item, n));
   }
   return made.join(', ');
 }

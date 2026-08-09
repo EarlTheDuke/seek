@@ -1624,6 +1624,50 @@ function boot() {
     hud.openMenu('Build', items, (kind) => placeStructure(kind));
   }
 
+  /**
+   * Everything you could make at this fire, as a chooser.
+   *
+   * ── THE WORST DISCOVERABILITY HOLE IN THE GAME, in a playtester's words:
+   * "Crafting is the worst discoverability hole. There's a Fletch Arrows recipe
+   * — 2 branches for 4 arrows — and I could find no way to reach it. At a fire,
+   * F silently binds a torch every single time, even holding a stack of
+   * branches, even with three torches already."
+   *
+   * `bestAvailable` returns the FIRST recipe it can make, so everything below
+   * whatever you can currently afford is not merely unavailable, it is
+   * INVISIBLE — there is no way to learn it exists short of reading the source.
+   * That is the same fault the BUILD menu was written to fix for structures,
+   * and the chooser's own comment already said so: "a fire's recipes or a
+   * store's contents would want exactly the same thing". This is that.
+   *
+   * Shows what you CANNOT make too, greyed with what you are short of, because
+   * a recipe you cannot afford yet is the one you most need to be told about.
+   */
+  function openFireMenu() {
+    const items = Object.values(RECIPES)
+      .filter((r) => r.requires === 'fire')
+      .map((r) => {
+        const short = Object.entries(r.inputs)
+          .filter(([id, n]) => inventory.countOf(id) < n)
+          .map(([id, n]) => amountText(id, n - inventory.countOf(id)));
+        const capped = r.maxHeld
+          && inventory.countOf(Object.keys(r.outputs)[0]) >= r.maxHeld;
+        return {
+          label: r.name,
+          detail: Object.entries(r.inputs).map(([id, n]) => amountText(id, n)).join(', '),
+          disabled: short.length > 0 || capped,
+          why: capped ? 'you have enough of those' : `need ${short.join(' and ')}`,
+          value: r.id,
+        };
+      });
+    hud.openMenu('Make at the fire', items, (id) => {
+      const r = RECIPES[id];
+      if (!r) return;
+      const made = craft(r, inventory);
+      hud.toast(made ? `${r.verb} — ${made}` : 'nothing came of it', 1.8);
+    });
+  }
+
   function placeStructure(kind = null) {
     const x = ctrl.position.x - Math.sin(ctrl.yaw) * STRUCTURES.placeRange;
     const z = ctrl.position.z - Math.cos(ctrl.yaw) * STRUCTURES.placeRange;
@@ -2401,7 +2445,17 @@ function boot() {
       return;
     }
     switch (e.code) {
-      case 'KeyF':
+      // ── F WAS BOOKED THREE TIMES ──
+      //
+      // A playtester spotted the first two in the controls panel: "F the other
+      // thing" and "F free-fly camera", both on the same key. In Survival that
+      // was hidden because free-fly is refused there; in Sandbox a single press
+      // did both. Adding Shift+F for the fire chooser made it three.
+      //
+      // Free-fly moves to Y — it is a sandbox camera toy, so of the three it is
+      // the one whose mnemonic matters least. And the shift guard keeps the
+      // chooser from also toggling the camera.
+      case 'KeyY':
         if (!ruleset.allows('allowFly')) {
           hud.toast('you have only your legs here', 1.6);
           break;
@@ -2634,6 +2688,11 @@ function boot() {
     }
     // The runner-up, for whatever you are standing at. Only a fire offers one
     // today; anything else simply has no `alt` and F does nothing.
+    // Shift+F at a fire: everything you could make, not just the first one.
+    if (intent.makeMenu) {
+      if (fires.nearest(ctrl.position, SURVIVAL.fireReach)) openFireMenu();
+      else hud.toast('you need to be at a fire to make anything', 2);
+    }
     if (intent.alternate && interaction?.alt) {
       const msg = interaction.alt();
       if (msg) hud.toast(msg, 1.6);
