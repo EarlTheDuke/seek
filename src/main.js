@@ -1964,6 +1964,13 @@ function boot() {
   // caret to type into. This is how they give it back — through the input
   // layer, which already knows what to do when a browser refuses.
   hud.onWantLock = () => input.requestLock();
+  // ── SAY SO WHEN THE MOUSE IS NOT HELD ──
+  //
+  // The failure this covers was silent: the cursor turned into a hand, keys
+  // kept working, and nothing on screen said what had happened or what to do.
+  // It reads as the game breaking.
+  input.onLockRefused = () => hud.toast('click to take the mouse back', 3);
+  input.onLockUnavailable = () => hud.toast('hold the RIGHT mouse button to look around', 6);
 
   hud.wireSay((text) => {
     if (!net) {
@@ -2378,6 +2385,9 @@ function boot() {
   // state is stored on the input object and read into the intent each tick.
   let primaryWasHeld = false;
   renderer.domElement.addEventListener('mousedown', (e) => {
+    // A click that only existed to take the mouse back must not also loose an
+    // arrow. `input` flags it; this swallows exactly one.
+    if (input.consumeRelockClick()) return;
     if (e.button === 0) input.primaryHeld = true;
   });
   window.addEventListener('mouseup', (e) => {

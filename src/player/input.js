@@ -27,6 +27,18 @@ function isTyping(el) {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable === true;
 }
 
+/**
+ * Wall clock, for the browser's pointer-lock cooldown only.
+ *
+ * Nothing here reaches the simulation — this is the input layer deciding when
+ * it is allowed to ask for the mouse again, and the cooldown it is waiting on
+ * is itself measured in real time by the browser. The determinism rule is about
+ * world state, and no world state is computed from this.
+ */
+const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+// Chrome enforces about 1.25 s after Escape. A little over, to be sure.
+const LOCK_COOLDOWN_MS = 1400;
+
 export class PlayerInput {
   constructor(dom) {
     this.dom = dom;
@@ -50,6 +62,22 @@ export class PlayerInput {
     // Pointer lock is refused inside an iframe without `allow="pointer-lock"`.
     // When that happens we fall back to hold-right-button-and-drag.
     this.lockSupported = true;
+    // ── LOSING THE MOUSE FOR THE REST OF THE SESSION ──
+    //
+    // `lockUnavailable` used to be a ONE-WAY LATCH: any single rejected
+    // `requestPointerLock()` set `lockSupported = false` for ever, `requestLock`
+    // returned immediately from then on, and the cursor became `grab` — a hand.
+    // Keys still worked, so the game looked alive and could not be steered, and
+    // only a page reload brought it back.
+    //
+    // The usual cause is not an unsupported browser. Chrome REFUSES a re-lock
+    // for about 1.25 s after the user presses Escape to leave one, so pressing
+    // Esc and having the game ask for the mouse straight back is enough to kill
+    // it. A transient refusal is now transient: the lock is simply not held, and
+    // the next click on the canvas asks again.
+    this.lockRefused = false;
+    this.unlockedAt = 0;
+    this.relockClick = false;
     this.dragging = false;
     this.onLockUnavailable = null;
     this.enabled = true;
@@ -128,6 +156,15 @@ export class PlayerInput {
       this.pendingPitch += e.movementY * PLAYER.mouseSensitivity;
     };
     this.onMouseDown = (e) => {
+      // CLICK TO TAKE THE MOUSE BACK. Left button, only when the lock is
+      // supported and not currently held — which is the state that used to be
+      // a dead end. Flagged so the trigger handler can swallow this one click.
+      if (this.lockSupported && !this.locked && e.button === 0) {
+        this.relockClick = true;
+        this.requestLock();
+        e.preventDefault();
+        return;
+      }
       if (this.lockSupported || e.button !== 2) return;
       this.dragging = true;
       this.dom.style.cursor = 'grabbing';
@@ -142,10 +179,21 @@ export class PlayerInput {
       if (!this.lockSupported) e.preventDefault();
     };
     this.onLockChange = () => {
+      const was = this.locked;
       this.locked = document.pointerLockElement === this.dom;
-      if (!this.locked) this.keys.clear();
+      if (!this.locked) {
+        this.keys.clear();
+        // WHEN it was lost, because the browser's re-lock cooldown is measured
+        // from here and asking inside it is what used to be fatal.
+        if (was) this.unlockedAt = now();
+        this.dom.style.cursor = 'grab';
+      } else {
+        this.lockRefused = false;
+        this.dom.style.cursor = '';
+      }
     };
-    this.onLockError = () => this.lockUnavailable(new Error('pointerlockerror'));
+    // A `pointerlockerror` is a refusal, not a verdict on the browser.
+    this.onLockError = () => this.lockRefusedNow(new Error('pointerlockerror'));
     this.onBlur = () => {
       this.keys.clear();
       this.onMouseUp();
@@ -164,15 +212,40 @@ export class PlayerInput {
 
   requestLock() {
     if (!this.lockSupported) return;
+    // The browser has no such API at all — the only PERMANENT reason to give up.
+    if (typeof this.dom.requestPointerLock !== 'function') {
+      return this.lockUnavailable(new Error('no pointer lock in this browser'));
+    }
+    // Chrome refuses a re-lock for ~1.25 s after Escape released one. Asking
+    // inside that window is what used to kill the mouse for good; wait it out
+    // and ask again instead.
+    const since = now() - this.unlockedAt;
+    if (since < LOCK_COOLDOWN_MS) {
+      clearTimeout(this._relockTimer);
+      this._relockTimer = setTimeout(() => this.requestLock(), LOCK_COOLDOWN_MS - since + 30);
+      return;
+    }
     let result;
     try {
-      result = this.dom.requestPointerLock?.();
+      result = this.dom.requestPointerLock();
     } catch (err) {
-      return this.lockUnavailable(err);
+      return this.lockRefusedNow(err);
     }
     if (result && typeof result.catch === 'function') {
-      result.catch((err) => this.lockUnavailable(err));
+      result.catch((err) => this.lockRefusedNow(err));
     }
+  }
+
+  /**
+   * Refused THIS TIME. Not the same as unsupported, and the difference is the
+   * whole bug: one is "click to try again", the other is "use the right button
+   * from now on". Conflating them cost a session's mouse-look every time.
+   */
+  lockRefusedNow(err) {
+    this.lockRefused = true;
+    this.locked = false;
+    this.dom.style.cursor = 'grab';
+    this.onLockRefused?.(err);
   }
 
   lockUnavailable(err) {
@@ -181,6 +254,18 @@ export class PlayerInput {
     this.locked = false;
     this.dom.style.cursor = 'grab';
     this.onLockUnavailable?.(err);
+  }
+
+  /**
+   * Did the last click exist only to take the mouse back?
+   *
+   * Read and cleared by the trigger handler, so clicking into the game to
+   * regain the mouse does not also loose an arrow.
+   */
+  consumeRelockClick() {
+    const was = this.relockClick;
+    this.relockClick = false;
+    return was;
   }
 
   /** Everything held down is released — used on death, and on losing focus. */
