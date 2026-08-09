@@ -3353,3 +3353,106 @@ supports.
 six plausible goals, and the only thing that gives it away is one sentence it has
 been repeating for thirty-six minutes; meanwhile the last live model in the world
 spent twenty-one calls and seventy thousand tokens trying to sell it a hide.**
+
+---
+
+## 2026-08-09 05:06 PDT — RUN 2, FOURTEENTH LOOK: the scripted seat cannot feed itself
+
+**The board still answers** (`at 32986`, spend 1,939 / 6,000). Window is samples
+2108–2201, **21 real minutes**. Eachann has been `SPENT` since **s1998** — 203
+samples, ~66 real minutes of rules engine. Coinneach (kimi-k2.6) is still live:
+**439 / 1,500 calls, 192 failures (43.7%)**, all `no json in reply`.
+
+### The finding: the fallback brain never eats, so a `SPENT` seat is a death treadmill
+
+Across all 203 post-`SPENT` samples, Eachann's distinct deeds are:
+
+```
+gather 45   ·   place 13   ·   killed 1   ·   eat 0   ·   craft 0
+```
+
+**Zero eat deeds. Zero craft deeds.** Before `SPENT` the same seat logged 18
+distinct eat deeds. The rules brain gathers branches and lights fires — the two
+things it does well — and never once cooks or eats, while `food` drains from 85
+to 0 on the sim-day clock.
+
+The result is a loop that has now run three times:
+
+| death | sample | sim hour | health before | food before | pack after |
+|---|---|---|---|---|---|
+| #20 | s2043 | h12.0 | 0 | 0 | `bow, hide×19, wood×9` — **identical** |
+| #21 | s2115 | h10.5 | 6 | 0 | `bow, hide×19, wood×8` — **identical** |
+| #22 | s2197 | h11.8 | 8 | 0 | `bow, hide×19, wood×4` — **identical** |
+
+Respawn refills food to 84–85 and returns the pack byte-for-byte. From `food 0`
+to `health ≤ 5` took **9 samples / 2.2 real minutes**. Three deaths in 66 minutes,
+one roughly every 22 sim-hours, and it will not stop, because nothing in the loop
+learns. The live board right now reads `health 100, food 81` — that is not a
+healthy man, that is a man who died nine minutes ago.
+
+### Correction: the thirteenth entry watched a death and did not see it
+
+The 04:33 entry covered samples 1997–2107 and reported the scripted seat "walks,
+hunts and shelters through six plausible goals." **Death #20 happened at s2043,
+inside that window.** The entry counted goal transitions and missed the corpse,
+because `health` was 100 again by the next sample. This is the fifth time the
+board's self-healing display has hidden an event from an analysis of it.
+
+### Correction: 45 deaths, not 30 — and starvation is the cause of 80%
+
+Whole run, both minds, by the food-jump method (A91):
+
+| | |
+|---|---|
+| deaths | **45** (Eachann 22, Coinneach 23) |
+| `food == 0` in the sample before | **36 / 45 (80%)** |
+| pack byte-identical across the death | **35 / 45 (78%)** |
+| rate | **0.82 deaths per mind per sim-day** over 27.5 sim-days |
+
+A64 said 20 starvation deaths, A72 said 25, the 08-08 21:xx entry said 30. The
+figure is 36 and still climbing. **A72's finding is not "starvation death is
+free" — it is that starvation is the world's metronome.** Neither mind has ever
+lost anything worth losing by dying, and both die about once a day.
+
+### Coinneach's plan and his goal have disagreed for the whole window
+
+He rewrote his plan at **s2113** — the 24th rewrite of the run:
+
+```
+["eat whatever I get", "hunt that deer I saw", "feed the fire"]     82 of 87 samples
+```
+
+No trade line, no Eachann. But his `goal` in the same window was **`offer hide to
+Eachann for venison` 42 times**, and `go toward Eachann` 52 times among his
+intentions. His written plan has not named Eachann since **s1677** — 524 samples
+and roughly six sim-days ago. `plan` is durable and self-authored; `goal` is
+re-picked every turn from the prompt. Nothing shows a mind its own plan hard
+enough for the two to reconcile, so the seat walks toward a man his plan
+abandoned six days back.
+
+### He also names the thing blocking him, and the world has no verb for it
+
+Coinneach's most-used `why` strings include **`"starving, ridge blocks shots"`
+(103×)** and this window's new line **`"too far to waste arrows"`**. His window
+refusals: **203× `too far`, 116× `a tree in the way`** (29 each at 20/19/18/17 m).
+He has diagnosed his own problem correctly and has no move that fixes it — no
+stalk, no reposition-for-line, no "get clear of the trees". `why` is being used
+heavily by both minds (Eachann 167 distinct, Coinneach 64), and it is where all
+the sophistication in this run lives.
+
+### Re-checked, unchanged
+
+- **`note`: zero uses, 23rd check.** Both cards `""` across all 2,201 samples.
+- **`refusedVerbs`: `{"avoid": 16}` / `{}`.** Unmoved since s681. It logged none
+  of the window's 62 dead `offer` intentions.
+- **Trade: zero.** **No `accept` deed exists in 2,201 samples.**
+- **Speech is abundant** — 6 utterances never seen before in this window alone,
+  including *"One hide. Venison. Now."* and *"rain won't kill me, hunger will"*.
+- **Carcasses still work**; the gather → eat chain fired twice more for Coinneach.
+
+### The one-line version
+
+**The scripted brain that takes over a `SPENT` seat can gather wood and light
+fires but has no rule that says "eat", so Eachann has now starved to death three
+times in sixty-six minutes with nineteen hides on his back — and the board shows
+him at full health, because respawn hands everything back and says nothing.**

@@ -2317,3 +2317,81 @@ fewer than 10 branches** (less than one fire costs) and **14% carry 50+**. Raisi
 the price again just deepens the split. Take A15's own second option instead —
 **make branches slower to find, not fires dearer to light.** A mind that spends
 its day gathering is a mind with a reason to buy wood from the man holding 178.
+
+### A101 †††† THE SCRIPTED FALLBACK BRAIN HAS NO `eat` RULE — A `SPENT` SEAT STARVES FOREVER **[S]**
+
+203 samples of Eachann after his budget ran out. Distinct deeds:
+
+```
+gather 45  ·  place 13  ·  killed 1  ·  eat 0  ·  craft 0
+```
+
+The same seat logged **18 distinct eat deeds while the model was driving.** The
+rules brain gathers branches and lights fires and never feeds the body it is
+steering. Result: **three deaths in 66 real minutes** (s2043, s2115, s2197), one
+per ~22 sim-hours, `food 0` in every case, `food 0 → health ≤5` in 2.2 minutes.
+
+This sharpens A97. A `SPENT` seat does not merely "pass for alive" — it is on a
+starve-die-respawn treadmill it can never leave, because respawn refunds food and
+the script has no reason to change. Every benchmark hour after a seat goes `SPENT`
+is measuring a corpse-in-waiting that the board paints at `health 100`.
+
+**Fix (cheapest first):** give the fallback brain the two rules it is missing —
+`if food < 30 and carrying food: eat` and `if food < 30 and carrying raw meat:
+craft then eat`. It already knows how to gather and place; this is the same shape.
+**Second:** a seat that goes `SPENT` should stop being scored at all — freeze the
+card, tag it, and exclude its deeds from every aggregate, rather than letting a
+script accumulate 45 gathers and 3 deaths into the run's numbers.
+
+### A102 †† CORRECTION — 45 DEATHS, 36 BY STARVATION, AND THE RATE IS ~0.8/MIND/DAY **[—]**
+
+Whole run by the food-jump method (A91): **45 deaths**, Eachann 22 / Coinneach 23.
+`food == 0` in the preceding sample for **36 of 45 (80%)**. Pack byte-identical
+across the death for **35 of 45 (78%)**. Over 27.5 sim-days that is **0.82 deaths
+per mind per sim-day.**
+
+Supersedes the counts in A64 (20 starvations), A72 (25) and the 08-08 evening
+entry (30 deaths). The direction in all three survives; the numbers do not.
+
+**The reframing matters more than the count.** A72 called starvation death "free".
+It is worse than free — at roughly one death per mind per day it is the **clock
+this world actually runs on**, and it costs nothing, teaches nothing, and appears
+nowhere on the board. Two consecutive analyses of this run watched a death happen
+inside their own sample window and did not notice, because `health` was 100 again
+one sample later. **Put `deaths` and `lastDeath` on the card.** Until then no
+reading of this board is trustworthy about survival.
+
+### A103 †† `plan` IS DURABLE BUT NEVER RECONCILED WITH `goal` **[S]**
+
+Coinneach rewrote his plan at s2113 to `["eat whatever I get", "hunt that deer I
+saw", "feed the fire"]` and held it for 82 of 87 samples. In that same window his
+`goal` was **`offer hide to Eachann for venison` 42 times** and `go toward Eachann`
+52 times. His plan has not named Eachann since **s1677 — 524 samples, ~6 sim-days
+earlier.**
+
+`plan` is self-authored and sticky; `goal` is re-picked fresh every turn. Nothing
+puts the two in the same sentence, so a mind can pursue for six days a
+counterparty its own written plan gave up on. A21 established that `plan` gets
+used; this is the first evidence that being used is not the same as being *read*.
+
+**Fix:** put the standing plan in the prompt directly above the goal choice —
+"your plan is X, Y, Z; your goal this turn is ___" — and log when the chosen goal
+serves no line of the plan. That log is the cheapest available measure of whether
+a model is coherent over hours, which is the thing this benchmark exists to test.
+
+### A104 †† A MIND CAN NAME THE TERRAIN THAT BLOCKS ITS SHOT AND HAS NO VERB TO ANSWER IT **[M]**
+
+Coinneach's `why` field, whole run: **`"starving, ridge blocks shots"` 103×**, plus
+this window's `"too far to waste arrows"`. His refusals in the same 21 minutes:
+**203× `too far`, 116× `a tree in the way`** (29 each at 20, 19, 18 and 17 m — the
+same tree, four samples running, as he walks nowhere useful).
+
+The diagnosis is correct and complete. The world offers no move that acts on it:
+there is no stalk, no flank, no "get clear of the trees", and `make for <landmark>`
+is far too coarse to clear a trunk at 18 m. Pairs with A99 (`gather` has no
+walk-to): the models keep naming spatial moves this world will not let them make.
+
+**Fix:** one verb — `close on <target>` — that walks until the line is clear or a
+given range is reached, and reports why it stopped. It costs one call instead of
+the dozens now burned re-loosing into a trunk, and it turns the most-repeated
+`why` string in the run into an action.
