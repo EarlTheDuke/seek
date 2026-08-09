@@ -3817,3 +3817,36 @@ Both kimi seats took **17 calls** in the window the other models took **47–71*
 comparing a seat that thought 17 times with seats that thought 71 times. **Fix:** put every seat
 on the same cadence before the next melee, or record decisions-per-game-hour beside every
 standings column so the handicap is visible.
+
+### A187 NOTHING TELLS A MIND WHAT ITS GOODS ARE WORTH **[M]**
+
+The one settled trade in the live run: Ailsa (`claude-sonnet-5`) paid **10 of her 12 arrows for
+one cooked venison**, worth +34 food. Her reasoning was sound — *"hungry, keeping arrows was
+never the priority, food is"* — and the price was catastrophic: by A183's arithmetic a kill
+costs ~14 arrows, so ten arrows is roughly nine hundred food, not thirty-four. She spent her
+entire capacity to ever feed herself again on one dinner, then decayed from 56 to 17 over the
+next eleven game hours carrying two arrows and no wood.
+
+**She was not wrong to trade. She had no way to see the price.** The brief names what you carry
+and what is offered; it never says what anything converts into. Meanwhile Morag ran the same
+market from the other side and finished with 117 branches and 31 arrows.
+
+**Fix:** put conversion facts in the brief where the goods are listed — *"arrow ×12 (a deer has
+cost about 14 lately)"*, *"venison_cooked ×1 (about 34 food)"*. Not a price list handed down;
+the mind's own observed rates. A market needs a unit of account before it needs a currency.
+
+### A188 THE FIRST REAL CAPITAL POSITION — DO NOT BALANCE IT AWAY **[S]**
+
+Wood at the end of the 22-hour run: **Morag 117; the other seven seats hold 24 between them**
+(8, 8, 7, 1, 0, 0, 0). She peaked at 155, funded most of the 36 fires on the map, kept the only
+`note` on the board as a credit ledger — *"Fingal owes me a cut if he uses my fire"* — and
+rewrote her `plan` **47 distinct times** against Eachann's 2.
+
+A185 called this "wood is not scarce". It is the opposite: the 10-branch fire *did* bite, for
+everyone except the one player who saw it coming a day early and cornered the supply. This is
+the first genuine capital position the world has produced and the first evidence the economy has
+a strategy space at all.
+
+**Do not nerf it.** Instead give it something to push against: let a fire go out and need
+feeding, so a monopolist has running costs and the rest of the map has a recurring reason to
+come and deal. That turns a hoard into a business.
