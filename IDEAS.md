@@ -1726,3 +1726,71 @@ for pay"]` and he **gave away ten arrows** during it. **An open negotiation drai
 negotiator of the exact good he is negotiating for.** Whatever A62's quantity fix
 looks like, it should close the intent the moment a transfer completes, or this gets
 worse as models get more persistent — not better.
+
+### A68 ††† `accept` MATCHES ITEM IDS BY EXACT STRING WHILE `give` FORGIVES THEM — AND EVERY PRICE A MODEL NAMES IS A PHRASE **[M]**
+
+The reason `give` has 58 deeds this run and `accept` has **zero, across the whole
+24-hour day and two vendors**, with the same two models pressing both buttons.
+
+`resolveGive` goes through `giftFrom` (`world.js:802–810`): **named item → else any
+edible → else best slot.** A bad noun still moves goods. `resolveAccept`
+(`world.js:763–764`) has no such fallback:
+
+```js
+if (giver.inventory.countOf(deal.item) < 1) return;   // deal.item = "meat"
+if (taker.inventory.countOf(deal.want) < 1) return;   // deal.want = "6 arrows"
+```
+
+`sanitiseGoal` strips control chars and caps at 40 (`goals.js:193`); it never maps a
+word to an item id. Every price either mind named this run is a phrase, not an id —
+*"6 arrows"*, *"two venison"*, *"nine branches"*, and *"meat"* / *"flint"*, which are
+not items in this world at all. The final handshake of the run asks
+`countOf("6 arrows")` when the id is `arrow`.
+
+**This subsumes half of A62.** Quantity is genuinely missing, but adding `n` to the
+intents would not have closed one bargain here, because the *noun* fails first.
+
+**Fix, in order:**
+1. **Resolve the noun.** One `itemFrom(text)` shared by give/offer/accept: lowercase,
+   strip a leading count, singularise, then an alias table (`meat|venison|steak →
+   venison`, `branch|branches|firewood|deadfall → wood`, `arrows → arrow`). Return
+   the count it stripped — that is A62's `n` for free, from the same parse.
+2. **Then** thread `n` through `resolveAccept` per A62, clamped to both stacks.
+3. **Refuse loudly when it still fails** (A63) — `there is no "flint" in this world`
+   is a sentence that ends a fifteen-turn loop; silence extends it.
+
+### A69 †† THE ITEM VOCABULARY IS NEVER SHOWN TO THE MIND, SO BOTH MODELS INVENTED ONE **[S]**
+
+Sharpens A54 (`flint`/`feathers`) with this run's wider evidence: `meat`, `flint`,
+`feathers`, `branches`, `deadfall` all appear as trade nouns and **none is an item
+id**. The pack is rendered to the mind in English prose (*"36 branches"*), so a model
+naturally prices in English and there is nowhere it could learn that the id is `wood`.
+
+**Fix:** print the tradeable ids verbatim in the prompt — one line,
+`tradeable: wood, arrow, hide, venison, venison_cooked, gold` — and echo the id back
+in the pack line (`wood ×36 (branches)`). This is the cheap half of A68; ship it in
+the same change or the alias table will just keep growing.
+
+### A70 † RETIRE `note`, KEEP `plan` — FIFTEENTH CHECK, AND NOW THERE IS A CONTRAST **[S]**
+
+`note` is empty on all 1,378 cards this run, both vendors, as on every run before it.
+`plan` is the opposite: **4 distinct for Eachann, 17 for Coinneach**, and they track
+the live negotiation — `["gather nine branches","trade to Eachann for arrows","hunt
+the deer"]` becoming `["gather to fifty","get meat from Eachann","hunt if he won't
+deal"]`. A plan is written, survives, and steers the next hour of behaviour.
+
+The difference is that `plan` answers a question the mind already has ("what next")
+and `note` asks it to keep a diary nobody reads back. **Delete `note` and give its
+prompt budget and its card column to `plan`.**
+
+### A71 † FIRES: THE 10-BRANCH PRICE DID NOT BITE, AND PRICING IS THE WRONG LEVER **[S]**
+
+**153 fires sampled** this run (Eachann 97, Coinneach 56) — no better than the 106
+that motivated the 10× price rise. Peak wood carried was **154 / 88**; Eachann ends
+the day holding 36 with 538 gather deeds behind him. Wood is not scarce at any price
+a forager can't out-gather, and gathering is free.
+
+**Fix:** stop pricing the fire and price the *ground*. Cap standing fires per person
+(a second `place` moves your fire rather than adding one), or make deadfall a finite
+node that depletes and regrows on a timer. Raising the branch cost again just raises
+the gather count.

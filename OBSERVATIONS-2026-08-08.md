@@ -2459,3 +2459,91 @@ instrument has made a mind look incompetent (A29, A41, A50, A57, A61, this).
 and went on paying the debtor twenty-six more times in half an hour — while the
 debtor, holding six branches of the fifty he promised, walked toward him saying he
 had no food, because the game says "no food" when it means "nothing in the pack."**
+
+---
+
+## 2026-08-09 00:34 PDT — sample 1,378, game hour 23.7 (run still live, NOT spent)
+
+`accept` **never once resolved in the whole 24-hour day.** Deed kinds across 1,378
+samples, deduped:
+
+```
+Eachann   gather 538  place 97  craft 17  eat 10  killed 9  give 58
+Coinneach gather 294  place 56  craft  5  eat  5  killed 3  give  0
+```
+
+There is no `trade` row. Not one. Meanwhile both minds reached for the verb —
+**35 offer/accept goals sampled** (Eachann 13 offer / 8 accept, Coinneach 7 / 7),
+and the run *ends* mid-handshake with both cards agreeing:
+
+```
+Eachann    goal "offer meat to Coinneach for 6 arrows"  why "he keeps asking, close enough"  said "six or no deal"
+Coinneach  goal "take Eachann offer"                    why "take the meat, six arrows"      said "Six arrows. Robbery, but fine."
+```
+
+Two minds, same price, both saying done, 306 m and 298 m south of Broad Loch —
+**within trade range 254 of 557 comparable samples** — and the engine transferred
+nothing. This is not a model failure. Both models negotiated a clean bargain in
+English and both pressed the right button.
+
+### THE NEW PART: `give` FORGIVES A BAD ITEM NAME AND `accept` DOES NOT
+
+This is why the two verbs have opposite records with the same two models.
+
+`resolveGive` routes through `giftFrom` (`world.js:802–810`), which is deliberately
+forgiving — **named item → else anything edible → else best slot**. Something always
+moves. Hence 58 gives.
+
+`resolveAccept` (`world.js:763–764`) is exact-match-or-die:
+
+```js
+if (giver.inventory.countOf(deal.item) < 1) return;
+if (taker.inventory.countOf(deal.want) < 1) return;
+```
+
+`deal.want` is the model's raw string. `sanitiseGoal` strips control characters and
+caps at 40 chars (`goals.js:193`) — **it does not map words to item ids.** So the
+final deal of the run asks `countOf("6 arrows")`, and the id is `arrow`. Zero. Silent
+`return`. Every price either mind named this run — *"6 arrows"*, *"two venison"*,
+*"nine branches"*, *"meat"*, *"flint"* — is a phrase, not an id. `meat` and `flint`
+are not items in this world at all.
+
+So A62 is right that quantity is missing, but it is the smaller half. **Even at
+1-for-1 with a quantity field bolted on, this trade still fails, because the
+*noun* never resolves either.** A62's fix as written would not have closed a single
+bargain in this run.
+
+**Correction to the previous entry's framing.** I had read the endless re-quoting
+(*"Nine branches or no arrows still stands"* × 15) as stubbornness. It is not.
+Neither mind is ever told the deal failed — see below — so from inside, repeating
+the price is the *correct* move. Seventh time the instrument has made a mind look
+worse than it is.
+
+### Confirmed, unchanged
+
+- **`refusedVerbs`: `{avoid: 16}` / `{}` at 1,378 samples.** A63 exactly: all seven
+  `refuse()` sites are the pre-flight name lookup, and every one of `resolveAccept`'s
+  seven silent `return`s is downstream of it. The single most informative column on
+  the card is structurally blind to the single most important failure in the game.
+- **`note`: empty on every card, both vendors, fifteenth check.** Retire it.
+- **`plan`: alive and genuinely used** — 4 distinct for Eachann, 17 for Coinneach,
+  and they track the negotiation (`["gather nine branches","trade to Eachann for
+  arrows","hunt the deer"]` → `["gather to fifty","get meat from Eachann","hunt if
+  he won't deal"]`). Plans survive and steer. Keep `plan`, drop `note`.
+- **`say`: still the unqualified win.** ~190 distinct lines, both minds naming each
+  other and quoting prices. The one-sentence-in-two-days era is over.
+- **kimi-k2.6 `no json in reply`: 127 of 279 (46%).** Flat all run. Half of
+  Coinneach's turns are the scripted brain wearing kimi's name.
+- **Fires: 153 sampled (Eachann 97, Coinneach 56) — the 10-branch price did not
+  bite.** Peak wood carried was **154 (Eachann) / 88 (Coinneach)**; Eachann ends
+  holding 36. Wood is not scarce, it is a currency they had too much of. A53/A60
+  stand; raising the price again is the wrong lever.
+- Gives: 58 by my dedup key vs A67's 61 — different keys over the same rolling
+  5-deep window at a 20 s sample. Both are floors; no contradiction.
+
+### The one-line version
+
+**Both models closed the same bargain out loud — "six or no deal" / "Six arrows.
+Robbery, but fine." — and the engine dropped it on the floor without a word, because
+`accept` matches item ids by exact string while `give` forgives them, and every price
+a model has ever named in this world is a phrase.**
