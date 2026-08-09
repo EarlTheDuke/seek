@@ -411,6 +411,8 @@ const KEYS = [
   ['R', 'eat'],
   ['Q', 'drop one of what you are holding'],
   ['Shift + Q', 'drop half the stack — 20 arrows becomes 10'],
+  ['T', 'hand what you are holding to whoever is in reach'],
+  ['Shift + T', 'hand over half of it'],
   ['1 2 / wheel', 'change item'],
   ['F', 'free-fly camera'],
   ['[ ]', 'move the sun'],

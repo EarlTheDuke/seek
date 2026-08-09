@@ -99,6 +99,10 @@ const INTENT_KEYS = [
   // in-process test of the same code passed.
   'give',
   'giveItem',
+  // How many. Without this on the allow-list a player can agree a price of nine
+  // and hand over one, for ever — `give` shipped broken once for exactly this
+  // reason, which is why givecheck drives a real socket.
+  'giveCount',
   // A bargain. Added here at the same moment as everywhere else, because this
   // list is an ALLOW-LIST: `give` shipped once with all four of its other ends
   // wired and this line missing, and worked perfectly in-process while doing

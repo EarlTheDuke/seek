@@ -91,6 +91,19 @@ export function createIntent() {
     // `goTo` already follow.
     give: '',
     giveItem: '',
+    // ── HOW MANY, AND WHY IT HAS TO EXIST ──
+    //
+    // `resolveGive` moved exactly ONE, which was right when the only givers
+    // were minds handing over a single thing — the alternative was the bug it
+    // fixed, where `give` emptied a stack of twelve arrows in one press.
+    //
+    // But a player who has just agreed "nine branches for the arrows" cannot
+    // press a key nine times at somebody, and a playtester who tried to pay two
+    // agents ended up dropping eighteen branches on the grass that neither
+    // could pick up. A bargain nobody can settle deadlocks both sides.
+    //
+    // 0 means "one", so every existing caller — every agent — is unchanged.
+    giveCount: 0,
 
     // ── A BARGAIN, in four strings ──
     //
@@ -149,6 +162,7 @@ export function clearIntent(i) {
   i.craft = '';
   i.give = '';
   i.giveItem = '';
+  i.giveCount = 0;
   i.offer = '';
   i.offerItem = '';
   i.offerWant = '';
@@ -179,6 +193,7 @@ export function copyIntent(to, from) {
   to.craft = from.craft;
   to.give = from.give;
   to.giveItem = from.giveItem;
+  to.giveCount = from.giveCount;
   to.offer = from.offer;
   to.offerItem = from.offerItem;
   to.offerWant = from.offerWant;
@@ -238,6 +253,9 @@ export function sanitiseIntent(i, maxLookPerTick = 0.35) {
   const name = (v, n) => (typeof v === 'string' ? v.replace(/[ -]/g, '').trim().slice(0, n) : '');
   i.give = name(i.give, 24);
   i.giveItem = name(i.giveItem, 24);
+  // Clamped hard: this arrives off a socket and decides how much of somebody
+  // else's pack moves. A stack is never more than 99.
+  i.giveCount = Number.isFinite(i.giveCount) ? Math.max(0, Math.min(99, Math.floor(i.giveCount))) : 0;
   i.offer = name(i.offer, 24);
   i.offerItem = name(i.offerItem, 24);
   i.offerWant = name(i.offerWant, 24);

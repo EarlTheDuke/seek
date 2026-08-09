@@ -52,6 +52,8 @@ export class PlayerInput {
     this.pressedInteract = false;
     this.pressedDrop = false;
     this.pressedDropHalf = false;
+    this.pressedGive = false;
+    this.pressedGiveHalf = false;
     this.pressedPlace = false;
     this.pressedEat = false;
     this.pressedAlternate = false;
@@ -141,6 +143,11 @@ export class PlayerInput {
       // Q drops ONE; Shift+Q drops half the stack. Twenty arrows to ten in a
       // single press, which is the thing that could not be done at all.
       if (e.code === 'KeyQ') { if (e.shiftKey) this.pressedDropHalf = true; else this.pressedDrop = true; }
+      // HAND IT OVER. T gives the whole held stack to whoever is in reach,
+      // Shift+T gives half. The whole stack is the default because giving is
+      // deliberate — you walked up to somebody and pressed it — and because
+      // the bargain that deadlocked this world was for NINE branches.
+      if (e.code === 'KeyT') { if (e.shiftKey) this.pressedGiveHalf = true; else this.pressedGive = true; }
       // "I meant the OTHER one." E resolves by distance and urgency, which is
       // the right default and was previously the only option: standing at a
       // fire holding raw meat, two presses of E silently burned two branches
@@ -295,6 +302,8 @@ export class PlayerInput {
     this.pressedInteract = false;
     this.pressedDrop = false;
     this.pressedDropHalf = false;
+    this.pressedGive = false;
+    this.pressedGiveHalf = false;
     this.pendingSlot = -1;
   }
 
@@ -322,6 +331,8 @@ export class PlayerInput {
     i.interact = this.pressedInteract;
     i.drop = this.pressedDrop;
     i.dropHalf = this.pressedDropHalf;
+    i.giveAll = this.pressedGive;
+    i.giveHalfPressed = this.pressedGiveHalf;
     i.place = this.pressedPlace;
     i.eat = this.pressedEat;
     i.alternate = this.pressedAlternate;
@@ -329,6 +340,8 @@ export class PlayerInput {
     this.pressedInteract = false;
     this.pressedDrop = false;
     this.pressedDropHalf = false;
+    this.pressedGive = false;
+    this.pressedGiveHalf = false;
     this.pressedPlace = false;
     this.pressedEat = false;
     this.pressedAlternate = false;

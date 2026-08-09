@@ -126,6 +126,20 @@ export class Vitals {
       this.deathTime = 0;
       this.hurtFlash = 0;
       this.sinceHurt = Infinity;
+      // ── AND STAND UP FED, WARM AND DRY ──
+      //
+      // THE DEATH LOOP. `revive()` calls `Body.reset()` — hunger, core
+      // temperature, stamina, wetness — but a body revived BY THE SERVER never
+      // goes through `revive()`: it comes through here, which cleared the death
+      // flags and nothing else. So the local body woke with the hunger it died
+      // with, and a playtester went round the loop eight times: "you respawn
+      // starving with an empty quiver and die again about ninety seconds later".
+      //
+      // `this.reset?.()` and not `revive()`, deliberately. `revive()` would also
+      // set health to full, and health is the SERVER'S to give — it has just
+      // told us what it is. `reset` exists on `Body` and not on a bare `Vitals`,
+      // so the optional call is doing real work here.
+      this.reset?.();
       this.deps.onRespawn?.(this);
     }
   }

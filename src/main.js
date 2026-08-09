@@ -69,7 +69,7 @@ import { RECIPES, bestAvailable, craft } from './items/recipes.js';
 // "ReferenceError: NET is not defined", dropping the game to the title screen
 // with the clock, the weather and the fires frozen. See `lockcheck`'s sibling
 // `importcheck`, added in the same commit.
-import { AUDIO, SURVIVAL, NET } from './config.js';
+import { AUDIO, SURVIVAL, NET, SOCIAL } from './config.js';
 import { Wildlife } from './creatures/manager.js';
 import { Weather } from './world/weather.js';
 import { Rain } from './fx/rain.js';
@@ -449,6 +449,13 @@ function boot() {
         // that landed at 15:40. See `Body.applyRemoteCore` — and note `me.f` is
         // deliberately still NOT read, because nothing can yet feed that body.
         if (snap.me) vitals.applyRemoteCore(snap.me.c);
+        // ── and how hungry ──
+        // `me.f` was the one field of the four deliberately left unread, on the
+        // reasoning that nothing could feed the server's copy. That has not been
+        // true since `eat` crossed the wire. Reading it is what stops the bar
+        // showing the hunger you died with after the server has stood you back
+        // up fed — the other half of the ninety-second death loop.
+        if (snap.me) vitals.applyRemoteFood(snap.me.f);
         // ── AND WHERE THE SERVER THINKS YOU ARE STANDING ──
         //
         // The server integrates YOUR intents through ITS OWN physics —
@@ -2534,6 +2541,27 @@ function boot() {
   // whatever it sends. See where it is used.
   const deadIntent = createIntent();
 
+  /**
+   * The nearest other person within arm's reach, by name.
+   *
+   * Straight off the last snapshot and `net.others`, because the avatars are
+   * presentation and this is a fact about the world. Returns null offline,
+   * where there is nobody to hand anything to.
+   */
+  function nearestPerson() {
+    const snap = net?.buffer?.at(-1)?.snap;
+    if (!snap?.pl) return null;
+    let best = null;
+    let bestD = SOCIAL.giveRange;
+    for (const p of snap.pl) {
+      const who = net.others.get(p.id);
+      if (!who?.name) continue;
+      const d = Math.hypot(p.p[0] - ctrl.position.x, p.p[2] - ctrl.position.z);
+      if (d < bestD) { bestD = d; best = { name: who.name, distance: d }; }
+    }
+    return best;
+  }
+
   /** One simulation + render step. Split out so it can be driven manually. */
   function stepWorld(dt) {
     syncSize();
@@ -2632,6 +2660,37 @@ function boot() {
           inventory.remove(found, 1);
           hud.toast(`ate ${itemName(found)}`, 1.4);
         } else hud.toast('you are full', 1.2);
+      }
+    }
+    // ── HAND IT OVER ──
+    //
+    // THE CLIENT WAS WIRED TO NONE OF THIS. `give`, `offer` and `accept` have
+    // been in the protocol and resolved by the server for two days, the AGENTS
+    // use them — 29 gifts in one run — and the only "offer" anywhere in this
+    // file offered food to the otter.
+    //
+    // So a playtester who agreed a price with two minds could not pay them. He
+    // dropped eighteen branches on the grass at their feet; neither could pick
+    // them up, and Eachann went on asking for the nine branches he was standing
+    // on. An agent that can bargain and cannot receive deadlocks, and both did.
+    //
+    // The server owns the whole act — range, conservation, the announcement —
+    // so all this does is name who and how many. Offline there is nobody to
+    // give to, and `net` is null, so single player is untouched.
+    if ((intent.giveAll || intent.giveHalfPressed) && net) {
+      const held = inventory.equippedSlot;
+      const near = nearestPerson();
+      if (!held) hud.toast('you are holding nothing to give', 1.6);
+      else if (!near) hud.toast('nobody close enough to hand it to', 1.6);
+      else {
+        const n = intent.giveHalfPressed ? Math.max(1, Math.ceil(held.count / 2)) : held.count;
+        intent.give = near.name;
+        intent.giveItem = held.item;
+        intent.giveCount = n;
+        // `amountText` and not `itemName` — it pluralises. This world already
+        // calls one thing `wood`, "BRANCH", "8 branch" and "3 branches"; a fifth
+        // spelling is not what it needs.
+        hud.toast(`${amountText(held.item, n)} to ${near.name}`, 1.8);
       }
     }
     if (intent.drop || intent.dropHalf) {

@@ -171,6 +171,40 @@ async function main() {
       (giver.pack().arrow ?? 0) === (midGiver.arrow ?? 0),
       `${midGiver.arrow ?? 0} -> ${giver.pack().arrow ?? 0}`);
 
+    // ── A WHOLE STACK, BECAUSE ONE AT A TIME DEADLOCKED A REAL BARGAIN ──
+    //
+    // `resolveGive` moved exactly one, which was right when the only givers
+    // were minds. Then a playtester agreed "nine branches for the arrows" with
+    // an agent and had no way to pay: nine presses is not a thing anyone does,
+    // so he dropped eighteen branches on the grass instead. Neither agent could
+    // pick them up, and Eachann went on asking for the nine he was standing on.
+    //
+    // OVER THE SOCKET, like everything else here, because `giveCount` is a new
+    // field on the wire and `INTENT_KEYS` is an allow-list — which is exactly
+    // how `give` itself shipped working in-process and dead on the wire.
+    {
+      const beforeN = { giver: giver.pack(), taker: taker.pack() };
+      const totalN = (beforeN.giver.arrow ?? 0) + (beforeN.taker.arrow ?? 0);
+
+      giver.intent.give = 'Eachann';
+      giver.intent.giveItem = 'arrow';
+      giver.intent.giveCount = 5;
+      for (let i = 0; i < 8; i++) { giver.send(); taker.send(); await sleep(1000 / 30); }
+      giver.intent.give = '';
+      giver.intent.giveItem = '';
+      giver.intent.giveCount = 0;
+      for (let i = 0; i < 20; i++) { giver.send(); taker.send(); await sleep(1000 / 30); }
+      await sleep(400);
+
+      const afterN = { giver: giver.pack(), taker: taker.pack() };
+      const movedN = (afterN.taker.arrow ?? 0) - (beforeN.taker.arrow ?? 0);
+      check('A COUNT MOVES A STACK, and it survives the wire',
+        movedN === 5, `${movedN} arrows crossed on one press, asked for 5`);
+      check('  …and NOTHING WAS MINTED moving five at once',
+        (afterN.giver.arrow ?? 0) + (afterN.taker.arrow ?? 0) === totalN,
+        `${totalN} before, ${(afterN.giver.arrow ?? 0) + (afterN.taker.arrow ?? 0)} after`);
+    }
+
     giver.close();
     taker.close();
     await sleep(200);

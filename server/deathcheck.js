@@ -149,6 +149,51 @@ while (orphan.dead && alone < VITALS.respawnDelay * 3) {
 check('and a body that died as the server vanished still gets up', !orphan.dead,
   `up after ${alone.toFixed(2)} s`);
 
+// ── THE DEATH LOOP ──
+//
+// A playtester: "dying costs you every arrow you are carrying, and hunger is not
+// reset by death, so you respawn starving with an empty quiver and die again
+// about ninety seconds later — I went through that loop perhaps eight times."
+//
+// `Body.revive()` resets hunger, warmth, stamina and wetness — but a body
+// revived BY THE SERVER never goes through `revive()`. It comes through
+// `Vitals.applyRemote`, which cleared the death flags and nothing else. So the
+// local body stood up with the hunger it died with.
+{
+  const { Body } = await import('../src/player/body.js');
+  const { SURVIVAL: SV } = await import('../src/config.js');
+
+  const b = new Body();
+  b.hunger = 2;
+  b.wetness = 1;
+  b.coreC = 33;
+  b.applyRemote(0);                       // the server says you are dead
+  check('a body killed by the server is dead', b.dead === true);
+
+  b.applyRemote(100);                     // ...and then stands you back up
+  check('A BODY THE SERVER REVIVES WAKES FED, not starving',
+    b.hunger === SV.hungerStart,
+    `hunger ${b.hunger} of ${SV.hungerStart} — this is the ninety-second loop`);
+  check('  …and warm and dry',
+    b.coreC === SV.coreStartC && b.wetness === 0,
+    `core ${b.coreC}, wetness ${b.wetness}`);
+  check('  …and the SERVER still owns the health it just gave',
+    b.health === 100 && b.dead === false,
+    `${b.health} hp — reset must not hand out health of its own`);
+}
+
+// ...and the other half: the bar has to tell the truth while you are alive.
+{
+  const { Body } = await import('../src/player/body.js');
+  const b = new Body();
+  b.applyRemoteFood(41);
+  check('THE SERVER OWNS HUNGER TOO, like health and warmth before it',
+    b.hunger === 41 && b.remoteFood === true, `hunger ${b.hunger}`);
+  check('  …and rubbish on the wire cannot poison it',
+    (b.applyRemoteFood(undefined), b.hunger === 41),
+    'NaN once would leave every comparison silently false for the session');
+}
+
 const failed = results.filter((r) => !r).length;
 console.log(`\n  ${results.length - failed}/${results.length} passed\n`);
 process.exit(failed ? 1 : 0);

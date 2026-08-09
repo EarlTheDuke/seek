@@ -654,7 +654,7 @@ export class SimWorld {
    * nothing. A gift that lands pushes an event, because two people need to know
    * and a watcher wants to see it.
    */
-  resolveGive(from, toName, itemId) {
+  resolveGive(from, toName, itemId, count = 1) {
     if (from.body.dead) return;
     const want = String(toName).trim().toLowerCase();
     if (!want) return;
@@ -676,19 +676,41 @@ export class SimWorld {
 
     const id = this.giftFrom(from, itemId);
     if (!id) return;
+    // ── HOW MANY, CLAMPED TO WHAT IS ACTUALLY THERE ──
+    //
+    // Defaults to one, so every mind that has ever called this is unchanged. A
+    // player settling "nine branches for the arrows" sends nine, because
+    // pressing a key nine times at somebody is not a thing anyone will do — a
+    // playtester tried to pay two agents and ended up dropping eighteen
+    // branches on the grass that neither of them could pick up.
+    const asked = Math.max(1, Math.min(99, Math.floor(count) || 1));
+    const held = from.inventory.countOf(id);
+    // `howMany`, not `want` — `want` is already the recipient's name in this
+    // function, thirty lines up.
+    const howMany = Math.min(asked, held);
+    if (howMany < 1) return;
+
     // `remove` returns HOW MANY it actually took, not a boolean. Checking it
-    // for truth is the whole safety here: if the stack vanished between the
-    // look-up and the removal, this returns 0 and nobody is credited.
-    if (from.inventory.remove(id, 1) !== 1) return;
+    // against what was asked is the whole safety here: if the stack changed
+    // between the look-up and the removal, this takes fewer than expected and
+    // only that many are credited. Nothing is ever created.
+    const moved = from.inventory.remove(id, howMany);
+    if (moved < 1) return;
     // Only credit the receiver once the giver has ACTUALLY lost it. Doing this
     // the other way round would mint an item on any inventory that refused the
     // removal, and money you can print is the one bug a shared world cannot
     // recover from.
-    to.inventory.add(id, 1);
+    //
+    // AND ONLY WHAT FITS. `add` returns how many it took; a full pack would
+    // otherwise swallow the remainder into nothing. What will not fit goes
+    // back, so the total across both packs is the same before and after.
+    const taken = to.inventory.add(id, moved);
+    if (taken < moved) from.inventory.add(id, moved - taken);
+    if (taken < 1) return;
 
     from.dirty = true;
     to.dirty = true;
-    this.events.push({ k: 'gift', by: from.id, to: to.id, n: to.name, id, from: from.name });
+    this.events.push({ k: 'gift', by: from.id, to: to.id, n: to.name, id, n2: taken, from: from.name });
   }
 
   /**
@@ -1155,7 +1177,7 @@ export class SimWorld {
     // already has, and the reason a bow fires once when you let go.
     const wantsGive = intent.give || '';
     if (wantsGive && wantsGive !== p.giveWasHeld) {
-      this.resolveGive(p, wantsGive, intent.giveItem);
+      this.resolveGive(p, wantsGive, intent.giveItem, intent.giveCount || 1);
     }
     p.giveWasHeld = wantsGive;
 
