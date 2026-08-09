@@ -1118,3 +1118,72 @@ Observation, not yet a fix: the scarcity that actually bit this run was
 to attempt trade. Wood is not the interesting constraint; **the crafting chain
 is.** Consider tightening flint/feather availability and leaving wood alone,
 rather than pricing fires higher again.
+
+### A33 ††† A MIND CANNOT NAME WHAT IT WANTS TO PICK UP **[S]**
+`src/minds/goals.js:65` — `gather: { params: [] }`. The only gather a mind can
+express is the untargeted *"pick up what is lying about"*. Meanwhile
+`src/net/agent.js:2444` already contains the perfect refusal —
+`refuse('gather', 'there is no ${want} lying about that you can see')` — wired to
+a `want` the vocabulary can never supply. **It is dead code.**
+
+Cost of this in run 2: both minds spent game hours 11→14.7 planning, walking and
+bargaining for **flint**, which has zero matches in the entire codebase, while
+Eachann stood on `wood x4` — enough for eight arrows under the real recipe
+(`wood: 2 → arrow: 4` at a fire). The world never contradicted them because the
+only verb that could have carried the question takes no argument.
+
+Fix: add `params: ['want']` to `gather`, pass it through, and let 2444 fire. One
+line of vocabulary turns a four-hour hallucination into a one-decision correction
+— and it is what finally gives `refusedVerbs` something to report (see A34).
+
+### A34 †† CORRECTION TO A31 — `refusedVerbs` IS NOT BROKEN, IT IS UNREACHABLE **[S]**
+A31 said `refuse()` "is only reached when a target name fails to resolve." **That
+is wrong** and I am retiring it. There are ten call sites; three are not name
+resolution (`agent.js:1054`, `1058`, `2444` gather, `2519` hunt).
+`server/board.js:287` exports the map and `:439` renders it. The wiring is
+correct end to end.
+
+The real reason it is `{}` on all 1,148 cards of run 2: **no mind ever named a
+target or quarry that failed to resolve.** Every `give`/`offer` named a real
+person. The one verb being misused all evening — `gather` — cannot be refused at
+all (A33). Do **not** spend an afternoon adding `refuse()` calls to every early
+return, as A31 recommended; do A33 first and re-measure. The column may have been
+honest all along.
+
+### A35 ††† THE WORLD NEVER TELLS A MIND WHAT CAN BE MADE, AND THE ONE HINT IS GATED BACKWARDS **[S]**
+`src/net/agent.js:990`:
+
+```js
+this.count('wood') <= 0 && 'no firewood — you cannot lay a fire or make arrows',
+```
+
+This is the **only** place in the game that tells a mind wood makes arrows, and
+it fires **only when wood is zero** — precisely when the fact is useless. Both
+minds carried wood all run and were never told. Line 2010 says "you cannot shoot
+until you make arrows" without ever naming an input.
+
+Fix, cheapest first: (1) flip the gate — when `arrow == 0` **and** `wood >= 2`,
+say *"you have wood enough for arrows; you need a fire"*; (2) put a standing
+`you can make:` line on the card, computed from `RECIPES` against the pack —
+`canCraft` already exists and is already imported at `agent.js:58`. A mind is
+currently expected to infer a crafting tree it has never been shown.
+
+### A36 †† kimi-k2.6 DEGRADES TO TOTAL FAILURE OVER A LONG RUN — A25 WAS RIGHT **[S]**
+The 19:03 entry retired A25 ("rising failure rate was noise"). It was not noise,
+it was early. Traced across run 2:
+
+```
+sample 480  Coinneach 60 answered / 41 failed
+sample 574  Coinneach 61 answered / 61 failed   ← 1 answer in 94 samples
+```
+
+**Twenty consecutive failures, ~31 real minutes, `no json in reply`,
+`fellBack:false`, `spent:false`.** The seat is silently frozen on its last goal
+and the board gives no sign — no tag, no banner, nothing. Eachann on grok:
+458/458, zero failures, same harness.
+
+Two fixes, both small: (1) the one-shot repair retry (A25) — reprompt once with
+"JSON only" on a parse failure; (2) **a `STALE` tag on the card** when a seat's
+last successful decision is more than N cadences old. A run where one of two
+minds has been dead for half an hour must not look identical to a healthy one —
+this is the same class of misreading the `SPENT` tag was added to prevent.

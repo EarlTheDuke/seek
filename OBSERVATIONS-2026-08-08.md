@@ -1411,3 +1411,148 @@ samples it moved one man's entire estate to the other for nothing, until the
 generous one stood in a field with a bow, no arrows, and the words "Coinneach, I
 need that meat back."** Both models invented debt to describe it. The world still
 cannot represent an offer, a price, a debt, or a refusal.
+
+---
+
+## 20:04 — RUN 2, sixth look (574 samples, game hour 14.7 → 16.2, ~192 real minutes)
+
+Run still live. 573 calls of 6000, no `SPENT` tag on either seat — **both cards
+are still the models, not the scripted brain.**
+
+### THE HEADLINE: BOTH MINDS SPENT THE EVENING TRADING FOR AN ITEM THAT DOES NOT EXIST
+
+From game hour ~11 to 14.7, every goal, plan and spoken line on both cards is
+about **flint** and **feathers**:
+
+```
+Eachann   plan: ["get arrows or flint","hunt after"]
+          said: "anyone got spare arrow or flint?" / "branches for flint"
+                "Coinneach, got flint for my branch?"
+Coinneach plan: ["find feathers or flint","fletch arrows"]
+          said: "got feathers or flint?" / "Eachann, no flint here"
+                "Eachann. Arrow for flint."
+```
+
+**`grep -rni flint src server` returns nothing. Zero matches in the codebase.**
+`feather` exists only as a mesh colour in `src/items/registry.js`. Neither is an
+item, a resource, a spawn or a recipe input.
+
+Meanwhile the actual recipe (`src/items/recipes.js:94`) is:
+
+```js
+fletch_arrows: { inputs: { wood: 2 }, outputs: { arrow: 4 }, requires: 'fire' }
+```
+
+**Arrows cost two branches at a fire. Nothing else.** At the moment of writing
+Eachann is standing in Broad Loch carrying `bow x1, wood x4` — enough for eight
+arrows — with 51 fires laid this run, asking another man for flint he cannot
+have. Both minds are blocked on a phantom while holding the only real input.
+
+Nothing in the prompt mentions flint (`grep -i flint PROMPT.md
+WHAT-A-MIND-IS-GIVEN.md AGENT-BRIEF.md` → nothing). Two models from two vendors
+independently imported the same survival-game trope, and **the world had no way
+to contradict them.** That is the finding, and it is the harness's fault, not
+the models': see the two mechanisms below.
+
+### MECHANISM 1 — `gather` TAKES NO ARGUMENT, SO THE REFUSAL THAT WOULD HAVE SAVED THEM IS DEAD CODE
+
+`src/net/agent.js:2444` contains exactly the right sentence:
+
+```js
+this.refuse('gather', `there is no ${want} lying about that you can see`);
+```
+
+But `src/minds/goals.js:65`:
+
+```js
+gather: { id: 'gather', describe: () => 'pick up what is lying about', params: [] },
+```
+
+**`params: []`.** A mind cannot say "gather flint" — the only gather it can
+express is the untargeted "pick up what is lying about". `want` is never
+populated, so that refusal branch is **unreachable**. The world's one chance to
+say "there is no such thing" is wired to a parameter the vocabulary does not
+have.
+
+### MECHANISM 2 — THE HINT THAT WOULD HAVE UNBLOCKED THEM IS GATED ON THE ONE STATE WHERE IT IS USELESS
+
+`src/net/agent.js:989-990`:
+
+```js
+this.count('arrow') <= 0 && 'no arrows — you cannot shoot',
+this.count('wood')  <= 0 && 'no firewood — you cannot lay a fire or make arrows',
+```
+
+The string **"you cannot lay a fire or make arrows"** is the only place the world
+ever tells a mind that wood makes arrows — and it fires **only when wood is
+zero**, i.e. only when the information cannot be acted on. Both minds carried
+wood all evening (Eachann 4, Coinneach 3), so neither was ever told. Line 2010
+adds "you cannot shoot until you make arrows" — *make them from what* is never
+said.
+
+### CORRECTION — A31's ROOT CAUSE FOR `refusedVerbs` IS WRONG
+
+A31 (and the 19:33 entry) states that `refuse()` "is only reached when a **target
+name** fails to resolve". **That is not true.** There are ten call sites and
+three of them are not name resolution:
+
+```
+1054 refuse(kind, …)      1058 refuse(goal.kind, goal.refused)
+2444 refuse('gather', …)  2519 refuse('hunt', 'there is no quarry in sight')
+2477/2529/2545/2554/2565/2616  ← the name-resolution six
+```
+
+`server/board.js:287` exports `refusedVerbs` correctly and the HTML renders it
+(`board.js:439`). **The wiring is fine.** The honest reason it is `{}` on all
+1,148 cards of this run is narrower and more interesting: **no mind ever named a
+target or a quarry that failed to resolve.** Every `give`/`offer` named a real
+person; `hunt` named real deer; and `gather` — the one verb they were misusing
+all evening — *structurally cannot be refused* (Mechanism 1). So the column is
+not broken. It is telling the truth about a run in which nothing refusable was
+reached for, while the actual error mode was invisible to it.
+
+### kimi-k2.6 HAS STOPPED ANSWERING ALTOGETHER — Coinneach IS RUNNING ON A STALE GOAL
+
+Traced across the log (`answered/failures`, every 40th sample):
+
+```
+sample 480   Eachann 381/0    Coinneach 60/41
+sample 520   Eachann 415/0    Coinneach 60/50
+sample 560   Eachann 446/0    Coinneach 61/58
+sample 574   Eachann 458/0    Coinneach 61/61
+```
+
+**One real decision in the last 94 samples (~31 real minutes); 20 consecutive
+failures.** `lastError: "no json in reply"`, `fellBack: false`, `spent: false`.
+This is not the budget and not a fallback — the seat is simply not deciding, and
+the agent keeps running the last goal it got (`"hunt a deer"`, h=14.07). Run-wide
+it is 61 answered of 122. **This corrects the 19:03 entry's "A25's rising
+failure rate was noise" — it was not noise. It was early.** Eachann: 458 of 458,
+zero failures, same harness, different vendor.
+
+### Confirmed, no change
+
+- **`note` unused on all 1,148 cards.** Six checks now, two vendors, 519 real
+  decisions, not one note. **`plan` is used and survives** — Coinneach produced
+  8 distinct plans, evolving coherently (`"kill a deer | butcher it | find
+  firewood"` → `"eat | find feathers or flint | fletch arrows"`); Eachann 2.
+- **Speech is still the run's success.** 53 distinct lines from Eachann, 31 from
+  Coinneach (was 43/31). Against a baseline of ONE sentence across two days and
+  six models.
+- **`offer`/`accept` still never executed.** The intentions exist — `offer branch
+  to Coinneach for arrow`, `take Eachann offer` — but the deed log across the
+  whole run is `gather, killed, place, craft, eat, give` and nothing else. Every
+  transfer that happened was a unilateral `give` (29 of them, all Eachann).
+- **Fires: 80** (was 73). ~420 gathers. The 10-branch price still is not biting.
+- **Carcasses eaten:** Eachann `gather venison ×3`, Coinneach `venison ×1,
+  venison_cooked ×2` in the sampled window. Works.
+- **The one-way pump ended in destitution.** Eachann's last gift was `"I gave
+  gold to Coinneach"` (h=13.77). He now holds `bow, wood x4`, gold **0**.
+  Coinneach holds `hide x13, gold x2`. A30 stands.
+
+### The one-line version
+
+**Two models negotiated for four game-hours over flint, which does not exist,
+while carrying the wood that is the only thing arrows are actually made of — and
+the world could not correct them because `gather` takes no argument, so the
+refusal that says "there is no such thing" can never fire.**
