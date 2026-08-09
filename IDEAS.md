@@ -1980,3 +1980,56 @@ independent instances make this a property of the prompt, not of one negotiation
 **the plan field is a place to write intentions that the verb menu is never connected
 to.** Worth testing directly — echo the plan's next step *next to the verb that would
 do it* and see whether selection follows.
+
+### A82 †††† `giftFrom` PAYS OUT OF THE WRONG STACK, FOREVER — A GOAL YOU CANNOT FULFIL BECOMES A LEAK **[S]**
+
+**The most damaging bug found in this project so far, and the cheapest to fix.**
+
+Observed live (02:35 entry): Coinneach gave his only hide to Eachann, kept the goal
+`"give hide to Eachann"` (why: *"we agreed one for one"*), and the engine went on
+"giving the hide" out of his firewood — **141 → 101 branches, six per 20 s, still
+running.** Eachann fletched arrows from it (1 → 13).
+
+Cause, [src/sim/world.js:802](src/sim/world.js:802):
+
+```js
+giftFrom(p, itemId) {
+  if (named && p.inventory.countOf(named) > 0 ...) return named;
+  for (const id of EDIBLE) if (p.inventory.countOf(id) > 0) return id;
+  ... // otherwise: the biggest stack you own
+}
+```
+
+The fallback was written so `give` would never silently do nothing. It turns an
+*unfulfillable* promise into an **unbounded drain of the giver's most valuable stack**,
+and because a substitution is not a refusal it never reaches `refusedVerbs`. This is
+the same fallback that handed over firewood "as meat" on 2026-08-08 — confirmed now on
+a second model, a second item, and this time *repeating every tick*.
+
+**Fix:** when the named item is absent, **refuse** — `this.refuse('give', "you have no
+hide to give")` — and let the mind read it. Keep the fallback only when no item was
+named at all. Two lines, and it converts the worst leak in the world into the single
+most informative refusal a mind could receive.
+
+### A83 ††† THE TRADE LOOP HAS NO CLOSING VERB A MODEL CAN ACTUALLY REACH **[M]**
+
+Both models negotiated a clean one-for-one bargain in plain English, in character, and
+**both picked correct verbs** — Coinneach `give`, Eachann `offer`. It still did not
+clear, because:
+
+- `offer` ([world.js:729](src/sim/world.js:729)) is deliberately *words*: it posts a
+  promise and **moves nothing**. Correct by design.
+- `accept` is the only thing that transfers, and it has fired **0 times in 1,744
+  samples** across two days and eight models — it matches item ids by exact string
+  while `give` forgives them (A-series, 00:34 entry).
+
+So the world has a market where the *bid* works, the *gift* works, and the **clearing
+verb is unreachable**. Every "trade" this project has ever recorded is really one or
+two independent gifts that happened to point at each other.
+
+**Fix, in order of cost:** (a) make `accept` match item ids the way `give` does — same
+forgiving comparison, one shared helper; (b) put the standing offer **on the taker's
+card** ("Eachann offers you cooked venison for hide") so `accept` has an obvious
+referent; (c) log an `offer` deed so a posted bid is visible on the board at all —
+right now `offer` is the only verb that produces no deed line, which is why nobody
+watching could tell Eachann was trying.

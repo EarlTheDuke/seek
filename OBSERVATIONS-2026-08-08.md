@@ -2810,3 +2810,93 @@ into the plan field, reads it back on every call, and never selects the verb. It
 deed is a bout meter that counts up in place — and read correctly it says branches
 arrive at ~11 an hour just for walking, which is why a 10-branch fire has never once
 been a real price.**
+
+## 2026-08-09 02:35 PDT — RUN 2, samples 1652–1744 (`at 26370`): THEY MET, THEY DEALT, AND THE ENGINE IS ROBBING THE MAN WHO PAID
+
+Board live. **Neither seat is `SPENT`** — Eachann 1,318 calls of 1,500, Coinneach 351
+of 1,500. All of this is the models. Coinneach's parse failures 152 of 351 (**43%**,
+all `no json in reply`, flat). Spend 1,669 of 6,000.
+
+This is the window everything else in this file was waiting for, and it goes wrong in
+a new way.
+
+### The first two-way trade in this world's history, and it half-executed
+
+They **found each other.** 28 of 91 samples this window put both minds on the same
+landmark; the last nine put both `in Heather Scaur`, standing together. Then, out loud:
+
+```
+Coinneach  "one hide for one venison, you said"    why = he owes me meat for it
+Eachann    "hide for the meat then"                why = he needs meat, I need hides
+Coinneach  "here. now the venison"
+```
+
+And the goods moved — **once**. Traced by sample index, not game hour:
+
+| sample | Eachann hide | Eachann venison | Coinneach hide | Coinneach wood |
+|---|---|---|---|---|
+| 1740 | 12 | 3 | 1 | 141 |
+| **1741** | **13** | 3 | **0** | 140 |
+| 1742 | 13 | 3 | 0 | 134 |
+| 1744 | 13 | 3 | 0 | 123 |
+| live | 13 | **3** | 0 | **101** |
+
+At 1741 `give hide` fires correctly: Coinneach 1→0, Eachann 12→13. **Coinneach paid.**
+Eachann's venison has not moved off 3 since — through the whole meeting, right now,
+standing next to him, goal `"offer cooked venison to Coinneach for hide"`, why
+`"stick to the deal"`.
+
+### And then it kept charging him
+
+Coinneach's goal is still `"give hide to Eachann"`, why `"we agreed one for one"`. He
+has no hide. `giftFrom` ([src/sim/world.js:802](src/sim/world.js:802)) resolves a gift
+you cannot make by falling through to **the largest stack in your pack**:
+
+```js
+if (named && p.inventory.countOf(named) > 0 ...) return named;
+for (const id of EDIBLE) if (p.inventory.countOf(id) > 0) return id;
+// else: the biggest stack you own
+```
+
+His largest stack is firewood. So the engine has been paying Eachann **out of
+Coinneach's woodpile, six branches per 20-second sample, and has not stopped**:
+141 → 101 branches, **40 gone and counting**, on top of the hide. Eachann's wood went
+5 → 29 and his arrows 1 → 13 — **he is fletching arrows out of the drain.**
+
+Running total for the one bargain both models closed in good faith: Coinneach has paid
+1 hide + 40 branches. Eachann has paid nothing.
+
+### Why Eachann is not the liar here
+
+`offer` ([world.js:729](src/sim/world.js:729)) is *words* by design — it posts
+`from.offer` and an event and **moves nothing**. The transfer is `accept`'s job, and
+`accept` has fired **0 times in 1,744 samples**. Eachann picked the correct verb for
+"I'll trade you"; there is simply no path from a posted offer to delivered goods that
+either model has ever managed to walk. This is the third distinct instance of the same
+root cause: **`give` is charitable to the point of fraud and `accept` is unusably
+strict** (see 00:34 entry).
+
+### Corrections to my own earlier entries
+
+- **"59 gives, still all Eachann" is now wrong.** Coinneach gave **7** times, all in
+  this window — the first gives he has made in the run. Whole run: Eachann 59,
+  Coinneach 7. The payment direction did reverse; it reversed *into a leak*.
+- **"quoted off the same landmark once in 94 samples" (02:05) no longer holds.** It is
+  28 of 91 now, and they are together as I write. A80's phantom-dispute reading was
+  true of *that* window and is not true of this one. The speech is landing now.
+
+### Re-checked, unchanged
+
+- **`note`: zero uses, eighteenth check.** Both cards `""`. A70 stands.
+- **`refusedVerbs`: `{"avoid": 16}` on Eachann, `{}` on Coinneach.** Unmoved since
+  sample 681 — **and the 40-branch drain does not appear in it**, because a silent
+  substitution is not a refusal. A75 stands and just got its worst example.
+- **`accept`: 0 deeds, whole run.** Fires: 177 sampled. Kills 18, eats 19.
+- Gather counts still bout meters — not re-quoted here (see 02:05).
+
+### The one-line version
+
+**Both minds met, agreed one hide for one venison, and Coinneach delivered — then his
+unfulfillable second `give` made the engine pay Eachann out of his woodpile six
+branches at a time, 40 so far, while Eachann's three venison never moved and nothing
+on either card said a word about it.**
