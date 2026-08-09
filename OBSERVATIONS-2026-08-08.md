@@ -1556,3 +1556,121 @@ zero failures, same harness, different vendor.
 while carrying the wood that is the only thing arrows are actually made of — and
 the world could not correct them because `gather` takes no argument, so the
 refusal that says "there is no such thing" can never fire.**
+
+## 20:36 — RUN 2, seventh look (665 samples, game hour 16.2 → 21.2, ~222 real minutes)
+
+Run still live. 668 calls of 6000, **no `SPENT` tag on either seat** — both cards
+are still the models.
+
+### THE HEADLINE: BOTH MINDS SUCCESSFULLY MADE ARROWS FROM WOOD, AND WENT ON TRADING FOR FLINT ANYWAY
+
+The 20:04 entry called the flint delusion "blocked on a phantom while holding the
+only real input." That was too kind to the harness. The truth is worse: **they
+did not merely hold the input — they used it, correctly, five times, and learned
+nothing.**
+
+Every craft in the run, deduped:
+
+```
+Coinneach h12.82  I made 12 arrows at the fire
+Eachann   h7.66   I made 12 arrows at the fire
+Eachann   h12.86  I made 12 arrows at the fire
+Eachann   h14.59  I made 8 arrows at the fire
+Eachann   h23.21  I made 8 arrows at the fire
+```
+
+Eachann's pack at the moment of the h7.66 craft, from consecutive samples:
+
+```
+s623 hr7.6  bow:1, wood:14
+s624 hr7.9  bow:1, wood:7, arrow:20     ← seven branches became twenty arrows
+```
+
+Fifty-four game minutes later his goal changed to `offer arrow to Coinneach for
+flint`, and it has not changed since — **forty-plus consecutive samples, game
+hour 8.5 → 13.7, five game hours.** The `why` line, verbatim, in order:
+
+```
+h8.5   trade arrow for flint          h11.6  need flint to make more arrows
+h9.1   need flint to make fire        h12.2  still need flint to make fire
+h10.3  still need flint for arrows    h12.8  he needs arrow I need flint
+h11.3  trade for flint                h13.7  still need flint
+```
+
+He is carrying `arrow x20, wood x10` — twenty more arrows' worth — and has laid
+**61 fires** this run. He believes he needs flint to make arrows he has already
+made, and to light fires he has already lit 61 times. Coinneach, who made 12
+arrows himself at h12.82, said `"No flint."` and has just written this plan:
+
+```
+["get flint from the scaur", "trade Eachann for arrows", "hunt the deer west"]
+```
+
+A coherent, well-formed, three-step plan whose first step is to fetch a substance
+that does not exist in the codebase.
+
+### THE MECHANISM: A CRAFT NEVER SAYS WHAT IT CONSUMED
+
+`src/net/agent.js:1752` — the entire outcome message:
+
+```js
+this.did('craft', `I made ${what} at the fire`);
+```
+
+The output is named. **The inputs are not, anywhere.** The comment above it shows
+the author deliberating over the verb ("I made", not "I fletched") and never over
+the inputs. So the successful craft — the one event in the whole world that is
+*proof* of what arrows are made of — reports the effect and hides the cause.
+
+This is the same defect as A35 seen from the other side. A35 says the world never
+tells a mind what *can* be made. This says the world does not even tell a mind
+what it *just did*. A mind cannot induce `wood → arrow` from `"I made 12 arrows
+at the fire"`, and these two did not. **This is the instrument, not the models:
+both vendors executed the correct recipe and both kept the wrong belief, because
+nothing in the loop ever connected the two.** Sixth time now that a model looked
+foolish and the harness was at fault.
+
+### CORRECTION — kimi-k2.6 HAS NOT "STOPPED ANSWERING ALTOGETHER"
+
+The 20:04 entry said the seat was frozen and had produced one real decision in 94
+samples. It has since resumed, weakly:
+
+```
+s574  Coinneach 61 answered / 61 failed    ← the 20:04 reading
+s640  Coinneach 63 / 72
+s660  Coinneach 65 / 74
+live  Coinneach 65 / 75
+```
+
+**Four answers in 91 samples (~30 real minutes)** — roughly one real decision per
+7–9 minutes against a 75 s cadence, a ~54% run-wide failure rate (75 of 140), and
+it is answering *some* of the time. So A36's "degrades to total failure" is too
+strong: the correct reading is **an intermittent seat that recovers and relapses,
+which is harder to spot than a dead one, not easier.** It still produced the fresh
+three-step plan quoted above, so the answers that do land are good ones. Eachann
+on grok: 528 of 528, zero failures, same harness. The `STALE` tag proposed in A36
+is still the right fix — but it must be able to clear and re-arm, not latch.
+
+### Confirmed, no change
+
+- **`refusedVerbs` is `{}` on all 1,330 cards.** Fifth check. A34's reading holds:
+  nothing refusable was ever reached for.
+- **`note` unused on all 1,330 cards.** Seven checks, two vendors, ~594 real
+  decisions, not one note. **`plan` remains the run's other success** — Coinneach
+  is now on his 9th distinct plan, still evolving coherently.
+- **Speech still the run's headline success:** 60 distinct lines from Eachann, 32
+  from Coinneach, against a baseline of ONE sentence across two days and six models.
+- **`offer`/`accept` still never executed once.** Whole-run deed vocabulary is
+  `gather, killed, place, craft, eat, give`. Every transfer was a unilateral
+  `give` (29, all Eachann). A30 stands.
+- **Fires: 93** (Eachann 61, Coinneach 32; was 80). ~461 gathers, 4,548 branches
+  picked up. The 10-branch price is still not biting — A32 stands.
+- **Both minds starved and recovered.** Food hit `E0 / C1` around s600–610
+  (game hour 0.5–3.6) and rebounded to `E77 / C82`. Eating appears to fire only at
+  the floor; both are sliding again (E33, C16) at the time of writing.
+
+### The one-line version
+
+**Twenty arrows came out of seven branches in front of Eachann's eyes, and five
+game hours later he is still offering those arrows for flint to make arrows —
+because `"I made 12 arrows at the fire"` never says what went in.**

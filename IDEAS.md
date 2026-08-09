@@ -1187,3 +1187,47 @@ Two fixes, both small: (1) the one-shot repair retry (A25) — reprompt once wit
 last successful decision is more than N cadences old. A run where one of two
 minds has been dead for half an hour must not look identical to a healthy one —
 this is the same class of misreading the `SPENT` tag was added to prevent.
+
+### A37 ††† A CRAFT NEVER SAYS WHAT IT CONSUMED — THE ONE PROOF OF A RECIPE, WITHHELD **[S]**
+`src/net/agent.js:1752`, the whole outcome message:
+
+```js
+this.did('craft', `I made ${what} at the fire`);
+```
+
+Output named, **inputs named nowhere.** Evidence this matters: both minds executed
+`fletch_arrows` successfully — Eachann four times (h7.66, h12.86, h14.59, h23.21),
+Coinneach once (h12.82) — and *neither learned that arrows come from wood.*
+Eachann watched `wood:14` become `wood:7, arrow:20` between two consecutive
+samples (s623→s624) and then spent the next five game hours on the single goal
+`offer arrow to Coinneach for flint`, `why: "need flint to make more arrows"`,
+carrying ten more branches. Coinneach's live plan is `["get flint from the
+scaur","trade Eachann for arrows","hunt the deer west"]` — step one is a substance
+with zero matches in the codebase.
+
+Fix: name the inputs in the deed. `I made 12 arrows at the fire, from 6 branches`
+— the recipe object is right there at the call site. One line. It converts every
+successful craft into a lesson, and it is the cheapest possible answer to the
+delusion that has now eaten two vendors' entire evening. Do this **with** A35
+(which covers what *can* be made); this one covers what *was just* made, and it is
+the stronger half because it needs no gate, no threshold and no new surface.
+
+### A38 †† CORRECTION TO A36 — kimi-k2.6 IS INTERMITTENT, NOT DEAD, WHICH IS WORSE **[S]**
+A36 said the seat "degrades to total failure." Too strong. Traced further:
+
+```
+s574  Coinneach 61 answered / 61 failed   ← A36's reading
+s640  63 / 72        s660  65 / 74        live  65 / 75
+```
+
+**Four answers in 91 samples (~30 real minutes)**, ~54% run-wide failure
+(75 of 140) — and the answers that land are *good* (the three-step plan above is
+one of them). So it recovers and relapses. That is harder to detect than a dead
+seat, because the card keeps changing and looks healthy.
+
+Consequence for the A36 fix: the proposed `STALE` tag must **clear and re-arm**,
+not latch on first offence, or an intermittent seat will wear it permanently and
+be ignored. Pair it with a visible `answered/calls` ratio on the card — the
+failure rate is the signal, and it is currently only in the JSON. The one-shot
+"JSON only" repair retry (A25) is still the actual remedy; at 54% it would roughly
+halve the loss.
