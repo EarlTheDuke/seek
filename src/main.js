@@ -227,6 +227,18 @@ function boot() {
   // is built three lines below this one — it is only ever called from a tick,
   // by which time it exists. A fire under a lean-to is not rained on; see the
   // note in fires.js `update`.
+  // ── the torch you carry ──
+  // One light, made once and moved to the camera each frame rather than created
+  // and destroyed as it is lit — a PointLight added mid-frame recompiles every
+  // material that can see it, which is a visible hitch.
+  const torch = {
+    lit: false,
+    left: 0,
+    light: new THREE.PointLight(0xffb257, 0, SURVIVAL.torchRange, 1.7),
+  };
+  torch.light.visible = false;
+  scene.add(torch.light);
+
   const fires = new Fires(scene, {
     audio,
     roofedAt: (x, z) => structures.roofedAt(x, z),
@@ -2563,18 +2575,74 @@ function boot() {
         } else hud.toast('you are full', 1.2);
       }
     }
-    if (intent.drop) {
-      const taken = inventory.takeEquipped();
+    if (intent.drop || intent.dropHalf) {
+      // Q drops one, Shift+Q drops half the stack rounded up. It used to take
+      // the WHOLE stack for anything of kind 'ammo', so twenty arrows left in
+      // one press and there was no way to part with ten.
+      const taken = inventory.takeEquipped(intent.dropHalf ? 'half' : 1);
       if (taken) {
         camera.getWorldDirection(_drop).setY(0).normalize();
         pickups.drop(taken.item, taken.count, ctrl.position, _drop);
-        hud.toast(`dropped ${taken.count} ${itemName(taken.item)}`, 1.4);
+        const left = inventory.countOf(taken.item);
+        hud.toast(
+          `dropped ${taken.count} ${itemName(taken.item)}${left ? ` — ${left} left` : ''}`,
+          1.4,
+        );
       }
     }
 
     // ── the elements ──
     // Sampled once per frame at the player, then handed to the body. Creatures
     // and, later, shelter placement will read the same query.
+    // ── THE TORCH ──
+    //
+    // The first light you can CARRY. A fire is a place you go to; a torch is a
+    // place you make wherever you stand.
+    //
+    // It lights itself when you hold it at a burning fire — no new key, and it
+    // is what you would actually do. That also means an unlit torch away from a
+    // fire stays unlit, which is the whole planning pressure: light it before
+    // you leave, or walk the glen in the dark.
+    //
+    // The burn timer only runs while it is IN YOUR HAND. Stowing it smothers
+    // it, which is forgiving and saves a player from losing a torch to a
+    // rummage through the pack.
+    {
+      const held = inventory.equippedSlot?.item;
+      const holding = held === 'torch';
+      if (!holding && torch.lit) {
+        torch.lit = false;
+        hud.toast('you stow the torch', 1.2);
+      }
+      if (holding && !torch.lit) {
+        const at = fires.nearest(ctrl.position, SURVIVAL.fireReach);
+        if (at && at.burning !== false) {
+          torch.lit = true;
+          torch.left = getItem('torch')?.burnSeconds ?? 300;
+          hud.toast('the torch catches', 1.6);
+        }
+      }
+      if (holding && torch.lit) {
+        torch.left -= dt;
+        if (torch.left <= 0) {
+          torch.lit = false;
+          inventory.remove('torch', 1);
+          hud.toast('your torch burns out', 2.2);
+        }
+      }
+      // A real light, so it genuinely lifts the ground and the trees around
+      // you rather than being a glow painted on the screen. Guttering, because
+      // a steady lamp reads as electric.
+      torch.light.visible = torch.lit;
+      if (torch.lit) {
+        torch.light.position.copy(camera.position);
+        const gutter = 0.86 + 0.14 * Math.sin(time * 11.3) * Math.sin(time * 4.1);
+        // Dies down as it burns out, so you get a warning you can see.
+        const fading = Math.min(1, torch.left / 25);
+        torch.light.intensity = SURVIVAL.torchLight * gutter * (0.35 + 0.65 * fading);
+      }
+    }
+
     fires.update(dt, weather);
     // The fire bed follows whichever fire is nearest — the only one you could
     // pick out anyway. `nearest` is given the audible range, not the warm one,

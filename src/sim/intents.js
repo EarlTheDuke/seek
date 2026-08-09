@@ -54,7 +54,11 @@ export function createIntent() {
     // ── actions ──
     primary: false, // trigger held (drawing / shooting)
     interact: false, // edge-triggered: pick up / cook / feed the fire
-    drop: false, // edge-triggered: drop equipped
+    drop: false, // edge-triggered: drop ONE of the equipped stack
+    // Edge-triggered: drop HALF the equipped stack, rounded up. Twenty arrows
+    // to ten in one press — the thing that could not be done at all when `drop`
+    // took the whole stack for anything of kind 'ammo'.
+    dropHalf: false,
     place: false, // edge-triggered: light a fire (later: build)
     eat: false, // edge-triggered: eat the best food you carry
     // Edge-triggered: work THIS recipe, at whatever station you are standing
@@ -139,6 +143,7 @@ export function clearIntent(i) {
   i.primary = false;
   i.interact = false;
   i.drop = false;
+  i.dropHalf = false;
   i.place = false;
   i.eat = false;
   i.craft = '';
@@ -168,6 +173,7 @@ export function copyIntent(to, from) {
   to.primary = from.primary;
   to.interact = from.interact;
   to.drop = from.drop;
+  to.dropHalf = from.dropHalf;
   to.place = from.place;
   to.eat = from.eat;
   to.craft = from.craft;
@@ -217,6 +223,7 @@ export function sanitiseIntent(i, maxLookPerTick = 0.35) {
   i.primary = !!i.primary;
   i.interact = !!i.interact;
   i.drop = !!i.drop;
+  i.dropHalf = !!i.dropHalf;
   i.place = !!i.place;
   i.eat = !!i.eat;
   // A closed vocabulary, checked against the table itself. Anything else — a

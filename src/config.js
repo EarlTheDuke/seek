@@ -1633,6 +1633,12 @@ export const SURVIVAL = {
   // relationship between two numbers cannot be checked while one is anonymous.
   fireReach: 3.4,
   fireLightRange: 26,
+  // ── the torch ──
+  // Deliberately a good deal weaker and shorter than a fire. A torch that lights
+  // the glen the way a campfire lights a clearing removes every reason to build
+  // one, and the fire is the thing this world is arranged around.
+  torchLight: 1.35,
+  torchRange: 11,
   fireBurnPerSec: 0.34, // fuel units consumed
   fireFuelPerWood: 45, // seconds of burn per branch
 

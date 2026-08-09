@@ -317,6 +317,43 @@ ITEMS.wood = {
   makeObject: () => new THREE.Mesh(ITEMS.wood.geometry(), itemMaterial),
 };
 
+// ── THE TORCH ──
+//
+// The first light you can carry. A fire is a place you go to; a torch is a
+// place you make wherever you stand, and it is the difference between a night
+// you sit out and a night you can travel through.
+//
+// A brand of resinous pine, bound and charred. `kind: 'light'` is new and is
+// what the rest of the game switches on — the same trick `fuel` and `food`
+// already use, so a lantern later is a row here rather than a code change.
+//
+// It does NOT stack far: five is an armful of burning sticks and more than that
+// is a bonfire you are carrying.
+let torchGeo = null;
+ITEMS.torch = {
+  id: 'torch',
+  name: 'Torch',
+  kind: 'light',
+  stack: 5,
+  // Seconds of burn once lit. Roughly a third of a night at TIME.dayMinutes,
+  // so one torch crosses a glen and two see you through to dawn.
+  burnSeconds: 300,
+  geometry: () => {
+    if (torchGeo) return torchGeo;
+    const parts = [];
+    const haft = new THREE.CylinderGeometry(0.022, 0.028, 0.52, 6);
+    haft.rotateZ(Math.PI / 2 - 0.18);
+    parts.push(paint(haft, new THREE.Color(0x4a3520), 0.2));
+    // The charred, bound head. Darker than the haft, and fatter.
+    const head = new THREE.CylinderGeometry(0.055, 0.04, 0.16, 7);
+    head.rotateZ(Math.PI / 2 - 0.18);
+    head.translate(0.21, 0.05, 0);
+    parts.push(paint(head, new THREE.Color(0x1e1712), 0.35));
+    return (torchGeo = finish(parts));
+  },
+  makeObject: () => new THREE.Mesh(ITEMS.torch.geometry(), itemMaterial),
+};
+
 // Quarried from the boulders that were already scattered across this world
 // doing nothing but casting shadows. Heavier than wood — a small stack, so
 // carrying stone is a decision rather than a formality.

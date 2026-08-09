@@ -51,6 +51,7 @@ export class PlayerInput {
     // Edge-triggered, consumed by the next poll.
     this.pressedInteract = false;
     this.pressedDrop = false;
+    this.pressedDropHalf = false;
     this.pressedPlace = false;
     this.pressedEat = false;
     this.pressedAlternate = false;
@@ -137,7 +138,9 @@ export class PlayerInput {
       if (e.repeat || e.ctrlKey) return;
       if (e.code === 'KeyC') this.crouchToggled = !this.crouchToggled;
       if (e.code === 'KeyE') this.pressedInteract = true;
-      if (e.code === 'KeyQ') this.pressedDrop = true;
+      // Q drops ONE; Shift+Q drops half the stack. Twenty arrows to ten in a
+      // single press, which is the thing that could not be done at all.
+      if (e.code === 'KeyQ') { if (e.shiftKey) this.pressedDropHalf = true; else this.pressedDrop = true; }
       // "I meant the OTHER one." E resolves by distance and urgency, which is
       // the right default and was previously the only option: standing at a
       // fire holding raw meat, two presses of E silently burned two branches
@@ -291,6 +294,7 @@ export class PlayerInput {
     this.pendingPitch = 0;
     this.pressedInteract = false;
     this.pressedDrop = false;
+    this.pressedDropHalf = false;
     this.pendingSlot = -1;
   }
 
@@ -317,12 +321,14 @@ export class PlayerInput {
 
     i.interact = this.pressedInteract;
     i.drop = this.pressedDrop;
+    i.dropHalf = this.pressedDropHalf;
     i.place = this.pressedPlace;
     i.eat = this.pressedEat;
     i.alternate = this.pressedAlternate;
     i.selectSlot = this.pendingSlot;
     this.pressedInteract = false;
     this.pressedDrop = false;
+    this.pressedDropHalf = false;
     this.pressedPlace = false;
     this.pressedEat = false;
     this.pressedAlternate = false;

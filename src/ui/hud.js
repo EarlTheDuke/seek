@@ -3,7 +3,7 @@
 // the way after ten seconds, and an optional frame counter. No crosshair, no
 // minimap, no meters. You are here to look at the place, not at an interface.
 
-import { SHOW_FPS } from '../config.js';
+import { SHOW_FPS, SURVIVAL } from '../config.js';
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -399,7 +399,9 @@ const KEYS = [
   ['Mouse 1', 'draw the bow — hold to aim, release to loose'],
   ['E', 'pick up · cut · quarry · cook · use · take bearings'],
   ['F', 'the other thing — at a fire, cook instead of feed it, or the reverse'],
-  ['G', 'light a fire (costs a branch)'],
+  // The number, not "a branch" — lighting went from 1 to SURVIVAL.woodToLight
+  // and this line was left behind, which is how a player learns the wrong price.
+  ['G', `light a fire (${SURVIVAL.woodToLight} branches)`],
   ['B', 'build — whatever your camp is still missing'],
   ['Shift + B', 'what you can build and make, and what you are short of'],
   ['O', 'write a note for the developer — where you are gets attached'],
@@ -407,7 +409,8 @@ const KEYS = [
   ['Z', 'choose what to ask the otter (Shift+Z back)'],
   ['V', 'tell the otter'],
   ['R', 'eat'],
-  ['Q', 'drop what you are holding'],
+  ['Q', 'drop one of what you are holding'],
+  ['Shift + Q', 'drop half the stack — 20 arrows becomes 10'],
   ['1 2 / wheel', 'change item'],
   ['F', 'free-fly camera'],
   ['[ ]', 'move the sun'],

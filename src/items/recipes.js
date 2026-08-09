@@ -43,6 +43,30 @@ export const RECIPES = {
     maxHeld: 1,
   },
 
+  // ── A LIGHT YOU CAN CARRY ──
+  //
+  // BELOW THE CLOAK, and the first attempt had it above — which would have
+  // shadowed the cloak for ever. `bestAvailable` returns the FIRST recipe it
+  // can make, and now that a fire costs ten branches you are always carrying
+  // wood, so a torch at three would have meant never being able to stitch.
+  // That is the exact trap the note on the cloak warns about one recipe up.
+  //
+  // Three branches and a fire to char them at. No hide: a torch competes with
+  // the cloak for hide and the cloak would always lose, which is a bad trade to
+  // put in front of somebody who is cold. Wood is the right cost now that a
+  // fire takes ten branches — it makes the two compete for the same armful,
+  // which is exactly the decision worth having on a cold evening.
+  make_torch: {
+    id: 'make_torch',
+    name: 'Bind a Torch',
+    inputs: { wood: 3 },
+    outputs: { torch: 1 },
+    requires: 'fire',
+    seconds: 6,
+    verb: 'bind',
+  },
+
+
   // Above venison because a trout cooks in a fraction of the time and you will
   // usually have several — if venison came first you could never cook a fish
   // while carrying meat, which is the same trap the cloak comment describes.

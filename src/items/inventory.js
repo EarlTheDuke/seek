@@ -143,12 +143,29 @@ export class Inventory {
    * Take the equipped stack out for dropping. Ammo drops the whole stack,
    * everything else drops one.
    */
-  takeEquipped() {
+  /**
+   * Take some of what is equipped, for dropping.
+   *
+   * @param {number|'half'|'all'} [want=1]
+   *
+   * IT USED TO TAKE THE WHOLE STACK FOR AMMO. Ben: "what if i have 20 arrows
+   * but i want to only drop 10?" — he could not, because `kind === 'ammo'`
+   * meant one press of Q put all twenty on the ground. Every other item dropped
+   * singly, so the one thing you carry in quantity was the one thing you could
+   * not divide.
+   *
+   * Defaults to ONE, which is what every other game means by "drop", and what
+   * the non-ammo path already did. `'half'` rounds UP so a stack of one still
+   * moves rather than rounding to nothing.
+   */
+  takeEquipped(want = 1) {
     const s = this.equippedSlot;
     if (!s) return null;
-    const def = getItem(s.item);
-    const count = def?.kind === 'ammo' ? s.count : 1;
     const id = s.item;
+    const have = s.count;
+    const count = want === 'all' ? have
+      : want === 'half' ? Math.max(1, Math.ceil(have / 2))
+      : Math.max(1, Math.min(have, Math.floor(want)));
     this.remove(id, count);
     return { item: id, count };
   }
