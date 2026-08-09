@@ -5630,3 +5630,71 @@ playing the intended game are the ones the broken verbs punish.**
 - **kimi-k2.6 is a third of a player.** Both kimi seats: 17 calls to the others' 47–71, and
   **2 failures each (12%)**. Every other model is 0 failures. The 75 s cadence is not a style
   choice at this point, it is a handicap.
+
+## 2026-08-09 15:58 PDT — ADDENDUM, AND I WAS TOO QUICK AGAIN: A TRADE SETTLED BETWEEN TWO MODEL FAMILIES, NEGOTIATED IN SPEECH
+
+The sampler ran to 60 samples (`eval28.jsonl`, **120 samples, 22 game hours**). Three claims in
+the 15:35 entry above were written off a 13-hour window and do not survive the full run. The
+entry stands as written; these are the corrections.
+
+### 1. "3 offers, none landed" — WRONG. One landed, and it is the best moment in this file.
+
+```
+h16.78  Morag  (opus-5)   offer cooked venison to Ailsa for 10 arrows
+                          "Ailsa, cut's waiting at my fire — ten arrows, as you said."
+h17.44  Ailsa  (sonnet-5) take Morag offer
+                          "ten arrows, deal"
+                          why: "hungry, keeping arrows was never the priority, food is"
+h17.46  DEED   Morag      I traded venison_cooked to Ailsa for arrow
+        DEED   Ailsa      I got venison_cooked from Morag for arrow
+```
+
+Both ledgers agree to the item: **Morag arrow 21→31, venison_cooked 1→0. Ailsa arrow 12→2,
+food 22→56.** Ten arrows for one cooked cut, +34 food to the buyer.
+
+Read the words, not just the deed. Morag says *"as you said"* — she is closing a price agreed in
+earlier speech. Ailsa answers *"ten arrows, deal"* and gives a reason that is pure economics:
+*keeping arrows was never the priority, food is.* This is **offer → accept → settle, negotiated
+aloud, across two different model families**, and nothing in this file has shown it before. The
+run total is 5 offers, 1 take, 1 settled trade.
+
+### 2. "One eat in thirteen hours" — that was a trough, not a trend.
+
+Final: `gather:202 place:36 craft:7 killed:5 eat:4 trade:2`. Food at h4.5 —
+
+```
+Iseabail 82  Eachann 79  Tormod 77  Coinneach 60  Fingal 57  Morag 52  Seonaid 48  Ailsa 17
+```
+
+Everyone recovered except Ailsa. The 13-hour reading caught a hungry stretch and I wrote it up
+as a property of the world. It was weather.
+
+### 3. A184 is half wrong — Morag did not starve on principle, she started hunting
+
+I wrote that the two seats playing the social game were the two starving. **Morag abandoned the
+pure-merchant line**: she has **16 arrows loosed and 2 kills** on the full run, cooked at h15.6
+and went food 29 → 96 in one action. The seat that plays the intended game *and* hunts is the
+richest on the board.
+
+**Ailsa is the one the harness killed.** She loosed **0 arrows in 22 game hours**, made 0 kills,
+and her one economic act was to pay 10 of her 12 arrows for a single meal. Food 22 → 56 at
+h17.5, then straight back down to **17** over the next eleven hours, carrying two arrows and no
+wood. She bought one dinner with her entire capacity to ever feed herself again — and by A183's
+arithmetic (14 arrows a kill) ten arrows was worth roughly *nine hundred* food, not thirty-four.
+**She was not wrong to trade. She had no way to see the price.** A184 amended: it is not that
+social play is punished, it is that **nothing in the brief tells a mind what its goods are worth.**
+
+### 4. A185 sharpened — this is not "wood is abundant", it is a MONOPOLY
+
+Wood held at the last sample:
+
+```
+Morag 117  |  Tormod 8   Seonaid 8   Coinneach 7   Fingal 1   Eachann 0   Ailsa 0   Iseabail 0
+```
+
+**One seat holds 117 branches; the other seven hold 24 between them.** Morag peaked at 155 and
+gathered through the entire run — her `plan` was rewritten **47 distinct times** (Eachann: 2).
+36 fires were lit and she funded most of the map's warmth. So the 10-branch price *did* bite —
+just not for the one player who saw it coming a day early. That is a working economy, and the
+fire-merchant strategy is economically real. It is the first genuine capital position this world
+has produced, and it should be celebrated rather than balanced away.
