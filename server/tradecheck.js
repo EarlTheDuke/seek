@@ -24,6 +24,7 @@
 import { SimWorld } from '../src/sim/world.js';
 import { GOAL_IDS, sanitiseGoal } from '../src/minds/goals.js';
 import { SOCIAL } from '../src/config.js';
+import { briefToText } from '../src/minds/perception.js';
 
 const results = [];
 const check = (name, pass, detail) => {
@@ -173,6 +174,64 @@ function main() {
     check('SENTINEL: an offer with no ITEM is still refused',
       !w.events.some((e) => e.k === 'offer'),
       'a price can be assumed; a thing to sell cannot');
+  }
+
+  // ── AND THAT THE OTHER MIND CAN SEE IT ────────────────────────────────────
+  //
+  // The measurement that caused this block: across three live hours and seven
+  // models, `offer` was reached for 29 times, `give` 16, and `accept` ZERO.
+  // Never once, by anybody. It read as a verb nobody wanted.
+  //
+  // It was a verb nobody could USE. An offer made TO a mind arrived only as a
+  // line in its memory stream, weighted like any other event and decaying
+  // against a half-life of about one decision, so by the time that mind next
+  // chose, the deal had faded out of the six lines it gets shown. The world
+  // knew a bargain was on the table and did not tell the one person who could
+  // take it — the same shape as the 140 m blindness and the empty quiver.
+  //
+  // So this asserts the WHOLE path: offer -> snapshot -> brief -> prose.
+  {
+    const { w, a, b } = world2();
+    a.inventory.add('venison_cooked', 4);
+    b.inventory.add('wood', 30);
+    w.resolveOffer(a, 'Seonaid', 'cooked venison', 'twelve branches');
+
+    const snap = w.snapshot(b.id);
+    check('A STANDING OFFER RIDES ON THE WIRE, beside health and hunger',
+      !!snap?.me?.of && snap.me.of.n === 'Mairi' && snap.me.of.want === 'wood'
+        && snap.me.of.asks === 12,
+      snap?.me?.of ? JSON.stringify(snap.me.of) : 'nothing — accept can never be reached for');
+
+    check('  …and only the person it was made TO can see it',
+      !w.snapshot(a.id)?.me?.of,
+      'the offerer sees no offer of their own');
+  }
+
+  {
+    // And the prose, which is the only form a model ever actually reads. A
+    // field on an object that never reaches the text is not a fix.
+    const { w, a, b } = world2();
+    a.inventory.add('venison_cooked', 4);
+    b.inventory.add('wood', 30);
+    w.resolveOffer(a, 'Seonaid', 'cooked venison', 'twelve branches');
+
+    const brief = {
+      offered: { from: 'Mairi', gives: 'cooked venison', asks: '12 branches', canPay: true, short: 0 },
+      goal: 'walk the country', place: 'the glen', hour: '09:00',
+    };
+    const text = briefToText(brief);
+    check('A MIND IS TOLD, IN WORDS, THAT A DEAL IS ON THE TABLE',
+      /offering you/.test(text) && /12 branches/.test(text) && /accept/.test(text),
+      text.split('\n').find((l) => /offering you/.test(l)) ?? 'the line never reaches the prose');
+
+    const poor = briefToText({ ...brief, offered: { ...brief.offered, canPay: false, short: 7 } });
+    check('  …and told what it is short, so it can go and fix it',
+      /7 short/.test(poor) && !/accept/.test(poor),
+      poor.split('\n').find((l) => /short/.test(l)) ?? 'no shortfall named');
+
+    check('SENTINEL: a mind with no offer standing is told nothing at all',
+      !/offering you/.test(briefToText({ ...brief, offered: null })),
+      'silence costs nothing, which is almost always the case');
   }
 
   const failed = results.filter((r) => !r.pass);

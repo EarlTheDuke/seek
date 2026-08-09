@@ -180,6 +180,25 @@ export function briefToText(b) {
   // Stated, not left to be inferred from a gap in the line above. See the
   // `lacking` comment in agent.js — one mind hunted for an hour on an empty bow.
   if (b.lacking?.length) lines.push(`You have ${b.lacking.join('; ')}.`);
+  // ── A DEAL SOMEBODY IS HOLDING OPEN FOR YOU ──
+  //
+  // Above the outcome and above the world, because it EXPIRES: the other mind
+  // is standing there waiting and will wander off. `accept` was chosen zero
+  // times in three live hours by seven models, and this line is the reason —
+  // the offer used to arrive as a memory among memories and had faded by the
+  // next decision.
+  //
+  // Says the verb out loud. The rest of this prose describes the world and
+  // lets the mind choose; this one names `accept` because the measurement is
+  // unambiguous that the verb was not being connected to the situation, and a
+  // deal nobody can see is not a market.
+  if (b.offered) {
+    const o = b.offered;
+    lines.push(`${o.from} is offering you ${o.gives} for ${o.asks}, right now.`);
+    lines.push(o.canPay
+      ? `  You can pay that. Answer with \`accept\` and name ${o.from}, or ignore it and it lapses.`
+      : `  You are ${o.short} short of paying it.`);
+  }
   // ── WHAT YOUR LAST ACTION DID ──
   // High up, and before the world, because it is the one thing that tells a
   // mind whether what it decided last time worked. Everything below is the

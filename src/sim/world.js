@@ -1549,6 +1549,33 @@ export class SimWorld {
                // reason the aim is: the copy that fires the bow is this one.
                e: round2(p.ctrl.eyeHeight),
                iv };
+        // ── AND WHETHER SOMEBODY HAS A DEAL ON THE TABLE FOR YOU ──
+        //
+        // Measured over three live hours: `offer` reached for 29 times, `give`
+        // 16, `accept` ZERO. Not once, by any model, in any run. It reads as a
+        // verb nobody wants and it is nothing of the kind — an offer made TO a
+        // mind arrived only as one line in its memory stream, weighted like any
+        // other thing that happened, decaying against a measured half-life of
+        // about one decision. By the time that mind next chose, the deal it was
+        // being asked to take had already faded out of the six lines it is
+        // shown.
+        //
+        // Nobody was refusing to trade. THEY WERE NEVER ASKED ANYWHERE THEY
+        // COULD SEE. Same shape as the 140 m blindness and the empty quiver
+        // before it: the world knew something and did not tell the mind.
+        //
+        // So a standing offer is state, not history, and it rides with health
+        // and hunger where a mind cannot miss it. Costs nothing when there is
+        // no offer, which is almost always.
+        for (const q of this.playersInOrder()) {
+          if (q === p || q.body.dead || !q.connected) continue;
+          if (q.offer?.to !== p.id) continue;
+          me.of = {
+            n: q.name, item: q.offer.item, want: q.offer.want,
+            gives: q.offer.gives ?? 1, asks: q.offer.asks ?? 1,
+          };
+          break;
+        }
         continue;
       }
       players.push(p.snapshot());

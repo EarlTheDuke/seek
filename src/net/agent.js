@@ -1012,6 +1012,32 @@ export class Agent {
       // What the last stretch of acting actually did. Drained by `deliberate`,
       // so each line is seen exactly once by exactly one decision.
       outcome: (this.outcomes ?? []).map((o) => (o.n > 1 ? `${o.text} (${o.n} times)` : o.text)),
+      // ── A DEAL SOMEBODY IS HOLDING OPEN FOR YOU, RIGHT NOW ──
+      //
+      // `accept` was reached for ZERO times across three live hours and every
+      // model in the roster, against 29 offers and 16 gifts. Not a verb they
+      // dislike — a verb they were never in a position to use, because the
+      // offer only ever reached them as a memory line that had faded by the
+      // time they next chose.
+      //
+      // Stated as the sentence a person would say, and with the one fact that
+      // makes it decidable rather than merely interesting: WHETHER YOU CAN
+      // COVER IT. "Tormod offers you 12 branches for 2 cooked venison" is news;
+      // "...and you have 3" is a decision.
+      offered: (() => {
+        const o = this.snapshot?.me?.of;
+        if (!o) return null;
+        const held = this.count(o.want);
+        const gives = `${o.gives > 1 ? `${o.gives} ` : ''}${itemWords(o.item, o.gives)}`;
+        const asks = `${o.asks > 1 ? `${o.asks} ` : ''}${itemWords(o.want, o.asks)}`;
+        return {
+          from: o.n, gives, asks, canPay: held >= o.asks,
+          // Naming the shortfall means a mind can go and fix it rather than
+          // simply not taking the deal, which is the difference between a
+          // market and a series of missed appointments.
+          short: held >= o.asks ? 0 : o.asks - held,
+        };
+      })(),
       // Handed back unchanged. The world neither reads nor acts on either of
       // these — they are a mind's own working memory, and the only thing that
       // makes a multi-step intention survive the decision that formed it.
