@@ -2945,3 +2945,82 @@ carrying when you are standing next to him*; (b) let `offer` fail loudly with
 `he has no venison` through `refuse()`, so `refusedVerbs` finally earns its name
 and the mind learns in one turn instead of five trips; (c) longer term, a `heard`
 channel so a reply — *"I have no meat"* — reaches the asker at all.
+
+## Added 2026-08-09 09:34, from RUN 2 samples 2911–3000 + a whole-log split at the SPENT crossing
+
+### A129 †††† THE WOOD MONOCULTURE — 94% OF EVERY GATHER IN THE WORLD IS A BRANCH **[M]**
+
+Whole-run census of 1,577 gathers: **wood 1,486, hide 29, arrow 41, venison 16,
+cooked 2, gold 3.** Fires lit: 298. `feat(fire)`'s ten-branch cost did exactly
+what Ben's call intended — wood became scarce, and it became **the unit of
+account** (*"nine branches for the arrows"*, *"fifty branches for your meat"*,
+*"Forty-eight. I owe you two branches."*). That is a genuine emergent currency and
+it should be kept.
+
+The cost is that it crowds out the entire rest of the game. Both minds' last 95
+samples are **63 wood gathers, 23 fires, nothing else** — no kill, no shot, no
+trade — and Coinneach died inside that window. A mind that must re-earn ten
+branches every night has no decisions left over for anything the world is
+*about*.
+
+**Fix, cheapest first:** (a) a lit fire should **burn down, not out** — bank the
+branches so relighting at the same hearth costs 2, not 10, which keeps the price
+signal and kills the treadmill; (b) let a fire be **shared** — standing at
+another's fire warms you, which turns the scarcest good into a reason to be near
+someone; (c) make a felled tree yield closer to a fire's worth so gathering is a
+decision, not a chore. Any of the three ends the monoculture without repealing
+scarcity.
+
+### A130 ††† `offer`'s COIN DEFAULT HAS NEVER FIRED — THE WORLD IS PURE BARTER **[S]**
+
+`feat(offer): a price you did not name means coin` is in the sampled binary. It
+has never once been reached: **every one of the 28 distinct `offer` goals names a
+barter price** (`for flint`, `for 9 branches`, `for 2 venison`, `for arrows`), and
+`gold` reads **0 on both cards across all 3,000 samples** against 3 gold gathers in
+the world's history. Minds do not omit a price, so the default is dead code — and
+because there is no coin, every negotiation must solve a *double coincidence of
+wants*, which is why so many of them fail with both parties still talking.
+
+**Fix:** this is a design fork, worth Ben's call rather than a default. Either (a)
+delete the coin default and commit to barter — then A128's "see what he carries"
+becomes essential, because barter without visible goods cannot clear; or (b) make
+coin real: give kills/goods a coin value and seed each mind with a purse, so a
+price can be named in something both always accept. **(a) is closer to the
+highland fiction; (b) is what makes trade actually close.**
+
+### A131 †† THE SEVEN 08-08 FIXES WERE JUDGEABLE ALL ALONG — SCOPE A126 BEFORE IT COSTS A THIRD RUN **[S]**
+
+A126 concluded *"the fixes are unjudged; they need a restart."* True for the three
+08-09 features, wrong for the seven the brief grades: **all seven landed 15:30–16:36
+and the boot was 16:51.** Three entries under-reported because of it, and the
+verdict (six of seven work, `say` and the trade verbs **emphatically** — 278
+utterances, 96 `give` deeds) went unwritten for a day.
+
+The instrument lesson is the same one A126 drew, just sharper: **without a build
+id on the board, "is this loaded?" gets answered by hand, and it gets answered
+wrong in both directions.** A126's `build: {sha, dirty, bootedAt}` remains the
+top instrument fix; add to it that the analyser should print **the commit list
+between `bootedAt` and now**, so "what is this run actually testing" is one line
+of output instead of an archaeology session.
+
+### A132 †† THE MODELS INVENTED CREDIT AND PROPERTY, AND THE WORLD CAN MODEL NEITHER **[M]**
+
+Unprompted, across the run: Coinneach wrote **`"I'll owe you"` in 14 distinct
+lines** (*"Rather owe him than starve."*, *"Taking it. Debt stands."*, *"Forty-eight.
+I owe you two branches."*) and both minds asserted ownership of kills — *"I downed
+it first. Trade or fight."*, *"finders keepers"*, *"my arrow, my meat"*, *"It's
+mine, Eachann. Step away."*
+
+**Neither concept exists in the engine.** A debt is a sentence that evaporates; a
+kill claim is unenforceable, so *"Trade or fight"* is a bluff with no second
+branch. The minds are consistently reaching past what the world can represent —
+which is the most encouraging signal in this run, and the clearest statement of
+what to build next.
+
+**Fix:** (a) a **ledger** — `owes(A, B, item, n)` on the card, settled by a later
+`give`, so *"I owe you two branches"* is a state a mind can be reminded of and
+shamed over; (b) a **claim** on a fresh carcass for N seconds to its killer, so
+`gather` by anyone else is refused with `"that is Eachann's kill"` — which finally
+gives `refusedVerbs` something real to say (A63/A75) and makes *"Trade or fight"* a
+choice with two live sides. Both are small; together they are the difference
+between minds *narrating* an economy and *having* one.

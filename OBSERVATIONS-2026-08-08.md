@@ -4301,3 +4301,89 @@ nothing Eachann does is grok's.**
 `astray` (125/337) still exceeds `loosed` (14/248) on both cards. That is **A110,
 already resolved** — `loosed` is a 400-deep ring buffer, not a counter. Checked
 against source rather than written up again.
+
+---
+
+## 2026-08-09 09:34 PDT — RUN 2, TWENTY-THIRD LOOK: **the seven fixes ARE loaded, and six of them worked — the verdict was never rendered because the last entry disqualified the wrong run**
+
+Board live at `at 45584`, 3,000 samples, `spend 2105/6000`. No restart: same PIDs,
+all still `2026-08-08 16:51`, 16.7 h up. Window since last entry: **95 samples,
+`at 44045 → 45584`**, h16.4 → 21.4.
+
+### Correction to A126 — and it matters, because it un-blocks a verdict
+
+The last entry ended *"the fixes are unjudged. They need a restart, not another
+read of this log."* **That is true of the 08-09 fixes and false of the seven the
+brief actually asks about.** Commit clock against boot clock:
+
+```
+ed78363  15:30  feat(refusals)      ⟵ the seven the brief grades
+16c16f4  15:41  feat(sight)             ALL land before the boot.
+77b59f1  15:52  feat(loot)              ALL are in the sampled binary.
+3d05298  15:58  feat(fire) 10 branches
+b79e03d  16:06  feat(offer) price⇒coin
+0fff5ab  16:35  fix(board) SPENT tag
+80fbb2b  16:36  chore(duo) call cap
+7160ae5  16:51  fix(launchers)       ⟵ LAST commit before boot
+────────────────────────────────────  BOOT 16:51:02–16:51:42
+bd0d19a  17:32  and everything after ⟵ absent: net, trees, book, give/death,
+                                        torch, drop, nouns (10+ commits)
+```
+
+A126 stands for `feat(give,death)`, `feat(torch)`, `feat(drop)` — those are
+genuinely unloaded. But it over-generalised to "the fixes", and three entries have
+now treated this log as unable to grade anything. **It grades the seven fine.**
+Here is that verdict, which no entry has yet written down.
+
+### The seven, judged
+
+| Fix | Verdict | Evidence |
+|---|---|---|
+| `say` rides free | **WORKS — emphatically** | **278 distinct utterances** (Eachann 179, Coinneach 99), all pre-SPENT |
+| trade verbs | **WORKS** | **96 `give` deeds** (E 59 / C 37); 28 distinct `offer` goals; `accept` used |
+| `gather venison` | **WORKS** | 16 venison + 2 cooked gathers, 26 `eat` deeds, off 24 kills |
+| sight warnings | **WORKS** | `"ground in the way 7 m out"`, `"a tree in the way 20 m out"`, `too far` w/ slant+dy |
+| fire = 10 branches | **WORKS — too well** | 298 fires, but **1,486 of 1,577 gathers are wood (94%)** |
+| `SPENT` tag | **WORKS, card does not** | `spent:true` renders; `plan`/`said` beside it stay frozen (A127) |
+| `offer` price ⇒ gold | **NEVER EXERCISED** | every offer names a barter price; `gold 0` both cards, all 3,000 samples |
+
+**The brief's premise is now dead.** It says speech "produced ONE sentence across
+two days and six models" and that `offer`/`accept`/`give` were "never once used by
+a real model." Both were true of the old binary. In this one two models haggled to
+a settled price and paid:
+
+```
+Coinneach: "seventy-four branches. What food can you spare?"
+Eachann:   "seventy-four branches? I'll give you some meat for fifty"
+Coinneach: "Here. Fifty."          Eachann: "Done. Meat for your fifty branches."
+Coinneach: "Forty-eight. I owe you two branches."
+```
+
+They also invented **credit** — `"I'll owe you"` appears in 14 distinct Coinneach
+lines — and **property claims**: `"I downed it first. Trade or fight."`
+
+### The cleanest proof yet that the good behaviour is the model's
+
+Split the whole log at Eachann's SPENT crossing (`at 30013`, sample 1998):
+
+```
+                gathers  fires  kills  gives  crafts  distinct-said
+PRE   Eachann      720    128     16     59      25       179
+PRE   Coinneach    471     74      6     37      26        99
+POST  Eachann      235     57      1      0       2         1   ⟵ scripted brain
+POST  Coinneach    158     39      1      0       0        47
+```
+
+**Zero gives after the crossing.** The scripted brain gathers wood and lights
+fires and does nothing else, and it drags the live mind down with it — Coinneach's
+95-sample window is *63 wood gathers, 23 fires, nothing else*, and he **died once
+inside it** (`hp 0, food 0` at `at 44045`, respawned to 100/73).
+
+### Unchanged, checked not re-argued
+
+- **`note`: empty on 6,016/6,016 player-samples.** 32nd check. Dead field, whole run.
+- **`refusedVerbs`: `{avoid:16}` / `{hunt:2}`**, unmoved. 33rd check. A122/A75 stand.
+- **kimi failure rate 271/605 = 44.8%** (`no json in reply`) vs grok's 1/1500.
+  Coinneach got **334 usable decisions to Eachann's 1,499** — a 4.5× handicap. Any
+  reading of "Coinneach is the weaker mind" is reading the parser, not the model.
+- `astray > loosed` is A110 (`loosed` is a ring buffer), already resolved.
