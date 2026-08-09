@@ -1671,8 +1671,15 @@ export const SURVIVAL = {
   // Deliberately a good deal weaker and shorter than a fire. A torch that lights
   // the glen the way a campfire lights a clearing removes every reason to build
   // one, and the fire is the thing this world is arranged around.
-  torchLight: 1.35,
-  torchRange: 11,
+  // A fire burns at intensity x9 over `fireLightRange`. The torch was 1.35 over
+  // 11 — about a SEVENTH of a campfire — and Ben's verdict was "I can hardly
+  // even see it". At 5.5 over 18 it is a light you can travel by and still
+  // plainly less than the fire, which is what keeps a fire worth building.
+  torchLight: 5.5,
+  torchRange: 18,
+  // How long a dropped torch goes on burning where it lies before it gutters
+  // out. The same clock it uses in your hand — putting it down does not save it.
+  torchGroundFade: 20,
   fireBurnPerSec: 0.34, // fuel units consumed
   fireFuelPerWood: 45, // seconds of burn per branch
 

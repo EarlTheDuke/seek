@@ -335,9 +335,10 @@ ITEMS.torch = {
   name: 'Torch',
   kind: 'light',
   stack: 5,
-  // Seconds of burn once lit. Roughly a third of a night at TIME.dayMinutes,
-  // so one torch crosses a glen and two see you through to dawn.
-  burnSeconds: 300,
+  // Seconds of burn once lit. Thirty minutes — Ben's number, and about right:
+  // a day here is TIME.dayMinutes, so one torch is most of a night rather than
+  // a sprint between two fires.
+  burnSeconds: 1800,
   geometry: () => {
     if (torchGeo) return torchGeo;
     const parts = [];

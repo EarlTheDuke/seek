@@ -240,10 +240,39 @@ function boot() {
   const torch = {
     lit: false,
     left: 0,
+    // Burn time carried in from a torch picked up off the ground, waiting for a
+    // frame that finds one in hand.
+    pending: 0,
     light: new THREE.PointLight(0xffb257, 0, SURVIVAL.torchRange, 1.7),
   };
   torch.light.visible = false;
   scene.add(torch.light);
+
+  // ── TORCHES LYING ON THE GROUND, STILL BURNING ──
+  //
+  // Ben's ask, and the most interesting part of it: "when you drop them they
+  // should stay burning and light the area they are in and be visible to pick
+  // back up."
+  //
+  // A torch you can put down is a MARKER. It is the first thing in this world
+  // that lets two people agree on a place without either of them being there —
+  // you can light a path, mark a cache, or leave one burning where you said you
+  // would meet. Everything else here is carried or consumed.
+  //
+  // Each one owns its own light and rides on the pickup entry `pickups.drop`
+  // hands back, so "has somebody taken it" is a question with an exact answer:
+  // `collect` splices that entry out of `pickups.dropped`, so if it is no longer
+  // in the list, it is in somebody's pack.
+  const ground = [];
+  const dropTorch = (at, left) => {
+    const entry = pickups.drop('torch', 1, at, _drop);
+    if (!entry) return;
+    const light = new THREE.PointLight(0xffb257, 0, SURVIVAL.torchRange, 1.7);
+    light.position.copy(entry.obj.position);
+    light.position.y += 0.25;
+    scene.add(light);
+    ground.push({ entry, light, left });
+  };
 
   const fires = new Fires(scene, {
     audio,
@@ -2700,12 +2729,26 @@ function boot() {
       const taken = inventory.takeEquipped(intent.dropHalf ? 'half' : 1);
       if (taken) {
         camera.getWorldDirection(_drop).setY(0).normalize();
-        pickups.drop(taken.item, taken.count, ctrl.position, _drop);
+        // A LIT TORCH GOES DOWN STILL BURNING, with the time it had left. Put
+        // one at a meeting place and it is there when you both arrive.
         const left = inventory.countOf(taken.item);
-        hud.toast(
-          `dropped ${taken.count} ${itemName(taken.item)}${left ? ` — ${left} left` : ''}`,
-          1.4,
-        );
+        if (taken.item === 'torch' && torch.lit) {
+          // The one in hand keeps the time it had left; any others in the stack
+          // were unlit and take light from it as they go down.
+          const each = torch.left;
+          for (let i = 0; i < taken.count; i++) {
+            dropTorch(ctrl.position, i === 0 ? each : getItem('torch').burnSeconds);
+          }
+          torch.lit = false;
+          torch.left = 0;
+          hud.toast(`${amountText('torch', taken.count)} left burning`, 2);
+        } else {
+          pickups.drop(taken.item, taken.count, ctrl.position, _drop);
+          hud.toast(
+            `dropped ${amountText(taken.item, taken.count)}${left ? ` — ${left} left` : ''}`,
+            1.4,
+          );
+        }
       }
     }
 
@@ -2741,7 +2784,13 @@ function boot() {
       // Rate-limited, because a hint that fires every frame is not a hint.
       const atFire = !!fires.nearest(ctrl.position, SURVIVAL.fireReach);
       if (holding && !torch.lit) {
-        if (atFire) {
+        // Carried in from the ground, still alight.
+        if (torch.pending > 0) {
+          torch.lit = true;
+          torch.left = torch.pending;
+          torch.pending = 0;
+          hud.toast('the torch is still burning', 1.6);
+        } else if (atFire) {
           torch.lit = true;
           torch.left = getItem('torch')?.burnSeconds ?? 300;
           hud.toast('the torch catches', 1.6);
@@ -2775,6 +2824,31 @@ function boot() {
       // A real light, so it genuinely lifts the ground and the trees around
       // you rather than being a glow painted on the screen. Guttering, because
       // a steady lamp reads as electric.
+      // ...and the ones on the ground, which burn on their own clock.
+      for (let i = ground.length - 1; i >= 0; i--) {
+        const g = ground[i];
+        const taken = !pickups.dropped.includes(g.entry);
+        g.left -= dt;
+        if (taken || g.left <= 0) {
+          // Picked up, or burnt out where it lay. The item itself is the
+          // pickup system's business either way; this only owns the light.
+          scene.remove(g.light);
+          g.light.dispose?.();
+          ground.splice(i, 1);
+          // A BURNING TORCH YOU PICK UP IS STILL BURNING. Held here rather than
+          // relit on the spot because the pickup may not be the equipped item
+          // yet — the next frame that finds a torch in hand claims it.
+          if (taken && g.left > 0) torch.pending = Math.max(torch.pending ?? 0, g.left);
+          if (!taken && g.left <= 0) hud.toast('a torch gutters out', 1.6);
+          continue;
+        }
+        g.light.position.copy(g.entry.obj.position);
+        g.light.position.y += 0.25;
+        const gut = 0.86 + 0.14 * Math.sin(time * 9.7 + i) * Math.sin(time * 3.3 + i);
+        const fade = Math.min(1, g.left / SURVIVAL.torchGroundFade);
+        g.light.intensity = SURVIVAL.torchLight * gut * (0.3 + 0.7 * fade);
+      }
+
       torch.light.visible = torch.lit;
       if (torch.lit) {
         torch.light.position.copy(camera.position);
