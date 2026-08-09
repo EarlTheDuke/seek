@@ -3,6 +3,7 @@
 // this file wires together; see README.md for the tour.
 
 import * as THREE from 'three';
+import { makeLoop } from './loop.js';
 import { FEEL, POST, Q, QUALITY, SEED, SKY } from './config.js';
 import { Terrain } from './world/terrain.js';
 import { Atmosphere } from './world/sky.js';
@@ -3242,20 +3243,58 @@ function boot() {
     hud.captureIfPending(renderer);
   }
 
-  function frame(now) {
-    // Clamped so that returning from a background tab does not teleport you.
-    const dt = Math.min((now - last) / 1000, 0.1);
-    last = now;
-    stepWorld(dt);
-    requestAnimationFrame(frame);
+  // ── THE LOOP HAS TO OUTLIVE ANYTHING THAT HAPPENS INSIDE IT ─────────────────
+  //
+  // `stepWorld` drives the whole game, this used to call it with the rAF
+  // re-arm AFTER it, and any exception anywhere inside ended the world for
+  // ever. It happened live: a build with a missing `NET` import threw on every
+  // snapshot, so the world died on the first packet while the last rendered
+  // image sat there looking perfectly fine.
+  //
+  // The guarding lives in `src/loop.js` so that a check can drive it with a
+  // fake clock and a step that throws on demand, and assert the only thing
+  // that matters — that the loop keeps going. See the comment at the top of
+  // that file for all three faults and why each is a thing a player meets.
+  const loop = makeLoop({
+    step: stepWorld,
+    onStopped: (err) => stoppedNotice(
+      `THE WORLD HIT AN ERROR AND IS STILL RUNNING — ${err?.message ?? err}
+`
+      + 'Some of what you see may be stale. The console has the detail; reload if it persists.'
+    ),
+    onRecovered: () => stoppedNotice(null),
+  });
+
+  // Said straight into the DOM, because the HUD lives inside the step and may
+  // be exactly what threw.
+  function stoppedNotice(text) {
+    let el = document.getElementById('world-stopped');
+    if (!text) {
+      el?.remove();
+      return;
+    }
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'world-stopped';
+      el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;'
+        + 'background:#7f1d1d;color:#fff;font:13px/1.5 monospace;padding:8px 12px;'
+        + 'text-align:center;white-space:pre-wrap';
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
   }
+
+  document.addEventListener('visibilitychange', () => {
+    loop.setHidden(document.visibilityState === 'hidden');
+  });
+
   /** Wrap a debug helper so it refuses in modes that disallow it. */
   function gate(capability, fn, what) {
     return (...args) =>
       ruleset.allows(capability) ? fn(...args) : `${what} is disabled in ${ruleset.current.name}`;
   }
 
-  requestAnimationFrame(frame);
+  loop.start();
   booted = true;
 
   // A small handle for poking at the world from the console. `stepWorld` is

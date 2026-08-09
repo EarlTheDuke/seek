@@ -169,11 +169,6 @@ A local page to pick models, seats, characters, cadence and world settings, with
 a live cost estimate and saved named setups. Still the thing that stops me being
 the bottleneck on your own experiments.
 
-### 5e. `netcheck`'s snapshot budget **[S]**
-Fails at ~166 KB/s against its own ceiling, and fails identically with today's
-work stashed — pre-existing drift, not a regression. Either the budget is stale
-or the snapshot has grown; find out which.
-
 ---
 
 # TIER 6 — discoverability, from the testers' own words

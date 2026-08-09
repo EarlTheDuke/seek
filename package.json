@@ -68,7 +68,8 @@
     "lockcheck": "node server/lockcheck.js",
     "importcheck": "node server/importcheck.js",
     "dropcheck": "node server/dropcheck.js",
-    "nouncheck": "node server/nouncheck.js"
+    "nouncheck": "node server/nouncheck.js",
+    "loopcheck": "node server/loopcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",
