@@ -5171,3 +5171,111 @@ you stop guessing.
   entire run.** The 8000-token cut-off did *not* recur; Seonaid's one failure was
   `This operation was aborted`. A160's cadence half stands, its token half may be fixed.
 - **Fingal (`haiku-4.5`) at food 12**, the only seat in trouble; the rest sit 60–90.
+
+---
+
+## 2026-08-09 13:40 — THE RUN ENDED. 96 TRADE DECISIONS, ONE SETTLEMENT, AND THE BANKER ATE WHILE THE DEPOSITORS STARVED
+
+**The run is over and was not restarted.** `127.0.0.1:8090` does not answer (only vite on
+5173 is listening); `melee3.jsonl` stops at 13:19. This entry reads the **complete** file —
+**122 samples, 976 card-observations, 40 real minutes, game hour 20.7, 400 of 4000 calls.**
+The 13:05 entry saw the first 70 samples; everything below is the run's second half plus
+whole-run totals, and it corrects that entry in three places.
+
+### The headline number: 96 trade-shaped decisions produced ONE trade
+
+Of **356 distinct `(goal, why)` decisions in the run, 96 — 27% — were trade-shaped.**
+Split by verb, against the deeds they produced:
+
+| decided | attempts | deeds produced |
+|---|---|---|
+| `offer …` | **45** | **0** |
+| `take … offer` (accept) | **28** | **1** |
+| `give … to …` | **23** | **26** |
+
+**`give` is the only trade verb whose body works.** `offer` was reached for forty-five times
+by four different models and has still never produced a deed of any kind. `accept` landed
+**once in twenty-eight attempts.**
+
+### The one that landed — and it is real
+
+At **h18.56 both sides logged the same event:**
+
+> Morag: *"I got wood from Tormod for venison_cooked"*
+> Tormod: *"I traded wood to Morag for venison_cooked"*
+
+`claude-opus-5` and `grok-4.5`, priced in words beforehand, settled reciprocally, both
+ledgers moved. **This is the first reciprocal settlement in the melee** and it arrived after
+commit `8b38370`. The fix works. It works 3.6% of the time.
+
+### The Rowan Moor market: 26 payments in, one cooked share out
+
+Morag (`claude-opus-5`) ran an actual standing market — **54 distinct lines, nearly every one
+a posted price at a named place**: *"Venison to the Rowan Moor fire — bring wood, take a
+cooked share."* / *"Bring your branches — I kill the south deer, fire tonight, all get a
+cooked share."* Six seats converged on it in speech and in `plan`. Then:
+
+- **Ailsa (`claude-sonnet-5`) paid fourteen times** — `give ×14` to Morag, **two wood and
+  twelve arrows** — and finished at **food 23 carrying nothing but a bow**. She loosed 0
+  arrows and killed 0 animals all run. *She sold her entire quiver to buy a meal that never
+  came.*
+- Seonaid gave 1, Tormod gave 9 (to Eachann, the fraud in the 13:05 entry).
+- **Coinneach food 18, Seonaid food 24, Ailsa food 23.** Every seat that paid went hungry.
+- **Morag finished at food 87, carrying `wood ×28, arrow ×9, hide ×5`,** having eaten 3 times.
+
+Twenty-six `give`s went in and one cooked share came out. This is not a model being greedy —
+Morag's own `note` reads *"25 branches. No food. Trade fire for meat."* and her final `plan`
+is **`["haul venison back","cook, pay Coinneach Seonaid Tormod","camp here"]`** — she intended
+to pay all three by name. **The world has a verb for handing goods over and no verb for
+collecting**, so intent-to-pay and payment are the same object, and the run ends with the
+debts unsettled inside a mind that meant to honour them.
+
+### A coin was picked up. For the first time. The column still says 0.
+
+**Eachann, h20.44: `{"what":"gather","id":"gold","n":1,"text":"I picked up a gold"}`.**
+
+The `gold` field on that same card reads **0**, and reads 0 on all **976** card-observations,
+and `gold` never appears in any `carrying` array. The gather deed only fires when the pack
+actually rises (`agent.js:1730`), and `board.js:243` reads `a.carrying?.gold ?? 0` off the
+same object that builds the `carrying` list.
+
+**Correction to eleven runs of reading.** "Gold: 0 on every card" has been logged as evidence
+that nobody can get gold. It is not: **gold is reachable, a mind reached it, and the instrument
+did not move.** A151's *conclusion* may survive; its *evidence* does not. See A170.
+
+### Eachann died and the board cannot say of what
+
+Health **100 → 0 between h20.4 and h20.7**, with **food 66, wounds 0**, one sample after
+killing a goblin (h19.59) and mid-loot on the goal *"pick up what is lying about"*, why:
+**"free loot before goblins."** No death event, no cause, no killer, no `lastError`. The
+single most consequential thing that can happen to a seat is invisible to the instrument.
+See A171.
+
+### Corrections to the 13:05 entry
+
+1. **`accept` produces deeds after all** — one, at h18.56. That entry said zero.
+2. **`plan` is 7 of 7 model seats, not 6.** Eachann was named the lone abstainer; he finished
+   with **`["get meat","trade wood to Morag for cooked venison"]`**. Six of the seven final
+   plans name trade. Morag wrote **87 distinct plan lines**, Fingal 44, Ailsa 15.
+3. Tormod's nine `give`s are **earlier** than Ailsa's fourteen, not later — game hours wrap at
+   24 and sorting the ledger by `h` reverses days. Sample index is the only safe ordering.
+
+### Unchanged, and now well-attested
+
+- **`refusedVerbs` is `{}` on all 976 card-observations.** Sixth consecutive empty check, with
+  **73 `offer`/`accept` decisions producing nothing and not one refusal recorded.** A155 holds.
+  **A164 is still unbuilt** — `acted` does not appear anywhere in `server/board.js`.
+- **`note` remains one model's habit.** Morag (`opus-5`) wrote all three in the run; every
+  other seat is `""` for all 122 samples. **Fourth run confirming A157's `note` axis** — but
+  see correction 2, the `plan` half of A157 is now dead.
+- **The arrow counters disagree again, and not on the control this time: Morag loosed 5,
+  astray 13.** A161 is an engine bug, not a scripted-seat quirk.
+- **No seat went `SPENT`.** Highest was Eachann at 95 of 250; the run spent **400 of 4000
+  calls in 40 minutes**. A163 stands — budget is not the constraint.
+- **kimi cadence, third confirmation:** Coinneach 25 and Seonaid 24 calls against Eachann 95,
+  Fingal 76, Tormod 63, Ailsa 63. Coinneach managed **4 distinct plans and 13 sentences** all
+  run. A167.
+- **Fires: 31 `place` deeds** across 8 seats in ~20 game hours (41 last run, 106 pre-fix).
+  Wood is not scarce — Coinneach picked up **58 branches in one gather**. The 10-branch price
+  is correct and settled; stop re-checking it.
+- **Speech: 218 distinct lines across 7 model seats. The scripted control said nothing, ever.**

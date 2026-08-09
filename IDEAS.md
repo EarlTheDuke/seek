@@ -3515,3 +3515,87 @@ tokens` error of the last run is **absent** — Seonaid's single failure was
 `This operation was aborted`. Split A160: the token half looks addressed, the cadence half is
 not. A seat sampled at 75 s is not a fair comparison against one sampled at 20 s and should
 not appear in the same standings table.
+
+### A168 †† RANK THE TRADE VERBS BY YIELD — `offer` IS 45 ATTEMPTS AND ZERO DEEDS **[M]**
+
+Whole-run melee3, 356 distinct `(goal, why)` decisions, 96 of them trade-shaped:
+**`offer` 45 attempts → 0 deeds. `accept` 28 → 1. `give` 23 → 26.** Four different models
+reached for `offer` in correct, priced, correctly-targeted language and the verb has **never
+once produced a deed in this program.**
+
+Stop treating the three as one feature. `give` works; `accept` works 3.6% of the time;
+`offer` is decoration that consumes a quarter of the roster's decisions. **Fix:** make `offer`
+settle at `noticeRange` against a standing deal slot instead of requiring the body to arrive
+within `REACH` (`agent.js:2602`) — every new decision replaces the walk target, and the
+analyser puts two seats within 3 m in **3 of 73** comparable samples. If it cannot be made to
+fire at range, **delete it and tell the minds only about `give` and `accept`**; a verb offered
+in the brief that cannot succeed is worse than no verb.
+
+### A169 †† THE MARKET RAN ONE WAY: 26 PAYMENTS IN, ONE SHARE OUT, AND THE PAYERS STARVED **[M]**
+
+Morag posted prices for a whole run (*"bring wood, take a cooked share"*), six seats came, and
+**26 `give` deeds went in against 1 `trade` out.** Ailsa paid **fourteen times — including
+twelve arrows, her entire quiver** — and ended food 23 holding only a bow, having never loosed
+a shot. Coinneach 18, Seonaid 24. Morag ended **food 87 with 28 branches banked**, her `plan`
+still reading *"cook, pay Coinneach Seonaid Tormod"*.
+
+Nobody defected. **The world has a verb for paying and none for collecting**, so a debt a mind
+fully intends to honour and a debt it never honours are the same object. **Fix:** when a `give`
+is made against a spoken or `offer`ed price, open a **debt row on both cards** — *"owes Ailsa:
+1 cooked share"* / *"owed by Morag: 1 cooked share"* — that persists until settled and that the
+brief reads out. A creditor that can *see* it is owed can price the next trade; right now every
+payer is starting fresh every tick. This is A158/A165's binding problem, but the evidence has
+moved: the failure is no longer deception, it is **memoryless credit**.
+
+### A170 †† A COIN WAS PICKED UP AND THE PURSE DID NOT MOVE — RETIRE A151'S EVIDENCE **[S]**
+
+`{"h":20.44,"what":"gather","id":"gold","n":1,"text":"I picked up a gold"}` — Eachann, melee3.
+The `gold` column on that card reads **0**, as it does on all **976** card-observations, and
+`gold` never enters any `carrying` array. The gather deed only fires when the pack rises
+(`agent.js:1730`); `board.js:243` reads `a.carrying?.gold ?? 0` off the same object that
+builds the `carrying` list. One of those two is lying.
+
+**Eleven runs have quoted "gold: 0 everywhere" as proof the world has no reachable gold. That
+reading is dead.** **Fix:** assert `carrying.gold` immediately after a gold pickup and again on
+the next board frame; the pickup landed 0.26 game-hours before the seat died, so also check
+whether death clears the purse before the frame is cut. Until this is settled, **do not quote
+the gold column as an economic finding** either way.
+
+### A171 † A SEAT DIED AND THE BOARD CANNOT SAY OF WHAT **[S]**
+
+Eachann: health **100 → 0 between two samples** (h20.4 → h20.7), **food 66, wounds 0**, one
+sample after killing a goblin, mid-loot, goal *"pick up what is lying about"*, why *"free loot
+before goblins"*. `lastError` null. There is no death event, no cause, no killer, no marker
+that a card is a corpse — the seat simply reads health 0 forever after.
+
+The most consequential event available to a mind is the one the instrument records least.
+**Fix:** a `died` field carrying `{h, cause, by}` and a deed row (*"a goblin killed me"*), plus
+a `dead: true` flag so standings stop counting a corpse as a participant. Cheap, and every
+survival claim in this file currently rests on nobody having checked.
+
+### A172 † A MIND WILL SPEND ITS WEAPON AS CURRENCY, BECAUSE NOTHING SAYS WHAT AN ITEM IS FOR **[S]**
+
+Ailsa gave Morag **twelve arrows** in eleven minutes of game time to buy a share of venison,
+then spent the rest of the run at food 23 unable to hunt — `loosed 0, kills 0`, pack `bow ×1`.
+Morag, who had a bow and was hunting, accepted them and finished with `arrow ×9`.
+
+That is not a bad trade in isolation; arrows *were* the liquid good on offer. It is a brief
+problem: **the item list a mind is given is a list of nouns and counts with no note of what
+each thing is for**, so "I have twelve arrows" and "I have twelve branches" read identically
+to a hungry model. `registry.js:536` already carries exactly this kind of line for gold
+(*"no use but what somebody will trade for it"*). **Fix:** surface that one-line purpose string
+for every item in the pack section of the brief. Zero engine risk, and it lets a mind reason
+about *keeping* something.
+
+### A173 THE `plan` HALF OF A157 IS DEAD — 7 OF 7 MODEL SEATS NOW WRITE ONE **[S]**
+
+A157 said the non-reasoning seat writes no plan and no note. **On the full melee3 file Eachann
+finished with `["get meat","trade wood to Morag for cooked venison"]`, and all seven model
+seats wrote plans** — Morag 87 distinct lines, Fingal 44, Ailsa 15. **Six of the seven final
+plans name trade.** The 13:05 entry called Eachann the lone abstainer on 70 samples; the last
+52 contradict it.
+
+**The `note` half survives and is now four-for-four:** Morag (`opus-5`) wrote all three notes
+in the run and every other seat is `""` across 122 samples. Keep the axis, narrow the claim to
+`note`, and **re-read any earlier entry that split models on "writes a plan"** — that separation
+was a sampling artefact of reading a run before it finished.
