@@ -30,3 +30,8 @@ playharness.js
 
 # Your API keys, pasted into a copy of keys.example.cmd. NEVER commit this.
 keys.cmd
+
+# Raw board samples from live runs. Megabytes of JSONL per hour, and the value
+# is in what gets WRITTEN UP from them (see runs/*.md, which are committed) —
+# not in the samples themselves.
+runs/*.jsonl
