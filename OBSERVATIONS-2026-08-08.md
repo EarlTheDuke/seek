@@ -2697,3 +2697,116 @@ either of them why it will not close.
 **`refusedVerbs` has logged one verb in 1,565 samples — `avoid`, 16 times, to a man
 fleeing a troll — and has never once logged the broken `accept`, because from the
 board a silent drop and an unwanted verb still look exactly the same.**
+
+## 2026-08-09 02:05 PDT — RUN 2, samples 1565–1652: the gather counter is a bout meter, and the dispute is a phantom
+
+Board live (`at 24989`, sim h10.8). **Neither seat is `SPENT`** — Eachann 1,247 calls
+of 1,500, Coinneach 332 of 1,500. Everything below is the models. Coinneach's parse
+failures: **144 of 332 (44%)**, all `no json in reply`, flat since 01:34. Spend 1,576
+of 6,000.
+
+87 new samples, ~29 real minutes. Two things in them, and the first invalidates a
+number I have quoted three times in this file.
+
+### `gather` is not an event on this board — it is a running total that mutates in place
+
+The trailing `gather wood` deed **keeps its slot and counts up** while a mind walks.
+Verbatim, Coinneach, samples 1618–1648, one continuous stretch:
+
+```
+sample 1618  h1.83   gather wood 3     wood carried 19
+sample 1621  h2.75   gather wood 12    wood carried 28
+sample 1628  h4.83   gather wood 29    wood carried 45
+sample 1635  h6.91   gather wood 39    wood carried 55
+sample 1648  h10.83  gather wood 68    wood carried 84
+```
+
+One bout. Sixty-five branches. The `n` climbs and the carried total climbs in exact
+lockstep — **and the game-hour stamp advances with it**, so keying on `(who, hour)`
+does not dedupe it either. Every sampler-based count of gathering in this project has
+therefore counted one bout dozens of times.
+
+| | as counted before | actual |
+|---|---|---|
+| wood-gather "events", whole run | 919–988 | **186 bouts** (Eachann 115, Coinneach 71) |
+| branches gathered | 12,961–13,421 | **2,219** |
+| mean per event | 14.6 / 15.6 | **11.9** |
+
+**A60's 11.6 survives** — that figure was right and I will stop revising it. What does
+not survive is the event count, and `analyse.mjs`'s `GATHERS: 988` line, which is
+inflated about five-fold. Deeds that carry an `n` mutate; `place`, `craft`, `killed`,
+`give`, `eat` do not, so those counts hold (**fires 171**, crafts 30, kills 16,
+gives 59, eats 17, **accepts 0**).
+
+### What that changes: gathering is a rate, and you cannot price against a rate
+
+Reading it as a bout gives the number nobody had: **Eachann collects ~13.8 branches
+per game hour, Coinneach ~8.1, continuously, just by walking with the goal set.**
+
+A fire costs 10 branches. That is **under one game hour of walking** — for a mind that
+is walking anyway. This is why the 10× price rise did nothing (A71) and why 171 fires
+have been lit into a standing surplus: the cost is an *event* and the supply is an
+*income*. No price on a one-off action can bind against an unbounded drip. The lever
+is the rate or a carry cap, not the price.
+
+### The property dispute both minds are having is with nobody
+
+The new speech this window is a carcass-ownership argument, and it is good writing:
+
+```
+Coinneach  "I downed it. Find your own, Eachann."   why = no food in my pack
+Coinneach  "you didn't fetch it, Eachann"
+Coinneach  "finders keepers, Eachann"
+Coinneach  "I'll carve what's mine"                 why = hungry, my kill is near
+Eachann    "that's mine, find your own"             why = get meat before Coinneach
+Eachann    "mine, six arrows or no deal"            why = claim my kill
+```
+
+Two competing property norms — *I shot it* against *finders keepers* — argued by name,
+unprompted, with nothing in the game modelling carcass ownership at all.
+
+**They are in different valleys.** Across the 94 samples of this window they are
+quoted off the **same landmark once**; the other 93 are Eachann around Heather Scaur /
+Low Rigg / Broad Loch and Coinneach around The Sheiling Wood / Kindly Wood. Each is
+standing over a *different* deer — Coinneach killed two in this window (h16.4, h22.5),
+Eachann one (h13.7) — telling the other to find his own.
+
+Two men several hundred metres apart, shouting "that's mine" at each other about two
+separate animals neither can see.
+
+**Honest limit:** the board still has no `heard` field, so I cannot *prove* nothing
+landed — only that they were quoted off different landmarks in 93 of 94 samples, which
+puts them well outside the 140 m notice range. That is A0f, still open, and this is the
+sharpest illustration of it since the first sentence ever spoken in this world.
+
+This is A11 in a stronger form. Speech is no longer "nobody speaks *to* anybody" —
+they now address each other by name, constantly and in character. The problem moved:
+**the addressing works and the delivery does not, and neither mind is told which.**
+
+### The plan field is now holding a threat the verb set cannot express
+
+Coinneach's plan, current: `["cook it up", "keep an arrow nocked for Eachann"]`.
+
+Whole-run check: **`attack`, `follow` and `guard` have never once appeared as a goal**,
+in 1,652 samples. This is A9's exact shape a second time — a mind writes its intention
+into the plan field, reads it back on every call, and never selects the verb. It was
+`trade a hide for food` in run 2's first hour; it is a nocked arrow now.
+
+### Re-checked, unchanged
+
+- **`note`: zero uses, seventeenth check.** A70 stands.
+- **`accept`: 0 deeds, whole run.** 59 gives, still all Eachann.
+- **`refusedVerbs`: `{"avoid": 16}` on Eachann, `{}` on Coinneach.** Unmoved since
+  sample 681. A75 stands.
+- **Carcasses work (A65).** Kills 16, eats 17, venison gathered by both. Coinneach in
+  this window: killed → `I made 3 cooked venison at the fire` → ate. The loop closes.
+- Coinneach crafted **44 arrows** this window and holds 21. The six-arrows-for-meat
+  deal that starved him at `at21793` is now moot — he solved his own arrow supply, and
+  the conversation moved from trade to ownership.
+
+### The one-line version
+
+**Every gathering statistic in this file was five times too high because the `gather`
+deed is a bout meter that counts up in place — and read correctly it says branches
+arrive at ~11 an hour just for walking, which is why a 10-branch fire has never once
+been a real price.**

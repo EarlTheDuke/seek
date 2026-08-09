@@ -1902,3 +1902,81 @@ Coinneach has given nothing to anyone, ever**, across a run in which he said "I'
 owe you" in a dozen phrasings. The one-way pump is not a quirk of one negotiation —
 it is the only shape transfer has ever taken in this world, and it is what A62's
 missing quantity plus A61's silent substitution produce when a buyer cannot pay.
+
+## Added 2026-08-09 02:05, from RUN 2 — the gather counter, and a dispute with nobody
+
+### A78 ††† THE `gather` DEED IS A BOUT METER THAT MUTATES IN PLACE — EVERY GATHER COUNT IS ~5× TOO HIGH **[S]**
+
+The trailing `gather wood` deed keeps its slot in `deeds` and **counts up** as the mind
+walks, advancing its game-hour stamp as it goes. Coinneach, samples 1618–1648: `n` runs
+3 → 12 → 29 → 39 → 68 while carried wood runs 19 → 84. That is **one bout of 65
+branches**, and any tool that dedupes deeds — by object, by text, or by `(who, hour)` —
+records it as **twenty-six separate gathers**.
+
+Whole-run, corrected: **186 bouts** (Eachann 115, Coinneach 71), **2,219 branches**,
+mean **11.9 per bout** — against the 919–988 "events" and 13k branches the sampler has
+been reporting all run. `analyse.mjs`'s `GATHERS: 988` line is wrong by about 5×.
+A60's **11.6 mean is correct** and needs no further revision.
+
+Deeds without an `n` (`place`, `craft`, `killed`, `give`, `eat`) do **not** mutate, so
+fires 171 / crafts 30 / kills 16 / gives 59 / eats 17 / accepts 0 all stand.
+
+**Fix:** give every deed a monotonic id, or emit `gather` as a closed event when the
+bout ends rather than as a live accumulator. This is A0f's event log again — the board
+is a dashboard being read as an instrument, and this is the seventh time that has
+produced a wrong number in this file.
+
+### A79 ††† YOU CANNOT PRICE AN ACTION AGAINST AN INCOME — GATHERING IS A RATE **[M]**
+
+*Supersedes A71's "pricing is the wrong lever" with the mechanism and the number.*
+
+Read as bouts, the data gives the missing figure: **Eachann collects ~13.8 branches per
+game hour, Coinneach ~8.1, continuously, simply by walking with the gather goal set.**
+Nobody chooses to gather; they choose a direction and wood accrues.
+
+A fire costs 10 branches — **under one game hour of walking**. That is why raising the
+price tenfold changed nothing (A53 → A71) and why **171 fires** have been lit into a
+standing surplus of 84 branches. A one-off cost cannot bind against an unbounded drip
+no matter what you set it to.
+
+**Fix candidates, in order of appeal:** a carry cap on wood (also fixes the hoard);
+make gathering an *action* that costs time and stops other goals; or make deadfall a
+depleting local resource so a hillside can be picked clean. Do **not** raise the fire
+price again — that lever is now measured and it does not work.
+
+### A80 †† THE PROPERTY DISPUTE IS A PHANTOM — TWO MINDS, TWO CARCASSES, TWO VALLEYS **[M]**
+
+The best speech this project has produced, and it reached nobody. Verbatim:
+
+```
+Coinneach  "I downed it. Find your own, Eachann."  /  "finders keepers, Eachann"
+Eachann    "that's mine, find your own"            why = get meat before Coinneach
+```
+
+Two competing property norms — *I shot it* vs *finders keepers* — argued by name,
+unprompted, over a thing the game does not model. **And they are hundreds of metres
+apart**: 93 of 94 samples quote them off different landmarks (Eachann at Heather Scaur
+/ Low Rigg, Coinneach at The Sheiling Wood / Kindly Wood), each standing over a
+different deer he killed himself.
+
+This upgrades A11. Speech is no longer untargeted — the addressing works perfectly. It
+is the *delivery* that is invisible: no `heard` field on the board, no outcome line in
+the brief, so a mind cannot tell a landed insult from a shout into fog, and repeats it.
+
+**Fix:** publish `heard` on the card (A0f), and put "nobody was near enough to hear
+that" in the next brief. Cheap, and it turns the single best behaviour in the run from
+noise into a measurable social channel.
+
+### A81 †† A PLAN CONTAINING "keep an arrow nocked for Eachann" — AND `attack` HAS NEVER BEEN CHOSEN **[S]**
+
+Coinneach's live plan: `["cook it up", "keep an arrow nocked for Eachann"]`. Whole-run
+check across 1,652 samples: **`attack`, `follow` and `guard` have never once appeared
+as a goal.**
+
+This is A9's exact shape a second time. A mind writes an intention into the plan field,
+is handed it back on every call, and never selects the verb that would execute it — it
+was *"trade a hide for food"* in the first hour and it is a nocked arrow now. Two
+independent instances make this a property of the prompt, not of one negotiation:
+**the plan field is a place to write intentions that the verb menu is never connected
+to.** Worth testing directly — echo the plan's next step *next to the verb that would
+do it* and see whether selection follows.
