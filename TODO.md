@@ -11,69 +11,32 @@ Sizes: **[S]** an afternoon · **[M]** a day · **[L]** more.
 
 ---
 
-# TIER 1 — the game lies about outcomes
+# TIER 1 — the game lies about outcomes  ✅ DONE 2026-08-09
 
-One bug class does most of the damage. Three sessions have now been spent
-debugging the game's own reporting instead of playing the game, and **every
-future playtest report is unreliable until a toast means something**.
+All three landed and all three were verified in a live browser against a live
+server, not only in checks — which mattered, because the browser found two bugs
+in my own fixes that the checks and the build could not see.
 
-The playtester's own words, and he is right:
+- **1a. Nothing is announced until the server confirms it.** The client's own
+  raycast no longer claims a hit; the honest lines (`wound`, `kill`, `glance`
+  with its reason) already come from the server. A handover now says
+  *"offering 12 arrows to Wanderer..."* and only *"— done"* when the `gift`
+  event comes back. And `gift`, `trade`, `offer` and `nosuch` are read by the
+  browser at last, so there is something true to say instead of a guess.
+  `honestcheck`, 11.
+- **1b. The server owns the pack.** Crafting and pickups go through the intent;
+  `me.iv` is read and reconciled, keeping what is in your hand by id.
+  `packcheck`, 12.
+- **1c. A frame loop that cannot die**, cannot stop silently, and keeps running
+  in a hidden tab — including a tab that was hidden before the page loaded, so
+  `visibilitychange` never fires. `loopcheck`, 17.
 
-> A playtester cannot learn anything in a world that lies to them about whether
-> their actions landed; every other bug below took me ten times longer to find
-> because of this one.
-
-### 1a. The client announces success the server refused † **[M]**
-
-`main.js:701` toasts `hit — ${result.zone}` from the client's own raycast. The
-comment beside it already admits the cost is not known there — the server owns
-the arithmetic — so a graze, a mortal hit and **a shot the server threw away
-entirely** all print the same line. He got "hit — head" on a goblin at 8 m with
-a verified clear arc and the goblin took zero damage.
-
-The give side is worse because it is silent as well as wrong: *"20 branches to
-Coinneach"* five times in a row, standing 2 cm away, with nothing ever leaving
-the pack.
-
-**Nothing is announced until it arrives in a snapshot.** The client may say what
-it ATTEMPTED; only the server may say what happened.
-
-### 1b. The inventory is split between client and server † **[M]**
-
-- Fletching never reaches the server: 36 arrows made at a fire, the server's
-  view of him stayed `{bow: 1}`.
-- Ground pickups never reach it either.
-- Death zeroes the server's copy while the client restores twelve arrows from
-  its own save, so you spend the rest of the run firing blanks.
-
-The only recovery he found was **rejoining under a different name**, which hands
-you a fresh, properly synced kit. That is a nasty thing to have to discover.
-
-`me.iv` already ships the server's copy of the pack every snapshot. The client
-should take its word. (This was on the list as "arrows desync"; it is much
-bigger than that.)
-
-### 1c. A single throw in `stepWorld` kills the world for ever † **[M]**
-
-`main.js:3245`:
-
-```js
-function frame(now) {
-  const dt = Math.min((now - last) / 1000, 0.1);
-  last = now;
-  stepWorld(dt);
-  requestAnimationFrame(frame);   // <- never reached if stepWorld throws
-}
-```
-
-Any exception ends the loop with no way back. And `requestAnimationFrame` is
-parked in a background tab while the renderer's last image and the server clock
-keep running, **so a dead world looks alive**. He had to drive `stepWorld` from
-a Web Worker to play at all; `setTimeout` is clamped to a second in a hidden tab
-too, so his timing had to move there as well.
-
-Three parts: re-arm rAF whatever happens, say so on screen when the world has
-stopped, and keep stepping when hidden.
+**Live proof of 1a, which is also a live demo of 2a below.** Chasing the
+wandering bot with the give key, fourteen presses: three *"offering 12 arrows
+to Wanderer..."* and eleven *"nobody close enough"*, and **no `— done` ever
+arrived** because the server never landed one. Both packs unchanged. That is
+the playtester's *"20 branches to Coinneach, five times, nothing left my pack"*
+— now saying so.
 
 ---
 

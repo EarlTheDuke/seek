@@ -475,6 +475,35 @@ function boot() {
           _kill.set(e.at[0], e.at[1], e.at[2]);
           for (const d of e.d ?? []) pickups.drop(d.item, d.count, _kill, _drop.set(0, 0, 0));
           hud.toast(`${e.n} down`, 2.2);
+        // ── THE FOUR THE BROWSER NEVER LISTENED FOR ──
+        //
+        // `gift`, `trade`, `offer` and `nosuch` have been leaving the server
+        // for as long as the verbs have existed, and only the agents ever read
+        // them. So a player's handover had no confirmation at all — the only
+        // thing on screen was the optimistic toast fired when the intent was
+        // SET, which is why a playtester saw "20 branches to Coinneach" five
+        // times in a row while standing 2 cm away with nothing leaving his
+        // pack. He was watching his own hopes, not the world.
+        //
+        // These four lines are what make it possible for the client to stop
+        // announcing outcomes it does not know: there is now something honest
+        // to say instead.
+        } else if (e.k === 'gift') {
+          if (byMe) hud.toast(`${amountText(e.id, e.n2 ?? 1)} to ${e.n} — done`, 2.2);
+          else if (e.to === net?.id) hud.chat(null, `${e.from} gives you ${amountText(e.id, e.n2 ?? 1)}`);
+        } else if (e.k === 'trade') {
+          if (byMe) hud.toast(`traded ${amountText(e.gave, e.gaveN ?? 1)} to ${e.n} for ${amountText(e.got, e.gotN ?? 1)}`, 2.6);
+          else if (e.to === net?.id) hud.toast(`traded ${amountText(e.got, e.gotN ?? 1)} to ${e.from} for ${amountText(e.gave, e.gaveN ?? 1)}`, 2.6);
+        } else if (e.k === 'offer') {
+          // Everybody hears every offer; that is what makes it a market rather
+          // than six private conversations.
+          if (e.to === net?.id) {
+            hud.chat(null, `${e.from} offers you ${amountText(e.item, e.gives ?? 1)} for ${amountText(e.want, e.asks ?? 1)}`);
+          } else if (!byMe) {
+            hud.chat(null, `${e.from} offers ${e.n} ${amountText(e.item, e.gives ?? 1)} for ${amountText(e.want, e.asks ?? 1)}`);
+          }
+        } else if (e.k === 'nosuch') {
+          if (byMe) hud.toast(`there is no such thing as "${e.word}" here`, 2.4);
         }
       },
       // ── what is true of YOU ──
@@ -705,15 +734,31 @@ function boot() {
       hud.chat(null, `your arrow strikes ${what}, ${Math.round(flown)} m out`);
     },
     onCreatureHit: (creature, result, point) => {
+      // ── ONLY THE SERVER MAY SAY WHAT HAPPENED ──
+      //
+      // Connected, this whole callback is the CLIENT'S OWN RAYCAST and knows
+      // nothing about whether the shot counted. `applyDamage` returns 0 for a
+      // remote creature because the server owns the arithmetic — and the
+      // server may refuse the shot outright, on settled ground or for any
+      // other rule. A playtester got "hit — head" on a goblin at 8 m with a
+      // verified clear arc and the goblin took ZERO damage:
+      //
+      //   > A playtester cannot learn anything in a world that lies to them
+      //   > about whether their actions landed; every other bug took me ten
+      //   > times longer to find because of this one.
+      //
+      // So connected, we say nothing here. The honest lines already exist and
+      // already come from the server: `wound` says "the goblin is hit — 34
+      // left in it", `kill` says "goblin down", `glance` says the shot was
+      // refused AND WHY. Offline this client IS the server and every word of
+      // it is true, so nothing changes.
+      if (serverOwnsPack()) return;
       if (result.killed) {
         hud.toast(`${creature.species.name} down — ${result.zone}`, 2.2);
         dropLootFor(creature);
       } else {
-        // The zone is the client's own raycast and is honest. The COST is not
-        // known here on a connected client — `applyDamage` returns 0 for a
-        // remote creature because the server owns the arithmetic — so the
-        // number arrives a moment later on the `wound` event above. Saying the
-        // zone alone made three grazes look identical to three mortal hits.
+        // The zone is the client's own raycast and is honest. Saying the zone
+        // alone made three grazes look identical to three mortal hits.
         hud.toast(`hit — ${result.zone}`, 1.2);
       }
     },
@@ -2885,7 +2930,12 @@ function boot() {
         // `amountText` and not `itemName` — it pluralises. This world already
         // calls one thing `wood`, "BRANCH", "8 branch" and "3 branches"; a fifth
         // spelling is not what it needs.
-        hud.toast(`${amountText(held.item, n)} to ${near.name}`, 1.8);
+        // SAY WHAT YOU ARE ATTEMPTING, NOT WHAT HAPPENED. The server owns
+        // range, conservation and the announcement, and it may well refuse:
+        // he saw "20 branches to Coinneach" five times in a row, standing 2 cm
+        // away, with nothing ever leaving his pack. The confirmation now comes
+        // back on the `gift` event and reads "— done".
+        hud.toast(`offering ${amountText(held.item, n)} to ${near.name}...`, 1.4);
       }
     }
     if (intent.drop || intent.dropHalf) {
