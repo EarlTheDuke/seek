@@ -5412,3 +5412,93 @@ nothing else does. **A178.**
 
 `a062c7c`'s *"`note` is not dead, it is unverified"* stands, with the sample size now named:
 n = 1 model.
+
+## 2026-08-09 15:10 PDT — A RUN CAME BACK AND A HOT RELOAD KILLED IT AT FIVE GAME HOURS. And `refusedVerbs` is not broken — it is reporting a true zero, which reframes A177
+
+**The board answers again.** The 14:05 and 14:35 entries ("the board is down", "still no run")
+are stale from 14:41 onward. The live run is the **melee roster** — 8 seats, 6 models — not
+`roster-duo.json`, which this task file still describes. No sampler was attached to it, so I
+sampled `board.json` myself every 20 s.
+
+### The run was destroyed mid-sample, and the killer is in the vite log
+
+| sample | game hour | total calls | per-seat calls | food |
+|---|---|---|---|---|
+| 0 | 4.6 | 216 | 29,52,34,13,13,34,41,0 | 66,61,73,57,75,81,76,75 |
+| 1 | 4.9 | 220 | 30,52,35,13,13,35,42,0 | 65,60,72,56,74,80,74,74 |
+| 2 | 5.2 | **221** | 30,53,35,13,13,35,42,0 | 63,58,71,54,73,79,72,73 |
+| 3 | 7.5 | **0** | 0,0,0,0,0,0,0,0 | **51,51,51,51,51,51,51,51** |
+
+Every counter zeroed and all eight larders reset to the spawn value inside one 20 s window.
+`m-web.log`'s last line is `3:00:33 PM [vite] page reload src/main.js`, and the working tree
+has uncommitted edits to `src/main.js`, `src/sim/world.js`, `server/packcheck.js`. **Editing the
+source ends the world.** This is the reason no run in this file has ever reached a long horizon:
+the fixes cannot be observed over hours because the act of working on them wipes the subject.
+**A179.**
+
+### Every API failure mode from duo2 is gone
+
+duo2 had Fingal (`haiku-4.5`) at **0 answered / 152 failed** on `http 400`, and both kimi seats
+at 27/23 and 12/38 failed on `no json in reply`. In this run, across 221 calls: **zero failures
+on every seat.** Fingal answered 41 of 41 and spoke seven distinct sentences; in duo2 he said
+`— nothing, ever —`, and that silence was the HTTP error, not the model. No `SPENT` tag
+appeared; the busiest seat was 53 of 250. **Speech is no longer the open question — 7 of 7
+model seats talk, constantly.**
+
+### `refusedVerbs` works. The zero is real.
+
+`npm run feedbackcheck` is **20/20**, including *"…and it is COUNTED, so a refused verb stops
+looking like an unwanted one — `{"offer":1}`"*. The counter is never cleared, so a run-long `{}`
+means no verb was ever refused. Populated in duo2 and melee; **empty on every card in melee2
+(176 samples), melee3 (122) and this run.** That is a behaviour change, not a dead column, and
+the 14:35 entry's implication that `avoid` "vanished along with everything else" was too quick.
+
+### A177 sharpened: the `avoid` bug fires exactly when fleeing SUCCEEDS
+
+The source read stands — [agent.js:2789](src/net/agent.js:2789) still uses a bare `find()`
+while the `make for` case **four lines above at :2781** already reads
+`find(...) ?? anyone(...)`. But the bug is rarer than "past 140 m", because a mind can only
+*name* a goblin it was shown, and the brief culls at the same 140 m. At the moment of choosing,
+the target always resolves.
+
+It fires on the **next** tick. You flee, the goblin drops past 140 m — and the verb that saved
+you now refuses and hands you `this.roam()`. Ailsa's `avoid: 24` in duo2 is one successful
+escape followed by 24 decisions of random walking beside the thing she escaped. It also explains
+the true zero here: a melee is crowded, so threats stay inside 140 m and `avoid` never has to
+reach. **The fix is unchanged and now has a stronger reason: remember where you last saw it.**
+
+### Correction to A178 — `note` is not a one-model field
+
+A178 said, on 520 samples, that only `claude-opus-5` has ever written a `note`, "never
+kimi-k2.6". **In five game hours Seonaid (`kimi-k2.6`) wrote one**, and a good one:
+
+> `"Fingal, Eachann, Tormod quarrel over western deer — keep clear"`
+
+alongside Morag's `"Everyone chasing deer, nobody laying in firewood. That's my edge."` Two
+models, not one. A178's *fix* still stands; its headline number does not.
+
+### Trade is in every plan and in none of the goals
+
+Five of seven seats wrote a trade into `plan` — Morag `"sell arrows and firewood for venison"`,
+Fingal `"trade hides for arrows"` / `"pay Coinneach"`, Tormod `"trade arrows for meat"`,
+Coinneach `"owe Morag meat for arrows"` / `"pay the debt"`, Ailsa `"trade if safe"` — and they
+said it aloud: *"Morag, I owe you meat. Need arrows now."* Across **221 decisions not one
+`offer`, `accept`, `give` or `take` goal was emitted.** Every goal was `gather`, `make for`,
+`hunt`, `avoid` or `go for goblin`. The plan field holds the intention across ticks; the goal
+field never converts it. **A180.**
+
+### There is no player called Ben
+
+Minds address one constantly — *"Ben — Morag's in, bring the venison here"*, *"no arrows to help
+Ben"*, and in duo2 *"Tormod and Ben dead to goblins north-east."* The roster is Morag, Eachann,
+Tormod, Coinneach, Seonaid, Ailsa, Fingal, Iseabail; "Ben" appears in `roster-melee.json` only
+inside a cost comment. `Beinn` is a summit word in [placenames.js:43](src/world/placenames.js:43)
+and the map has a **Hollowed Beinn**. They have invented a man out of a mountain, promised him
+arrows and reported him dead. **A181.**
+
+### Wood is still not scarce
+
+At 10 branches a fire, five of eight seats still laid one within their last five deeds — nine or
+more fires in five game hours. Seonaid was carrying 32 branches, Morag 42 in duo2, and Ailsa
+picked up **61 in a single action**. The price rise did not make fuel a constraint; it made it
+a formality.

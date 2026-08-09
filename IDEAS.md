@@ -3685,3 +3685,69 @@ for meat."* → *"25 branches…"*) — a mind keeping its own books because not
 `plan` gets adopted by 7 seats in 7 and `note` by 1; the difference is almost certainly in the
 wording or in whether last tick's value is echoed back. Echo the current `note` back to the
 mind the way `plan` is, and re-measure. **[S]**
+
+---
+
+### A179 EDITING THE SOURCE ENDS THE WORLD — DETACH THE RUN FROM THE DEV SERVER **[M]** †
+
+The 15:10 run died between two 20 s samples: total calls **221 → 0**, every per-seat counter to
+zero, all eight larders reset to the spawn value 51. `m-web.log`'s last line is
+`3:00:33 PM [vite] page reload src/main.js`, and `src/main.js` was under edit at the time.
+
+This is the quiet reason **no run in `OBSERVATIONS-2026-08-08.md` has ever reached a long
+horizon.** Every fix this project has shipped needs hours of live play to judge, and the act of
+shipping the next one wipes the subject. It has cost at least this run, and it is the most
+likely explanation for several earlier "the board is down" entries.
+
+**Fix:** run the world in a process that vite cannot reload — serve the built bundle for
+long runs (`vite build && vite preview`), or move the sim behind the board server so the browser
+is a viewer and not the host. Second best, and much cheaper: `import.meta.hot.decline()` in
+`main.js` and a snapshot-to-disk on unload so a reload resumes rather than restarts. **[M]**
+
+### A180 TRADE LIVES IN `plan` AND NEVER REACHES `goal` **[S]** †
+
+Five of seven seats wrote a trade into `plan` — `"sell arrows and firewood for venison"`,
+`"trade hides for arrows"`, `"pay Coinneach"`, `"owe Morag meat for arrows"`, `"pay the debt"` —
+and said it aloud (*"Morag, I owe you meat. Need arrows now."*). Across **221 decisions not one
+`offer`, `accept`, `give` or `take` goal was emitted.** Every goal was `gather`, `make for`,
+`hunt`, `avoid` or `go for goblin`.
+
+This is not the trade *settlement* bug (A170-odd, `offer` attempts that never settle). This is
+one step earlier: the mind holds the intention in the field designed to carry intentions across
+ticks, and never converts it into the field that acts. Pair it with A178's finding that `plan`
+is adopted by every seat: **`plan` is the most-used field in the game and it is inert.**
+
+**Fix:** when a `plan` line names a trade verb and the counterparty is in the brief, say so in
+the outcome lines — *"you planned to trade hides to Morag; Morag is 40 m away"*. The mind is
+already holding the deal; it needs the moment named. **[S]**
+
+### A181 A MOUNTAIN CALLED BEINN IS BEING READ AS A MAN CALLED BEN **[S]**
+
+Minds address a "Ben" constantly — *"Ben — Morag's in, bring the venison here"*, *"no arrows to
+help Ben"*, *"Tormod and Ben dead to goblins north-east"*. **No such player exists**; the roster
+is Morag, Eachann, Tormod, Coinneach, Seonaid, Ailsa, Fingal, Iseabail. `Beinn` is a summit word
+in [placenames.js:43](src/world/placenames.js:43) and the map carries a **Hollowed Beinn**.
+
+They have invented a person from a place, promised him arrows, and reported him dead — a whole
+strand of coordination aimed at a hill. It is also a live test of how the brief separates people
+from places: if a landmark can be mistaken for a name, the social verbs are shooting at noise.
+
+**Fix:** either drop `Beinn` from the summit list (`Sgurr`, `Cairn`, `Crown` carry no first-name
+risk), or mark places and people differently in the brief — *"the place Hollowed Beinn"* vs a
+bare name. Then check whether "Ben" disappears. **[S]**
+
+### A177 AMENDED — `avoid` FAILS EXACTLY WHEN FLEEING WORKS
+
+The source claim stands: [agent.js:2789](src/net/agent.js:2789) is a bare `find()`; the
+`make for` case **four lines above at :2781** already reads `find(...) ?? anyone(...)`.
+
+But the failure is narrower and worse than "past 140 m". A mind can only *name* a goblin it was
+shown, and the brief culls at the same 140 m — so at the moment of choosing, `avoid` always
+resolves. It breaks on the **next** tick: you flee, the threat drops past 140 m, and the verb
+that saved you refuses and hands you `this.roam()`. Ailsa's `avoid: 24` in duo2 is **one
+successful escape followed by 24 decisions of random walking** beside what she escaped.
+
+This also explains why `refusedVerbs` is a true `{}` across melee2 (176 samples), melee3 (122)
+and the 15:10 run — `npm run feedbackcheck` is 20/20, so the counter is alive. A melee is
+crowded; threats stay inside 140 m and `avoid` is never asked to reach. **The bug is real, rare,
+and it costs the most in exactly the situation it exists for.** Remember the last seen position.
