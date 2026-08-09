@@ -3886,3 +3886,118 @@ he cannot control, while the fire he was standing at could have fletched them.
 10 and a tree gives 8 — so every fire they lit to survive the night put an arrow
 further out of reach, and the gate that lets a body make arrows was open for 2 of
 94 samples on one seat and 0 of 94 on the other.**
+
+## 2026-08-09 07:35 PDT — RUN 2, NINETEENTH LOOK: `refusedVerbs` is dead instrumentation, and a live mind starved to death working a trade errand at 11 hp a tick
+
+Board answers. Sampler at **s2648**, `at 39528`, sim-hour 6.9, 883 real minutes.
+Window is **s2554–s2648** (95 samples, 31.3 real minutes, sim h2.0 → h6.9).
+Eachann `SPENT` since s1997 — **red tag; all 95 samples are the script, not
+grok.** Coinneach `spent: false`, 525 calls, **230 failures (43.8%)** — 8 of his
+17 calls *in this window* failed, so ~half of his seat is script too (A112).
+
+### The finding: the most informative column on the board has recorded one word all run
+
+`refusedVerbs` across **all 2,648 samples, both minds**, has only ever held these
+values:
+
+```
+Eachann {}  →  {"avoid":2}  →  {"avoid":8}  →  {"avoid":13}  →  {"avoid":16}
+Coinneach {}                                          ← never anything else
+```
+
+One verb, one seat, **frozen at 16 since s681** — 1,967 samples ago. Meanwhile
+in this window Coinneach held `goal: "offer hide to Eachann for venison"` for
+**seven consecutive samples** (s2594–s2600) with `why: "starving, his price is
+known"`, **while actually carrying `hide x3`** — and it produced no `give` deed,
+no trade, and **no `refusedVerbs` entry**. The verb was reached for and vanished.
+
+The deed vocabulary for the whole run confirms there is nowhere for it to land:
+
+```
+killed 398 · gather 13407 · place 8851 · craft 1678 · eat 836 · give 1076
+```
+
+There is **no `offer` deed, no `accept` deed, no `refused` deed, no `died` deed**
+anywhere in 2,648 samples. `give` works (1,076 — all before s1748). `offer` has
+never once produced an observable event of any kind. So the 2026-08-08 fix
+("a verb reached for and refused now looks different from one nobody wants")
+**does not cover `offer`, which is the verb the minds actually reach for.**
+
+**I was wrong in my first pass at this window** and am recording it: I read
+Coinneach as offering a hide he did not own. He owned it — `hide x3` on every
+one of those seven samples, and he has carried a hide in 1,483 samples of 2,645.
+The offer failed for the harness's reasons, not his.
+
+### Both minds starved, and the board watched it happen in 11-point steps
+
+Food hit 0 at s2590/s2591 and health drained at an exact **11 hp per sample**:
+
+```
+Eachann   100 → 89 → 78 → 67 → 56 → 45 → 34 → 23 → 12 → 1 → dead (s2601)
+Coinneach  81 → 70 → 59 → 48 → 37 → 26 → 15 →  4 → dead (s2598)
+```
+
+Ten samples is **200 real seconds**. At Coinneach's 75 s cadence that is **under
+three decisions** between full health and death — and he spent them well: at
+hp 37, 26, 15 and 4 his goal was `offer hide to Eachann for venison`, and he
+closed ~200 m of ground toward Eachann across the errand (351 → 241 → 169 →
+150 m). **He correctly identified the one action that would feed him, walked
+toward it while bleeding out, and the counterparty was a script that has never
+executed `accept`.** He abandoned the errand at s2601 — the sample Eachann
+respawned 340 m away.
+
+Eachann's goal while dropping 45 → 1 was `"stay still and watch"`. **That is the
+script, not grok** (A101/A112): `why == null` on **647 of the 648 samples since
+he went SPENT**. The fallback brain still has no eat rule and no low-health rule.
+
+### Two deaths, two different rulebooks, and the mind is told about neither
+
+- **s2598, starvation:** pack untouched — `hide x3, wood x9` before and after.
+- **s2629, violence:** hp **100 → 0 in one sample** on food 55, and the pack was
+  **stripped to the bow** (`hide x3, wood x11` → gone). He had said
+  *"goblins too close east, I'll sleep at the scaur"* and then walked to the
+  scaur. Two samples later his goal is `make for Scaur of Fair`,
+  `why: "shelter for the night"`, as though nothing happened.
+
+No deed anywhere in the run matches `/die|dead|lost|hurt|wound/`. A mind cannot
+see that it died, what killed it, or that 3 hides and 11 branches left its back.
+This is the loot-drop asymmetry from e86de3e with its trigger identified:
+**only the violent death runs the drop path.**
+
+### Settling A116's open question — the plan rewrite did not lead anywhere
+
+The last entry flagged Coinneach's s2555 rewrite to `["gather wood", "trade hide
+to Eachann for meat", "make arrows"]` as "the first plan-rewrite-then-act; one
+sample, too early to call." **Called: it did not act.** Over the following 70
+samples he gathered **118 branches**, lit **5 fires**, made **zero arrows**,
+never got wood above **11**, and at s2625 rewrote it again to `["trade Eachann a
+hide for meat at dawn", "fletch arrows from the branches", "hunt those east deer
+after"]` — still zero arrows. The plan is honest and the gate is shut (A115).
+
+### Re-checked
+
+- **Fletching gate (A115) holds, harder.** Open **1/95** for Eachann, **0/95**
+  for Coinneach. **Zero arrows on both, 95/95.** They gathered **216 branches**
+  between them in 31 minutes and lit 10 fires; max wood held was 14 and 11.
+- **Deeds in window: 28 gathers and 10 fires and nothing else.** No `eat`, no
+  `killed`, no `craft`, no `give`, for both minds, for 31 minutes.
+- **Trade: still zero.** Nothing has moved between them since **s1748** — now
+  **900 samples, ~5 real hours.**
+- **`note`: `""` on both, 28th consecutive check.** Zero uses, whole run.
+- **Speech: 5 lines, all Coinneach** — *"I'll freeze without wood to burn" ·
+  "fetching wood" · "One hide. Your venison." · "One hide. One share. Done." ·
+  "goblins too close east, I'll sleep at the scaur"*. Three of the five are
+  narration to nobody. Eachann: **0 live**; his card still displays the frozen
+  `"one hide for your venison? done"` from before s1997 (A94/A97).
+- **`why` is still the one self-authored field that works** — 10 distinct lines,
+  every one accurate: *"need ten branches before I freeze"* · *"need two more
+  branches for fire"* · *"dark and no arrows"* · *"starving, his price is known"*.
+- **Budget: 2,026 of 6,000 calls.** 3,974 stranded behind the per-seat cap (A111).
+
+### The one-line version
+
+**`refusedVerbs` has held exactly one word — `avoid: 16` on one seat — for 1,967
+samples, while a starving mind spent seven ticks and 200 m of ground offering a
+hide he really had to a seat that has never executed `accept`, and died at 11 hp
+a tick with the offer still on his card and nothing anywhere recording that it
+was refused, that he died, or that the deal was never possible.**

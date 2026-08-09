@@ -2663,3 +2663,85 @@ in the brief — *"feed the fire — you have 0 branches, a fire needs 10"*. The
 mind already writes honest `why` lines about exactly these constraints (*"zero
 branches, shivering, need fire and shafts"*); it simply never revisits the list
 it wrote them against.
+
+### A117 †††† `offer` PRODUCES NO DEED, NO TRADE AND NO REFUSAL — IT IS A VERB INTO THE VOID **[M]**
+
+The `refusedVerbs` column added on 2026-08-08 is the board's most informative
+field by design, and across **2,648 samples and both minds it has held exactly
+one word**:
+
+```
+Eachann {} → {"avoid":2} → {"avoid":8} → {"avoid":13} → {"avoid":16}   (frozen since s681)
+Coinneach {}                                                           (never anything)
+```
+
+In the same run, the deed vocabulary is **only** `killed 398 · gather 13407 ·
+place 8851 · craft 1678 · eat 836 · give 1076`. There is **no `offer` deed, no
+`accept` deed, no `refused` deed** anywhere. So when Coinneach held
+`goal: "offer hide to Eachann for venison"` for seven straight samples
+(s2594–s2600) **carrying the `hide x3` he was offering**, the verb produced
+nothing observable at all — it did not trade, and it did not refuse.
+
+This generalises A107/A113 from `accept` to the whole trade family and explains
+why the trade ledger has been empty for 900 samples: **the minds are reaching
+for trade constantly and the harness has no path for it to succeed or fail.**
+
+**Fix:** give `offer` the same two outcomes every other verb has. (a) On success,
+emit an `offer` deed the way `give` emits one, so the ledger can see it; (b) on
+failure, call the same `refuse()` that populates `refusedVerbs`, with the reason
+(`out of range`, `partner has no venison`, `partner is not answering`). Until (b)
+exists, `refusedVerbs` is measuring only the one verb that happens to be wired to
+it, and its emptiness reads as "nobody wants to trade" when the opposite is true.
+
+### A118 †††† STARVATION KILLS IN UNDER THREE DECISIONS, AND NOTHING WARNS **[S]**
+
+Measured at s2590–s2601: once `food` hits 0, health drains at an exact
+**11 hp per sample**, both seats:
+
+```
+Eachann   100 → 89 → 78 → 67 → 56 → 45 → 34 → 23 → 12 → 1 → dead
+Coinneach  81 → 70 → 59 → 48 → 37 → 26 → 15 →  4 → dead
+```
+
+Ten samples = **200 real seconds**. Coinneach's cadence is 75 s, so he gets
+**2–3 decisions** between full health and a corpse. He used them correctly —
+`offer hide to Eachann for venison`, `why: "starving, his price is known"`, and
+he walked 200 m toward the counterparty while at 37 → 4 hp. He died mid-errand
+because the counterparty was `SPENT` (a script that has never executed `accept`).
+
+The behaviour was good; the clock and the silence were not. There is no
+"you are starving" line in the brief, no deed when health drops, and the only
+number that moves is `health`, which the mind is not prompted to read against a
+death threshold.
+
+**Fix, cheapest first:** (a) put `hungry`/`starving` in the brief as a named
+state the moment `food` hits 0, with the arithmetic — *"you lose 11 health a tick
+and have 9 ticks left"*; (b) consider halving the drain, so a 75 s seat gets ~6
+decisions rather than 2. Note this is downstream of A115 — with the fletching
+gate shut there was no food in the world to reach for — but even a fed world
+gives a slow seat almost no room here.
+
+### A119 ††† A MIND CANNOT SEE THAT IT DIED, OR WHAT IT LOST **[S]**
+
+Two deaths in this window ran two different rulebooks and the card reported
+neither:
+
+- **s2598, starvation** — pack untouched (`hide x3, wood x9` before and after).
+- **s2629, violence** — hp **100 → 0 in a single sample** on food 55, and the
+  pack was **stripped to the bow** (`hide x3, wood x11` gone). Two samples later
+  his goal is `make for Scaur of Fair`, `why: "shelter for the night"`, exactly
+  as before, from a respawn point 300 m away.
+
+No deed in the entire run matches `/die|dead|lost|hurt|wound|slain/`. This
+identifies the trigger behind e86de3e's "thirty deaths, twenty-nine free":
+**only the violent death runs the loot-drop path.** So the economy silently
+deletes goods on one death type and preserves them on the other, and the owner
+is told nothing either way.
+
+**Fix:** (a) emit a `died` deed carrying the cause and the itemised loss —
+*"a goblin killed me; I lost 3 hides and 11 branches"* — it is the single most
+consequential event that can happen to a mind and it is currently the only one
+with no record; (b) decide deliberately whether starvation should also drop the
+pack, and make the two paths consistent; (c) clear `plan` and any in-flight
+trade errand on death (A116) — Coinneach's offer survived his own respawn and
+was only abandoned when the *counterparty* respawned 340 m away.
