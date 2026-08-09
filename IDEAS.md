@@ -3850,3 +3850,128 @@ a strategy space at all.
 **Do not nerf it.** Instead give it something to push against: let a fire go out and need
 feeding, so a monopolist has running costs and the rest of the map has a recurring reason to
 come and deal. That turns a hoard into a business.
+
+### A189 `accept` IS THE ONLY VERB THAT SETTLES, AND EVERYONE REACHES FOR `offer` INSTEAD **[M]**
+
+The whole trade record of the melee: **12 offer-intentions across 5 seats, 1 settled trade.** The
+mechanism was caught verbatim on 2026-08-09. Tormod advertised *"venison for twenty arrows, fair?"*
+to Fingal three times (h11.95, h13.68, h14.32). Morag heard it and agreed, at his exact price:
+
+```
+h17  Morag  "offer 20 arrows to Tormod for venison"  why="take his deal, food first"
+            said="Tormod — twenty arrows for the venison, done. Sunny Rigg after, I'll cook."
+```
+
+She says **"done"**. She means yes. **She used `offer`, not `accept`** — so the world holds two
+standing offers pointing at each other, mirror images at an agreed price, and no trade. The one
+settlement in the run is the one seat that wrote the literal verb (`take Morag offer`).
+
+The models are negotiating correctly in natural language and picking the verb that *advertises*
+over the one that *settles*. **Fix, cheapest first:** when A offers to B and B offers back a
+mirror of it — B's `item` is A's `want` and vice versa — settle it. That is what two people saying
+"done" to each other means, and it needs no new verb, no prompt change and no model cooperation.
+
+### A190 A FAILED `accept` IS SILENT IN SIX PLACES — THIS IS WHY `refusedVerbs` IS EMPTY **[S]**
+
+`World.resolveAccept` (`src/sim/world.js:874`) has **six bare `return` statements**: giver gone, no
+matching offer, out of `SOCIAL.giveRange`, a `KEEP_ON_DEATH` item, giver short of what it promised,
+taker short of the price. None pushes an event, calls `refuse`, or notes an outcome.
+`agent.js:2737` refuses `accept` only when the *name* fails to resolve.
+
+So a mind that reaches for a deal and is turned down by the world is **told nothing**, and the
+`refusedVerbs` column never counts it. That column has recorded **exactly one event across every
+run** (Tormod `{"follow":1}`) — it is not measuring refusals, it is measuring the subset somebody
+remembered to instrument. **Fix:** give each of the six a `refuse('accept', …)` with the real
+reason — *"Tormod has nothing on the table for you"*, *"you are 40 m away, get closer"*, *"he
+promised venison and has none"*. Cheap, and it turns the most informative column on the board from
+decorative into diagnostic.
+
+### A191 NOTHING RECORDS THE DAY, SO NO EVENT CAN BE ORDERED ACROSS A SUNRISE **[S]**
+
+`hours` on a player card is hour-of-day and **wraps at 24**; `deeds` and `intentions` are stamped
+with `h` and nothing else. The board's only monotonic clock is `at` (seconds), and it lives on the
+board object, not on the events. Consequence: a deed from yesterday evening sorts in front of one
+from this morning, and **the 15:58 entry in `OBSERVATIONS-2026-08-08.md` reported "final" figures
+at h4.5 that were actually the next sunrise** — the run went on another fifteen game hours.
+
+**Fix:** stamp every deed and intention with the run's absolute clock (`at`, or a `day` integer
+beside `h`). One field, and every "final table" in the observations file stops being a guess.
+
+### A192 A SEAT CAN DIE AND THE BOARD SHOWS A HEALTHY PLAYER **[M]**
+
+Ailsa's food went **17 → 82 across an unobserved 383-second gap** with a byte-identical deed window
+and an unchanged inventory — no `eat`, no `gather`, no `trade` — while every other seat decayed
+normally (about −28). `VITALS.hungerStart` is **85** and her observed peak was **82**. The strong
+reading is that she died and the respawn refilled her.
+
+It cannot be checked from the board, and that is the finding: **the player card has no death
+field.** Keys are `health, food, wounds, kills, loosed, astray` — `kills` is kills *made*, `wounds`
+is wounds *dealt*. Health heals back to 100, so a seat can die repeatedly and read as untouched.
+Every seat on the board is hp=100 right now, which currently tells you nothing.
+
+**Fix:** a `died` counter on the card and a `death` deed in the stream, with what killed you.
+Without it, any survival claim in this file — including A187's story about Ailsa starving — rests
+on an assumption nobody can test.
+
+### A193 STARVATION HAS NO TEETH, AND DYING MAY BE THE CHEAPEST MEAL **[S]**
+
+`VITALS.hungerDamageBelow: 0` means hunger **never** deals damage. Seonaid is sitting on **food 1**
+in no danger whatever; Fingal on 16, Coinneach on 19. Below `hungerWeakBelow: 25` you lose stamina
+ceiling and that is the entire penalty. Combined with A192, the incentive is perverse: if a respawn
+refills hunger to 85 and you keep your bow, **the fastest route out of starvation is to die**,
+which is exactly what the one seat that never hunted appears to have done.
+
+This is the root of why the food economy will not hold a price. **Fix:** either give hunger a real
+floor cost (damage below ~10, so a hungry mind must actually deal or hunt), or make a respawn keep
+your hunger where it was. Right now nothing in the world makes food worth what A187 is asking the
+minds to compute.
+
+### A194 HAND-WRITING A CHARACTER SWITCHES OFF THE COLUMN THAT ATTRIBUTES IT **[S]**
+
+`server/agents.js:189` — `persona: ROSTER.players[i]?.character ? null : cast[i]`. A roster entry
+with its own `character` gets `persona: null`, so **every card on a hand-written melee reads
+`persona: null`** while `server/board.js:203` explains that the character hangs off the tag because
+*"the whole point of a persona run is attribution"*. The path anybody actually uses is the one that
+loses attribution.
+
+It matters because the characters are **working**, and it is the best result of the 2026-08-09 run:
+Eachann (*"you hoard"*) on 271 branches saying *"that carcass is mine now"*; Tormod (*"good at
+sounding like the reasonable one"*) saying *"venison for a few arrows, fair?"* over a `why` of
+**"loot his arrows cheap"**; Seonaid (*"you offer a way to split it"*) with *"split it and keep the
+peace"*; Ailsa (*"rather go hungry than take a risk"*) at **0 arrows loosed in thirty game hours**.
+None of that is attributable on the board without opening the roster by hand.
+
+**Fix:** surface the roster's own `character` in the same tag when there is no dealt persona. Two
+lines, and the run's best evidence becomes readable by a watcher.
+
+### A195 A186 CORRECTED — KIMI'S FAILURES ARE A CONFIG LINE, NOT AN ERROR RATE **[S]**
+
+Both kimi seats carry, verbatim on the card:
+`lastError: "reply cut off at 8000 tokens — raise maxTokens for this seat"`.
+
+A186 read their 2–3 failures against every other model's zero as *"a real error rate"*. It is
+`maxTokens: 8000` in `roster-melee.json` against a model whose reasoning bills into the same
+budget — **`roster-kimi.json` already learned this and sets 3000 with a comment explaining it.**
+The cadence half of A186 stands (36 calls against Eachann's 145 in the same window); the
+reliability half is withdrawn.
+
+**Fix:** carry `roster-kimi.json`'s value and comment into `roster-melee.json`. **This is the fifth
+time a model has been written up as weak and the instrument was at fault** — worth a standing rule:
+before any claim about a model's competence, read `mind.lastError` on its card first.
+
+### A188 SUPERSEDED — THE WOOD MONOPOLY LASTED NINE GAME HOURS
+
+Recording the correction against the original. Wood at the 15:58 reading against nine game hours later:
+
+```
+              Morag  Eachann  Tormod  Iseabail  Coinneach  Seonaid  Fingal  Ailsa
+15:58           117        0       8         0          7        8       1      0
+at=2944         260      271     182        17          7        2       1      0
+```
+
+Eachann and Tormod did not break the corner by dealing with the monopolist — **they walked off and
+picked up their own**, to 271 and 182. A188 said the 10-branch fire "did bite, for everyone except
+the one player who saw it coming"; two more players saw it coming within the day. **A185 was right
+the first time: wood is effectively unlimited, and a hoard of it is not a capital position because
+anybody can mint one by walking.** The *idea* in A188 — a monopolist with running costs, a fire
+that needs feeding — is still worth building; it just was not what the data showed.

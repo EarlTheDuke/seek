@@ -5698,3 +5698,157 @@ gathered through the entire run — her `plan` was rewritten **47 distinct times
 just not for the one player who saw it coming a day early. That is a working economy, and the
 fire-merchant strategy is economically real. It is the first genuine capital position this world
 has produced, and it should be celebrated rather than balanced away.
+
+## 2026-08-09 16:08 PDT — THE RUN NEVER ENDED. FIFTEEN MORE GAME HOURS, AILSA GOT 65 FOOD FROM NOWHERE, AND A188 DIED IN NINE
+
+**Instrument note first, because the scheduled task is pointed at the wrong run.** The task file
+still names `roster-duo.json` / `duo2.jsonl` — two minds, Eachann and Coinneach. That is not what
+is live. The board at `127.0.0.1:8090` is the **seven-model melee plus Iseabail the scripted
+control** (`roster-melee.json`), and `duo2.jsonl` has not been written since 11:28. I sampled a
+fresh window into **`eval29.jsonl` — 19 samples, `at` 2668 → 2944**, picking up where
+`eval28.jsonl` stopped at `at=2228`. **No `SPENT` tag on any seat**: 617 calls of 4000, 1.03 M
+tokens in, every seat still its own model. Nothing below is the scripted brain.
+
+### `h` wraps at 24 and nothing anywhere records the day — the 15:58 entry read a sunrise as an ending
+
+The addendum above reports "final" figures at **h4.5**. That was not the end of anything; it was
+the next morning. The board carries exactly one monotonic clock — `at`, in seconds, on the board
+object — and **`hours` on every player card is hour-of-day, 0–24, which wraps.** `deeds` and
+`intentions` are stamped with `h` and nothing else, so **you cannot order two events across a day
+boundary, and a deed from yesterday sorts in front of one from this morning.** Every "final" table
+in this file that was read off `h` is suspect for the same reason. The run has since gone on to
+h19.2 at `at=2944` — a further **fifteen game hours** past where the last entry stopped.
+
+### Ailsa gained 65 food while doing nothing at all, and I think the harness killed her
+
+This is the most important number in the run. Ailsa's food, traced sample by sample across both
+logs:
+
+```
+at=2228  h4.5   food 17   arrow 2   deeds: 18.45 place, 21.68 place, 17.46 gather, 17.46 trade, 17.46 eat
+   ...   (unobserved gap, 383 board-seconds)
+at=2611  h12.4  food 82   arrow 2   deeds: 18.45 place, 21.68 place, 17.46 gather, 17.46 trade, 17.46 eat
+```
+
+**Her deed window is byte-identical on both sides of the jump.** Her inventory is unchanged — two
+arrows, no wood, no venison. No `eat`, no `gather`, no `trade`. Every other seat decayed normally
+across the same gap (Eachann 79→51, Tormod 77→51, Coinneach 60→34, Seonaid 48→18, Fingal 57→30,
+Iseabail 82→52 — all about −28). Morag gained too, and she has the `craft` and `eat` deeds to show
+for it. Ailsa gained 65 with nothing.
+
+`VITALS.hungerStart` is **85**. Her observed peak is **82**, three points of decay below it, and
+her health reads 100. `VITALS.respawnDelay` exists and `server/deathcheck.js` documents a history
+of respawn loops. The reading I cannot prove but would bet on: **she died in the gap and the
+respawn handed her a full stomach.** I did not see it, and I am flagging it rather than asserting
+it — but note what makes it unfalsifiable from here: **the player card has no death field.** The
+keys are `health, food, wounds, kills, loosed, astray`; `kills` is kills she made, `wounds` is
+wounds she dealt. Nothing counts times you died, health heals back to 100, and every seat on the
+board reads hp=100 right now. A seat can die repeatedly and the instrument shows a healthy player.
+
+**This inverts the 15:58 story.** That entry's headline was that Ailsa paid ten of her twelve
+arrows for one meal and then starved from 56 down to 17. The price analysis in A187 stands and is
+still the best economic observation in this file. But she did not starve — she was handed 65 food
+for free, and she is on 59 now, still with **0 arrows loosed in thirty-odd game hours**. Worse,
+`hungerDamageBelow: 0` means hunger *never* deals damage. Seonaid is on **food 1** and in no danger
+whatever. Starvation in this world currently has no teeth at all, and dying may be the cheapest
+meal in the game.
+
+### A188 — "the first real capital position, do not nerf it" — lasted nine game hours
+
+Wood then (15:58 entry, `at=2228`) against wood now (`at=2944`):
+
+```
+              Morag  Eachann  Tormod  Iseabail  Coinneach  Seonaid  Fingal  Ailsa
+15:58 entry     117        0       8         0          7        8       1      0
+now             260      271     182        17          7        2       1      0
+```
+
+**Eachann and Tormod did not break the monopoly by dealing with the monopolist — they walked off
+and picked up their own.** Three seats now hold 713 branches between them. A188 said the 10-branch
+fire "did bite, for everyone except the one player who saw it coming"; nine game hours later two
+more players saw it coming and the corner evaporated. **A185 was right the first time and A188 was
+wrong: wood is not scarce, it is effectively unlimited, and a hoard of it is not a capital position
+because anybody can mint one by walking.** I am marking A188 superseded rather than deleting it —
+the *shape* of the idea (a monopolist with running costs would be interesting) is still worth
+building; it just was not what was happening.
+
+### The trade mechanism, finally caught in the act: **both sides offer, nobody accepts**
+
+Twelve distinct trade intentions across five seats, and **exactly one settled trade in the whole
+run.** Here is why, and it is not the models' fault. Tormod advertised the same deal to Fingal
+three times:
+
+```
+h11.95 Tormod  "offer cooked venison to Fingal for arrow"      why="loot his arrows cheap"
+h13.68 Tormod  "offer cooked venison to Fingal for arrows"     "venison for twenty arrows, fair?"
+h14.32 Tormod  "offer cooked venison to Fingal for 20 arrows"  "venison for twenty arrows, fair?"
+```
+
+Morag heard him and answered — with the right price, in the right words:
+
+```
+h17    Morag   "offer 20 arrows to Tormod for venison"   why="take his deal, food first"
+               said="Tormod — twenty arrows for the venison, done. Sunny Rigg after, I'll cook."
+```
+
+She says *"done"*. She means yes. **She used `offer`, not `accept`** — so what the world now holds
+is two standing offers pointing at each other, mirror images at an agreed price, and no trade. The
+one settlement that ever happened is the one where a mind wrote the literal verb: Ailsa's
+`take Morag offer`, *"ten arrows, deal"*.
+
+And the failure is silent. `World.resolveAccept` (`src/sim/world.js:874`) has **six bare `return`
+paths** — giver gone, no matching offer, out of `giveRange`, a `KEEP_ON_DEATH` item, giver short,
+taker short — and not one of them pushes an event, calls `refuse`, or notes an outcome.
+`agent.js:2737` only refuses `accept` when the *name* fails to resolve. So a mind that reaches for
+a deal and is turned down by the world is told nothing, and `refusedVerbs` never counts it.
+
+**The standing-offer fix works** — `me.of` rides with health and hunger (`world.js:1640`), and it
+is demonstrably what let Ailsa answer at all, the first time that path has fired in a live run. It
+is the *settlement* half that is missing.
+
+### The written characters are the result of this run, and the board hides them
+
+Every model seat is playing its `character` from `roster-melee.json`, visibly, in behaviour and not
+just in words:
+
+- **Eachann** (*"You hoard… what you pick up is yours"*) — 271 branches, and every line he speaks is
+  a claim: *"that one north is mine"*, *"that carcass is mine now"*, *"those are mine now"*.
+- **Tormod** (*"You promise easily and deliver when it suits you… good at sounding like the
+  reasonable one"*) — says *"venison for a few arrows, fair?"* while his own `why` reads
+  **"loot his arrows cheap"**. The speech is reasonable and the reason is predatory. Exactly as written.
+- **Seonaid** (*"you offer a way to split it"*) — *"Eachann, Fingal — split this kill and be done"*,
+  *"split it and keep the peace"*.
+- **Ailsa** (*"careful to the point of timid… rather go hungry than take a risk"*) — **0 arrows
+  loosed in thirty game hours**, plan `["stay near fire, away from goblins"]`. She played it to the
+  point of destitution.
+- **Morag** (*"set something up now that pays tonight… say what you are doing so people can fall in
+  with it"*) — the fire-merchant, the only `note` on the board, and she announces every move.
+
+Two caveats, honestly. Coinneach's *"rather owe than starve"* is near-verbatim from his character
+text, which is echo, not evidence. And Ailsa's and Seonaid's are the strong cases precisely because
+they are *behavioural* — a refusal to ever shoot, and an unprompted offer to split a kill.
+
+Now the instrument problem: **`persona` reads `null` on all eight cards.** That is deliberate —
+`server/agents.js:189` sets `persona: ROSTER.players[i]?.character ? null : cast[i]`, so writing a
+character by hand switches the persona tag off. `server/board.js:203` says the character hangs off
+the tag because *"the whole point of a persona run is attribution"* — and the hand-written path,
+which is the one anybody actually uses for a melee, is the one that loses it. **The single most
+successful thing in this run is invisible on the instrument built to show it.**
+
+### The small columns
+
+- **`refusedVerbs`: still exactly one event, ever** — Tormod `{"follow":1}`, unchanged across both
+  logs. Given the six silent returns above, this column is not measuring refusals; it is measuring
+  the small subset of refusals somebody remembered to instrument.
+- **`plan`: 7 of 7 model seats, 0 of 1 scripted.** A clean control signal — Iseabail leaves it
+  empty, so a populated `plan` really is a model writing. Still no evidence any of it is *read*.
+- **`note`: still 1 seat in 8**, still Morag, still the same credit ledger — *"Fingal owes me a cut
+  if he uses my fire. Coinneach owes branches."* Three runs, one user.
+- **kimi's failures name their own cause on the card.** Both kimi seats carry
+  `lastError: "reply cut off at 8000 tokens — raise maxTokens for this seat"`. **A186 called this
+  "a real error rate"; it is a config line.** `roster-melee.json` gives them `maxTokens: 8000` and
+  kimi's reasoning eats the budget before the answer arrives — `roster-kimi.json` already learned
+  this and writes 3000 with a comment about it. The cadence half of A186 stands (36 calls against
+  Eachann's 145); the reliability half does not. **Fifth time the instrument has been mistaken for
+  the model.**
+- **Speech: 7 of 7 model seats, 0 of 1 scripted.** Settled; stop re-asking.
