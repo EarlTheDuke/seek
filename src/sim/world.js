@@ -21,7 +21,7 @@
 // which is a handful of kilobytes a second for a world of unbounded size.
 
 import * as THREE from 'three';
-import { SEED, WATER_LEVEL, LOADOUT, TIME, SOCIAL, SURVIVAL, PLAYER, PICKUP } from '../config.js';
+import { SEED, WATER_LEVEL, LOADOUT, TIME, SOCIAL, SURVIVAL, PLAYER, PICKUP, WILDLIFE } from '../config.js';
 import { placeStrangeness, darkness } from '../world/strangeness.js';
 import { describePosition } from '../world/placenames.js';
 import { findRegion } from '../world/regions.js';
@@ -271,6 +271,12 @@ export class SimWorld {
             sp: creature.species.id,
             n: creature.species.name,
             dmg: Math.round(result.damage),
+            // Worth telling the whole hillside about. A troll cannot be killed
+            // by one person with one quiver — the arithmetic does not close —
+            // so a fight with one in it is a fight everybody has to be able to
+            // follow. Read off the table rather than a list of names, so a
+            // heavier creature added later is public for free.
+            ...(creature.species.hitPoints >= WILDLIFE.bigQuarry ? { big: 1 } : {}),
             // What is left in it, so a body can tell a graze from a mortal hit.
             hp: Math.max(0, Math.round(creature.hp)),
             at: [round2(creature.position.x), round2(creature.position.y), round2(creature.position.z)],

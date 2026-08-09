@@ -534,6 +534,19 @@ export const WILDLIFE = {
   // machine is not. At 60 Hz with distance LOD this is the point where the
   // wildlife tick stops being free.
   maxAliveTotal: 120,
+  // The most of the budget any ONE kind may hold. Goblins band in threes to
+  // sixes and trolls come alone, so without this a strange night filled with
+  // goblins and nothing bigger could ever appear — which is exactly what a
+  // playtester measured across two nights of looking for a troll.
+  //
+  // A share, not a bigger cap: raising `maxAlive` makes more goblins just as
+  // readily as it makes room for a troll.
+  speciesShare: 0.55,
+  // Hit points at which a fight stops being private. Above this, everybody
+  // nearby hears how much is left in it — because above this, one archer with
+  // one quiver cannot finish it and the fight is meant to be shared.
+  // 200 puts the bear and the troll in and leaves deer and goblins out.
+  bigQuarry: 200,
   minSpawnDistance: 55, // never pop into existence in your face
   // Distance bands for update rate. Far creatures still move, just coarsely.
   lodNear: 90,

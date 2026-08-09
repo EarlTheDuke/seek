@@ -46,7 +46,6 @@ export class Body extends Vitals {
      * must not freeze the thermal model at whatever it last held.
      */
     this.remoteCore = false;
-    this.remoteFood = false;
   }
 
   reset() {
@@ -199,10 +198,7 @@ export class Body extends Vitals {
     let burn = SURVIVAL.hungerPerHour * worldHours;
     burn *= lerp(1, SURVIVAL.hungerExertionMul, exertion);
     if (this.shivering) burn *= SURVIVAL.hungerColdMul;
-    // ...unless the server is keeping it for us, in which case running our own
-    // drain on top of theirs would burn it twice as fast and drift apart again,
-    // which is exactly what `remoteCore` learned one field over.
-    if (!this.remoteFood) this.hunger = clamp(this.hunger - burn, 0, 100);
+    this.hunger = clamp(this.hunger - burn, 0, 100);
 
     // ── stamina ───────────────────────────────────────────────────────────
     const sprinting = ctrl.horizontalSpeed > PLAYER.walkSpeed * 1.15 && ctrl.grounded;
@@ -278,29 +274,6 @@ export class Body extends Vitals {
   }
 
   /**
-   * Take the server's word for how hungry you are, too.
-   *
-   * `me.f` has been in every snapshot as long as `me.h` and `me.c` have, and
-   * was left unread with a reason attached: "nothing can yet feed that body".
-   * THAT REASON IS STALE. `eat` has been on the wire since cooking crossed it,
-   * the server's copy eats, and the two hungers have been drifting apart ever
-   * since — the same shape as the position drift and the health that read 100
-   * through two deaths.
-   *
-   * It matters most at the moment it is furthest wrong: you die, the server
-   * feeds its copy back to full on respawn, and the browser goes on showing the
-   * hunger you died with while the bar drives your speed and your local damage.
-   */
-  applyRemoteFood(hunger) {
-    // Same guard and the same reason as the temperature's: one undefined on the
-    // path of every packet would leave `hunger` NaN, and every comparison
-    // against NaN is silently false — you would neither slow down nor starve.
-    if (!Number.isFinite(hunger)) return;
-    this.remoteFood = true;
-    this.hunger = clamp(hunger, 0, 100);
-  }
-
-  /**
    * Nobody is keeping our warmth for us any more — go back to running it.
    *
    * Without this a disconnected body would hold the last temperature the server
@@ -310,7 +283,6 @@ export class Body extends Vitals {
   takeOverLocally() {
     super.takeOverLocally();
     this.remoteCore = false;
-    this.remoteFood = false;
   }
 
   /** Emit a warning at most once every eight seconds, and never repeat back to back. */

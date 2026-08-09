@@ -182,18 +182,6 @@ check('and a body that died as the server vanished still gets up', !orphan.dead,
     `${b.health} hp — reset must not hand out health of its own`);
 }
 
-// ...and the other half: the bar has to tell the truth while you are alive.
-{
-  const { Body } = await import('../src/player/body.js');
-  const b = new Body();
-  b.applyRemoteFood(41);
-  check('THE SERVER OWNS HUNGER TOO, like health and warmth before it',
-    b.hunger === 41 && b.remoteFood === true, `hunger ${b.hunger}`);
-  check('  …and rubbish on the wire cannot poison it',
-    (b.applyRemoteFood(undefined), b.hunger === 41),
-    'NaN once would leave every comparison silently false for the session');
-}
-
 const failed = results.filter((r) => !r).length;
 console.log(`\n  ${results.length - failed}/${results.length} passed\n`);
 process.exit(failed ? 1 : 0);

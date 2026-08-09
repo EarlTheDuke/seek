@@ -447,6 +447,18 @@ function boot() {
           // being kept in the dark.
           if (byMe) {
             hud.chat(null, `your arrow goes into the ${e.n.toLowerCase()} — ${e.dmg} damage, ${e.hp} left in it`);
+          } else if (e.hp !== undefined && e.big) {
+            // ── A BIG FIGHT IS EVERYBODY'S BUSINESS ──
+            //
+            // Said to the whole hillside, not just the archer. A troll has 420
+            // hit points against a 26-damage arrow and a full quiver is twelve
+            // — the arithmetic simply does not close for one person, which is
+            // why nobody has ever killed one. It is meant to be three of you.
+            //
+            // Three people cannot pile on to something if only the one who
+            // fired can see it weakening. This is the line that makes "it is
+            // nearly down, keep at it" a thing anybody can know.
+            hud.chat(null, `the ${e.n.toLowerCase()} is hit — ${e.hp} left in it`);
           }
         } else if (e.k === 'kill') {
           // ── an animal went down somewhere, and left something behind ──
@@ -482,13 +494,6 @@ function boot() {
         // that landed at 15:40. See `Body.applyRemoteCore` — and note `me.f` is
         // deliberately still NOT read, because nothing can yet feed that body.
         if (snap.me) vitals.applyRemoteCore(snap.me.c);
-        // ── and how hungry ──
-        // `me.f` was the one field of the four deliberately left unread, on the
-        // reasoning that nothing could feed the server's copy. That has not been
-        // true since `eat` crossed the wire. Reading it is what stops the bar
-        // showing the hunger you died with after the server has stood you back
-        // up fed — the other half of the ninety-second death loop.
-        if (snap.me) vitals.applyRemoteFood(snap.me.f);
         // ── AND WHERE THE SERVER THINKS YOU ARE STANDING ──
         //
         // The server integrates YOUR intents through ITS OWN physics —
@@ -568,10 +573,34 @@ function boot() {
 
   const vitals = new Body({
     onWarning: (text) => hud.toast(text, 3),
-    onDamage: (amount) => {
+    onDamage: (amount, from) => {
       audio.playerHurt(Math.min(1, amount / 40));
       feel.shake(0.75);
       weapons.cancel(); // a mauling makes you lose the draw
+      // ── SAY WHAT IS KILLING YOU ──
+      //
+      // A playtester froze to death like this: "I pressed G, the log said 'a
+      // fire', and yet there was no fire in reach... my core temperature sat at
+      // 34.3° while I lost about one health every 1.5 seconds until I died. The
+      // WARMTH bar was on screen the whole time but nothing connected it to the
+      // health I was losing."
+      //
+      // The cause has been on the damage all along — `body.js` tags it
+      // `{kind:'cold'}`, `{kind:'hunger'}`, `{kind:'heat'}` — and nothing ever
+      // read it. Dying of the weather looked exactly like dying of nothing.
+      //
+      // Rate-limited to one line every few seconds: this fires per tick while
+      // it is happening, and a warning that scrolls is a warning nobody reads.
+      const why = from?.kind;
+      if (why && time - (lastSlowDeath[why] ?? -99) > 6) {
+        lastSlowDeath[why] = time;
+        hud.toast(
+          why === 'cold' ? 'the cold is killing you — get to a fire'
+          : why === 'hunger' ? 'you are starving — eat something'
+          : 'the heat is killing you — get out of the sun',
+          3.5,
+        );
+      }
     },
     onDeath: () => {
       weapons.cancel();
@@ -2624,6 +2653,8 @@ function boot() {
   // ── the loop ────────────────────────────────────────────────────────────
   let last = performance.now();
   let time = 0;
+  // When each slow death last spoke, so a per-tick warning does not scroll.
+  const lastSlowDeath = {};
   // The dead body's intent — mutable, because the network path writes aim onto
   // whatever it sends. See where it is used.
   const deadIntent = createIntent();

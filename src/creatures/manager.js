@@ -153,6 +153,19 @@ export class Wildlife {
       if (!inBand(s.strangeness, strangeness)) continue;
       if (s.nightOnly && night < WILDLIFE.nightThreshold) continue;
       if (s.dayOnly && night >= WILDLIFE.nightThreshold) continue;
+      // ── NO ONE SPECIES MAY TAKE THE WHOLE HILLSIDE ──
+      //
+      // Goblins come in bands of three to six and trolls come alone, so on a
+      // strange night the goblins filled the budget and there was no room left
+      // for anything bigger. A playtester: "on the nights I was in the right
+      // place there was no room left for anything bigger, and the one troll
+      // that did appear was 1.9 km away with four minutes of darkness left."
+      //
+      // A SHARE rather than a bigger cap. Raising `maxAlive` would have made
+      // more goblins as readily as it made room for a troll, which is the shape
+      // of tuning this project has been caught doing before: the number moves
+      // and the failure moves with it.
+      if (this.countOf(species.id) >= Math.ceil(this.aliveCap() * WILDLIFE.speciesShare)) continue;
       now.push(species);
     }
     return { everPossible, now };
@@ -169,6 +182,13 @@ export class Wildlife {
    *
    * One player is one budget, so single-player is exactly what it was.
    */
+  /** How many of one kind are alive right now. */
+  countOf(id) {
+    let n = 0;
+    for (const c of this.creatures) if (c.species.id === id && c.state !== 'dead') n++;
+    return n;
+  }
+
   aliveCap() {
     const players = 1 + (this.extraAnchors?.length ?? 0);
     return Math.min(WILDLIFE.maxAlive * players, WILDLIFE.maxAliveTotal);

@@ -28,7 +28,8 @@ import { BUILDABLE } from '../world/structures.js';
 import { RECIPES } from '../items/recipes.js';
 import { ITEMS, getItem } from '../items/registry.js';
 import { COMPANIONS } from '../creatures/companions.js';
-import { SURVIVAL } from '../config.js';
+import { SPECIES } from '../creatures/registry.js';
+import { SURVIVAL, ARROW } from '../config.js';
 
 /** "6 branches", "1 hide" — plural where a person would pluralise. */
 export function amountText(id, n) {
@@ -142,6 +143,39 @@ export function buildBook({ inventory = null, companion = null } = {}) {
     rawRows.push({ name: def.name, cost: have ? `you have ${have}` : '', note: def.source, can: have > 0 });
   }
   sections.push({ title: 'Where things come from', rows: rawRows });
+
+  // ── WHAT WALKS HERE, AND WHEN ──
+  //
+  // A playtester spent two nights working this out and then said so plainly:
+  // "nothing anywhere hints that goblins are nocturnal or that they live near
+  // caves; I only knew where to go because I went digging." He read the source.
+  //
+  // Every word below is already in the species table — `nightOnly`, the
+  // strangeness band, the hit points, the hit zones — and it is read at call
+  // time like everything else here, so retuning a creature retunes the page.
+  const beastRows = Object.values(SPECIES)
+    .filter((sp) => sp.hitPoints && sp.spawn)
+    .sort((x, y) => x.hitPoints - y.hitPoints)
+    .map((sp) => {
+      const sw = sp.spawn ?? {};
+      const when = sw.nightOnly ? 'at night' : sw.dayOnly ? 'by day' : 'any hour';
+      const strange = sw.strangeness?.[0] ?? 0;
+      const where = strange >= 0.5 ? 'strange ground — the old places and the caves'
+        : strange >= 0.25 ? 'where the country turns odd'
+        : 'the ordinary glens';
+      // Where to put an arrow, and how many, straight off the zone table.
+      const best = [...(sp.hitZones ?? [])].sort((x, y) => y.multiplier - x.multiplier)[0];
+      const shots = best ? Math.ceil(sp.hitPoints / (ARROW.damage * best.multiplier)) : null;
+      return {
+        name: sp.name,
+        cost: `${when}, ${where}`,
+        note: shots
+          ? `${sp.hitPoints} hit points — ${shots} clean ${best.name} shot${shots === 1 ? '' : 's'}`
+          : `${sp.hitPoints} hit points`,
+        can: sp.faction === 'prey',
+      };
+    });
+  if (beastRows.length) sections.push({ title: 'What walks here', rows: beastRows });
 
   // ── your animal ──
   // Every player gets one and they all differ, so "what is mine actually FOR"
