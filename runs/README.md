@@ -11,7 +11,7 @@ what gets written up from them. The write-ups stay.
 |---|---|--:|
 | [1](melee-1.md) | as launched | **6 of 7** |
 | [2](melee-2.md) | Haiku's `effort` and Kimi's token cap fixed | **7 of 7** |
-| 3 | trade carries a price | 7 of 7 |
+| [3](melee-3.md) | trade carries a price, and the offer is visible | **7 of 7** |
 
 ---
 
@@ -88,8 +88,25 @@ offer 6 hides to Ailsa for venison
 ```
 
 — and `resolveItemId` handled plurals but not counts, so every one resolved to
-nothing and the whole offer was discarded. Run 3 is the A/B: same world, same
-seven models, and a price that actually means something.
+nothing and the whole offer was discarded. ### 3b. `accept` was never chosen because nobody could see the offer
+
+Three hours, seven models: `offer` reached for 29 times, `give` 16, **`accept`
+zero**. Never once. It read as a verb nobody wanted, and it was a verb nobody
+could USE — an offer made TO a mind arrived only as a line in its memory stream,
+weighted like any other event, decaying against a half-life of about one
+decision. By the time that mind next chose, the deal had faded out of the six
+lines it is shown.
+
+A standing offer is now state rather than history: it rides in the snapshot
+beside health and hunger and reaches the prose above everything else, with the
+one fact that makes it decidable — whether you can cover it, and by how much you
+are short if you cannot.
+
+**Run 3, immediately: `accept` chosen three times** (Eachann 13.72, Morag 16.67,
+Tormod 22.00) and social verbs at 10.7%, the highest of any run. Two settled
+trades from three accepts, so the remaining loss is the counterparty walking off
+between the offer and the answer — which is the next thing to fix, and the same
+thing the human playtester hit when he could not get anybody to stand still.
 
 ### 4. They remember somebody who is not coming back
 
