@@ -3751,3 +3751,69 @@ This also explains why `refusedVerbs` is a true `{}` across melee2 (176 samples)
 and the 15:10 run — `npm run feedbackcheck` is 20/20, so the counter is alive. A melee is
 crowded; threats stay inside 140 m and `avoid` is never asked to reach. **The bug is real, rare,
 and it costs the most in exactly the situation it exists for.** Remember the last seen position.
+
+### A182 `give` SUBSTITUTES YOUR MOST VALUABLE STACK FOR THE THING YOU OFFERED **[S]**
+
+[world.js:983](src/sim/world.js:983) `giftFrom` falls back, when you do not hold the item you
+named, to (2) the first **edible** thing you own, then (3) your **largest stack**. And
+`resolveGive` is edge-detected on the recipient's *name* only
+([world.js:1370](src/sim/world.js:1370)) while the agent clears `i.giveItem` every frame
+([agent.js:1349](src/net/agent.js:1349)) — so it re-fires every couple of ticks for as long as
+the goal stands.
+
+Live cost, melee3: Ailsa (`claude-sonnet-5`) said *"here's my branch, Morag"* holding no
+branches, and the world handed Morag **all twelve of her arrows, one per tick** — `I gave arrow
+to Morag` ×9 in the deed log. She finished the run carrying a bow and nothing else. Tormod did
+the same to Eachann, nine gifts in 3 game-minutes. 24 `give` deeds in that run came from roughly
+four intentions.
+
+**Fix:** if the named item is not held, `refuse('give', 'you have no branches')` and count it —
+this is precisely what `refusedVerbs` exists for. Delete the fallback; never substitute, and
+never give away food to satisfy a request for firewood. Clear the goal after the first
+successful gift. Two edits.
+
+### A183 A QUIVER HOLDS 12 ARROWS AND A KILL COSTS 14 **[M]**
+
+Live run, 13 game hours: **69 arrows loosed, 56 astray (81% miss), 5 kills.** Per seat —
+Tormod 24/21/2, Seonaid 18/17/1, Fingal 11/10/1, Coinneach 8/4/0, Eachann 6/3/1. Spawn quiver is
+12. **Nobody can feed themselves from spawn**, which is why `gather` is 39 of 60 deeds on the
+board: the game is scavenging for ammunition, not hunting.
+
+Downstream: one `eat` deed in thirteen hours across eight people; Tormod sits on 2 kills with
+food 18, Fingal 1 kill with food 17. It also makes A182 lethal rather than annoying — a bad
+`give` that costs you a quiver costs you the ability to eat.
+
+**Fix (pick one):** raise the hit rate at the ranges minds actually shoot from (most refusals
+are `ground in the way` and `too far` at 15–30 m), or make a wounded deer bleed out so a hit
+that does not kill still yields a carcass. Either converts effort into food.
+
+### A184 THE TWO SEATS PLAYING THE INTENDED GAME ARE THE ONES THE BROKEN VERBS PUNISH **[M]**
+
+Morag (`claude-opus-5`) and Ailsa (`claude-sonnet-5`) have loosed **0 arrows and made 0 kills**
+between them across the whole live run. Both deliberately chose the social economy — Morag is a
+fire-merchant holding **101 branches** on plan `["hold fire, 77 branches", "arrows only for
+meat", "charge warmth in venison"]`, with the only `note` on the board, a credit ledger:
+*"Fingal owes me a cut if he uses my fire. Coinneach owes branches."* Ailsa is on
+`["safer to join a group fire than travel alone", "trade arrows for venison if I can"]`.
+
+Both are starving — 37 and 34, falling — because **three offers were made and none settled.**
+The world's most sophisticated play is currently its least survivable, and that is a harness
+property, not a model property. Fixing A182 and giving `offer` a settlement path is what makes
+this strategy legible; until then the leaderboard rewards whoever ignores the social verbs.
+
+### A185 WOOD IS STILL NOT SCARCE AT 10 BRANCHES A FIRE **[S]**
+
+16 fires in 13 game hours = 160 branches burned, and Morag *gained* over the same window to
+**101**, with Tormod on 55, Eachann/Coinneach on 47+. `gather` yields in lots of 5–40. Third run
+in a row this has been recorded (see 15:10 entry). The price rise made fuel a formality, not a
+constraint. **Fix:** the cost is not the lever — the yield is. Cap what one `gather` returns, or
+make a fire consume wood over time rather than once at lighting.
+
+### A186 kimi-k2.6 IS A THIRD OF A PLAYER, AND IT IS THE CADENCE **[S]**
+
+Both kimi seats took **17 calls** in the window the other models took **47–71**, and each logged
+**2 failures (12%)** where every other model logged zero. That is the 75 s cadence in
+`roster-melee.json` plus a real error rate. Any cross-model comparison drawn off this board is
+comparing a seat that thought 17 times with seats that thought 71 times. **Fix:** put every seat
+on the same cadence before the next melee, or record decisions-per-game-hour beside every
+standings column so the handicap is visible.

@@ -5502,3 +5502,131 @@ At 10 branches a fire, five of eight seats still laid one within their last five
 more fires in five game hours. Seonaid was carrying 32 branches, Morag 42 in duo2, and Ailsa
 picked up **61 in a single action**. The price rise did not make fuel a constraint; it made it
 a formality.
+
+## 2026-08-09 15:35 PDT — TRADE IS NOT DEAD, IT WORKED TWICE — AND THE `give` VERB EMPTIES YOUR PACK OF THE WRONG THING
+
+The board answers. A **fresh** run started at 15:03 (server pid 36284, `npm run agents` 15:03:34)
+on the **melee** roster — 8 seats, 6 models, plus scripted Iseabail — not `roster-duo.json`,
+which this task file still describes. It survived to **13 game hours**, the longest yet. I
+sampled `board.json` every 20 s myself (`eval28.jsonl`, 17 samples); no `SPENT` tag appeared,
+the busiest seat is 71 of 250, so **everything below is the models, not the fallback brain.**
+
+### A180 IS WRONG. Trade verbs are emitted, and two trades have settled.
+
+The 15:10 entry said *"across 221 decisions not one `offer`, `accept`, `give` or `take` goal was
+emitted."* That was one 5-hour window. Re-reading **melee3 (122 samples)** with a verb-matcher:
+
+| seat | model | trade goals |
+|---|---|---|
+| Ailsa | claude-sonnet-5 | 6 (`offer` ×2, `give` ×4) |
+| Tormod | grok-4.5 | 4 (`offer` ×2, `give`, `take`) |
+| Seonaid | kimi-k2.6 | 3 |
+| Eachann | grok-4.20 | 1 (`take Tormod offer`) |
+| Morag | claude-opus-5 | 1 (`take Tormod offer`) |
+| Coinneach | kimi-k2.6 | 1 |
+
+**Six of seven model seats reached for a trade verb**, and the deed log carries **24 `give`s and
+2 `trade`s** — a genuine bilateral settlement recorded from both sides at h18.56:
+`Tormod: "I traded wood to Morag for venison_cooked"` / `Morag: "I got wood from Tormod for
+venison_cooked"`. The task file's *"`offer`, `accept`, `give` have never once been used by a
+real model"* is out of date, and so is A180. **The verbs work. What follows is why they still
+shouldn't be trusted.**
+
+### A182 — `give a branch` when you have no branches hands over your ARROWS, one per tick, until the pack is empty **[S]**
+
+[world.js:983](src/sim/world.js:983), `giftFrom`, resolves what to hand over in three steps:
+
+```
+1. the item you named, if you hold it        ← correct
+2. else: the first EDIBLE thing you own      ← your food
+3. else: your LARGEST STACK                  ← your quiver
+```
+
+Ailsa (`claude-sonnet-5`) in melee3, goal `"give branch to Morag"` — said aloud, *"here's my
+branch, Morag"* — **holding no branches.** Her inventory, traced sample by sample:
+
+```
+h12.1  bow:1 arrow:12 wood:30      ← she had wood, and gave it
+h13.0  bow:1 arrow:10
+h13.3  bow:1 arrow:4
+h13.7  bow:1 arrow:2
+h18.6  bow:1                        ← a bow and nothing else, for the rest of the run
+```
+
+The deed log reads `I gave wood to Morag` ×2 then **`I gave arrow to Morag` ×9**. Tormod did the
+same to Eachann — nine `give wood` deeds at h20.88→21.29, one every 3 game-minutes. It repeats
+because `resolveGive` is edge-detected on the **recipient's name only**
+([world.js:1370-1378](src/sim/world.js:1370)) while the agent clears `i.giveItem` every frame
+([agent.js:1349](src/net/agent.js:1349)) — the edge re-fires for as long as the goal stands.
+
+So one intention to hand over **one branch** cost a model its entire quiver. It looks like
+generosity in the log; it is the instrument disarming the player. The fallback was written so
+`give` would never silently do nothing — but the priority is exactly inverted: it substitutes
+the most valuable thing you own for the cheapest thing you offered, and the food branch gives
+away the one item a starving mind must keep.
+
+**Fix:** if the named item is not held, `refuse('give', "you have no branches")` and count it —
+that is what `refusedVerbs` is for. Never substitute. Separately, clear the goal on the first
+successful gift. **Two small edits, and they are the difference between a market and a mugging.**
+
+### The live run: three offers, none landed, and nobody is eating
+
+Across 13 game hours and 17 samples, **3 `offer` goals and zero `accept`, `give` or `trade`
+deeds.** All three were reached for by different models and all three ask for the same thing:
+
+- Morag (opus-5): `offer arrow to Coinneach for venison` — *"Coinneach, five arrows for a cut of venison"*
+- Coinneach (kimi): `offer branch to Tormod for venison` — *"one branch for your carcass — I owe you more if need be"*
+- Ailsa (sonnet-5): `offer branch to Fingal for venison` — *"branch for a share of that deer, before dark"*
+
+Every one asks for **raw `venison`**. melee3's two *settled* trades asked for **`venison_cooked`**.
+Nobody in this run is carrying raw venison — Seonaid cooks hers on the spot. Worth a check, not
+yet a finding.
+
+Meanwhile the larder: `deeds` over the whole window are `gather:39, place:16, craft:3, killed:1,
+eat:1`. **One eat, in thirteen hours, across eight people.** Food at the last sample —
+
+```
+Seonaid 100  Eachann 51  Coinneach 46  Iseabail 39  Morag 37  Ailsa 34  Tormod 18  Fingal 17
+```
+
+Seonaid (kimi) is the only seat that closed hunt → cook → eat, and it took her from 46 to 100 in
+one action. Tormod has **2 kills and food 18**; Fingal has **1 kill and food 17**. They kill and
+walk away from the carcass.
+
+### A183 — a quiver holds 12 arrows and a kill costs 17 **[M]**
+
+| seat | loosed | astray | kills |
+|---|---|---|---|
+| Tormod (grok-4.5) | 24 | 21 | 2 |
+| Seonaid (kimi) | 18 | 17 | 1 |
+| Fingal (haiku-4.5) | 11 | 10 | 1 |
+| Coinneach (kimi) | 8 | 4 | 0 |
+| Eachann (grok-4.20) | 6 | 3 | 1 |
+
+**69 loosed, 56 astray — 81% miss — for 5 kills. 14 arrows a kill, against a starting quiver of
+12.** No mind can feed itself from spawn without first finding arrows on the ground, which is
+what the whole board is actually doing: `gather` is 39 of 60 deeds. This is the root of the
+food collapse above, and it is why A182 matters — losing a quiver to a bad `give` is losing the
+ability to eat. Either the shot solver improves or a kill has to cost fewer arrows.
+
+Notably **Morag (opus-5) and Ailsa (sonnet-5) have loosed 0 arrows between them** and have 0
+kills. Both chose the social economy — Morag is a fire-merchant with **101 branches**, plan
+`["hold fire, 77 branches", "arrows only for meat", "charge warmth in venison"]` — and both are
+starving on it (37 and 34, falling) because the counterparties never transact. **The two seats
+playing the intended game are the ones the broken verbs punish.**
+
+### The small columns, honestly
+
+- **`refusedVerbs`: one event in 17 samples** — Tormod `{"follow":1}`. First non-empty card in
+  three runs, so A177's "true zero" reading holds and the column is alive. It is still telling
+  us almost nothing, because A182's `give` never refuses — it substitutes.
+- **`note`: 1 seat in 8**, still Morag, and a third use for it — a **credit ledger about other
+  people**: `"Fingal owes me a cut if he uses my fire. Coinneach owes branches."` A178's fix
+  stands.
+- **`plan`: 8 of 8 model seats**, 2–7 distinct lines each. Universally adopted, still inert.
+- **Speech: 7 of 7 model seats, 3–11 distinct lines each.** Settled question; stop re-asking it.
+- **Wood is not scarce.** 16 fires at 10 branches = 160 burned, and Morag *gained* to 101 while
+  four seats hold 47+. The price rise did nothing.
+- **kimi-k2.6 is a third of a player.** Both kimi seats: 17 calls to the others' 47–71, and
+  **2 failures each (12%)**. Every other model is 0 failures. The 75 s cadence is not a style
+  choice at this point, it is a handicap.
