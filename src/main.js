@@ -380,7 +380,23 @@ function boot() {
           // Your arrow landed and the animal is still up. Said only to the
           // archer, and it is the counterpart of "your arrow strikes a tree" —
           // between them there is no longer a shot you hear nothing about.
-          if (byMe) hud.chat(null, `your arrow goes into the ${e.n.toLowerCase()} — it runs`);
+          // ── WITH THE NUMBERS, because "it runs" is not enough to hunt on ──
+          //
+          // Ben: "i hit deer in vitals a few times and it did not die."
+          //
+          // Arrow damage scales with IMPACT SPEED (`ARROW.damage` at
+          // `ARROW.refSpeed`), so a vitals hit is a one-shot kill at full draw
+          // and a flesh wound at sixty per cent of it. Both said "hit — vitals"
+          // and neither said how hard, so there was no way to tell a mortal hit
+          // from a graze, and no way to learn that the draw was the problem.
+          //
+          // The server has known all along — `dmg` and `hp` have been on this
+          // event since it was added. AN AGENT ALREADY GETS THIS SENTENCE, in
+          // almost these words, in `Agent.remember`. The human was the one
+          // being kept in the dark.
+          if (byMe) {
+            hud.chat(null, `your arrow goes into the ${e.n.toLowerCase()} — ${e.dmg} damage, ${e.hp} left in it`);
+          }
         } else if (e.k === 'kill') {
           // ── an animal went down somewhere, and left something behind ──
           //
@@ -552,6 +568,11 @@ function boot() {
         hud.toast(`${creature.species.name} down — ${result.zone}`, 2.2);
         dropLootFor(creature);
       } else {
+        // The zone is the client's own raycast and is honest. The COST is not
+        // known here on a connected client — `applyDamage` returns 0 for a
+        // remote creature because the server owns the arithmetic — so the
+        // number arrives a moment later on the `wound` event above. Saying the
+        // zone alone made three grazes look identical to three mortal hits.
         hud.toast(`hit — ${result.zone}`, 1.2);
       }
     },
