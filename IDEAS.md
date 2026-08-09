@@ -1684,3 +1684,45 @@ defaulting to gold — untestable, peak gold either mind ever held is 2 (A49).**
 **offer/give walking you to the person — works, they meet.** **10-branch fires — still
 too cheap (A53/A60).** Worth keeping this table per-run: it is the only thing that
 tells us a fix survived contact.
+
+### A66 ††† "no food" MEANS AN EMPTY PACK, NOT AN EMPTY STOMACH — AND THE MIND IS NEVER TOLD WHICH **[S]**
+
+Coinneach's card at sample 1,294: `why "he is near and I have no food"` — while
+holding **food 59, health 100**, which `agent.js:950-952` classes as **`fed`**.
+
+The two facts are computed twelve lines apart and only one of them is a number:
+
+```
+agent.js:950-952   hunger: food<=0 'starving' | food<25 'hungry' | else 'fed'
+agent.js:991       !EDIBLE.some((id) => this.count(id) > 0) && 'no food'
+```
+
+Line 991 is a **larder** check. It fires whenever you carry nothing edible, at any
+hunger level, and it hands the mind the English phrase *"no food"* — which every
+model that has ever read it has correctly understood to mean *starving*. This is very
+likely a large share of the "starving" talk throughout this run and the last
+(*"starving, need arrows or meat now"*, *"starving. I'll owe you for a meal"*) — and
+of the panic-trading that follows it, which is otherwise hard to explain in a mind at
+food 59.
+
+**Fix:** rename the flag to what it is — `'pack empty of food'` — and pass the hunger
+word alongside it, so a mind can read *"fed, pack empty of food"* and tell a supply
+problem from a survival one. Two string edits. Sixth confirmed case of the instrument
+making a mind look incompetent (A29, A41, A50, A57, A61).
+
+### A67 † CORRECTION — GIVES ARE 61, NOT 45, AND THE DRAIN ACCELERATES WITH THE NEGOTIATION **[—]**
+
+Supersedes A64 (45), which superseded 29/30. Over 1,294 samples: **61 give deeds,
+every one Eachann's; Coinneach has still given nothing to anyone, ever** — wood 29,
+arrow 19, hide 8, gold 2, venison_cooked 3.
+
+The new number matters because of *where* it landed. **26 of the 61 happened in the
+last 92 samples — 7% of the run carrying 43% of the transfers.** The one-per-tick
+edge-detector (A62) is not a slow trickle; it is a pump whose rate rises the longer a
+haggle stays open, because an unsettled price keeps `give` on the wire every turn.
+
+Worst consequence, measured this window: Eachann's plan is `["get arrows","hunt troll
+for pay"]` and he **gave away ten arrows** during it. **An open negotiation drains the
+negotiator of the exact good he is negotiating for.** Whatever A62's quantity fix
+looks like, it should close the intent the moment a transfer completes, or this gets
+worse as models get more persistent — not better.

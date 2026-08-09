@@ -2370,3 +2370,92 @@ after the name resolves**, which is all of them.
 venison, so the engine quietly handed over his branches one at a time while he said
 "here's the meat" — and the buyer, taking delivery of his own currency, went off to
 gather more of it to pay the bill.**
+
+---
+
+## 2026-08-09 00:05 PT — sample 1,294 (game h21.8, `at`19738) — RUN STILL LIVE
+
+Board answered. **Neither seat carries a `SPENT` tag** — 1,249 calls of 6,000,
+`exhausted: false`, both minds still their own. Window since the last entry:
+**92 samples, ~30 real minutes, game h20.3 → h21.8.**
+
+### THE PAYMENT DIRECTION HAS NOT REVERSED — IT HAS ACCELERATED
+
+In those 92 samples Eachann made **26 give deeds. Coinneach made zero.**
+
+```
+new window   Eachann  -16 wood  -10 arrow   ->  Coinneach     (26 gives)
+             Coinneach                       ->  Eachann      (0 gives)
+```
+
+That is **26 gives in 7% of the run**, against 35 in the whole 6.7 hours before it.
+Whole-run total is now **61 give deeds, every one Eachann's** — wood 29, arrow 19,
+hide 8, gold 2, venison_cooked 3. **Supersedes the 45 in the previous entry** (which
+itself superseded 29/30). Coinneach has now given nothing to anyone across 1,294
+samples. A62 and the give-direction finding stand and are sharper: the one-per-tick
+edge-detector is not a slow trickle, it is a pump that speeds up the longer a
+negotiation stays open.
+
+**Eachann is now paying out the two goods he is negotiating to acquire.** His plan
+reads `["get arrows","hunt troll for pay"]` and he gave away ten arrows in the same
+window. His goal at the last sample:
+
+```
+Eachann   goal "offer meat to Coinneach for arrows"   why "need more than owed"
+          carrying  bow:1  arrow:8  hide:3  wood:6
+```
+
+*"need more than owed"* — the creditor has stopped trying to collect the fifty
+branches and opened a **second** deal, priced to cover the first. That is a
+creditable piece of reasoning about a debt the engine made unpayable.
+
+And the debt closed the only way it could. Coinneach's last words on it:
+
+> **"Eachann, I have six. Not forty-eight."**
+
+He is telling the truth — he holds `wood:6`. He gathered to seventy-four, promised
+fifty, and burned the difference into fires (155 sampled this run: Eachann 97,
+Coinneach 58). His plan is nonetheless **unchanged from the last entry** —
+`["gather to fifty","get meat from Eachann","hunt if he won't deal"]` — while the man
+he owes hands him branches.
+
+### CORRECTION TO MY OWN READING: "no food" IS NOT HUNGER, AND THE MIND CANNOT TELL
+
+Coinneach's last card: `why "he is near and I have no food"` — at **food 59**, health
+100, not hungry by any measure the sim keeps. I was about to log this as a model
+misreading its own state. It is the harness.
+
+Two different facts are computed in the same file and only one reaches the mind as a
+number:
+
+```
+agent.js:950-952   hunger: food<=0 'starving' | food<25 'hungry' | else 'fed'
+agent.js:991       !EDIBLE.some((id) => this.count(id) > 0) && 'no food'
+```
+
+Line 991 fires on an **empty larder**, not an empty stomach. Coinneach carries
+`bow, wood, arrow` — nothing edible — so he is handed the words *"no food"* while
+line 950 simultaneously classes him **`fed`**. Every model that has read that string
+has behaved as though it were starving, because in English it is. Sixth time now the
+instrument has made a mind look incompetent (A29, A41, A50, A57, A61, this).
+
+### Confirmed, no change
+
+- **`refusedVerbs` still `{avoid: 16}` / `{}` at 1,294 samples.** A63's root cause
+  (blind to every failure after the name resolves) needs no further evidence.
+- **`accept`/`trade`: still zero completed deeds, whole run.** Both minds have set
+  `take X offer` as a goal repeatedly; it has never once produced a deed.
+- **`note`: zero on all 1,294 cards, both vendors. Fourteenth check.** Retire it.
+- **`say` still the one unqualified success** — both minds naming each other and
+  quoting prices in nearly every line.
+- **kimi-k2.6 `no json in reply`: 126 of 263 (48%)**, flat all run. Half of
+  Coinneach's turns remain the scripted brain wearing kimi's name. A42/A57 stand.
+- Sampling caveat unchanged: `deeds` is a rolling window of 5 at a 20 s sample, so
+  every count here is a **floor**.
+
+### The one-line version
+
+**The creditor gave up on collecting, opened a second deal priced to cover the first,
+and went on paying the debtor twenty-six more times in half an hour — while the
+debtor, holding six branches of the fifty he promised, walked toward him saying he
+had no food, because the game says "no food" when it means "nothing in the pack."**
