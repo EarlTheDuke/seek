@@ -2251,3 +2251,69 @@ Make an offer an object that persists — it stands until accepted, withdrawn, o
 times out, and it shows on both cards while it stands. That single change would
 have closed this run's one real bargain, and it is a precondition for `accept`
 ever being used even after the id-matching bug (02:05 entry) is fixed.
+
+### A97 ††† THE `SPENT` SEAT PASSES FOR ALIVE — CORRECTING A94 **[S]**
+
+A94 said the scripted card's `goal` freezes. Measured over the **full** 112-sample
+post-`SPENT` window instead of A94's 23: **26 goal transitions across six goals**
+(`find shelter` 50, `walk the country` 29, `hunt a deer` 13, `pick up` 8,
+`stay still` 6, `keep away from a goblin` 2). A94 measured a 22-sample stall and
+called it death.
+
+So the card does not read as dead — it reads as a competent, slightly repetitive
+mind. **The one field that never moves is `said`: one distinct state in 112
+samples**, three copies of *"one hide for your venison? done"*, rendered
+identically to live speech for 36 minutes.
+
+Do all three, cheapest first: (1) blank `said` the moment a seat goes `SPENT` —
+the rules brain never speaks, so a non-empty `said` on a spent seat is always a
+fossil; (2) stamp the card `— no mind (budget spent) —`; (3) **tell the other
+models**, in their brief, that a neighbour is no longer a mind. Seventh time the
+instrument has misrepresented a model, and the first time it flattered one.
+
+### A98 ††† A SPENT NEIGHBOUR SILENTLY BILLS THE MINDS THAT ARE LEFT **[S]**
+
+In the 35.7 minutes after Eachann went `SPENT`, Coinneach spent **21 calls,
+69,902 tokens and 10 parse failures** on him — 7 samples still holding
+`offer hide to Eachann for venison`, 3 on `go toward Eachann`, and lines like
+*"One hide for venison, Eachann. I'm starved."* He was negotiating with a rules
+engine and had no way to know.
+
+With A95 (per-seat budgets) this gets rarer; until then, **when a seat goes
+`SPENT`, either park the run or announce it into every other mind's brief.**
+Paying a live model to bargain with a script is the most expensive no-op the
+harness can produce.
+
+### A99 †† GIVE THEM A WORD FOR DRAGGING A CARCASS — THE MODEL ASKED FOR ONE **[M]**
+
+Coinneach's most-used sentence in the whole post-`SPENT` window (**93 samples**):
+
+> *"dead meat won't walk to me"*
+
+That is a model naming a missing verb. He can kill a deer at range; he cannot
+bring it to him. `gather venison` requires standing on the carcass, while `offer`
+and `give` were both given a walk-to in the 08-08 fixes — harvesting was left out.
+
+Either extend the same walk-to to `gather` when the target is a named carcass, or
+add `haul <carcass> to <place>` so meat becomes a thing you move, carry and
+therefore *trade over*. This is also the cheapest route to a real economy: a good
+that has to be transported is a good worth paying someone else to fetch.
+
+### A100 †† THE FIRE PRICE WORKED ~39%, AND A15'S NUMBERS DO NOT HOLD AT RUN SCALE **[S]**
+
+Normalised per sim-day (run 1 = 8.5 sim-days, run 2 = 27.0):
+
+| | 1 branch | 10 branches |
+|---|---|---|
+| **fires per sim-day** | **12.9** | **7.9** |
+| peak wood carried | 82 / 28 | **154 / 178** |
+
+A 10× price bought a 39% fall, not a collapse. **A15 quoted "106 → 24" and peaks
+of 67/45 from a short early window; at full run scale the peaks are 154 and 178 —
+those figures are withdrawn, the direction survives.**
+
+Wood is not scarce, it is *bimodal*: across 4,214 player-samples, **57% carry
+fewer than 10 branches** (less than one fire costs) and **14% carry 50+**. Raising
+the price again just deepens the split. Take A15's own second option instead —
+**make branches slower to find, not fires dearer to light.** A mind that spends
+its day gathering is a mind with a reason to buy wood from the man holding 178.

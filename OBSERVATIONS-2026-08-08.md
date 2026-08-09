@@ -3244,3 +3244,112 @@ the process is killed. **The run is effectively over as a two-model experiment.*
 the seller had never had, in a world where neither can see the other's pack — and
 the buyer quit one turn early, the seller's call budget ran out seven turns after
 that, and the board has been showing his last words as a live offer ever since.**
+
+---
+
+## 2026-08-09 04:33 PDT — RUN 2, THIRTEENTH LOOK: samples 1997–2107, the whole window post-`SPENT`
+
+**The board still answers** (`at 31522`, spend 1,920 / 6,000). Eachann went
+`SPENT` at **s1997** and has been the scripted brain for **112 samples / 35.7
+real minutes**. Everything below about Eachann is the rules engine, not
+grok-4.20. Coinneach (kimi-k2.6) is still a live model: 420 / 1,500 calls.
+
+### Correction: A94 is wrong about `goal`. The scripted seat's goal is *not* frozen.
+
+A94 (written at s2020, off a 23-sample window) says of the `SPENT` card:
+*"His `goal` is likewise frozen."* **It is not.** Over the full 112 samples the
+scripted Eachann made **26 goal transitions** across six distinct goals:
+
+```
+ 50  find shelter and settle for the night      6  stay still and watch
+ 29  walk the country and see what is about     2  keep away from a goblin
+ 13  hunt a deer                                8  pick up what is lying about
+```
+
+A94 caught it mid-stall — the rules brain did hold `find shelter` from s1998 to
+s2020, which is exactly the window A94 measured. Twenty-two samples of stillness
+read as a dead card; it was a script doing its job.
+
+**This makes the problem worse, not better.** A card whose goal rotates
+plausibly through six survival intents *looks alive*. The `where` moves, the
+`hours` tick, the deeds accumulate.
+
+### The only field that betrays a `SPENT` seat is speech
+
+Across all 112 post-`SPENT` samples, Eachann's `said` had **exactly one distinct
+state**:
+
+```
+["one hide for your venison? done", "one hide for your venison? done", "one hide for your venison? done"]
+```
+
+324 renderings of one sentence. The scripted brain never writes `say`, so `said`
+is a last-3 rolling buffer that stopped rolling. **Speech is the single tell, and
+the board renders a 36-minute-old fossil in the same type as a live sentence.**
+A94's prescription (blank or stamp `said` on `SPENT`) is right; its reasoning was
+half wrong.
+
+### What it cost the surviving model
+
+Coinneach spent the window bargaining with a script that cannot answer:
+
+| | |
+|---|---|
+| calls | 399 → 420 (**+21**) |
+| failures | 173 → 183 (**+10**, all `no json in reply`) |
+| tokens | +69,902 |
+| samples still on `offer hide to Eachann for venison` | 7 |
+| samples on `go toward Eachann` | 3 |
+
+He is still saying it out loud — *"One hide for venison, Eachann. I'm starved."*
+(76 samples), *"Hide for meat. Now."*, *"one hide, one share. Done."* Ten of his
+twenty-one thinking calls in this window were burned on parse failures, and the
+other eleven were spent negotiating with a rules engine.
+
+### New utterance worth the roadmap: *"dead meat won't walk to me"*
+
+Coinneach's **most-used line in the window (93 samples)**. It is a model naming a
+verb the world does not have: he can kill a deer at range and cannot bring the
+carcass to him. `gather venison` only works standing on it — the same walk-to
+courtesy that `offer` and `give` were given in the 08-08 fixes was never extended
+to harvesting.
+
+### Fires: the 10-branch price worked, but only about a third
+
+Normalised per sim-day, which is the only fair comparison (run 1 is 8.5 sim-days,
+run 2 is 27.0):
+
+| | run 1 (1 branch) | run 2 (10 branches) |
+|---|---|---|
+| fires lit (deduped) | 110 | 214 |
+| **fires per sim-day** | **12.9** | **7.9** |
+| peak wood carried | 82 / 28 | **154 / 178** |
+
+A 10× price rise bought a **39% fall** in fire-lighting, not a collapse — and the
+woodpiles got *twice as big*. A15 quoted "106 fires → 24" and peaks of 67/45 off
+a short early window; **at run scale those numbers do not hold** — the peaks are
+now 154 and 178. Wood is bimodal, not scarce: over 4,214 player-samples, **57%
+are carrying fewer than 10 branches** (below the price of one fire) and **14% are
+carrying 50 or more**. They are either broke or hoarding, and gathering is cheap
+enough to flip between the two in an afternoon. A15's own second option — make
+branches slower to find rather than fires dearer — is the one the evidence now
+supports.
+
+### Re-checked, unchanged
+
+- **Carcasses work, twenty-second confirmation, twice in this window** — s2047
+  `Coinneach: I picked up 2 venison`, s2079 `I ate what I had, raw`. Run-wide the
+  gather → craft → eat chain fires 20+ times for both minds. **A0c stays closed.**
+- **`note`: zero uses, twenty-second check.** Both cards `""`, 2,107 samples.
+- **`refusedVerbs`: `{"avoid": 16}` / `{}`.** Unmoved since s681. It did not record
+  a single one of Coinneach's seven dead offers.
+- **`plan` still works** — `["get meat","trade with Coinneach"]` /
+  `["find firewood","get meat if it's near"]`. Both on-topic, both durable.
+- **Trade: still zero.** No `accept` deed in 2,107 samples.
+
+### The one-line version
+
+**The scripted seat is not a frozen card — it walks, hunts and shelters through
+six plausible goals, and the only thing that gives it away is one sentence it has
+been repeating for thirty-six minutes; meanwhile the last live model in the world
+spent twenty-one calls and seventy thousand tokens trying to sell it a hide.**
