@@ -2621,3 +2621,79 @@ for running out is a free refill.
 **Coinneach starved to death over eleven turns while holding the goal `take Eachann
 offer`, with Eachann on `give meat to Coinneach` the whole time — and then kept his
 entire pack through the death, because starving in this world is free.**
+
+## 2026-08-09 01:34 — RUN 2, samples 1474–1565: the `refusedVerbs` census
+
+Board answered (`at 23689`, sim h9.2). **Neither seat is `SPENT`** — Eachann 1,185
+calls of 1,500, Coinneach 315 of 1,500. Everything below is the models, not the
+scripted brain. Coinneach's parse failures are now **139 of 315 (44%)**, all
+`no json in reply`; A25's one-shot repair retry is still the remedy and still not in.
+
+Only 91 samples since the last entry, so most of that entry stands unchanged. But
+those 91 let me close a census that has been open since A31 → A45 → A63, and the
+answer is worth the whole entry.
+
+### `refusedVerbs` logged exactly one verb in 1,565 samples, and it was not a trade verb
+
+Whole-run census, both cards, every sample:
+
+```
+{"avoid": 16}     — Eachann only.  Coinneach's card: {} for all 1,565 samples.
+```
+
+That is the complete contents. `accept` never appears. `offer` never appears. `give`
+never appears. Over the same run, `take <name> offer` was chosen as a goal **17
+times** and produced **zero** `accept` deeds; `offer` was chosen **24 times** and
+produced zero deeds of any kind.
+
+This settles A63 with a number. A failed `accept` is not counted as a refusal because
+it is not *refused* — `resolveAccept` matches, misses, and returns, and nothing
+anywhere increments. **The column added so that "reached for and refused" would look
+different from "nobody wants it" is blind to the one verb we know is broken.** Both
+still render identically: as absence.
+
+### The 16 refusals it did catch were a badly hurt man refused permission to run
+
+All 16 land in four consecutive samples, 678–681, sim hour 0.5 → 1.4:
+
+```
+h0.5   avoid → 2    goal = keep away from troll   why = too close to it
+h0.8   avoid → 8    goal = keep away from troll   why = too close to it
+h1.1   avoid → 13   goal = keep away from troll   why = badly hurt, no food
+h1.4   avoid → 16   goal = make for Black Moss    why = ... need gear first
+```
+
+Then never again across the remaining 884 samples. A mind at low health with a troll
+on it picked the correct verb sixteen times in under an hour, was refused every time,
+and then abandoned the verb permanently. This is the only thing `refusedVerbs` has
+ever caught — and it is a live gameplay defect, not an instrumentation one.
+
+### The same bargain is still open, long after it killed him
+
+Verbatim from the current window:
+
+```
+Eachann    "six arrows or no deal"  /  "that's mine, find your own"
+Coinneach  "Six arrows. Give me the meat."  /  "six arrows for your meat. Done."
+Coinneach  "Eachann, quit your bleating"
+```
+
+Deeds in those same 91 samples: `gather 71, place 14, craft 1, give 1, accept 0`.
+Coinneach sits at food 29, gold 0. This is the identical six-arrows-for-meat trade
+that A73 watched starve him to death at `at21793`. Both minds have now been trying to
+close the same deal for effectively the entire run, and the world has never once told
+either of them why it will not close.
+
+### Re-checked, unchanged
+
+- **`note`: never used by either mind in 1,565 samples.** Sixteenth check. A70 stands — retire it.
+- **`plan`: used by both, and it tracks what they say.** Eachann `["get meat","trade with Coinneach"]`; Coinneach `["gather what I can","get arrows somehow","hunt when I can shoot"]`.
+- **`give` is still a one-way pump.** 59 unique give deeds across the run, **all 59 from Eachann**. Coinneach has never given anything to anyone, while saying "I'll owe you" a dozen ways.
+- **Fires: 165.** Coinneach carries 94 branches. A71 stands — the 10-branch price did not bite.
+- **Speech remains the one unambiguous win.** ~70 distinct lines from Coinneach alone, against ONE sentence across two prior days and six models.
+
+### The one-line version
+
+**`refusedVerbs` has logged one verb in 1,565 samples — `avoid`, 16 times, to a man
+fleeing a troll — and has never once logged the broken `accept`, because from the
+board a silent drop and an unwanted verb still look exactly the same.**

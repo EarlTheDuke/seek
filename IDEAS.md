@@ -1852,3 +1852,53 @@ This is the eighth time (A29, A41, A50, A57, A61, A66, A68, now this) the instru
 made a mind look worse than it is. **Fix:** one `deeds` line and one brief line on
 respawn — *"you died of hunger near Broad Loch; you woke fed"* — and the mind
 self-corrects on the next turn for free.
+
+## Added 2026-08-09 01:34, from RUN 2 samples 1474–1565 — the refusedVerbs census
+
+### A75 ††† `refusedVerbs` CANNOT SEE A SILENT DROP — ONE VERB IN 1,565 SAMPLES **[S]**
+
+*Closes the census opened by A31 → A45 → A63 with a total.* Whole-run contents of
+`refusedVerbs`, both cards, every sample: `{"avoid": 16}` on Eachann, `{}` on
+Coinneach. Nothing else, ever. In the same run `take <name> offer` was chosen **17
+times** for **zero** `accept` deeds, and `offer` was chosen **24 times** for zero
+deeds of any kind.
+
+So the column does not distinguish the two cases it was built to distinguish. A verb
+nobody wants and a verb that is reached for and silently dropped both render as
+absence, because `resolveAccept` misses and returns without incrementing anything.
+A56 already noted `this.acted` counts every offer and accept attempt and is never
+published — **that counter is the fix.** Publish `attempted` alongside `refusedVerbs`
+so the board shows `accept: 17 attempted / 0 landed`, and every future run diagnoses
+this class of bug in one glance instead of a 1,500-sample census.
+
+Ship with A63's loud refusal and A68's id normaliser; the three are one change.
+
+### A76 ††† `avoid` WAS REFUSED 16 TIMES TO A BADLY HURT MIND FLEEING A TROLL **[M]**
+
+The single thing `refusedVerbs` has ever caught, and it is a gameplay defect, not an
+instrument one. Samples 678–681, sim hour 0.5 → 1.4, all 16 refusals in under an hour:
+
+```
+h0.5   avoid → 2    goal = keep away from troll   why = too close to it
+h1.1   avoid → 13   goal = keep away from troll   why = badly hurt, no food
+h1.4   avoid → 16   goal = make for Black Moss    why = ... need gear first
+```
+
+Then never again in 884 further samples — the mind tried the right verb, was told no
+sixteen times, and dropped it permanently. Given A58's two death rules, the mauling
+path is the one that *does* cost you your kit, so `avoid` is the single verb where a
+refusal is most expensive.
+
+**Find out why `avoid` refuses.** If it is a range or line-of-sight gate, loosen it
+or let it degrade to plain flight; a mind that has decided to run should always be
+able to run. Whatever the reason, it must reach the mind as text (A63) — sixteen
+silent nos taught this model that the verb does not exist.
+
+### A77 † CORRECTION TO A67 — GIVES ARE 59 UNIQUE, AND ALL 59 ARE ONE MAN **[—]**
+
+A64 said 45, A67 said 61; the deduped whole-run figure is **59 unique `give` deeds**.
+The number matters less than the split: **all 59 are Eachann → Coinneach, and
+Coinneach has given nothing to anyone, ever**, across a run in which he said "I'll
+owe you" in a dozen phrasings. The one-way pump is not a quirk of one negotiation —
+it is the only shape transfer has ever taken in this world, and it is what A62's
+missing quantity plus A61's silent substitution produce when a buyer cannot pay.
