@@ -55,7 +55,7 @@ import { StealthProfile } from '../player/stealth.js';
 import { Body } from '../player/body.js';
 import { Fires } from '../world/fires.js';
 import { sampleEnvironment } from '../world/environment.js';
-import { insulationOf, EDIBLE, getItem, resolveItemId } from '../items/registry.js';
+import { insulationOf, EDIBLE, getItem, resolveItemId, resolveItemCount } from '../items/registry.js';
 import { Inventory } from '../items/inventory.js';
 // Cooking, knapping, stitching and fletching, as data and two pure functions.
 // Shared with the browser's interaction prompt rather than copied — the whole
@@ -813,8 +813,25 @@ export class SimWorld {
     }
     if (!item) return;
 
-    from.offer = { to: to.id, item, want };
-    this.events.push({ k: 'offer', by: from.id, from: from.name, to: to.id, n: to.name, item, want });
+    // ── AND HOW MANY, WHICH IS THE PRICE ──
+    //
+    // A model negotiating writes the number into the noun, because that is how
+    // a person names a price: "twelve branches for the venison". The resolver
+    // reads it back out. Null means the mind did not say, and one is the honest
+    // reading of an unnumbered noun — "venison for branches" is one of each.
+    //
+    // Clamped to what is actually held at the moment of OFFERING, so nobody can
+    // advertise a hundred branches they have not got. A liar in this game has
+    // to lie in the say channel, where it can be seen and remembered, rather
+    // than in a field nobody reads.
+    const gives = Math.max(1, Math.min(resolveItemCount(itemId) ?? 1, from.inventory.countOf(item)));
+    const asks = Math.max(1, resolveItemCount(wantId) ?? 1);
+
+    from.offer = { to: to.id, item, want, gives, asks };
+    this.events.push({
+      k: 'offer', by: from.id, from: from.name, to: to.id, n: to.name,
+      item, want, gives, asks,
+    });
   }
 
   /**
@@ -848,23 +865,36 @@ export class SimWorld {
     // Neither side may hand over the bow, by the same rule `giftFrom` follows:
     // the thing that makes you a hunter is not tradeable.
     if (KEEP_ON_DEATH.has(deal.item) || KEEP_ON_DEATH.has(deal.want)) return;
-    if (giver.inventory.countOf(deal.item) < 1) return;
-    if (taker.inventory.countOf(deal.want) < 1) return;
 
-    if (giver.inventory.remove(deal.item, 1) !== 1) return;
-    if (taker.inventory.remove(deal.want, 1) !== 1) {
-      giver.inventory.add(deal.item, 1); // put it back; nobody loses a thing
+    // ── THE PRICE IS PART OF THE DEAL, AND IT IS ALL OR NOTHING ──
+    //
+    // Older offers on a loaded save carry no counts; one of each is what they
+    // always meant. A deal you cannot cover in full simply does not happen —
+    // half-paying a bargain is a way to lose things quietly, and the whole
+    // point of this path is that nobody ever loses anything to a failed trade.
+    const gives = Math.max(1, deal.gives ?? 1);
+    const asks = Math.max(1, deal.asks ?? 1);
+    if (giver.inventory.countOf(deal.item) < gives) return;
+    if (taker.inventory.countOf(deal.want) < asks) return;
+
+    if (giver.inventory.remove(deal.item, gives) !== gives) return;
+    if (taker.inventory.remove(deal.want, asks) !== asks) {
+      giver.inventory.add(deal.item, gives); // put it back; nobody loses a thing
       return;
     }
-    taker.inventory.add(deal.item, 1);
-    giver.inventory.add(deal.want, 1);
+    // A pack can be full. Anything that will not fit goes back where it came
+    // from, both ways, so the invariant holds however the bargain was priced.
+    const tookIn = taker.inventory.add(deal.item, gives);
+    const gaveIn = giver.inventory.add(deal.want, asks);
+    if (tookIn < gives) giver.inventory.add(deal.item, gives - tookIn);
+    if (gaveIn < asks) taker.inventory.add(deal.want, asks - gaveIn);
 
     giver.offer = null;
     giver.dirty = true;
     taker.dirty = true;
     this.events.push({
       k: 'trade', by: giver.id, from: giver.name, to: taker.id, n: taker.name,
-      gave: deal.item, got: deal.want,
+      gave: deal.item, got: deal.want, gaveN: tookIn, gotN: gaveIn,
     });
   }
 

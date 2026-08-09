@@ -29,7 +29,13 @@ DO.txt
 playharness.js
 
 # Your API keys, pasted into a copy of keys.example.cmd. NEVER commit this.
+#
+# The glob, not just the one name: a `keys.cmd.backup` sitting untracked next to
+# an ignored `keys.cmd` is one `git add .` away from being public, and this repo
+# already keeps a rule that says stage files BY NAME for exactly that reason.
 keys.cmd
+keys.cmd.*
+*.keys.cmd
 
 # Raw board samples from live runs. Megabytes of JSONL per hour, and the value
 # is in what gets WRITTEN UP from them (see runs/*.md, which are committed) —

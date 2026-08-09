@@ -27,7 +27,7 @@
 // Three fixes, one check: say what exists, accept what people actually call it,
 // and refuse the rest OUT LOUD so a mind can stop asking.
 
-import { resolveItemId, itemVocabulary, ITEMS } from '../src/items/registry.js';
+import { resolveItemId, resolveItemCount, itemVocabulary, ITEMS } from '../src/items/registry.js';
 import { SimWorld } from '../src/sim/world.js';
 
 const results = [];
@@ -131,6 +131,92 @@ function main() {
     check('GIVING "a branch" hands over wood',
       b.inventory.countOf('wood') === 3,
       `${b.inventory.countOf('wood')} of 3`);
+  }
+
+  // ── A PRICE IS A NUMBER AND A NOUN ───────────────────────────────────────
+  //
+  // The second half of the same bug, found in the melee. A mind negotiating
+  // writes the count into the noun, because that is how a person names a
+  // price — and every one of those resolved to NOTHING:
+  //
+  //     Morag   offer cooked venison to Tormod for twelve branches
+  //     Tormod  offer 3 branches to Morag for 2 cooked venison
+  //     Morag   offer 6 hides to Ailsa for venison
+  //
+  // Seventeen of Morag's offers died on it in one hour, and all the board
+  // could say was `offer: 17` — the instrument reported the verb refused and
+  // could not say the reason was our own parser.
+  {
+    const priced = {
+      'twelve branches': ['wood', 12], '3 branches': ['wood', 3],
+      '6 hides': ['hide', 6], '2 cooked venison': ['venison_cooked', 2],
+      'five arrows': ['arrow', 5], 'a couple of hides': ['hide', 2],
+      'half a dozen arrows': ['arrow', 12], 'about 5 branches': ['wood', 5],
+    };
+    const wrong = Object.entries(priced).filter(([w, [id, n]]) =>
+      resolveItemId(w) !== id || resolveItemCount(w) !== n);
+    check('A COUNTED NOUN FINDS THE ITEM *AND* THE COUNT — "twelve branches" is 12 wood',
+      wrong.length === 0,
+      wrong.length ? wrong.map(([w]) => `${w} -> ${resolveItemId(w)} x${resolveItemCount(w)}`).join(' · ')
+                   : `${Object.keys(priced).length} prices, all read`);
+
+    // Null is not 1: an unnumbered noun leaves the amount open, and saying "1"
+    // would put a number in the mind's mouth that it never said.
+    check('  …and a noun with no number on it reports NO count, rather than 1',
+      resolveItemCount('branches') === null && resolveItemCount('a branch') === null
+        && resolveItemId('a branch') === 'wood',
+      `branches -> ${resolveItemCount('branches')}, a branch -> ${resolveItemCount('a branch')}`);
+
+    check('  …and a counted thing that does not exist is still nothing',
+      resolveItemId('3 flint') === null && resolveItemId('twelve feathers') === null,
+      'no amount of flint is flint');
+  }
+
+  // ── THE PRICE IS ACTUALLY PAID ───────────────────────────────────────────
+  {
+    const { w, a, b } = two();
+    a.inventory.add('venison_cooked', 3);
+    b.inventory.add('wood', 40);
+
+    w.resolveOffer(a, 'Seonaid', 'cooked venison', 'twelve branches');
+    const ev = w.events.find((e) => e.k === 'offer');
+    check('AN OFFER PRICED AT TWELVE BRANCHES IS AN OFFER, not a refusal',
+      !!ev && ev.want === 'wood' && ev.asks === 12,
+      ev ? `wants ${ev.asks} ${ev.want} for ${ev.gives} ${ev.item}` : 'refused — Morag\'s seventeen');
+
+    w.resolveAccept(b, 'Mairi');
+    check('  …and twelve is what changes hands, not one',
+      b.inventory.countOf('venison_cooked') === 1 && b.inventory.countOf('wood') === 28
+        && a.inventory.countOf('wood') === 12 && a.inventory.countOf('venison_cooked') === 2,
+      `seller: ${a.inventory.countOf('venison_cooked')} venison + ${a.inventory.countOf('wood')} wood · `
+      + `buyer: ${b.inventory.countOf('venison_cooked')} venison + ${b.inventory.countOf('wood')} wood`);
+  }
+
+  {
+    // A price you cannot cover is not a half-trade. Nobody loses anything.
+    const { w, a, b } = two();
+    a.inventory.add('venison_cooked', 2);
+    b.inventory.add('wood', 5);
+    w.resolveOffer(a, 'Seonaid', 'cooked venison', 'twelve branches');
+    w.resolveAccept(b, 'Mairi');
+    check('A BARGAIN NOBODY CAN COVER SIMPLY DOES NOT HAPPEN',
+      a.inventory.countOf('venison_cooked') === 2 && b.inventory.countOf('wood') === 5
+        && a.inventory.countOf('wood') === 0 && b.inventory.countOf('venison_cooked') === 0,
+      'five branches cannot buy a twelve-branch deal, and nothing is lost trying');
+  }
+
+  {
+    // ...and the sentinel that matters most: an UNPRICED offer still means one
+    // for one, exactly as it did before any of this existed.
+    const { w, a, b } = two();
+    a.inventory.add('venison_cooked', 3);
+    b.inventory.add('wood', 9);
+    w.resolveOffer(a, 'Seonaid', 'cooked venison', 'branches');
+    w.resolveAccept(b, 'Mairi');
+    check('SENTINEL: an offer with no number in it is still one for one',
+      a.inventory.countOf('venison_cooked') === 2 && a.inventory.countOf('wood') === 1
+        && b.inventory.countOf('venison_cooked') === 1 && b.inventory.countOf('wood') === 8,
+      `${a.inventory.countOf('wood')} wood to the seller, ${b.inventory.countOf('venison_cooked')} venison to the buyer`);
   }
 
   // ── places that exist ────────────────────────────────────────────────────

@@ -598,12 +598,89 @@ function buildSpoken() {
   }
 }
 
-export function resolveItemId(word) {
-  if (typeof word !== 'string') return null;
+// ── A PRICE IS A NUMBER AND A NOUN, AND WE WERE THROWING THE PAIR AWAY ──
+//
+// Second half of the same bug `nouncheck` was written for. "branch" resolving
+// to nothing broke every bargain over firewood; this is that one level up, and
+// it broke the bargains that had a PRICE on them:
+//
+//     Morag   offer cooked venison to Tormod for twelve branches   -> refused
+//     Tormod  offer 3 branches to Morag for 2 cooked venison       -> refused
+//     Morag   offer 6 hides to Ailsa for venison                   -> refused
+//
+// Seventeen of Morag's offers died on this in one hour, and the board could
+// only say `offer: 17` — the instrument said the verb was refused and could
+// not say that the reason was our own parser.
+//
+// The count is not noise to be stripped, it is the INTERESTING PART. "venison
+// for branches" is a gesture; "venison for twelve branches" is a price, and a
+// price is the thing that makes an economy rather than a gift circle. So the
+// number comes out as a number and the caller may honour it.
+const WRITTEN = new Map(Object.entries({
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8,
+  nine: 9, ten: 10, eleven: 11, twelve: 12, dozen: 12, twenty: 20,
+  a: 1, an: 1, the: 1, some: 2, half: 1, couple: 2, few: 3, several: 3,
+}));
+
+// Words a person puts in front of a number without meaning anything by them.
+// "a couple OF hides", "HALF a dozen arrows" — a model writes these freely and
+// a one-token match gives up on the first of them.
+const FILLER = new Set(['a', 'an', 'the', 'of', 'about', 'around', 'roughly', 'half', 'just']);
+
+/** Split "twelve branches" into the 12 and the branches. Neither is optional. */
+function splitCount(word) {
+  const words = String(word ?? '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+  let count = null;
+  let i = 0;
+  // Walk the front of the phrase while it is still numbers and filler. The
+  // FIRST number wins, so "half a dozen" is 12 and not 1 — half of a dozen is
+  // six, but nobody in this game is trading half a branch and reading it as
+  // twelve is the answer that keeps the bargain alive.
+  while (i < words.length) {
+    const w = words[i];
+    const n = /^\d+$/.test(w) ? Number(w) : WRITTEN.get(w);
+    // `a`/`an`/`the` are articles here, not counts: "a branch" is a noun and
+    // reading it as "1 branch" would put a number in the mind's mouth.
+    if (Number.isFinite(n) && n >= 1 && !FILLER.has(w)) {
+      if (count === null) count = n;
+      i++;
+    } else if (FILLER.has(w)) {
+      i++;
+    } else break;
+  }
+  return { count, rest: words.slice(i).join(' ') };
+}
+
+/** The plain lookup, with no counting in it. */
+function bareId(word) {
   buildSpoken();
-  const k = word.trim().toLowerCase().replace(/^(?:a|an|the|some)\s+/, '').trim();
+  const k = String(word).trim().toLowerCase().replace(/^(?:a|an|the|some)\s+/, '').trim();
   if (!k) return null;
   return SPOKEN.get(k) ?? SPOKEN.get(k.replace(/s$/, '')) ?? null;
+}
+
+export function resolveItemId(word) {
+  if (typeof word !== 'string') return null;
+  const direct = bareId(word);
+  if (direct) return direct;
+  // Only now try reading a count off the front, so a real item whose own name
+  // begins with a number-ish word can never be shadowed by this.
+  const { rest } = splitCount(word);
+  return rest && rest !== word.trim().toLowerCase() ? bareId(rest) : null;
+}
+
+/**
+ * How many of it were asked for, or null when the mind did not say.
+ *
+ * Null is not 1. "offer branches for venison" is a bargain with the amount
+ * still open, and a caller that wants a default should choose its own rather
+ * than being handed one that looks like the model's.
+ */
+export function resolveItemCount(word) {
+  if (typeof word !== 'string') return null;
+  if (bareId(word)) return null;           // "branches" — a noun, no number
+  const { count, rest } = splitCount(word);
+  return count && bareId(rest) ? count : null;
 }
 
 /** Everything that exists, as the words a person would use. For the prompt. */
