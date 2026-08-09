@@ -3085,3 +3085,76 @@ error grows with run length — precisely when the run gets interesting.
 the card's current `hours` to the previous day. Twelve lines; it is already written in
 `dig-eval20c.mjs` in the scratchpad and can be lifted straight across. Also print
 **the commit list between `bootedAt` and now** (A131) while in there.
+
+### A136 ††† A ROSTER CAN SILENTLY DISABLE A MODEL — HAIKU 400s ON EVERY CALL IN `roster-melee.json` **[S]**
+
+`Fingal` ran **36 calls, 36 failures, 0 answered** for the whole melee:
+`http 400 — "This model does not support the effort parameter."` The fix already
+exists — `roster.json:71` sets `"effort": null` and `providercheck.js:363` tests it —
+but **`roster-melee.json` never copied the field.** The seat has been the scripted
+fallback from tick one while presenting as `claude-haiku-4-5` on the board.
+
+**Fix:** (a) validate rosters at load — a seat whose provider/model combination needs
+`effort: null` should either get it or refuse to boot, rather than failing 36 times in
+silence; (b) **fail loudly on the first call**: a seat at 100% failure after 3 attempts
+should print once, in red, and mark the card. Right now the only trace is a log line.
+
+### A137 ††† `fellBack` NEEDS THE RED TAG THAT `SPENT` HAS — IT IS THE SAME FACT **[S]**
+
+Fingal's card showed `spent: false` and no tag, while `fellBack: true` meant his
+behaviour had not been the model's for the entire run. The brief warns that "a previous
+run was misread for exactly this reason" — this is that failure mode with a different
+field name, and the board is currently blind to it.
+
+**Fix:** render a red tag for `fellBack || spent`, with the reason (`BUDGET` vs
+`ERRORS ×36`). Ten lines in `board.js`. Nothing else in this list is cheaper.
+
+### A138 ††† THE TRADE VERBS ARE NEVER *REFUSED* — THEY ARE NEVER REACHED FOR **[M]**
+
+`refusedVerbs` was `{}` on all 8 cards across all 53 samples, and `offer`, `accept`,
+`give`, `attack`, `follow` and `guard` were used **zero** times. The empty counter is
+the finding: these are not failing, they are invisible. Meanwhile the *intent* is
+everywhere — Morag planned *"trade branches/arrows for venison"*, Seonaid planned
+*"trade for a share of deer"*, Coinneach said *"My wood for a share"* **while carrying
+37 wood and starving 200 m from a man with 79 food.**
+
+Six models, three written as traders, all reasoning in the language of exchange, none
+calling the verb. That is an affordance problem.
+
+**Fix, in order of value:** (a) when a mind is hungry and another named person is
+within reach, **put the concrete offer in the prompt as a suggested verb** with the
+arguments pre-filled, the way the fire chooser did for Fletch Arrows; (b) name the
+counterparty and their visible goods in `also out there` (they can already name each
+other — see A138's speech evidence — so the wiring is there); (c) if a full turn passes
+with two hungry minds in speaking range and no `offer`, log it as a missed trade so the
+rate is measurable.
+
+### A139 †† SPEECH SHIPPED AND WORKS — NOW IT LOOPS **[S]**
+
+66 distinct lines this run against **one sentence in the previous two days**, with real
+addressing (*"I'll leave that deer to you, Eachann"*, *"meat's coming from Morag"*) and
+a five-of-eight convergence on Heather Scaur that no verb in this game can produce.
+The fix landed; this is the follow-up.
+
+But ~10 of Ailsa's 23 lines restate *"still tending the fire here"* and Eachann said
+*"coming shivering to the fire"* three times verbatim. Speech costs nothing, so it is
+being spent on nothing.
+
+**Fix:** drop a `say` that repeats the mind's own last line (or is >0.8 similar), and
+show a mind its **last two spoken lines** in the prompt so it knows it has already said
+that. Cheap, and it makes the transcript readable as a story rather than a loop.
+
+### A140 †† ONE SEAT IN EIGHT SOLVED FOOD, AND THE SOLUTION WAS "HUNT ALONE" **[M]**
+
+Tormod (grok-4.5) killed 2 deer, gathered venison twice, crafted 4 cooked meals, ate,
+and ended the night at **hp 100 / food 79 while the other seven starved to death**.
+`gather venison` works — both pickups were his own kills at h9.8 and h16.54.
+
+**Nobody has ever gathered another player's carcass.** The cooperative path to food
+exists mechanically and has never once been walked, in any run. Combined with A138,
+the world currently rewards solitary competence and offers no return on company —
+which is the opposite of what a melee is for.
+
+**Fix:** make a carcass visible to everyone in `also out there` by name and distance
+(*"a dead deer, 60 m, Tormod's kill"*), and let meat spoil so a lone hunter's surplus
+is worth trading before it rots. Scarcity without a clock just makes hoarding correct.

@@ -4487,3 +4487,101 @@ in the game**, and it needs no arrows, no trade and no competence.
 **275/627 = 44%** `no json in reply`, against grok's 1/1,500. Coinneach has had **352
 usable decisions to Eachann's 1,499.** Any comparison of these two models is a
 comparison of parsers. 4th consecutive check.
+
+---
+
+## 2026-08-09 10:35 — the six-model melee: speech woke up, trade did not, and the Haiku seat was never once the model
+
+**The roster changed under this task's feet.** The brief describes a two-mind
+`roster-duo.json` (Eachann + Coinneach). The live world is **`roster-melee.json`** —
+launched 10:13 from `melee.cmd` — with **eight seats: six models, one duplicate
+(both Kimi seats), and Iseabail scripted as the control.** Everything below is that
+run, `at 43 → 905`, 53 samples, one full game day.
+
+### Fingal has been a bundle of if-statements for the entire run
+
+```
+Fingal  claude-haiku-4-5  36 calls / 36 failures / 0 answered   fellBack: true
+  http 400 — invalid_request_error: "This model does not support the effort parameter."
+```
+
+**Every single call.** `roster.json:71` carries `"effort": null` for exactly this
+reason — `providercheck.js:363` even tests it, commented *"Fingal omits effort (Haiku
+rejects it)"* — but **`roster-melee.json` never copied the field across.** Fingal's
+`plan` is empty, his `said` is empty, he has 12 arrows loosed and 9 astray, and none
+of it is Haiku's. It is the scripted brain wearing a model's name on the card.
+
+**And the board does not say so.** `fellBack: true` gets no tag; only `spent` does,
+and `spent` is false. This is the sixth time the instrument has been at fault and the
+first time it has been at fault *invisibly* — a red `SPENT` would have caught it, and
+`fellBack` is the same fact.
+
+### Speech is alive — 66 distinct lines against ONE in the previous two days
+
+Not a fix that "landed", a fix that changed the run. Every live seat talks, and they
+**name each other and act on what they hear**:
+
+- Ailsa (sonnet-5): *"fire's stoked, everyone come warm up, meat's coming from Morag"*
+- Morag (opus-5): *"Bringing seven branches to the Scaur — Ailsa, build it high, I'm hurt and starving."*
+- Ailsa again: *"I'll leave that deer to you, Eachann"* — a claim yielded, unprompted.
+
+At hour 23, **five of eight seats held the goal `make for Heather Scaur` at once.**
+There is no rally verb in this game. That convergence is speech doing the work, and
+it is the first genuinely social behaviour this world has produced.
+
+**The flaw is repetition.** Of Ailsa's 23 lines, ~10 are restatements of *"still
+tending the fire here"*; Eachann said *"coming shivering to the fire"* three times
+verbatim. Speech is free, so it is being spent on nothing.
+
+### Trade: still exactly zero, and now provably never *reached for*
+
+```
+WHAT NOBODY EVER DID: offer, accept, give, attack, follow, guard
+refusedVerbs across 8 players × 53 samples:  {} — empty, every card, every sample
+```
+
+`refusedVerbs` earns its keep here by being empty. These verbs were not refused —
+**they were never attempted.** And it is not for want of wanting:
+
+- Morag's plan: `["warm at Ailsa's fire", "trade branches/arrows for venison", ...]`
+- Seonaid's plan: `["bring wood to Morag's fire", "trade for a share of deer", ...]`
+- Coinneach said: *"My wood for a share"*
+- Coinneach is carrying **37 wood** and starving next to a man with 79 food.
+
+Six models, three of them written as traders, all reasoning in the language of
+exchange, and the verbs sat untouched. That is a prompt/affordance problem, not a
+model problem.
+
+### Carcasses work, and exactly one seat ate
+
+`gather venison` fired twice — **h9.8 and h16.54, both Tormod (grok-4.5), both his own
+kills.** Nobody has ever gathered anyone else's carcass. Tormod killed 2 deer, crafted
+4 cooked venison, ate, and **finished the night at hp 100 / food 79 while the other
+seven starved.** One of eight solved food; the solution was "hunt alone".
+
+### Fires: the 10-branch cost worked. Wood is still a treadmill.
+
+**19 fires** in one game day across 8 seats (against 106 in a single pre-fix run) —
+Tormod 7, Eachann 5, Morag/Seonaid/Coinneach 2, Ailsa 1. The cost bit.
+
+But **1,692 branches gathered against ~190 burned**, with single pickups of **67, 66,
+65, 60, 55, 52**. Wood is not scarce; it is a chore that pays. This corroborates A134.
+
+### Correction to nothing — but a second, independent confirmation of A134
+
+Every seat except Tormod hit **hp 0 between hours 23 and 24**, and every one of them
+**respawned at food 80–84** — against the 50 they started with. Eight seats, six
+models, one game day: *dying is still the cheapest meal in the game.* A134 was
+written from two minds over forty days; it reproduces at six models in one.
+
+### kimi's parser handicap, 5th consecutive check
+
+`Coinneach 2 failures / 12 calls`, `Seonaid 7 / 12` — **58%** `no json in reply`.
+Against 0 failures for both Groks and both working Anthropic seats. Any melee
+"standing" that ranks Kimi is still ranking a parser.
+
+### `note` is dead — 0 / 424 player-samples
+
+Sixth consecutive check. `plan` is used by **6 of 8** and carries real intent across
+decisions. `note` has never once been written by any model in any run. It should
+probably be deleted rather than fixed.
