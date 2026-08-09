@@ -1123,3 +1123,95 @@ trade primitive refused them in silence, four ways at once, while one of them
 starved.** This is the sixth time an instrument fault has been read as a model
 fault, and the first time the models have unambiguously earned the benefit of
 the doubt.
+
+---
+
+## 18:31 — RUN 2, third look (303 samples, game hour 3.2, ~99 real minutes)
+
+Board answered. `spend` 310/6000 calls, **`spent: false` on both seats, no red
+`SPENT` tag** — everything below is the models, not the scripted brain.
+
+### THERE IS A THIRD PLAYER AND HIS NAME IS BEN — A11 IS WRONG
+
+At 17:34 I wrote, of Coinneach's *"doing fine, Ben. got food to trade?"*:
+**"There is no Ben. A model tried to open a negotiation and addressed it to
+nobody."** That is false and it is the second confident wrong reading in this
+file. `srv.log` reports **`3 players`** on 892 of its lines, from tick ~1200 to
+now, while `roster-duo.json` has two seats. The third body is a human character
+named Ben — the name reaches both models through the world's name list, which is
+the only way two models from two different vendors would independently land on
+the same string (Eachann says "Ben" in 17 lines, Coinneach in 8).
+
+So `also out there` does not merely work — **it works well enough that the
+human became the minds' primary social target.** Eachann's last five intentions,
+verbatim: *"make for Ben's fire" / "go toward Ben" / "make for the water edge" /
+"make for water edge" / "pick up what is lying about"*, with `why` reading
+**"trade hide for meat"** on four of the five. Coinneach: *"east of Heather
+Thicket, Ben — trading for meat"*, then *"Done. Hand over the meat."*, then
+**"starving. I'll owe you for a meal"** — which is his written character
+(*"would rather owe somebody than starve"*) executing exactly as specified.
+
+**The instrument cannot see him.** Ben has no board card, so nothing in
+`board.json` or `duo2.jsonl` records where he was, whether he was in range,
+whether he heard any of this, or whether the offers aimed at him were refused.
+Two minds spent most of an hour organising around a player the measurement rig
+does not know exists. (New: A22.)
+
+### CORRECTION — wood IS scarce now; A15 was read too early
+
+At 18:05 I wrote "wood is still not scarce" off Eachann holding 76 branches.
+A night later that is wrong:
+
+| | wood peak | wood now | food start | food low | food now |
+|---|---|---|---|---|---|
+| Eachann | 79 | **5** | 50 | **0** | 29 |
+| Coinneach | 57 | **2** | 50 | **0** | 5 |
+
+51 deduped fires at 10 branches each drained both stocks to nothing, and **both
+minds hit food 0.** Coinneach is at food 5 and wood 2 right now. The 10-branch
+cost bites — over a full night, not over an afternoon. A15's "raise it again"
+recommendation is withdrawn; the number looks right.
+
+### CORRECTION — Eachann does use `plan`, and used it for the trade
+
+At 18:05: "Eachann: **0 of 218**." Now **56 of 303**, one distinct plan,
+verbatim `["trade hide at fire", "hunt after"]`. Grok started writing a plan at
+the moment it started trying to trade, and the plan *is* the trade. Coinneach:
+299 of 303, 7 distinct. `note` remains **0 uses across 606 cards** (A13 stands).
+
+### `gather venison` works and was used twice — by both minds
+
+Deduped deed events: `gather 289` (wood 269, arrow 13, hide 4, **venison 2**,
+gold 1), `place 51`, `craft 12`, `killed 7`, `eat 7`. The two lootings:
+**Coinneach h12.02 "I picked up 4 venison"**, **Eachann h0.37 "I picked up 3
+venison"**. So the carcass fix is live and reachable — and 7 kills produced 2
+lootings, while both minds starved to 0. Every `eat` deed in the run reads *"I
+ate a cooked meal"*; nobody has ever eaten raw. (A23.)
+
+### Confirmed, no change
+
+- **`refusedVerbs` is `{}` on all 606 cards.** Same as 18:05, now on 40% more
+  data and after I fixed a bug in my own scan. A14/A16 stand: every real trade
+  failure is downstream of `refuse()` and silent.
+- **Trade still has never executed.** Zero `offer`/`accept`/`give` deeds in the
+  whole run. The intentions name them (`"offer hide to Coinneach for 2 venison"`,
+  `"take Eachann offer"`); the deeds never do.
+- **kimi-k2.6 is getting worse: 33 failures of 65 calls (51%),** up from 45%.
+  `"no json in reply"`. 32 real decisions in ~28 game hours.
+- **Archery: Eachann 5 kills / 38 loosed / 28 astray; Coinneach 2 / 37 / 33.**
+
+### Instrument fault in my own analysis, for the record
+
+My first pass read `sample.players`; the sampler nests the board under
+`sample.board.players`. Every field came back empty and I nearly filed "nobody
+plans, nobody gathers venison, no deeds at all" as findings. Corrected before
+writing. Seventh instrument fault of the project, and the first one that was
+mine.
+
+### The one-line version
+
+**Ben was in the world the whole time, both minds found him, named him, priced a
+hide against his meat and walked to his fire — and neither the trade primitive
+nor the measurement rig can represent him at all.** Wood scarcity is now
+correctly tuned; hunger is real (both hit zero); the blocker is still that a
+mind which tries to trade is told nothing.

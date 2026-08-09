@@ -932,3 +932,65 @@ arrows"]` at wood 2 → `["eat","find feathers or flint","fletch arrows"]` at fo
 That is a sharp, free, per-model behavioural difference from a field the world
 never reads. Score it (A0h/D3). And it strengthens the case for cutting `note`
 (A13): empty for **both** minds on **every sample of the entire run**.
+
+---
+
+## Added 2026-08-08 18:31, from RUN 2 THIRD LOOK — the human player nobody measured
+
+Three corrections first, because two of them are mine and one retires a
+recommendation:
+
+- **A11 is WITHDRAWN. Ben exists.** `srv.log` reads `3 players` on 892 lines
+  against a 2-seat roster; both models use the name, which only the world's name
+  list could have given them. The models did not hail a phantom — the *analysis*
+  invented one. Do not add the "refuse a name not on the roster" fix from A11;
+  it would have broken the best social behaviour in the run.
+- **A15's "raise the fire cost again" is WITHDRAWN.** Over a full night 51 fires
+  drained 79 → 5 and 57 → 2 branches and both minds hit food 0. Ten branches is
+  the right number; the earlier reading was taken mid-afternoon.
+- **A21 needs amending.** Eachann does use `plan` — 56 of 303 samples, one plan,
+  `["trade hide at fire","hunt after"]`. `plan` still splits the models by
+  degree (299 vs 56), but not by capability.
+
+### A22 ††† A HUMAN PLAYER IS INVISIBLE TO THE INSTRUMENT **[M]**
+Ben was in the world for essentially the whole run and was **the target of most
+of both minds' social behaviour** — Eachann's `why` field read "trade hide for
+meat" on four of his last five intentions, all aimed at Ben's fire. The board
+carries LLM seats only, so nothing recorded his position, his range, what he
+said, or whether the offers pointed at him resolved or were silently refused.
+Every distance figure in the analyser measures Eachann-to-Coinneach and is
+therefore measuring the *wrong pair*.
+
+Fix: put **every** player on `board.json`, human ones included — name, position,
+last line spoken, and a `human: true` flag. Cheap, and without it a run with Ben
+in it cannot be read at all.
+
+### A23 †† SEVEN KILLS, TWO LOOTINGS, TWO STARVATIONS **[S]**
+`gather venison` is live and reachable — proven twice (**Coinneach h12.02 "I
+picked up 4 venison"**, **Eachann h0.37 "I picked up 3 venison"**). It retires
+the "no verb means take the meat" half of A0c. But 5 of 7 carcasses were left on
+the moor while both minds went to food 0, and every `eat` in the run is *"I ate
+a cooked meal"* — **raw venison has never been eaten once.**
+
+Two candidates, and they are cheap to separate: (1) the kill produces no event
+that says *there is meat here now*, so a mind that walks away never learns it
+left food behind; (2) `eat` may only accept cooked ids, in which case a starving
+mind holding 3 raw venison is being refused in silence — the A16 pattern again,
+in a second verb. Log the parsed `eat` argument and check.
+
+### A24 †† THE TRADE THE MINDS ACTUALLY WANTED WAS WITH A HUMAN **[M]**
+Both minds' agreed price — *"one hide for two venison"* — was largely aimed at
+**Ben**, not at each other: he was the one with meat. Every blocker in A16–A18
+applies double here, plus a new one: a human has no protocol at all for
+*accepting* an LLM's offer. When the offer/accept fix lands (A16–A18), the human
+side needs a visible prompt — **"Eachann offers 1 hide for 2 venison — [Y]es /
+[N]o"** — or the single most motivated trade in the run still cannot complete.
+This is also the most watchable thing the game has produced: a model walked
+400 m across a moor to haggle with the player.
+
+### A25 † kimi-k2.6's failure rate is RISING, not steady **[S]**
+45% at 18:05, **51% now (33 of 65), `"no json in reply"`.** Long-run drift, not
+a fixed per-call odds. The socially strongest model gets 32 decisions where grok
+gets 245. Either add a one-shot repair retry on unparseable output (cheap, and
+A5's isolation test says the model is 7-in-7 when it does answer), or the run
+economics of the interesting seat stay broken.
