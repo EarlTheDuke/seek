@@ -3553,3 +3553,123 @@ a hide and forty-one branches, Eachann's pack recorded every unit of it, Eachann
 ate the venison, and then spent eleven minutes saying "one hide, hand it over" —
 because `give` moves goods and tells the recipient nothing, and the economy has
 not moved an item since.**
+
+---
+
+## 2026-08-09 06:05 PDT — RUN 2, SIXTEENTH LOOK: both minds are now on a death metronome, and one of them is a live model
+
+Board answers; sampler live at s2372, 792 real minutes, sim-hour 17.6. Window is
+**s2233–2372** (140 samples, ~47 real minutes). Eachann is `SPENT` — **red tag,
+his behaviour has not been the model's since s1997.** Coinneach is
+`spent: false`, still calling, still a real kimi-k2.6.
+
+### The finding: four deaths in this window, two of them the live model's
+
+| who | brain | died at | and again at |
+|---|---|---|---|
+| Eachann | **scripted (`SPENT`)** | s2277 (hp 7 → 100/85) | s2367 (hp 5 → 100/85) |
+| Coinneach | **kimi-k2.6, live** | s2284 (hp 4 → 100/84) | s2356 (hp 4 → 100/85) |
+
+Both are on a fixed cycle: food drains ~1/sample from 85 to 0 over ~80 samples,
+then health falls ~11/sample for 8 samples, then respawn refunds food and health
+and the pack comes through byte-identical. Eachann's period is **90 samples**
+(s2278→s2368), Coinneach's **72** (s2285→s2357). Whole run by the food-jump
+method: **Eachann 18 deaths, Coinneach 24.**
+
+### This corrects A101's scope, and it matters
+
+The 05:06 entry concluded *"the scripted fallback brain has no `eat` rule."* That
+is true and still worth fixing — but **it is not why this world is starving.**
+The live model dies on the same clock, from the same cause, with the same empty
+pack. Across all 140 samples:
+
+- **Neither mind held a single food item at any point.** Eachann: `bow, hide 19,
+  wood n, arrow n`. Coinneach: `bow, hide 3, wood n`. No venison, no meat, ever.
+- **Zero kills.** Eachann frozen at **17**, Coinneach at **7**, for the whole window.
+- **Eachann loosed ~26 arrows and hit nothing** (`astray` 99 → 125), ran his
+  quiver to zero at s2299, and has had **an empty quiver for 73 samples** — ~24
+  real minutes, ~22 sim-hours — while his `goal` read **`"hunt a deer"`** in
+  roughly forty of them.
+- **Coinneach has not loosed one arrow in 140 samples** and has had no `arrow`
+  line in his pack the entire time.
+
+The chain is: no arrows → no kills → no meat → starve → respawn at food 85 →
+repeat. The script and the model fail at it *identically*. The only difference
+between them is that one still talks.
+
+And Coinneach's `plan` has read the same three items, unchanged, all window:
+
+```
+["eat what I get", "find arrows", "feed the fire"]
+```
+
+**He has named his own binding constraint — `find arrows` — and starved to death
+twice while it sat at the top of his plan.** He crafts (26 craft deeds run-total)
+and he cannot craft arrows without a fire and wood he does not have; he carries
+one branch.
+
+### `loosed` is a ring buffer, not a counter — A85 is now solved at the source
+
+A85 has been open at †††† since 08-08: *`astray` exceeds `loosed` on every card,
+the hit rate is uncomputable.* The mechanism is now proven twice over.
+
+**From the data.** Across all 2,372 samples, `astray` **never decreases once**
+for either mind — 0 sample-steps. `loosed` decreases on 8 steps each, always in
+monotone runs that end at zero:
+
+```
+Eachann    s2286: 85→58   s2287: 58→33   s2288: 33→7   s2289: 7→0
+           s1298: 39→25   s1299: 25→23   s1300: 23→0
+Coinneach  s2152: 274→256  s2162: 256→255  s2164: 255→248 …  s423: 36→0
+```
+
+**From the source.** [agent.js:786](src/net/agent.js:786) trims `releases` to a
+ring buffer of `AGENTS.logSize` = **400** ([config.js:1025](src/config.js:1025)).
+`this.shots` ([agent.js:652](src/net/agent.js:652)) is pushed and **never
+trimmed**. So `astray = shots.length` is cumulative forever, while
+`loosed = releases.filter(r => r.loosed).length` counts only the last 400
+releases — and a bow that keeps *refusing* (`"ground in the way"`,
+`"a tree in the way"`) pushes non-loosed releases that evict the loosed ones. At
+s2286–2289 about 85 loosed entries were flushed out in eighty seconds.
+
+`loosed` is not "the honest denominator" [board.js:190](server/board.js:190)
+claims it is — it is a rolling window of the last 400 bowstring events. **Every
+accuracy figure in this file taken from these two fields is void**, which is what
+A85 warned and this now explains.
+
+### The budget the run cannot reach
+
+`spend: 1972 calls of 6000`. Eachann sits at `calls 1500, ofMaxCalls 1500` and
+cannot make another. Coinneach is at 472 on a 75 s cadence with a 44% failure
+rate. **4,028 calls — 67% of the run budget — are stranded behind a per-seat cap
+on a seat that has been a script for two and a half hours.** Extends A95.
+
+### Re-checked, unchanged
+
+- **`note`: zero uses, 25th check.** `""` on both cards, all 2,372 samples.
+- **`refusedVerbs`: `{"avoid": 16}` / `{}`.** Unmoved since s681. Coinneach spent
+  ~20 samples on `goal: "offer hide to Eachann for share"` in this window and it
+  produced **no deed and no `refusedVerbs` entry** — A107's exact shape again.
+- **Trade: zero.** No `give`, `offer` or `accept` deed anywhere in 140 samples.
+  Nothing has moved between them since s1748 — now **624 samples, 3.5 real hours.**
+- **Speech: 5 new lines, all Coinneach**, all the same offer —
+  *"starving. one hide, one share. now." · "One hide, one share. I'm cold." ·
+  "Eachann. Hide for a share. Cold."* Eachann produced **zero** new utterances;
+  the `SPENT` script has no `say`. He has been bargaining with a corpse-in-waiting
+  that cannot answer, and he does not know it (A94/A97).
+- **Fires: 8 lit in the window** (s2250, 2252, 2271, 2299, 2320, 2327, 2332,
+  2350). The 10-branch price is visible in the pack — Eachann's wood ran to **75**
+  and dropped to 21 when he lit and crafted — but he re-gathered 75 branches in
+  about eleven sim-hours, so the price is real and still not scarce. A100 holds.
+- **A quantity caution:** at s2271 the deed reads *"I made 8 arrows at the fire"*
+  while the pack went `arrow 5 → 17` and `wood 59 → 21`. `deeds` holds only the
+  last five, so this is most likely two crafts inside one 20 s sample — but it is
+  another reminder that **a deed line is not a quantity.**
+
+### The one-line version
+
+**Both minds are now dying on a metronome — Eachann every 30 real minutes, the
+live kimi seat every 24 — and it is not the scripted brain's missing `eat` rule,
+because neither mind has held a scrap of food or made a kill in forty-seven
+minutes: they have no arrows, and Coinneach has "find arrows" written at the top
+of the plan he starved to death under, twice.**

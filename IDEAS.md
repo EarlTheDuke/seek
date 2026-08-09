@@ -2451,3 +2451,89 @@ shape, again, one level down).
 **Fix:** two lines — match on verb `kind`, not rendered text, in `analyse.mjs`;
 and make every dropped goal increment `refusedVerbs`. This is the sixth time the
 instrument, not the model, produced the finding.
+
+## Added 2026-08-09 06:05, from RUN 2 SIXTEENTH LOOK — the arrow famine, and A85 solved at the source
+
+### A108 †††† ARROWS ARE THE BINDING CONSTRAINT AND NOTHING TELLS A MIND ITS QUIVER IS EMPTY **[M]**
+
+The finding that reframes the whole run. Over samples 2233–2372 (47 real minutes):
+**zero kills** between them (Eachann frozen at 17, Coinneach at 7), **no food item
+in either pack at any point**, and **four deaths** — two of them the live
+kimi seat, not the script.
+
+Eachann shot his last arrow at s2299 and has had an empty quiver for 73 samples
+while his `goal` read **`"hunt a deer"`** in roughly forty of them. Coinneach has
+had no `arrow` line in his pack for the entire window and has not loosed once.
+Coinneach's `plan`, unchanged all window, is
+`["eat what I get", "find arrows", "feed the fire"]` — **he named the constraint
+and starved to death under it twice.**
+
+The loop is closed and lethal: no arrows → no kills → no meat → starve → respawn
+at food 85 → repeat, forever, for a script and a frontier model alike.
+
+**Fix, cheapest first:** (1) put the quiver in the prompt as a *fact with a
+consequence* — `you have no arrows; you cannot hunt` — not just a pack line a
+model has to notice among nine others; (2) refuse `hunt` with an empty quiver and
+log it to `refusedVerbs`, so the board shows the famine instead of forty
+identical hunting goals; (3) let `craft arrows` be reachable without a lit fire,
+or cheapen it — an arrow that costs ~3 branches when a fire costs 10 means a
+hungry mind must fund the fire before it can fund the food.
+
+### A109 ††† A101 IS RIGHT AND TOO NARROW — THE LIVE MODEL STARVES ON THE SAME CLOCK **[S]**
+
+A101 concluded the scripted `SPENT` brain "has no `eat` rule". True, and still
+worth the two rules it asks for. But it is **not** why this world is starving:
+
+| who | brain | deaths in window | period |
+|---|---|---|---|
+| Eachann | scripted (`SPENT`) | s2277, s2367 | 90 samples / ~30 min |
+| Coinneach | **kimi-k2.6, live** | s2284, s2356 | 72 samples / ~24 min |
+
+Same cause, same empty pack, same refunded respawn. Run totals by the food-jump
+method: Eachann 18, Coinneach 24. **Fixing the fallback brain would have hidden
+this, not solved it** — the world would still have starved its live model, and
+the benchmark would have read one seat healthy and called it progress.
+
+**Fix:** treat "died of hunger" as a first-class run metric per seat, tagged with
+whether that seat was live or `SPENT` at the time. Right now the single most
+important thing happening in this world — everybody is starving — is visible
+only by diffing the `food` column across samples.
+
+### A110 †††† `loosed` IS A 400-DEEP RING BUFFER, NOT A COUNTER — A85 RESOLVED **[S]**
+
+A85 has been open since 08-08 (*"astray exceeds loosed on every card"*). Mechanism
+now proven from both ends.
+
+**Data:** across 2,372 samples `astray` decreases **0 times** for either mind.
+`loosed` decreases on 8 steps each, always in monotone runs ending at zero —
+Eachann `s2286: 85→58→33→7→0`, Coinneach `s423: 36→0`.
+
+**Source:** [agent.js:786](src/net/agent.js:786) trims `releases` to
+`AGENTS.logSize` = 400 ([config.js:1025](src/config.js:1025)). `this.shots`
+([agent.js:652](src/net/agent.js:652)) is pushed and never trimmed. So
+`astray = shots.length` is cumulative and `loosed` counts loosed flags among only
+the **last 400 bowstring events** — and a bow that keeps refusing pushes
+non-loosed releases that evict them. Eighty-five loosed entries were flushed in
+eighty seconds at s2286–2289.
+
+[board.js:190](server/board.js:190) calls `loosed` "the honest denominator" in its
+own comment. It is a rolling window.
+
+**Fix:** keep a plain `loosedTotal` integer incremented at release time and put
+*that* on the card; leave `releases` as the ring buffer it is, for display only.
+Ten lines, and it restores the one number this world most wants to report —
+did the shot land?
+
+### A111 †† 4,028 OF 6,000 CALLS ARE STRANDED BEHIND A PER-SEAT CAP **[S]**
+
+`spend: 1972 of 6000`. Eachann: `calls 1500, ofMaxCalls 1500` — capped, scripted
+since s1997, ~2.5 hours ago. Coinneach: 472, at a 75 s cadence, 44% of them
+failing to parse. **Two-thirds of the run's budget cannot be spent by anyone**,
+because it is not a shared pool — it is a per-seat allowance held by a seat that
+has stopped thinking. Extends A95 (the fast seat ends the run) with the number.
+
+**Fix:** make the budget a genuine shared pool with a per-seat *rate* limit rather
+than a per-seat *total*, so a seat that runs dry can be re-funded from what the
+slow seat never spent. Failing that, end the run when the first seat goes `SPENT`
+— an hour of one model bargaining with a script is not a benchmark result, and
+this file now contains four entries written to untangle exactly that.
