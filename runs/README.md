@@ -88,7 +88,9 @@ offer 6 hides to Ailsa for venison
 ```
 
 — and `resolveItemId` handled plurals but not counts, so every one resolved to
-nothing and the whole offer was discarded. ### 3b. `accept` was never chosen because nobody could see the offer
+nothing and the whole offer was discarded.
+
+### 3b. `accept` was never chosen because nobody could see the offer
 
 Three hours, seven models: `offer` reached for 29 times, `give` 16, **`accept`
 zero**. Never once. It read as a verb nobody wanted, and it was a verb nobody
