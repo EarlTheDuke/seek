@@ -53,6 +53,80 @@ export class Inventory {
     this.onChange?.(this);
   }
 
+  /**
+   * Take the server's word for what you are carrying.
+   *
+   * ── WHY THIS EXISTS ──
+   *
+   * The pack was the last thing in the game that two machines both believed
+   * they owned, and they disagreed constantly. A playtester's account of it:
+   *
+   *   - He fletched 36 arrows at a fire. The server's view of him stayed
+   *     `{bow: 1}` — the browser called `craft` on its own inventory and never
+   *     told anybody.
+   *   - Ground pickups never reached the server either.
+   *   - Then he died. Death zeroes the SERVER's copy of your ammo, while the
+   *     browser cheerfully restored twelve arrows from its own save file — so
+   *     he spent the rest of the session firing a full-looking quiver of
+   *     arrows that did not exist and wondering why nothing was dying.
+   *
+   *   > The only reliable fix I found was rejoining under a different name,
+   *   > which hands you a fresh, properly synced kit.
+   *
+   * `me.iv` has been in every snapshot for as long as `me.h` has. Nobody read
+   * it. So: the server owns the pack while you are connected, exactly as it
+   * already owns your health, your temperature and your position — and for the
+   * same reason, which is that it is the copy that the world acts upon.
+   *
+   * ── WHAT IT PRESERVES ──
+   *
+   * The server sends `{id: count}` and nothing about arrangement, so slot
+   * ORDER is ours. What must survive a reconcile is what the player has their
+   * hand on: the equipped item is restored BY ID rather than by index, because
+   * an index into a rebuilt list points at whatever happens to be there.
+   * Losing your bow mid-draw because a branch stacked differently is the kind
+   * of thing that would send us straight back to distrusting the server.
+   *
+   * Returns true if anything actually changed, so a caller can stay quiet
+   * five times a second when nothing has.
+   */
+  applyRemote(counts) {
+    if (!counts || typeof counts !== 'object') return false;
+
+    // Cheap and order-independent, so a reshuffle that carries the same goods
+    // does not read as a change and churn the HUD twenty times a second.
+    const signature = (map) => Object.entries(map)
+      .filter(([, n]) => n > 0)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([id, n]) => `${id}:${n}`)
+      .join(',');
+
+    const mine = {};
+    for (const s of this.slots) mine[s.item] = (mine[s.item] ?? 0) + s.count;
+    if (signature(mine) === signature(counts)) return false;
+
+    const heldId = this.equippedSlot?.item ?? null;
+
+    this.slots = [];
+    // Rebuilt through `add` so stack limits are the registry's business and
+    // not restated here. Ids the registry does not know are dropped rather
+    // than trusted: a bad id from the wire must not become an undrawable slot.
+    for (const [id, n] of Object.entries(counts)) {
+      if (n > 0 && getItem(id)) this.add(id, n);
+    }
+
+    // Your hand, by id. Falls back to the first slot rather than to an index
+    // that may now mean something else entirely.
+    const at = heldId ? this.slots.findIndex((s) => s.item === heldId) : -1;
+    this.equipped = at >= 0 ? at : 0;
+
+    // You cannot wear what you are no longer carrying.
+    for (const id of [...this.worn]) if (!this.countOf(id)) this.worn.delete(id);
+
+    this.changed();
+    return true;
+  }
+
   get equippedSlot() {
     return this.slots[this.equipped] ?? null;
   }

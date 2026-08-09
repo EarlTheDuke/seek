@@ -495,6 +495,21 @@ function boot() {
         // that landed at 15:40. See `Body.applyRemoteCore` — and note `me.f` is
         // deliberately still NOT read, because nothing can yet feed that body.
         if (snap.me) vitals.applyRemoteCore(snap.me.c);
+        // ── AND WHAT YOU ARE ACTUALLY CARRYING ──
+        //
+        // `me.iv` has ridden in every snapshot for as long as `me.h` has and
+        // nothing in the browser read it, so the pack was the last thing two
+        // machines both believed they owned. They disagreed constantly, and
+        // the disagreement was invisible: a playtester fletched 36 arrows the
+        // server never heard of, died, had the server's copy of his ammo
+        // zeroed, and then had the browser restore twelve arrows from its own
+        // save — so he spent the rest of the session firing arrows that did
+        // not exist at goblins that would not die.
+        //
+        // The server's copy is the one the world acts on. Take its word, the
+        // same as for health and position. See `Inventory.applyRemote`; it
+        // keeps what is in your hand, by id.
+        if (snap.me?.iv) inventory.applyRemote(snap.me.iv);
         // ── AND WHERE THE SERVER THINKS YOU ARE STANDING ──
         //
         // The server integrates YOUR intents through ITS OWN physics —
@@ -1693,9 +1708,61 @@ function boot() {
     hud.openMenu('Make at the fire', items, (id) => {
       const r = RECIPES[id];
       if (!r) return;
-      const made = craft(r, inventory);
-      hud.toast(made ? `${r.verb} — ${made}` : 'nothing came of it', 1.8);
+      const made = craftHere(r);
+      // Offline the answer is already known. Connected it is not, and saying
+      // so is the whole of Tier 1a — see `lastCraft` coming back on `me`.
+      if (!serverOwnsPack()) hud.toast(made ? `${r.verb} — ${made}` : 'nothing came of it', 1.8);
     });
+  }
+
+  // ── WHO OWNS THE PACK ────────────────────────────────────────────────────
+  //
+  // Connected, the server does — it is the copy the world acts on, the same
+  // argument that already applies to your health, your temperature and where
+  // you are standing. Offline, this client is the only copy there is.
+  //
+  // Both of these used to run `craft`/`collect` straight into the local
+  // inventory in BOTH cases, which is how a playtester came to fletch 36
+  // arrows the server never heard of and then fire a quiver that did not
+  // exist. `intent.craft` and `intent.interact` have been on the wire and
+  // handled by the server the whole time; the browser simply never sent them.
+  //
+  // Nothing is added here. The answer comes back in `me.iv` a snapshot later
+  // and `Inventory.applyRemote` puts it in the pack — which is also what makes
+  // the message honest, because by then it has actually happened.
+  const serverOwnsPack = () => !!net?.connected;
+
+  // ── ...AND HOW THE ASK REACHES IT ──
+  //
+  // Not by writing to `intent` from here, which was the first attempt and was
+  // wrong twice over. `intent` is a frame-local inside `stepWorld`, so this
+  // outer scope cannot see it at all — a ReferenceError waiting for the first
+  // person to press the key, invisible to the build. And even in scope it
+  // would not have worked: these run from a keydown handler BETWEEN frames,
+  // and `input.poll()` calls `clearIntent` at the top of the next one, so the
+  // field would be wiped before it was ever sent.
+  //
+  // So they queue, and `stepWorld` spends them onto the frame's own intent
+  // just before it goes out — the same shape `give` and `drop` already use,
+  // and for the same reason.
+  let pendingCraft = '';
+  let pendingCollect = false;
+
+  function craftHere(recipe) {
+    if (!recipe) return null;
+    if (serverOwnsPack()) {
+      pendingCraft = recipe.id;
+      return null;
+    }
+    return craft(recipe, inventory);
+  }
+
+  function collectHere() {
+    if (serverOwnsPack()) {
+      pendingCollect = true;
+      return null;
+    }
+    return pickups.collect();
   }
 
   function placeStructure(kind = null) {
@@ -2007,7 +2074,7 @@ function boot() {
 
     if (near && near.distance <= fireDist) {
       const label = `<b>E</b>  pick up ${itemName(near.item)}${near.count > 1 ? ` ×${near.count}` : ''}`;
-      return { label, run: () => pickups.collect() };
+      return { label, run: () => collectHere() };
     }
 
     // ── a tree you already cut ──
@@ -2056,7 +2123,11 @@ function boot() {
     const cooking = recipe
       ? {
           label: `${recipe.verb} · ${recipe.name.toLowerCase()}`,
-          run: () => { const made = craft(recipe, inventory); return made ? `${recipe.verb} — ${made}` : null; },
+          run: () => {
+            const made = craftHere(recipe);
+            if (serverOwnsPack()) return null;   // the server will say
+            return made ? `${recipe.verb} — ${made}` : null;
+          },
         }
       : null;
 
@@ -3118,6 +3189,17 @@ function boot() {
       // was integrating look deltas and only ever received half of them.
       intent.aimYaw = ctrl.yaw;
       intent.aimPitch = ctrl.pitch;
+      // The two asks queued by the menus since the last frame. Set AFTER
+      // `sanitiseIntent` ran at poll time, which is safe because the server
+      // sanitises everything again on arrival — `setIntent` is the boundary.
+      if (pendingCraft) {
+        intent.craft = pendingCraft;
+        pendingCraft = '';
+      }
+      if (pendingCollect) {
+        intent.interact = true;
+        pendingCollect = false;
+      }
       net.sendIntent(intent, performance.now());
       const world = net.interpolated(performance.now());
       avatars.update(dt, world, net.others);
@@ -3305,6 +3387,12 @@ function boot() {
     composer, life, audio, hud, spawn, landmarks, stepWorld, heightAt,
     inventory, weapons, projectiles, pickups, viewmodel, wildlife, stealth, weather, rain,
     aimMark,
+    // The two asks that go to the server when it owns the pack. Exposed for
+    // the same reason `stepWorld` is: this pair cannot be reached from a
+    // script otherwise, and the bug they were written to fix — a browser
+    // fletching 36 arrows the server never heard of — is only visible from
+    // outside the menus that call them.
+    craftHere, collectHere, serverOwnsPack,
     /**
      * Pin the weather. `highlands.setWeather('rain')`, or omit the argument to
      * hand control back to the state machine.
