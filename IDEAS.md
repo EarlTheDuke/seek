@@ -2886,3 +2886,62 @@ did not cause — the haggling above is two monologues that happen to rhyme, and
 the fact that they converge on a price anyway is a strong argument for a real
 `heard` channel; (c) do A121 first, or the speech keeps agreeing prices the
 world cannot settle.
+
+### A126 †††† THE BOARD HAS NO BUILD IDENTITY — WE GRADED THREE FIXES THAT WERE NEVER LOADED **[S]**
+
+Every node process in run 2 started **2026-08-08 16:51**. `feat(give,death)`,
+`feat(torch)` and `feat(drop)` were committed **2026-08-09 08:21 / 08:29 / 08:45**
+— sixteen hours into a run that has never restarted. The board publishes `at`,
+`minds`, `model`, `url`, `spend` and **no build identity of any kind**, so three
+consecutive evaluation entries had no way to know they were reading a stale
+binary. I found it by listing PIDs, which is not a method that scales.
+
+This is the highest-leverage instrument fix on the list because it is the one
+that decides whether every *other* finding means anything.
+
+**Fix:** put `build: { sha, dirty, bootedAt, uptimeS }` in the board payload
+(`server/board.js:180`, beside `spend`) — `sha` from `git rev-parse --short HEAD`
+read once at boot. Then (a) the sampler records it on every line, so a restart is
+visible in the log; (b) the analyser prints **"log spans N builds"** and refuses
+to aggregate across a boundary; (c) an eval can open with "this run is `d0dafda`,
+booted 16h ago" instead of guessing. Pair with a `RUNNING.md` note that a fix is
+**unjudged until a run boots on its SHA**.
+
+### A127 ††† A SPENT SEAT KEEPS DISPLAYING THE LAST WORDS THE MODEL WROTE **[S]**
+
+Eachann crossed to `spent:true` at sample **1998** (`at 30013`). **913 samples
+later** his card still shows `plan: ["get meat","trade with Coinneach"]` and
+`said: "one hide for your venison? done"`. The scripted brain writes neither; it
+inherited the strings and the board renders them as current state. The window's
+deeds — 22 gathers, 7 fires, no meat carried — flatly contradict the plan on
+display.
+
+This has now caused a misread **twice**, and the brief lists it as the failure
+mode a previous run was burned by. The `SPENT` tag alone is not enough when the
+fields beside it are still telling the old story.
+
+**Fix:** on the tick a seat goes spent, **clear `plan`, `note` and `said`** and
+stamp the card `scripted since h22.5 · was grok-4.20`. Keep the last model-written
+plan under a distinct label (`lastModelPlan`) if it is worth keeping at all — but
+never in the field a reader scans for what this mind wants *now*. One line in the
+card builder; it protects every future entry.
+
+### A128 ††† YOU CANNOT SEE WHAT THE PERSON YOU ARE HAGGLING WITH IS CARRYING **[M]**
+
+Coinneach walked to Eachann **five times in three game hours**, writing
+`why: "he has meat and I do not"`. Eachann was carrying `bow, hide ×19` — **no
+meat, and none for the whole window.** Coinneach went hp 100 → 11, food 10 → 0
+making those trips. The belief was false and **there was no move available to him
+that would have tested it**: a mind is told who is *near*, never what they *hold*.
+
+This is why 300+ lines of price talk produce no trades. Both minds can name a
+price, neither can see the goods, so every negotiation is speculative and the
+buyer pays in walking. It also explains the shape of A125's "two monologues that
+happen to rhyme".
+
+**Fix, cheapest first:** (a) at conversation range put the counterparty's **visible
+pack** in the prompt — the real-world version is *you can see what a man is
+carrying when you are standing next to him*; (b) let `offer` fail loudly with
+`he has no venison` through `refuse()`, so `refusedVerbs` finally earns its name
+and the mind learns in one turn instead of five trips; (c) longer term, a `heard`
+channel so a reply — *"I have no meat"* — reaches the asker at all.

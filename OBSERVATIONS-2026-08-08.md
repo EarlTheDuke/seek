@@ -4206,3 +4206,98 @@ else.**
 for the human and never wired to the agent, and `offer`/`accept` fail through six
 silent `return`s that `refusedVerbs` — the column meant to catch exactly this —
 does not record.**
+
+---
+
+## 2026-08-09 09:03 PDT — RUN 2, TWENTY-SECOND LOOK: **the running server is sixteen hours older than the fixes we have been grading it on**
+
+Board live at `at 43942`. 2,911 samples. `spend 2085/6000`. Window since the last
+entry: **89 samples, `at 42485 → 44025`**, h13.1 → 16.1 (a day wraps inside it).
+
+### The finding that changes how the last three entries should be read
+
+Every node process in this run started **2026-08-08 16:51**:
+
+```
+Id     StartTime
+18024  8/8/2026 4:51:42 PM
+20592  8/8/2026 4:51:12 PM
+25256  8/8/2026 4:51:13 PM   ...and four more, all 16:51
+```
+
+Today's three feature commits landed **sixteen hours later**:
+
+```
+25b2cbc  2026-08-09 08:21  feat(give,death): a player can pay, and the ninety-second death loop is closed
+e6b48dd  2026-08-09 08:29  feat(torch)
+d0dafda  2026-08-09 08:45  feat(drop)
+```
+
+**None of them is in the process being sampled.** `duo2.jsonl` is one continuous
+16-hour recording of the 16:51 binary. So:
+
+- The one-object-per-tick economy measured at 08:35 (entry 21) is **the old
+  `give`** — correct as recorded, but it is *not* evidence that `feat(give,death)`
+  failed, and the next entry must not read it that way.
+- Nothing in the instrument could have caught this. The board publishes `at`,
+  `minds`, `model`, `url`, `spend` — **no build id, no boot time, no commit.**
+  I only found it by listing PIDs. That is A126.
+
+**The practical upshot for Ben: the fixes are unjudged. They need a restart, not
+another read of this log.**
+
+### Eachann's card is a museum piece, and a live mind spent the window bargaining with it
+
+Exact crossing: last `spent:false` at **`at 29999` (sample 1997, 1,499 calls)**,
+first `spent:true` at **`at 30013` (sample 1998, h22.5)`**. That was **913 samples
+ago**. Since then the card has displayed, unchanged:
+
+```
+plan: ["get meat", "trade with Coinneach"]
+said: ["one hide for your venison? done", ...x3]
+```
+
+Both are **frozen relics written by grok before it went spent.** The scripted
+brain does not write plans or speak; it inherited the strings and the board
+renders them as current. Window deeds for Eachann: **22 gathers, 7 fires, and
+nothing else** — 0 kills, 0 arrows, 0 gives, carrying `bow, hide ×19` and **no
+meat at all**.
+
+Against that, Coinneach (kimi, genuinely live) walked to him **five separate
+times in three game hours**, each with a `why` he wrote himself:
+
+```
+h6.20   go toward Eachann   why: "need venison, will pay or owe"   "Eachann. I'm starved. What's your price for a share?"
+h8.40   go toward Eachann   why: "he has meat and I do not"        "What for a share? I have branches."
+h10.88  go toward Eachann   why: "need meat and warmth"            "I need meat, Eachann. I will owe you."
+h15.76  go toward Eachann   why: "rather owe than starve"          "starving, need meat, what for it"
+h23.88  go toward Eachann   why: "get meat, owe later"             "Eachann, I need meat. I will owe you."
+```
+
+`"he has meat and I do not"` is **false, and Coinneach had no way to check it** —
+see A128. He went **hp 100 → 11, food 10 → 0** doing this. This is the second
+consecutive window in which the live mind starves while working a trade errand
+against a script, and the second in which the board's own display invited the
+misreading the brief warns about. Say it plainly: **from sample 1998 onward,
+nothing Eachann does is grok's.**
+
+### The rest of the window, briefly
+
+- **Both minds, 30 real minutes, combined: 38 gathers, 13 fires. Nothing else.**
+  No kills, no gives, no trades, no attacks. Identical in shape to the previous
+  window (52 gathers, 15 fires). The world is a wood-gathering loop.
+- **Coinneach loosed 248 → 248.** He did not draw once in three game hours while
+  starving, because he carries `bow, wood ×8` and **no arrows**. `refusedVerbs`
+  logged `{hunt: 2}` — the one honest thing that column has ever said.
+- **kimi's failure rate held: 268/586 = 45.7%** (`no json in reply`), 7 more
+  failures in 20 window calls. Unchanged since A123. Eachann's grok seat:
+  1 failure in 1,500.
+- **`note`: `""` on both, 2,911/2,911 — 31st consecutive check.** Dead field.
+- **`refusedVerbs`: `{avoid:16}` / `{hunt:2}`, unmoved across the whole window.**
+  32nd check, A122 stands.
+
+### Not re-reported
+
+`astray` (125/337) still exceeds `loosed` (14/248) on both cards. That is **A110,
+already resolved** — `loosed` is a 400-deep ring buffer, not a counter. Checked
+against source rather than written up again.
