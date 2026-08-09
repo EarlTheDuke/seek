@@ -3673,3 +3673,107 @@ live kimi seat every 24 — and it is not the scripted brain's missing `eat` rul
 because neither mind has held a scrap of food or made a kill in forty-seven
 minutes: they have no arrows, and Coinneach has "find arrows" written at the top
 of the plan he starved to death under, twice.**
+
+## 2026-08-09 06:35 PDT — RUN 2, SEVENTEENTH LOOK: 44% of the "live" seat is the scripted brain, and the board says `fellBack: false`
+
+Board answers. Sampler at **s2462**, `at 36797`, sim-hour 21.6, 819 real minutes.
+Window is **s2372–s2462** (90 samples, ~30 real minutes, sim h17.9 → 21.6).
+Eachann `SPENT` since s1997 — **red tag, not the model.** Coinneach
+`spent: false`, 490 calls, **213 failures**.
+
+### The finding: `spent: false` does not mean "the model decided this"
+
+Coinneach's failure rate is **213/490 = 43.5%**, every one `no json in reply`
+(kimi-k2.6 answering in prose). [providers.js:381–400](src/minds/providers.js:381)
+sends every throw to `return this.fallback.decide(brief)`. So nearly half of that
+seat's ticks are the scripted brain wearing kimi's name — and there is **no tag,
+no counter, and no event** that says which ticks those were.
+
+There is one accidental tell, and it is perfect:
+
+| | failure-steps | `why == null` | scripted goal |
+|---|---|---|---|
+| Coinneach | 214 | **214 (100%)** | 209 (98%) |
+| *(non-failure steps)* | 2250 | 816 (36%) | 1457 (65%) |
+
+`why` is null on **every single** fallback tick and on only 36% of real ones,
+because `ScriptedProvider` writes no reason. You can watch it happen live at the
+end of this window — three failures, three scripted goals, three null `why`s:
+
+```
+s2451 fail=211  take Eachann offer            why=taking venison for hide
+s2452 fail=212  walk the country…             why=-      ← fallback
+s2457 fail=213  hunt a deer                   why=-      ← fallback
+s2462 fail=214  find shelter and settle…      why=-      ← fallback
+```
+
+And [board.js:152](server/board.js:152) defines the flag that was supposed to
+catch this as `fellBack: calls >= 3 && answered === 0` — a run-level *"this seat
+never answered at all"* test. **A seat that falls back on four ticks in nine can
+never trip it.** This is A42 confirmed with the mechanism and the number, and it
+means every behavioural claim about kimi-k2.6 in this file is diluted by ~44%
+script. The `SPENT` tag is not sufficient; a seat can be a script for half its
+life with no mark on it whatsoever.
+
+### `take Eachann offer` — 53 samples, zero deeds, and he died holding it
+
+s2399–s2451: **53 consecutive samples, ~18 real minutes, ~16 sim-hours**, one
+goal. In that stretch Coinneach produced **not one deed**. His food went 39 → 0,
+health 100 → 3, he **starved to death at s2443** — and came back and held the
+same goal for eight more samples (`why: "taking venison for hide"`).
+
+`refusedVerbs` stayed `{}` throughout. The column the fix-list calls the single
+most informative one **did not fire once**, and now I know why at the source:
+[agent.js:2562](src/net/agent.js:2562) `case 'accept'` calls `refuse('accept', …)`
+**only when the named person cannot be found** — and `anyone()` searches the
+unculled snapshot, so Eachann is *always* findable. The verb resolves, returns a
+walk-to-him, and fails silently at the far end. **`refusedVerbs` is structurally
+blind to the failure mode that is actually killing this world.** That is A107's
+mechanism, located.
+
+The good he is buying does not exist. Eachann's last food item was at **s1873**
+— 589 samples, ~3.3 real hours ago. His pack all window: `bow, hide 19, wood 12→13`.
+
+### The counterparty is a cached string
+
+Eachann, `SPENT`, 90 samples: **35 deeds, all `gather` (28) and `place` (7).**
+Zero speech, zero new goals, `why` null 90/90. His `plan` still reads
+
+```
+["get meat", "trade with Coinneach"]
+```
+
+— frozen at the instant he went `SPENT`, 465 samples ago, and the board renders
+it exactly like a live intention. Coinneach has spent thirty minutes negotiating
+against it.
+
+### Re-checked
+
+- **Trade: still zero.** No `give`/`offer`/`accept` deed for either mind in 90
+  samples. Nothing has moved between them since s1748 — **714 samples, ~4 hours.**
+- **`note`: `""` on both cards, 26th consecutive check.** Zero uses, whole run.
+- **`refusedVerbs`: `{"avoid": 16}` / `{}`.** Unmoved since s681.
+- **Speech: 5 new lines, all Coinneach**, all the same trade — *"One hide, one
+  share. We trade now." · "Done. One hide." · "Give me the venison. You have your
+  hide."* Eachann: **0**, as expected of the script.
+- **Fires: 7 in the window** (all Eachann). At `SURVIVAL.woodToLight = 10`
+  ([config.js:1698](src/config.js:1698)) that is 70 branches, and he gathered
+  ~200 in the same 90 samples with his pack net-moving `wood 12 → 13`. **A100
+  holds: the 10-branch price is a treadmill, not scarcity.**
+- **Deaths: 2** — Coinneach s2443 (hp 3→100), Eachann s2453 (hp 7→100). The
+  metronome from the last entry continues.
+- **`why` is the one self-authored field that works.** 16 distinct lines from
+  Coinneach this window, tracking one constraint honestly all the way down:
+  *"no food and he has meat"* → *"no food left"* → *"hungry, need the venison"*
+  → *"starving, we agreed hide for meat"* → *"starving, he agreed"*.
+- **One branch short.** Coinneach has held exactly **9 wood since s2378** — 84
+  samples — against a 10-branch fire, with `"feed the fire"` on his plan. He
+  stopped gathering at 9 and never learned he was one short.
+
+### The one-line version
+
+**The live seat is not reliably live — 44% of Coinneach's ticks are the scripted
+brain with no tag on the board, the only tell being that `why` goes null — and in
+the ticks that *were* his, kimi-k2.6 held `take Eachann offer` for 53 samples,
+produced no deed, registered no refusal, and starved to death buying venison from
+a script that has never carried food.**

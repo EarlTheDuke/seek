@@ -2537,3 +2537,73 @@ than a per-seat *total*, so a seat that runs dry can be re-funded from what the
 slow seat never spent. Failing that, end the run when the first seat goes `SPENT`
 — an hour of one model bargaining with a script is not a benchmark result, and
 this file now contains four entries written to untangle exactly that.
+
+## Added 2026-08-09 06:35, from RUN 2 SEVENTEENTH LOOK — the untagged fallback tick, and where `accept` loses its refusal
+
+### A112 †††† TAG THE BRAIN PER TICK — THE DATA IS ALREADY THERE AND FREE **[S]**
+
+*The instrumentation defect that invalidates model comparison, and the cheapest
+fix in this file.*
+
+Coinneach: **213 failures / 490 calls = 43.5%**, all `no json in reply`.
+[providers.js:381–400](src/minds/providers.js:381) returns
+`this.fallback.decide(brief)` on every throw, so **44% of a `spent: false` seat
+is the scripted brain.** [board.js:152](server/board.js:152) defines the flag
+meant to catch it as `fellBack: calls >= 3 && answered === 0` — a run-level
+"never answered once" test that a 44%-fallback seat can never trip.
+
+**The evidence that makes this a one-line fix.** `ScriptedProvider` writes no
+reason, so a fallback tick is already distinguishable on the board:
+
+| | steps | `why == null` | scripted goal |
+|---|---|---|---|
+| Coinneach, failure-steps | 214 | **214 (100%)** | 209 (98%) |
+| Coinneach, other steps | 2250 | 816 (36%) | 1457 (65%) |
+
+**Fix:** have `decide()` stamp the returned goal with `brain: 'model' \| 'script'`
+and put that on the card, plus a running `scriptedTicks` count. Delivers A42's
+`FALLING BACK` tag for a fraction of the work, and makes every future run report
+say *answered* decisions rather than *calls*. Until it exists, **no comparative
+claim in this file is safe** — including every one made about kimi-k2.6.
+
+### A113 ††† `accept` CAN NEVER REGISTER A REFUSAL — A107'S MECHANISM, LOCATED **[M]**
+
+A107 said dropped goals never reach `refusedVerbs` and asked for them to. Here is
+exactly where it goes wrong for the verb that matters most.
+
+[agent.js:2562](src/net/agent.js:2562) `case 'accept'` calls
+`this.refuse('accept', …)` **only when the named person cannot be found** — and
+the lookup falls through to `anyone()`, which searches the *unculled* snapshot.
+The partner is therefore always findable, the verb always resolves to
+`{ within: REACH, act: 'accept' }`, and the act dies silently at the far end
+(the seven ways at [agent.js:1053](src/net/agent.js:1053)). `offer` at
+[agent.js:2554](src/net/agent.js:2554) has the identical shape.
+
+**The cost, measured:** Coinneach held `take Eachann offer` for **53 consecutive
+samples** (s2399–s2451, ~18 real min), produced **zero deeds**, went food 39 → 0,
+**starved to death at s2443**, respawned and held the same goal for eight more
+samples. `refusedVerbs` stayed `{}` the entire time. Run-wide his two longest
+streaks are the same goal — **144 samples** (s1301–s1444) and 53 — both silent.
+
+**Fix:** move the refusal to the *act* resolution, not the target lookup — when
+`act: 'accept'` reaches `REACH` and finds no matching offer, call
+`refuse('accept', "<name> has made you no offer")`. Same for `offer` and `give`.
+A refusal that fires only on "no such person" is a refusal for the one case a
+model never gets wrong.
+
+### A114 †† A THRESHOLD COST WITH NO PARTIAL-PROGRESS FEEDBACK STOPS A MIND ONE UNIT SHORT **[S]**
+
+`SURVIVAL.woodToLight = 10` ([config.js:1698](src/config.js:1698)). Coinneach has
+carried **exactly 9 wood since s2378 — 84 samples, ~28 real minutes** — with
+`"feed the fire"` sitting on his plan. He gathered to 9, stopped, and was never
+told he was one branch short of the thing he had written down.
+
+Meanwhile the same threshold is *no constraint at all* on the other seat:
+Eachann lit **7 fires in 90 samples** (70 branches) while gathering ~200, pack
+net `wood 12 → 13`. **The price is a treadmill for whoever gathers and a wall for
+whoever nearly does** — the worst of both, and A100's "still not scarce" holds.
+
+**Fix:** when a mind carries some but not enough of a recipe's input, say so in
+the outcome line — *"you have 9 branches; a fire needs 10"*. One sentence, and it
+converts a silent wall into the single most actionable thing the world could tell
+him. Cheaper and more general than retuning the number.
