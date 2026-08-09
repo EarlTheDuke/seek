@@ -4825,3 +4825,132 @@ file has recorded it.
 `no json in reply`, against **0 failures** for opus-5, sonnet-5 and both Groks.
 Seonaid was the model for one decision in four. Any standing that ranks these seats
 is still ranking a JSON parser.
+
+---
+
+## 2026-08-09 12:04 — melee RUN 2: **`accept` has never once been reached for, and that — not `offer` — is what has been stopping trade all along**
+
+*First, the housekeeping: the scheduled task still describes the duo run
+(`roster-duo.json`, Eachann + Coinneach, sampler `duo2.jsonl`). That run ended at
+**11:28**. What is actually live is **melee run 2** — `roster-melee.json`, seven model
+seats plus Iseabail scripted, sampler `melee2.jsonl`. Everything below is melee run 2:
+**85 samples, 32 real minutes, ticks 10 → 1470, 289 calls of 4000.** I also walked
+straight into the `{realMs, board:{…}}` sampler-shape trap filed as **A152** last look —
+my first dig printed `TRADE-SHAPED GOALS (0)` and it was the reader, not the world. A152
+is now cost-justified twice.*
+
+### The run is clean in a way no previous run has been
+
+```
+Morag     opus-5      39 answered / 0 failed      Coinneach kimi-k2.6  17 / 0
+Eachann   grok-4.20   69 answered / 0 failed      Seonaid   kimi-k2.6  17 / 0
+Tormod    grok-4.5    46 answered / 0 failed      Ailsa     sonnet-5   46 / 0
+Fingal    haiku-4.5   55 answered / 0 failed      Iseabail  SCRIPTED   (control)
+```
+
+**No `SPENT` tag, no `fellBack`, zero failures on all seven seats.** The busiest seat is
+69 of its 250. Nothing in this entry is the scripted brain wearing a model's name —
+which is the disclaimer four earlier entries in this file needed and could not give.
+
+**Both kimi seats failed 0 times.** Run 1 had `Coinneach 27/23 (54% no json)` and
+`Seonaid 13/37 (26%)`, and this file has flagged the kimi JSON handicap seven
+consecutive times. It did not recur. I am recording that as *observed*, not *fixed* —
+34 calls is a thin sample and I have not found a change that would explain it.
+
+### The headline: the market is one-sided, and it is a missing verb, not a missing price
+
+Sampled goal verbs across all 85 samples and 8 seats:
+
+```
+pick 189 · make 159 · hunt 157 · walk 65 · go 56 · offer 29 · stay 23 · give 16 · find 15 · accept 0
+```
+
+**`accept` is zero. Not rare — zero.** Six distinct `offer` goals were formed by two
+different models, every one naming a real, co-located person:
+
+```
+Seonaid (kimi)    offer branch to Morag for venison   "she has the kill, I need to eat"
+Coinneach (kimi)  offer arrow to Ailsa for branch     "need wood, freezing rain"
+Ailsa (sonnet-5)  offer branch to Morag for venison   "trading wood for meat before dusk"
+```
+
+Not one became a trade. **0 `trade` deeds this run.** The two things that *did* change
+hands were both `give` — Ailsa → Fingal, wood, twice — and `give` is the one social verb
+that **needs no second mind to say yes**.
+
+That is the shape of it. **Unilateral verbs land. Bilateral verbs do not, because the
+counterparty must spend a whole decision on `accept`, and no model has ever spent one.**
+
+**Why they don't, traced:** an incoming offer reaches the other mind as *one line in the
+memory stream* — `agent.js:479`, `${e.from} offers me ${e.item} for ${e.want}`, weighted
+`MINDS.weight.trade`. There is **no dedicated field** for it. `plan`, `note` and *"also
+out there"* all get their own slot in what a mind is handed; a live offer with your name
+on it does not. Against this file's own measured finding that **a memory here has a
+half-life of one decision**, a standing offer is gone before the next tick. The minds are
+not refusing to trade — they are never asked in a place they can see.
+
+### Correcting the instrument, again: an `offer` *cannot* appear in `deeds`
+
+Before reading "6 offers, 0 offer deeds" as failure — it isn't, and the card could not
+have shown otherwise. In `agent.js:478-493` only **`trade`** and **`gift`** call
+`did()`. The `offer` case writes to memory and breaks. **An offer that lands perfectly
+produces no deed, no card row, and no trace an observer can count.** I cannot tell you
+from the board whether those six offers reached their target or died on the walk. Sixth
+time the instrument has been the thing at fault; filing it as A153.
+
+### `refusedVerbs` is `{}` on all eight cards — and that is neither dead nor proof of health
+
+The 11:35 entry rightly corrected the 07:35 entry's "dead instrumentation" verdict: it
+caught two real bugs. This run it is empty everywhere. Reading `refuse()` (`agent.js:1614`,
+13 call sites) shows why that is weaker evidence than it looks: **it fires only when a
+name or a noun fails to resolve.** A verb that resolves its target and then quietly
+accomplishes nothing — which is exactly what an unaccepted `offer` looks like — is
+invisible to it. The two bugs it caught (`avoid` past 140 m, a price in the noun slot)
+were both *resolution* failures, and both were fixed at `9ba2a4f`. So: the column is
+working, the fixes held, and it still cannot see the failure mode this run is about.
+
+### The fixes that plainly worked
+
+- **Fire cost.** **21 fires** lit across ~24 game hours and 8 seats, against **106** in
+  one pre-fix run. And wood is not too scarce to survive: single gathers of **36, 35, 34
+  and 17 branches** are in the record. The 10-branch price is right.
+- **Carcasses.** `gather venison` works and models use it. Fingal (haiku-4.5) killed 2,
+  gathered venison twice, **cooked twice, ate twice, finished on food 90.** Full loop.
+- **Speech.** Against *"one sentence across two days and six models"*: **40 distinct
+  lines from Morag, 29 Fingal, 26 Ailsa, 20 Eachann**, and it is coordinating speech
+  naming people and places — *"Ten branches at Rowan Moor and we burn all night —
+  goblin's north, keep clear."* This is settled; it works. Stop re-checking it.
+- **Naming each other at range.** Used constantly, including people not present.
+
+### `plan` is alive; `note` is one model's habit
+
+**6 of 7 seats wrote a plan** and plans do get acted on — Coinneach's *"warm at Morag's
+fire / trade arrows for food / stay alive"* matches its goals exactly.
+
+**`note` was written by exactly one seat, ever:** Morag (opus-5) —
+*"Goblin roams NE of Rowan Moor. Don't go north alone."* One durable fact, learned from
+someone else's death, kept and acted on. Six other seats left it empty all run. That is
+the single sharpest model-vs-model difference on this board.
+
+The other end of that axis is **Eachann (`grok-4.20-non-reasoning`): 0 plan lines, 0
+notes, 69 calls**, and its 20 speech lines are one sentence rephrased — *"that one is
+mine" / "that one north-west is mine" / "that one's mine now" / "south one's mine."*
+It ended at **food 0 on 91 health**, carrying 7 wood and 2 hides, having said *"coming
+for the deer meat"* three times without arriving. The only seat to starve.
+
+### The control lost this time — first reversal in five checks
+
+```
+Fingal haiku 90 · Tormod grok-4.5 81 · Seonaid 71 · Coinneach 70 · Ailsa 68
+Morag opus-5 59 · ISEABAIL SCRIPTED 29 · Eachann grok-4.20 0
+```
+
+Iseabail finished **7th of 8 on food**. Four previous entries recorded the scripted
+control beating most paid seats; **that no longer holds** — six of seven models are now
+clearly ahead of the if-statements. The likely cause is the cooking loop opening up
+(carcasses + affordable fires), which models exploit and her hundred lines do not. Worth
+re-checking at full run length before anyone celebrates.
+
+### Gold: 0 for all 8 seats in all 85 samples — ninth consecutive check
+
+A151 stands unchanged and is now the oldest unaddressed finding in this file.

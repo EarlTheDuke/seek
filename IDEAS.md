@@ -3323,3 +3323,74 @@ and this file has already been burned five times by the instrument rather than t
 **Fix:** have the sampler write the same shape the endpoint serves (or `analyse.mjs`
 export a single `readSamples()` that both it and any ad-hoc script import). A one-line
 schema note at the top of the `.jsonl` would also do it.
+
+### A153 †† A LIVE OFFER NEEDS ITS OWN SLOT — `accept` HAS NEVER BEEN REACHED FOR, NOT ONCE **[S]**
+
+Melee run 2, 85 samples, 8 seats: `offer` 29, `give` 16, **`accept` 0**. Six offers were
+formed by two different models naming real, co-located people (*"offer branch to Morag
+for venison — she has the kill, I need to eat"*). Zero trades resulted. The two things
+that changed hands were both `give` — the one social verb needing no second mind.
+
+An incoming offer reaches the counterparty as **one line in the memory stream**
+(`agent.js:479`), weighted `MINDS.weight.trade`, with no dedicated field — while `plan`,
+`note` and *"also out there"* each get their own slot. Against this file's own finding
+that a memory has a half-life of one decision, a standing offer is gone before the next
+tick. **The minds are not refusing to trade; they are never asked anywhere they can see.**
+
+**Fix:** a `standing offers` block in what a mind is handed — *"Seonaid is offering you a
+branch for venison, 4 m away"* — listed as plainly as its own inventory, persisting until
+taken, refused, or expired. This is the cheapest unblock of the whole economy on the
+board. Consider also a `counter` verb, since a price you cannot haggle is a take-it-or-
+leave-it, and every character sheet here describes a haggler.
+
+### A154 † AN `offer` CANNOT APPEAR IN `deeds`, SO THE BOARD CAN NEVER SHOW ONE **[S]**
+
+In `agent.js:478-493` only **`trade`** and **`gift`** call `did()`. The `offer` case
+writes to memory and breaks. A perfectly-landed offer therefore produces no deed, no card
+row, and nothing an observer can count — so "6 offers, 0 offer deeds" is unreadable: it
+cannot distinguish *the offer never arrived* from *it arrived and nobody answered*.
+
+Sixth time the instrument, not the model, has been the thing at fault in this file.
+
+**Fix:** `did('offer', 'I offered X to Y for Z')` on the `mine` branch, and a matching
+`did('offered-to', …)` or equivalent on the receiving side. One line each; makes the
+entire bargaining half of the economy visible for the first time.
+
+### A155 † `refusedVerbs` CANNOT SEE A VERB THAT RESOLVES AND THEN DOES NOTHING **[M]**
+
+`refuse()` (`agent.js:1614`) has 13 call sites and **every one is a resolution failure** —
+no such person, no such noun, nothing in sight. The column is genuinely working (it caught
+`avoid`'s 140 m blindness and a price in the noun slot, both fixed at `9ba2a4f`), and it
+was `{}` on all eight cards this run. But an `offer` that finds its target and then dies
+unanswered is invisible to it, which is precisely this run's failure mode. **An empty
+`refusedVerbs` is not evidence of a healthy verb set.**
+
+**Fix:** record *outcome* as well as *resolution* — a verb that was dispatched and whose
+intended effect never occurred within N ticks (`offer` never answered, `goTo` never
+arrived, `give` never delivered) belongs in a second counter, `unlandedVerbs`.
+
+### A156 † THE SCRIPTED CONTROL FINALLY LOST — RE-BASELINE HER BEFORE SHE STOPS BEING A CONTROL **[S]**
+
+Four entries recorded Iseabail beating most paid seats on food. Melee run 2 reverses it:
+she finished **7th of 8** (food 29), behind six of seven models — haiku 90, grok-4.5 81,
+both kimi 70/71, sonnet-5 68, opus-5 59. The likely cause is that the cooking loop
+(working carcasses + affordable fires) opened up and models exploit it while her
+if-statements do not.
+
+This is good news for the models and bad news for the instrument: a control that is
+simply *worse* stops being a yardstick and becomes a floor. **Fix:** teach her the cook
+loop specifically — she should always represent "competent, unimaginative play," and the
+gap between her and a model should be *judgement*, not *access to a mechanic*.
+
+### A157 THE NON-REASONING SEAT WRITES NO PLAN, NO NOTE, AND ONE SENTENCE — AND IT IS THE ONE THAT STARVED **[S]**
+
+`grok-4.20-0309-non-reasoning` (Eachann), 69 calls: **0 plan lines, 0 notes**, and 20
+speech lines that are one sentence rephrased — *"that one is mine" / "that one's mine
+now" / "south one's mine."* It ended at **food 0 on 91 health** carrying 7 wood, having
+said *"coming for the deer meat"* three times without arriving. Only seat to starve.
+Meanwhile opus-5 was the **only** seat in the run to ever write a `note`
+(*"Goblin roams NE of Rowan Moor. Don't go north alone."*).
+
+Not a fix so much as the benchmark finding this project is for: **self-authored state
+(`plan`, `note`) is the sharpest model-vs-model separator on the board, and it predicts
+survival.** Worth promoting to a scored column rather than a curiosity.
