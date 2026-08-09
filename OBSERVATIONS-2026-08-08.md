@@ -5073,3 +5073,101 @@ wrong, and she is the *control* — the seat every model comparison is measured 
   57, 40 and 31 branches are in the record.
 - **No seat went `SPENT`.** Highest was Eachann at 142 of 250. **The run used 582 of
   4000 calls in 62 real minutes** — under a sixth of the budget.
+
+---
+
+## 2026-08-09 13:05 — A DEAL WAS STRUCK IN WORDS, DECLARED SETTLED BY BOTH SIDES, AND NOTHING MOVED
+
+**What is actually running is not the duo roster.** The evaluation brief describes a
+two-mind run on `roster-duo.json`; `duo2.jsonl` has been stale since 11:28. Live is the
+8-seat melee, sampling to `melee3.jsonl`, **started 12:38:41 — sixty-nine seconds after
+commit `8b38370`, "tell the mind that somebody is holding a deal open for it."** So this
+is the first live look at that fix. 70 samples, 560 card-observations, 23 real minutes,
+game hour 4.4, 216 of 4000 calls. **No seat is `SPENT`;** highest is Eachann at 52 of 250.
+
+### The headline: Tormod paid nine times for venison he was told, four times, he had
+
+Tormod (`grok-4.5`) and Eachann (`grok-4.20-0309-non-reasoning`) negotiated a complete
+bargain out loud. Tormod's lines, in the order they appear:
+
+> "wood for your fire, need meat" → "branches for meat, as you said" → "branches for meat,
+> deal still stands" → "branch yours, hand the meat" → "here's wood, now the venison" →
+> "wood as promised, venison now" → "wood as promised, hand over the meat" → "meat as
+> agreed" → "meat as agreed, hand it over" → "aye, hand it over"
+
+Eachann's side: *"one branch and I'll trade"* → *"deal, here's the venison"* → *"deal
+done"* → *"here is the venison"* → *"fine, here's your venison"*.
+
+**Eachann's entire deed record for the run is `gather ×23, place ×5, craft ×1, eat ×2`.
+There is no `give` on it. Ever.** He cooked and ate twice. Tormod's record contains
+`give ×9` — nine wood, every one to Eachann, h20.88 through h21.29 — and **no `eat`, no
+`craft`, and a pack holding `bow ×1, wood ×6` and nothing else.** He paid nine times on
+the strength of a sentence and received nothing, and the escalation in his own wording
+("as you said" → "deal still stands" → "as promised" → "aye, hand it over") is a mind
+noticing it is not being paid and having no verb that can do anything about it.
+
+This is the first fraud in this world. It is not a model being deceptive so much as a
+world in which **`say` costs nothing, binds nothing, and is never contradicted by the
+ledger** — "here is the venison" and actually handing it over are indistinguishable to
+everyone including us. Speech was turned on to make trade possible; on this evidence it
+made trade *simulable* instead.
+
+### Correction: `accept` HAS now been reached for. It still produces nothing.
+
+The 12:35 entry said `accept` had never once been reached for. That is no longer true and
+the record should say so. Two seats set it as a goal:
+
+- **Eachann, h13.72** — `take Tormod offer`, why: *"get the branch I need"*
+- **Tormod, h22** — `take Eachann offer`, why: *"starving need the venison now"*
+
+And **five of seven model seats set an `offer` goal**: Tormod (*"offer branch to Eachann
+for venison"*), Ailsa, Seonaid (*"hungry and shivering, must trade for food tonight"*),
+Coinneach, and Tormod again to Morag. The verbs are being reached for by most of the
+roster, in plain economic language, with correct target names.
+
+**Deeds produced by `offer`: 0. By `accept`: 0.** In 560 card-observations the only
+trade-family deed of any kind is Tormod's nine `give`s. The whole roster is now trying to
+trade and the exchange still does not happen.
+
+### `refusedVerbs` is `{}` on all 560 cards — and this is the run that proves A155
+
+Fifth consecutive empty check, but now with teeth: **five seats reached for `offer`, two
+for `accept`, and not one refusal was recorded.** `refuse()` fires only on name-or-noun
+resolution failure and the names all resolved. The column cannot see this run's failure.
+
+### The instrument that would settle it already exists and is not exported
+
+`Agent.acted` (`src/net/agent.js:212`) is incremented at `agent.js:1333` at the exact
+moment a verb's walk arrives and the act fires. `server/board.js:287` exports
+`refusedVerbs` and **not `acted`**. So the board cannot distinguish *"the model never
+chose offer"* from *"the model chose offer and the body never got there"* — which is the
+only question that matters right now. See A164.
+
+The likely answer, unconfirmed: `offer` returns `{x, z, within: REACH, act:'offer'}`
+(`agent.js:2602`) — the body must physically arrive. The analyser reports **within 3 m in
+3 of 50 comparable samples, mean separation 242 m.** A walk to a trading partner is long
+and every new decision replaces the target. But that is a hypothesis and `acted` is how
+you stop guessing.
+
+### What plainly worked
+
+- **`plan`: 6 of 7 model seats wrote one.** Morag 26 distinct, Fingal 14, Ailsa 7.
+  The lone abstainer is Eachann (`grok-4.20`), `plan: []` and `note: ""` all run.
+- **`note` is still one model's habit.** Morag (`claude-opus-5`) wrote the only three in
+  the run — *"25 branches. No food. Trade fire for meat."* **Third run confirming A157.**
+- **Speech is universal and coordinating.** Morag produced 29 distinct lines, every one a
+  standing market offer pinned to a named place: *"Venison to the Rowan Moor fire — bring
+  wood, take a cooked share."* The scripted control Iseabail said **nothing, ever** — the
+  cleanest model-vs-script contrast in the file.
+- **Fires: 19 `place` deeds** in 4.4 game hours across 8 seats (41 in ~24 h last run, 106
+  pre-fix). The 10-branch cost is holding and nobody is wood-starved.
+- **Carcasses:** 5 kills, 3 `craft`, 5 `eat`. The loop closes for those who hunt.
+
+### Still broken, unchanged
+
+- **Gold: 0 on all 560 card-observations. Eleventh consecutive check.** A151.
+- **The kimi seats get a quarter of the turns again.** Coinneach 13 calls and Seonaid 13,
+  against Eachann's 52 and Fingal's 41. **Coinneach shows two distinct intentions in the
+  entire run.** The 8000-token cut-off did *not* recur; Seonaid's one failure was
+  `This operation was aborted`. A160's cadence half stands, its token half may be fixed.
+- **Fingal (`haiku-4.5`) at food 12**, the only seat in trouble; the rest sit 60–90.

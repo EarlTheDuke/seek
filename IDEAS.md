@@ -3459,3 +3459,59 @@ No seat came near `SPENT` (highest: Eachann 142 of 250) and the run consumed **u
 of its call budget. Every past worry about seats going scripted mid-run was misplaced at these
 cadences. There is room to run seats 3–4× faster, or to add minds, without touching the budget
 — and density is what produces the encounters the social verbs need.
+
+### A164 † PUT `acted` ON THE BOARD NEXT TO `refusedVerbs` — THE ANSWER IS ALREADY IN MEMORY **[S]**
+
+Five seats set an `offer` goal and two set `accept` in the 12:38 melee, and **both verbs
+produced zero deeds while `refusedVerbs` stayed `{}` on all 560 cards.** The board therefore
+cannot tell *"the model never chose it"* from *"the model chose it and the body never
+arrived"* — the only open question about trade.
+
+`Agent.acted` (`src/net/agent.js:212`) is already incremented at `agent.js:1333` the instant a
+verb's walk arrives and fires. `server/board.js:287` exports `refusedVerbs` and not `acted`.
+
+**Fix:** add `acted: a.acted ?? {}` beside it and render it as a "verbs fired" list. One line
+of export. Together with `refusedVerbs` it gives three distinct readings per verb — never
+wanted / wanted and refused / wanted and fired — and retires a whole class of guessing that
+has now produced two wrong readings in this file.
+
+### A165 † A SPOKEN DEAL BINDS NOTHING, AND ONE MODEL PAID NINE TIMES FOR IT **[M]**
+
+Tormod (`grok-4.5`) and Eachann (`grok-4.20`) settled a bargain in words — *"deal done"*,
+*"here is the venison"*, said four separate ways — and **Eachann's deed record for the whole
+run contains no `give` at all.** Tormod handed over `give ×9` wood, ate nothing, and finished
+holding `bow ×1, wood ×6`. His own wording escalates across the sequence (*"as you said"* →
+*"deal still stands"* → *"as promised"* → *"aye, hand it over"*): a mind that knows it is
+being stiffed and has no verb that can collect.
+
+`say` costs nothing and is never checked against the ledger, so claiming to have paid and
+paying are indistinguishable to the counterparty *and* to us reading the log.
+
+**Fix, smallest first:** (a) when a mind's `say` names a good it holds, attach the actual
+holding to the line the listener hears — *"Eachann says: here is the venison (he is carrying
+no venison)"*; (b) make `offer` create a real open deal with an expiry that both parties can
+see on their card, so "deal still stands" is a fact and not a claim; (c) let `accept` settle
+against that open deal at range rather than requiring a fresh walk. (b) is what `8b38370`
+started; this run shows the spoken half needs the same treatment.
+
+### A166 THE SAME DEAL RE-FIRES AS LONG AS THE INTENT STANDS — AND WITH `give` IT COSTS REAL GOODS **[S]**
+
+Tormod's nine `give`s land at **h20.88 / 20.93 / 20.98 / 21.03 / 21.08 / 21.13 / 21.18 /
+21.23 / 21.29** — one every 0.05 h, exactly the shape A159 found for `trade`. The difference
+is that `give` is not a counting artefact: **each re-fire moves a real branch out of the
+payer's pack for nothing.**
+
+Honest caveat: the sampled board cannot distinguish nine decisions from one decision re-fired
+nine times, and Tormod's escalating speech suggests genuine repeated intent. **A164 settles
+it** — an `acted.give` count against his decision count answers it in one glance. Until then,
+do not quote `give` counts as generosity.
+
+### A167 THE FREE SEATS ARE STILL A QUARTER-PRESENT, BUT THE TOKEN CUT-OFF DID NOT RECUR **[S]**
+
+Coinneach and Seonaid (`kimi-k2.6`) took **13 calls each against Eachann's 52 and Fingal's
+41**, and Coinneach produced **two distinct intentions in the entire run**. A mind that thinks
+twice in four game hours cannot participate in a market. But the `reply cut off at 8000
+tokens` error of the last run is **absent** — Seonaid's single failure was
+`This operation was aborted`. Split A160: the token half looks addressed, the cadence half is
+not. A seat sampled at 75 s is not a fair comparison against one sampled at 20 s and should
+not appear in the same standings table.
