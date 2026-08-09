@@ -3394,3 +3394,68 @@ Meanwhile opus-5 was the **only** seat in the run to ever write a `note`
 Not a fix so much as the benchmark finding this project is for: **self-authored state
 (`plan`, `note`) is the sharpest model-vs-model separator on the board, and it predicts
 survival.** Worth promoting to a scored column rather than a curiosity.
+
+### A158 †† A SENTENCE CANNOT BECOME AN OBLIGATION, SO A PROMISE AND A LIE ARE THE SAME OBJECT **[M]**
+
+Melee run 2, complete: **268 utterances, 57 of them offering a deal, 14 exchanges.**
+Morag (opus-5) promised a trade **27 times and executed none** — *"Fingal — ten branches
+and a hide for a share of that venison"*, *"Tormod, deal: hide for a share."* Tormod
+honoured his side (`h21.42 give: I gave wood to Morag`); nothing came back. Seonaid gave
+Morag wood **six times** for nothing and ended the run carrying only a bow.
+
+`say` is free, rides on any verb, and **binds nothing**. The engine cannot distinguish a
+kept promise from a broken one — so the roster's liar persona and its leader persona are
+indistinguishable in the record, and the liar is the one who happened to pay up. Speech
+being alive (settled) is worthless as a benchmark signal while it is decoupled from action.
+
+**Fix:** a spoken deal should create a lightweight *pledge* object — who, what, to whom,
+by when — visible in the speaker's brief and scored on settlement. Two columns fall out
+of it for free: `pledgesMade` and `pledgesKept`. That is the first genuinely social
+metric this project would have, and it separates models on something no walk-and-gather
+score can reach.
+
+### A159 † A TRADE FIRES ONCE PER TICK WHILE THE INTENT STANDS — FIVE DEEDS, ONE BARGAIN **[S]**
+
+The only trades in a 24-game-hour, 8-seat run are five `trade` deeds, Coinneach → Ailsa,
+arrow for wood, at **h9.03 / 9.07 / 9.11 / 9.15 / 9.19** — one bargain re-executed on five
+consecutive ticks, not five bargains. Counting deeds therefore **overstates trade by 5×**,
+and it is the metric the last three entries have quoted.
+
+**Fix:** settle a trade intent once and clear it, and/or collapse identical
+counterparty+goods exchanges inside a short window into a single deed with a count.
+
+### A160 † BOTH FREE SEATS LOOSED 28 ARROWS AND HIT NOTHING, ON A QUARTER OF THE TURNS **[M]**
+
+`Coinneach 16 loosed / 16 astray`, `Seonaid 12 / 12` — **0 hits from 28 shots**, both
+`kimi-k2.6`, both zero kills, zero `eat`, zero cooking. Compare Fingal 14/11 with 2 kills.
+A 0% rate over 28 shots is not judgement. They also take **35 calls to Eachann's 142**: the
+75 s cadence was set because the tinybox is free, and the effect is that the two free minds
+are the least present in the world *and* the only ones locked out of the shoot→eat loop.
+
+The 8000-token cut-off also **recurred** despite `maxTokens: 8000` already being set and
+`melee2.cmd` claiming the fix is in — raising the ceiling does not work; cap the seat's
+reasoning instead. Until both are addressed, kimi's numbers cannot be read as model quality.
+
+### A161 THE CONTROL'S ARROW COUNTERS DISAGREE WITH THEMSELVES — 23 LOOSED, 29 ASTRAY **[S]**
+
+`Iseabail: loosed 23, astray 29`. Astray cannot exceed loosed. This is on the **scripted
+control**, the seat every model comparison is measured against, so a bad counter there
+contaminates every accuracy claim in the file.
+
+### A162 FOOD IS NOT A STANDINGS METRIC AT ANY SINGLE MOMENT — STOP READING SNAPSHOTS AS RESULTS **[S]**
+
+The 12:04 entry published final standings from a 28-minute snapshot and got **both extremes
+backwards**: it named Eachann *"the only seat to starve"* (he finished at 39, alive) and put
+the scripted control 7th (she finished **8th, food 0, health 30**). Sampled across the run,
+Morag goes 51 → 81 → 56 → **9** → 47 and Eachann 51 → 20 → **0** → 61 → 39.
+
+**Fix:** the analyser should refuse to print a standings table unless the run has ended, and
+should report food as *time spent below 20* (a starvation-exposure integral) rather than a
+final reading. Cheap, and it removes the single most repeated error in this file.
+
+### A163 THE RUN USED 582 OF 4000 CALLS IN 62 MINUTES — THE BUDGET IS NOT THE CONSTRAINT **[S]**
+
+No seat came near `SPENT` (highest: Eachann 142 of 250) and the run consumed **under a sixth**
+of its call budget. Every past worry about seats going scripted mid-run was misplaced at these
+cadences. There is room to run seats 3–4× faster, or to add minds, without touching the budget
+— and density is what produces the encounters the social verbs need.

@@ -4954,3 +4954,122 @@ re-checking at full run length before anyone celebrates.
 ### Gold: 0 for all 8 seats in all 85 samples — ninth consecutive check
 
 A151 stands unchanged and is now the oldest unaddressed finding in this file.
+
+---
+
+## 2026-08-09 12:34 — melee RUN 2, **AT THE END**: 268 sentences, 57 of them offers of a deal, **14 exchanges** — and the 12:04 entry's final standings were a mid-run snapshot
+
+**Read this entry before trusting the 12:04 one.** The run did not end at 85 samples;
+it ran to **175 samples / game tick 2846** and finished while this check was being
+written (the board has since reset to `at=46` on a fresh world). Everything below is
+end-of-run, on the complete `melee2.jsonl`.
+
+**Note the roster mismatch in the task file:** it still describes the two-mind duo
+(Eachann + Coinneach on `duo2.jsonl`). What has actually been running since 10:47 is
+`roster-melee.json` — seven models plus the scripted control. `duo2.jsonl` has been
+stale since 11:28. This analysis is of `melee2.jsonl`.
+
+### Correcting 12:04 — both ends of its food table are wrong at run's end
+
+| seat | 12:04 said (28 min in) | actual, at the end |
+|---|---|---|
+| Eachann `grok-4.20-non-reasoning` | food **0** — *"the only seat to starve"* | food **39**, health 100, alive |
+| Iseabail SCRIPTED CONTROL | food 29, 7th of 8 | food **0**, health **30 and falling — 8th of 8** |
+
+Eachann recovered; the control is the one dying. **The lesson is methodological:
+food is not a standings metric at any single moment.** Sampled at five points, Morag
+runs 51 → 81 → 56 → **9** → 47 and Eachann 51 → 20 → **0** → 61 → 39. A snapshot
+taken at 28 minutes and read as a result is how the 12:04 entry got both extremes
+backwards. Final food: Tormod 79 · Fingal 78 · Ailsa 76 · Coinneach 68 · Morag 47 ·
+Eachann 39 · Seonaid 32 · **Iseabail 0**.
+
+A156 is therefore *strengthened*, not weakened: the control finished last outright.
+
+### THE HEADLINE: talk is free, and it is not connected to anything
+
+268 distinct utterances. **57 of them offer a deal.** 14 exchanges actually happened.
+
+```
+seat        utterances   of which a deal-promise   exchanges done
+Morag  opus-5      81            27                      0
+Fingal haiku-4.5   57             1                      0
+Ailsa  sonnet-5    46            10                      7
+Tormod grok-4.5    26             6                      1
+Eachann grok-4.20  26             3                      0
+Seonaid kimi        17             2                      6
+Coinneach kimi      15             8                      5
+```
+
+**Morag (opus-5) promised a trade 27 times and executed none.** Verbatim, hours apart:
+*"Fire's at Rowan Moor — bring venison, wood and a hide waiting."* … *"Fingal — ten
+branches and a hide for a share of that venison."* … *"Tormod, deal: hide for a share."*
+Tormod took that deal from his side — `h21.42 give: I gave wood to Morag` — and Morag
+never gave anything back, all run. Seonaid gave Morag wood **six times** and received
+nothing; she ends the run **carrying a bow and nothing else**, food 32.
+
+This is the sharpest thing on the board and it is not a model failure. `say` rides
+free on any verb, costs nothing, binds nothing, and **there is no mechanism by which a
+sentence can become an obligation.** The engine cannot tell a kept promise from a
+broken one, so neither can the benchmark. The liar persona (Tormod) and the leader
+persona (Morag) are indistinguishable in the record — the liar happens to be the one
+who paid up.
+
+### The only trade in the run was one deal repeated five times in ten game-minutes
+
+All five `trade` deeds are Coinneach → Ailsa, arrow for wood, at **h9.03, 9.07, 9.11,
+9.15, 9.19**. That is not five bargains; it is one bargain fired on five consecutive
+ticks. Outside that 0.16-hour window, in ~24 game hours across 8 seats, **not one
+trade**. Plus 9 one-sided `give`s (Seonaid 6, Ailsa 2, Tormod 1). `offer` and `accept`
+produced no deed for anyone — consistent with A153/A154, which remain the blockers.
+
+### Gold: 0 for all 8 seats across all 1,408 card observations — tenth consecutive check
+
+A151 is now the oldest unaddressed finding in this file by a wide margin.
+
+### `refusedVerbs`: `{}` on every card, in all 1,408 observations
+
+Double the sample count of the last check, same result. A155 explains it and I have
+nothing to add: `refuse()` (`agent.js:1614`) has **11 call sites and every one is a
+name-or-noun resolution failure.** It cannot see this run's actual failure mode.
+Meanwhile Morag's separate `refusals` array *is* populated (4 entries, e.g.
+*"too far", slant 98.4, leadBy 0*) — so the shot channel reports and the verb channel
+does not, which is a good illustration that the two are not the same instrument.
+
+### Both tinybox seats loosed 28 arrows and hit nothing, and act at a quarter of the rate
+
+```
+Coinneach kimi-k2.6  16 loosed / 16 astray   0 kills   35 calls
+Seonaid   kimi-k2.6  12 loosed / 12 astray   0 kills   36 calls
+Eachann   grok-4.20   8 loosed /  4 astray   1 kill   142 calls
+Fingal    haiku-4.5  14 loosed / 11 astray   2 kills  113 calls
+```
+
+**A 0% hit rate over 28 shots, from both kimi seats, is unlikely to be judgement.**
+They are also the only seats with zero kills, zero `eat` deeds and zero cooking, and
+at 35 calls to Eachann's 142 they get **one quarter of the turns**. The 75 s cadence
+was chosen because they are free; the effect is that the two free minds are the least
+present in the world and the least able to close the shoot→eat loop.
+
+And the 8000-token cut-off **recurred** — both kimi seats carry
+`lastError: "reply cut off at 8000 tokens — raise maxTokens for this seat"`, though
+`roster-melee.json` already sets `maxTokens: 8000` and `melee2.cmd`'s header claims
+that fix is in. Raising the ceiling has not worked; the seat needs its reasoning
+capped, not its budget raised.
+
+### Instrument bug: the control fired 23 arrows and 29 went astray
+
+`Iseabail: loosed 23, astray 29`. Astray exceeds loosed, so one of the two counters is
+wrong, and she is the *control* — the seat every model comparison is measured against.
+
+### What plainly worked, again
+
+- **Speech.** 268 distinct lines, coordinating, naming people and places. Settled.
+- **`plan`.** 7 of 7 model seats wrote one; Morag wrote 95 distinct plan lines.
+  **`note` is still one model's habit** — opus-5 wrote the only note in the run,
+  the same one as last check: *"Goblin roams NE of Rowan Moor. Don't go north alone."*
+  Confirms A157's axis on a full run.
+- **Carcasses and fires.** 8 kills, 9 `craft`, 11 `eat`; **41 fires** across ~24 game
+  hours and 8 seats, against 106 pre-fix. Wood is not too scarce — single gathers of
+  57, 40 and 31 branches are in the record.
+- **No seat went `SPENT`.** Highest was Eachann at 142 of 250. **The run used 582 of
+  4000 calls in 62 real minutes** — under a sixth of the budget.
