@@ -2745,3 +2745,41 @@ with no record; (b) decide deliberately whether starvation should also drop the
 pack, and make the two paths consistent; (c) clear `plan` and any in-flight
 trade errand on death (A116) — Coinneach's offer survived his own respawn and
 was only abandoned when the *counterparty* respawned 340 m away.
+
+### A120 †††† THE NIGHT ROUTINE OUTRANKS STARVATION, AND THE MIND'S OWN `why` PROVES IT **[S]**
+
+Coinneach — the **live** seat, `spent: false` — starved from food 84 to 0 and
+fell 100 → 15 hp while holding `find shelter and settle for the night` on **every
+sample of the descent, twenty in a row**. What he wrote for himself on the way
+down:
+
+```
+s2706  food 7  hp 100   why: "night is here, fire burns"
+s2711  food 2  hp 100   why: "fire is set, need sleep before dawn"
+```
+
+**Both lines are correct reasoning about the fire. Neither mentions food.** The
+model is not missing hunger through inattention — it is ranking the thing the
+brief *announces* (nightfall, the fire) above the thing the brief merely
+*lists* (a food number in a row of numbers). Once it committed to the night goal
+it never re-ranked, for twenty samples.
+
+This is distinct from A118. A118 asked for a warning **at** food 0 and measured
+that starvation kills in under three decisions. This says the warning arrives too
+late by construction: **the mind commits to the night hours before food 0, and
+nothing re-opens that decision.** It is also why A101's `eat` rule alone would
+not have saved this seat — Coinneach is the seat with a working brain.
+
+**Fix:** (a) when `food` drops under ~15, put it in the same slot of the brief
+that announces nightfall, phrased as a clock and not a stat — *"night is here.
+You have 6 ticks of food left."* Nightfall and hunger must compete in the same
+sentence or the mind will rank whichever one is narrated; (b) make
+`find shelter and settle for the night` **interruptible** — it currently survives
+food 10 → 0 → hp 15 without one re-evaluation; (c) cheapest version of both: emit
+a `hungry` deed the way fires and gathers get deeds, so hunger enters the one
+channel a mind actually re-reads.
+
+Evidence: twentieth look, 2026-08-09 08:07. In the same 37-minute window Eachann
+starved on the same 11-point ladder **carrying `hide x19`**, and the pair's entire
+output was 38 wood-gathers and 8 fires — 80 branches burned, **zero deeds done at
+a fire**. A115's gate, at run scale: the fire is a pure sink.

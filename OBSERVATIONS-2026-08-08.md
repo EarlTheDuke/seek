@@ -4001,3 +4001,83 @@ samples, while a starving mind spent seven ticks and 200 m of ground offering a
 hide he really had to a seat that has never executed `accept`, and died at 11 hp
 a tick with the offer still on his card and nothing anywhere recording that it
 was refused, that he died, or that the deal was never possible.**
+
+---
+
+## 2026-08-09 08:07 PDT — RUN 2, TWENTIETH LOOK: both minds starved to zero in the same window, and the live one wrote *"fire is set, need sleep before dawn"* at food 2
+
+Window **s2630 → s2743**, 112 samples, **37 real minutes**. Run still live at
+s2747. Budget **2,046 of 6,000**. Eachann `spent: true` since s1997 — **half this
+world has not been a model for 750 samples** (A97/A112). Coinneach `spent: false`,
+546 calls, **249 failures (45.6%)**, every one `no json in reply`.
+
+### The finding: the night routine outranks starvation, and the mind's own `why` proves it
+
+Coinneach is the **live** seat. His food ran **84 → 0** across the window and he
+then rode the 11-point ladder **92 → 81 → 70 → 59 → 48 → 37 → 26 → 15**. His
+`goal` on **every single sample of that descent** was `find shelter and settle
+for the night`. The two `why` lines he authored on the way down, verbatim:
+
+```
+s2706  food 7  hp 100   why: "night is here, fire burns"
+s2711  food 2  hp 100   why: "fire is set, need sleep before dawn"
+```
+
+**Both are correct reasoning about the fire. Neither mentions food.** This is not
+a model failing to notice hunger — it is a model correctly prioritising the thing
+its card presents as the salient fact. Nightfall is announced; food 2 is a number
+in a row. He committed to the night goal and **held it for 20 consecutive
+samples** while starving. A118 asked for a warning at food 0; this shows the
+warning has to land *before* the mind commits to the night, because once
+committed it never re-ranked.
+
+### The whole output of both minds, for 37 minutes
+
+| | gathers | fires | eat | kill | craft | give |
+|---|---|---|---|---|---|---|
+| Eachann | 11 (all wood) | 3 | 0 | 0 | 0 | 0 |
+| Coinneach | 27 (all wood) | 5 | 0 | 0 | 0 | 0 |
+
+**38 branches picked up, 8 fires lit, and nothing else happened.** 8 fires =
+**80 branches burned**; deeds done *"at the fire"*: **0**. With the nineteenth
+look's 28 gathers and 10 fires, that is now **68 real minutes and 207 samples of
+gather-and-burn with zero food, zero arrows, zero kills and zero trade.** A115's
+fletching gate, measured at run scale: the fire is a **pure sink** in this
+regime — it consumes the only good either mind can reliably produce and returns
+nothing. (Deeds are a 5-deep rolling list sampled every 20 s, so these are floors.)
+
+### Eachann died carrying nineteen hides
+
+His ladder: s2673 food 0, then **89 → 78 → 67 → 56 → 45 → 34 → 23 → 12 → 1**,
+respawn at s2683. `carrying: bow x1, hide x19, wood x3` on **every sample of it,
+including hp 1**. Goal on the ladder: `stay still and watch`, `why: null` on
+**112/112** — the script (A101/A112). As of s2747 he is at **food 0 again**,
+starting a second ladder, still holding **hide x19**.
+
+### Coinneach's plan is impossible three separate ways
+
+Unchanged all window: `["trade Eachann a hide for meat at dawn", "fletch arrows
+from the branches", "hunt those east deer after"]`. He plans to trade **a hide he
+does not have** (`carrying: bow x1, wood x6`) for **meat that does not exist**
+(Eachann: 0 kills in window, no meat in pack) to **a counterparty that is a
+script** (A107/A117). The plan is honest, durable, and unreachable — A116 again,
+now with all three legs falsifiable from one card.
+
+### Re-checked
+
+- **`note`: `""` on both, 29th consecutive check.** Zero uses, whole run.
+- **`refusedVerbs` frozen** at `{avoid: 16}` / `{}` — now **2,079 samples**, one word.
+- **Trade: zero.** Nothing has moved between them since **s1748** — ~1,000
+  samples, ~5.5 real hours.
+- **Speech: 5 lines total, all Coinneach**, unchanged from the nineteenth look.
+  Eachann's card still displays the frozen `"one hide for your venison? done"`
+  from before s1997.
+- **`why` remains the one self-authored field that works** — and this window is
+  the clearest case yet that it is *diagnostic*: it told us exactly why he starved.
+
+### The one-line version
+
+**A live model wrote *"fire is set, need sleep before dawn"* at food 2, held
+`find shelter and settle for the night` for twenty samples while its health fell
+100 → 15, and was right about the fire every step of the way — because nothing on
+the card ever told it that hunger now outranked nightfall.**
