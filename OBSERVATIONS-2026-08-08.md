@@ -4585,3 +4585,130 @@ Against 0 failures for both Groks and both working Anthropic seats. Any melee
 Sixth consecutive check. `plan` is used by **6 of 8** and carries real intent across
 decisions. `note` has never once been written by any model in any run. It should
 probably be deleted rather than fixed.
+
+---
+
+## 2026-08-09 11:05 — the melee, second look: **trade happened.** Everything the last entry called missing arrived in the second half of the run
+
+Same process as the 10:35 entry — **no restart, 0 call-count regressions across 158
+samples**, `at 43 → 2578`, 50 real minutes, ~2.8 game days. 589 calls of 4000.
+
+**The last entry was not wrong; it was early.** It closed at `at 905`. The first
+exchange landed at `at 1341`, the first `refusedVerbs` entry at `at 1787`, the first
+`note` ever written at `at 2185`. Three of that entry's four negative findings have
+since been overtaken by the same run. Nothing was misread — the window was short.
+
+### THE HEADLINE: two different models negotiated a price and settled it
+
+**21 exchange deeds — 10 `trade`, 11 `give`** — after two days and six models of zero.
+The full Morag↔Ailsa exchange, verbatim off the board, opus-5 and sonnet-5:
+
+```
+Ailsa (sonnet-5)  "Morag — three branches for two cooked venison?"
+Morag (opus-5)    "Ailsa — two cooked venison for three branches, and the fire's
+                   lit by dark for all of us."
+Ailsa             "Aye, deal done, three branches coming."
+Morag             "Deal, Ailsa — branches to me, cooked venison to you."
+Ailsa             "Here's your three branches, as promised."
+   h10.29  Ailsa gave wood to Morag
+   h10.36  Ailsa gave wood to Morag
+   h10.40  Ailsa traded wood to Morag for venison_cooked
+```
+
+An opening offer, a counter, an acceptance, delivery, and settlement — across a model
+boundary. It happened again at h16.36 with Tormod (grok-4.5), who bid *"twelve branches
+for a share of venison"*, said *"here are the branches, deal done"*, then *"take them
+all"*, and paid in four separate single gives at h17.48/17.59/17.63/17.78.
+
+**The affordance verdict in the last entry stands and is now sharper.** Trade was never
+a model problem. It was reachable the moment the minds were within arm's length.
+
+### `refusedVerbs` is the best column on the card, exactly as intended
+
+```
+Ailsa (sonnet-5)  { avoid: 24 }        Morag (opus-5)  { offer: 5 }
+everyone else     { }
+```
+
+Both are **real verbs** (`personacheck.js:58` — *"approach and avoid take target"*).
+`agent.js:1615` increments only when a social verb's target resolves to nobody, so
+these are 29 attempts aimed at a name the world could not find. Ailsa said *"Goblins
+coming - I'm staying clear!"*, *"I'll stay clear of the troll"* and *"staying clear of
+the goblins"* — she was reaching for `avoid` in the fiction and being refused in the
+engine, 24 times, and `quarrycheck.js:21` already records `avoid` breaking on exactly
+this (*"a goblin"* vs *"goblin"*). **This is the seventh instrument fault, and the
+column found it in one run.** Its one gap: it counts the verb and throws away the
+target, so it cannot say *which* name failed.
+
+### Correction: `note` is not dead, and it should not be deleted
+
+The last entry said *"`note` has never once been written by any model in any run …
+should probably be deleted rather than fixed"* (6th consecutive check). **At `at 2185`
+Morag wrote one:**
+
+> `note: "Tormod and Ben dead to goblins north-east. Do not go that way."`
+
+**Both halves are false.** Tormod was at hp 100 / food 55 for the whole run and never
+died. **There is nobody called Ben** — no roster entry, no NPC, `MINDS_HUNTERS=0`; the
+only `Ben` in the codebase is a JSDoc example at `agent.js:83`. Morag invented him
+(*"Ben — Morag's in, bring the venison here"*, *"then Ben's fire after dark"*), Eachann
+heard it and addressed him back (*"Ben, four arrows for nothing? I'll come after
+dark"*), and Morag then wrote his death into the one field that survives every
+decision. A shared hallucination propagated through the speech channel and hardened
+into persistent memory. `note` isn't dead — it's **unverified**, which is worse and far
+more interesting.
+
+### Fingal: 111 calls, 0 answered, 111 failed, still no tag
+
+```
+Fingal  claude-haiku-4-5  111/111 failed  fellBack: true  spent: FALSE
+  http 400 — "This model does not support the effort parameter."
+```
+
+`fellBack` was true by `at 403` and never cleared. **Nothing on this card is Haiku** —
+0 utterances, empty `plan`, 12 arrows loosed. Second consecutive entry reporting it.
+
+**And the fix exists but is not in this world.** `roster-melee.json` now carries
+`"effort": null` with a note saying *"MUST be null … without this line this seat is
+silently the scripted brain for the whole run"* — the file's mtime is **10:44**. The
+sampled process started **10:12** and has never restarted. `melee2.cmd` (written 10:47,
+*"Run 2 … the ONLY differences are the two provider fixes"*) **was never launched** —
+no log files, no counter reset. Anyone grading this board is grading run 1.
+
+### Archery is the instrument, not the models — 73% of arrows go into the ground
+
+**135 loosed, 99 astray, 6 kills.** Every stray reads the same:
+*"flew true and still missed, at 24 m, into the ground"* — the same phrasing at the
+same distance, for six different models. Refusals say *"ground in the way 11 m out"*.
+Coinneach alone loosed **64 arrows (47% of all arrows fired) for 0 kills.** A model
+that shoots 64 times and kills nothing looks incompetent on a leaderboard; the arrow
+is hitting terrain at close range.
+
+### Fires went UP, and wood is a bigger treadmill than last entry measured
+
+**60 fires** this run against the 19 the last entry counted in its window — Eachann 20,
+Tormod 11, Morag 6, Fingal 6, Seonaid 6, Coinneach 5, Ailsa 3, Iseabail 3. Against
+**3,508 branches gathered and ~600 burned**, single pickups of **72, 70, 67, 66, 65**.
+The 10-branch cost did not make wood scarce; it made it a bigger errand. 283 of 303
+gather deeds were wood — **93% of everything anyone did all run was pick up sticks.**
+
+### A134 confirmed a third time, now with the mechanism visible
+
+Five death-and-respawn events across three seats, each one restoring food to 84–85:
+Seonaid `at 826` (food 0, hp 6 → food 85, hp 100) and again `at 2460`; Coinneach
+`at 878` and `at 2598`; Morag `at 878`. Dying remains the cheapest meal.
+
+### kimi's parser handicap, 6th consecutive check
+
+`Coinneach 16/37 failed (43%)`, `Seonaid 26/37 (70%)`, both *"no json in reply"*,
+against **0 failures** for opus-5, sonnet-5 and both Groks. Seonaid answered **11 times
+in 50 minutes**. Any standing that ranks these two seats is ranking a JSON parser.
+
+### Speech: 96 delivered, and the cooldown ate 75 more
+
+The drought is over. But `m-minds.log` logged **75 suppressions** —
+*"(wanted to say X — too soon, 0.31h of 0.5h)"* — and they are not all noise:
+**`"three branches for two cooked, deal?"` was suppressed twice** and
+`"twelve branches for a fair share of that meat"` once. The 0.5 h gate is throttling
+the exact utterances that make trade work, while the repetition problem it was meant
+to solve is unfixed (Eachann's *"mine now"* / *"that one is mine"* suppressed 7× each).

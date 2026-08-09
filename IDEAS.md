@@ -3158,3 +3158,108 @@ which is the opposite of what a melee is for.
 **Fix:** make a carcass visible to everyone in `also out there` by name and distance
 (*"a dead deer, 60 m, Tormod's kill"*), and let meat spoil so a lone hunter's surplus
 is worth trading before it rots. Scarcity without a clock just makes hoarding correct.
+
+### A141 †† `fellBack: true` DESERVES THE RED TAG THAT `spent` GETS **[S]**
+
+Fingal ran **111 calls / 0 answered / 111 failed** with `fellBack: true` and
+`spent: false`, so the board showed no tag and kept the label `claude-haiku-4-5` on a
+card driven entirely by if-statements. Two consecutive observation entries have had to
+open by saying this out loud. `spent` and `fellBack` are the same fact for a reader —
+*this seat is not the model any more* — and only one of them is visible.
+
+**Fix:** render the red tag on `spent || fellBack`, and add a third state for a seat
+whose failure rate is over ~30% (`SHAKY`, for the Kimi seats at 43% and 70%). One line
+in `board.js:439`; it retires an entire class of misread run.
+
+### A142 †† `refusedVerbs` COUNTS THE VERB AND THROWS AWAY THE TARGET **[S]**
+
+The column worked on its first live outing — `Ailsa { avoid: 24 }`, `Morag
+{ offer: 5 }` — and immediately hit its ceiling. `agent.js:1615` increments on verb
+name only, so 29 refusals tell you *that* a name failed to resolve and never *which*.
+Ailsa was almost certainly saying `"the goblins"` or `"goblins"` (her speech is full of
+*"staying clear of the goblins"*), which is the same plural/article failure
+`quarrycheck.js:21` already documents for `avoid`.
+
+**Fix:** store `{ n, lastTarget, lastSeen }` per verb and show the target on the card.
+Without it every refusal needs a code-reading session to interpret; with it the fix is
+usually obvious from the board itself.
+
+### A143 †† `give` HAS NO QUANTITY, IN THE ENGINE OR ON THE CARD **[S]**
+
+Tormod bid *"twelve branches for a share of venison"*, said *"take them all"*, then
+paid in **four separate gives** at h17.48, h17.59, h17.63 and h17.78. Ailsa promised
+*"three branches"* and paid in three gives at h11.58/11.79/11.81. Every deed line reads
+`"I gave wood to Morag"` with **no `n` and no item id** — so the board cannot answer
+whether a promise of twelve was honoured with twelve or with one.
+
+**Fix:** two parts, both small. (a) Let `give`/`offer` carry a count so a deal closes in
+one action instead of burning a decision per branch. (b) Put the quantity in the deed
+text (`"I gave 3 wood to Morag"`). Until (b), **no run can measure whether anyone keeps
+their word** — which is the whole point of having a character written as a liar.
+
+### A144 †† A RUN MUST STAMP THE ROSTER IT ACTUALLY LOADED **[S]**
+
+`roster-melee.json` gained `"effort": null` at **10:44**. The sampled process started at
+**10:12** and never restarted. `melee2.cmd`, written at 10:47 and titled *"Run 2 … the
+ONLY differences are the two provider fixes"*, was never launched. The board looked
+identical either way. This is the **second** time in two days a run has been graded
+against fixes it was not running (see the 09:03 and 09:34 entries).
+
+**Fix:** put `rosterPath`, its **mtime and content hash**, and the process start time on
+`board.json`, and print them in the header. A watcher should never have to compare file
+timestamps to know which code is in front of them.
+
+### A145 †† 73% OF ARROWS GO INTO THE GROUND AT 24 m, FOR EVERY MODEL **[M]**
+
+**135 loosed, 99 astray, 6 kills.** The stray text is identical across six models and
+two vendors: *"flew true and still missed, at 24 m, into the ground"*; refusals read
+*"ground in the way 11 m out"*. Coinneach loosed **64 arrows — 47% of every arrow fired
+in the run — and killed nothing.** A shared 73% failure rate with a shared distance and
+a shared failure mode is terrain or ballistics, not six models being bad at archery.
+
+**Fix:** reproduce it in `ballisticscheck.js` at 20–25 m on sloped ground before
+touching anything. This matters beyond hunting: kills gate meat, meat gates trade, and
+a leaderboard that scores kills is currently scoring who happened to stand on flat
+ground.
+
+### A146 †† THE SPEECH COOLDOWN IS THROTTLING THE TRADE LINES **[S]**
+
+75 utterances were suppressed by the 0.5 h gate. Among them:
+**`"three branches for two cooked, deal?"` twice** and `"twelve branches for a fair
+share of that meat"` once — bids, in a world where the first trade in project history
+had just happened. Meanwhile the repetition the gate exists to stop is untouched
+(Eachann's *"mine now"* and *"that one is mine"* were each suppressed 7 times, and he
+still said them).
+
+**Fix:** gate on **similarity to the mind's own last line**, not on elapsed time (this
+is A139, now with the cost measured). A line that names a good, a quantity or another
+mind's name should bypass the cooldown entirely.
+
+### A147 †† A MIND CAN WRITE A FALSEHOOD INTO PERMANENT MEMORY, AND ANOTHER WILL BELIEVE IT **[M]**
+
+Correcting A-series notes that call `note` dead: Morag wrote one at `at 2185` —
+*"Tormod and Ben dead to goblins north-east. Do not go that way."* Tormod was alive at
+hp 100 the entire run. **Ben does not exist**: no roster entry, no NPC, `MINDS_HUNTERS=0`.
+Morag invented him, spoke about him, **Eachann heard it and addressed him back**
+(*"Ben, four arrows for nothing?"*), and Morag then committed his death to the one field
+that survives every decision and steers her away from a whole quarter of the map.
+
+**This is a feature worth keeping, not a bug to delete.** `note` is not unused — it is
+unverified, and unverified memory spreading between models is the most interesting thing
+this world has produced. **Fix:** don't validate it. Show it on the card as *what this
+mind believes* (distinct from what the world confirmed), and log a `belief` event when a
+name in a note or an utterance matches nobody — that line alone would have caught Ben
+the moment he was born.
+
+### A148 †† 93% OF EVERY ACTION IN THE RUN WAS PICKING UP STICKS **[M]**
+
+283 of 303 gather deeds were wood: **3,508 branches gathered, ~600 burned across 60
+fires**, with single pickups of 72, 70, 67, 66, 65. The 10-branch fire cost (A-series,
+"the cost bit") did not create scarcity — **fires went UP**, from 19 in the first window
+to 60 over the run, because wood income scaled faster than the price. Eachann alone lit
+20. Corroborates and supersedes the earlier read of A134's wood arm.
+
+**Fix:** cap what one gather yields (a person carries an armful, not 72 branches) and
+make deadfall local and slow to return, which `9abc3b2` already established it does not
+do. Scarcity has to bind the *rate*, not the *price* — while a mind can pick up 70
+branches in one action, no fire cost will ever make wood matter.
