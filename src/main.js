@@ -59,6 +59,7 @@ import { DANGER_LEVELS, bannedSpecies, readDanger, writeDanger, getDangerLevel }
 import { GLIDER } from './config.js';
 import { NetClient } from './net/client.js';
 import { Avatars } from './net/avatars.js';
+import { RemoteLoot } from './net/remoteloot.js';
 import { PetAvatars } from './net/petavatars.js';
 import { sampleEnvironment } from './world/environment.js';
 import { insulationOf } from './items/registry.js';
@@ -354,6 +355,9 @@ function boot() {
     console.log('  solid: trunks, boulders and stone stop this body');
   }
   const avatars = new Avatars(scene);
+  // What everybody else has put on the ground. Presentation only — see the note
+  // at the top of remoteloot.js.
+  const remoteLoot = new RemoteLoot(scene);
   // Their animals as well as them. Six months of otter and nobody but its owner
   // could see it; this is the group that fixes that.
   const petAvatars = new PetAvatars(scene);
@@ -2726,6 +2730,25 @@ function boot() {
       // Q drops one, Shift+Q drops half the stack rounded up. It used to take
       // the WHOLE stack for anything of kind 'ammo', so twenty arrows left in
       // one press and there was no way to part with ten.
+      // ── WHO OWNS THE DROP ──
+      //
+      // Connected, the SERVER does. It takes the item out of the pack, lays it
+      // on the ground and sends it back in `lo`, where every player and every
+      // agent can see it. Doing it here as well would put the same branch in
+      // the world twice — once real and once local — and picking up both is
+      // how a shared world gets a duplicator.
+      //
+      // The intent is already going out; `dropBurn` is the only thing the
+      // server cannot work out for itself, because whether the torch in your
+      // hand is alight is a fact about this client.
+      if (net) {
+        if (torch.lit && inventory.equippedSlot?.item === 'torch') {
+          intent.dropBurn = torch.left;
+          torch.lit = false;
+          torch.left = 0;
+        }
+        // Nothing else to do: the pack changes when the server says it did.
+      } else {
       const taken = inventory.takeEquipped(intent.dropHalf ? 'half' : 1);
       if (taken) {
         camera.getWorldDirection(_drop).setY(0).normalize();
@@ -2749,6 +2772,7 @@ function boot() {
             1.4,
           );
         }
+      }
       }
     }
 
@@ -3006,6 +3030,7 @@ function boot() {
       net.sendIntent(intent, performance.now());
       const world = net.interpolated(performance.now());
       avatars.update(dt, world, net.others);
+      remoteLoot.update(dt, net.buffer.at(-1)?.snap);
       // ── and their animals ──
       // Skipping our own owner id: the snapshot carries every companion
       // including ours, and the one at OUR heel is the real one, with the trust

@@ -59,6 +59,13 @@ export function createIntent() {
     // to ten in one press — the thing that could not be done at all when `drop`
     // took the whole stack for anything of kind 'ammo'.
     dropHalf: false,
+    // ── HOW MUCH BURN A DROPPED TORCH STILL HAS ──
+    //
+    // Seconds. Only meaningful when what is being dropped is a lit torch, and
+    // it is what lets a torch put down at a meeting place be BURNING for the
+    // person who walks up to it later rather than only for the person who left
+    // it. Clamped at the door like everything else off a socket.
+    dropBurn: 0,
     place: false, // edge-triggered: light a fire (later: build)
     eat: false, // edge-triggered: eat the best food you carry
     // Edge-triggered: work THIS recipe, at whatever station you are standing
@@ -157,6 +164,7 @@ export function clearIntent(i) {
   i.interact = false;
   i.drop = false;
   i.dropHalf = false;
+  i.dropBurn = 0;
   i.place = false;
   i.eat = false;
   i.craft = '';
@@ -188,6 +196,7 @@ export function copyIntent(to, from) {
   to.interact = from.interact;
   to.drop = from.drop;
   to.dropHalf = from.dropHalf;
+  to.dropBurn = from.dropBurn;
   to.place = from.place;
   to.eat = from.eat;
   to.craft = from.craft;
@@ -239,6 +248,7 @@ export function sanitiseIntent(i, maxLookPerTick = 0.35) {
   i.interact = !!i.interact;
   i.drop = !!i.drop;
   i.dropHalf = !!i.dropHalf;
+  i.dropBurn = Number.isFinite(i.dropBurn) ? Math.max(0, Math.min(36000, i.dropBurn)) : 0;
   i.place = !!i.place;
   i.eat = !!i.eat;
   // A closed vocabulary, checked against the table itself. Anything else — a

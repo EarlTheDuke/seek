@@ -75,6 +75,12 @@ const INTENT_KEYS = [
   'primary',
   'interact',
   'drop',
+  // `drop` has been on this list all along and THE SERVER NEVER READ IT — so
+  // every drop was client-local and invisible to everyone else, which is why a
+  // playtester could not pay an agent and why a torch put down for somebody
+  // else was a torch only you could see. These two come with the fix.
+  'dropHalf',
+  'dropBurn',
   'place',
   'eat',
   // Cooking, at last. It was the one act on the survival loop that had no field

@@ -21,6 +21,8 @@ import { hash2i, lerp } from '../util/math.js';
 
 const _v = new THREE.Vector3();
 
+let nextDropId = 1;
+
 export class Pickups {
   constructor(scene, deps) {
     this.scene = scene;
@@ -61,6 +63,12 @@ export class Pickups {
     this.scene.add(obj);
     const entry = {
       obj,
+      // ── A STABLE ID ──
+      // The snapshot sends dropped loot every tick and a viewer has to be able
+      // to tell "the same branch, moved" from "a different branch". Without one
+      // a client can only rebuild the whole pile every packet, which flickers
+      // and throws away any light attached to it.
+      id: nextDropId++,
       item: itemId,
       count,
       vel: forward.clone().multiplyScalar(2.6).setY(1.4),
@@ -84,6 +92,7 @@ export class Pickups {
     this.scene.add(obj);
     const entry = {
       obj,
+      id: nextDropId++,
       item: itemId,
       count,
       vel: new THREE.Vector3(),

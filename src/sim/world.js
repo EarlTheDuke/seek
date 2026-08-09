@@ -55,7 +55,7 @@ import { StealthProfile } from '../player/stealth.js';
 import { Body } from '../player/body.js';
 import { Fires } from '../world/fires.js';
 import { sampleEnvironment } from '../world/environment.js';
-import { insulationOf, EDIBLE } from '../items/registry.js';
+import { insulationOf, EDIBLE, getItem } from '../items/registry.js';
 import { Inventory } from '../items/inventory.js';
 // Cooking, knapping, stitching and fletching, as data and two pure functions.
 // Shared with the browser's interaction prompt rather than copied — the whole
@@ -654,6 +654,52 @@ export class SimWorld {
    * nothing. A gift that lands pushes an event, because two people need to know
    * and a watcher wants to see it.
    */
+  /**
+   * Put something on the ground where everybody can see it.
+   *
+   * The counterpart of `resolveGive`: giving is aimed at a person, dropping is
+   * aimed at a place. Both had to become the server's business for the same
+   * reason — a shared world where half the objects exist in one browser is not
+   * a shared world.
+   *
+   * `burn` is only read for a lit torch, and is what makes one left at a
+   * meeting place still burning for whoever arrives.
+   */
+  resolveDrop(p, want = 1, burn = 0) {
+    if (p.body.dead) return;
+    // ── NOT THE BOW ──
+    //
+    // `giftFrom` already refuses it — "the thing that makes you a hunter is not
+    // tradeable" — and `KEEP_ON_DEATH` keeps it through dying. Dropping is the
+    // third door to the same mistake, and the worst of the three, because the
+    // bow sits in slot ONE: it is what you are holding unless you chose
+    // otherwise, so the very first press of the drop key would throw away the
+    // only thing you cannot make again.
+    const holding = p.inventory.equippedSlot?.item;
+    if (!holding || KEEP_ON_DEATH.has(holding)) return;
+    const taken = p.inventory.takeEquipped(want);
+    if (!taken) return;
+    // A metre or so in front, so it lands where you are looking rather than
+    // inside your own feet. `yawTo`'s convention, the same one `place` uses.
+    const at = new THREE.Vector3(
+      p.ctrl.position.x - Math.sin(p.ctrl.yaw) * PICKUP.dropForward,
+      p.ctrl.position.y + PICKUP.dropUp,
+      p.ctrl.position.z - Math.cos(p.ctrl.yaw) * PICKUP.dropForward,
+    );
+    const entry = this.pickups.drop(taken.item, taken.count, at, ZERO);
+    if (!entry) {
+      // Nothing landed, so nothing may be lost. Put it back.
+      p.inventory.add(taken.item, taken.count);
+      return;
+    }
+    // A torch that was alight goes on burning where it lies. Clamped to what
+    // the item is actually worth, because this number came off a socket.
+    const def = getItem(taken.item);
+    if (def?.burnSeconds && burn > 0) entry.burn = Math.min(burn, def.burnSeconds);
+    p.dirty = true;
+    this.events.push({ k: 'drop', by: p.id, n: p.name, id: taken.item, count: taken.count });
+  }
+
   resolveGive(from, toName, itemId, count = 1) {
     if (from.body.dead) return;
     const want = String(toName).trim().toLowerCase();
@@ -1011,6 +1057,20 @@ export class SimWorld {
 
     this.projectiles.update(dt);
     this.pickups.update(dt, anchorPos);
+    // ── TORCHES BURNING ON THE GROUND ──
+    //
+    // The server owns the flame, so everybody sees the same one go out at the
+    // same moment. A spent torch stays where it is as an ordinary unlit torch:
+    // it is still a torch, and taking the item away because the flame died
+    // would be taking something a player put there.
+    for (const d of this.pickups.dropped) {
+      if (!(d.burn > 0)) continue;
+      d.burn -= dt;
+      if (d.burn <= 0) {
+        d.burn = 0;
+        this.events.push({ k: 'guttered', at: [round2(d.obj.position.x), round2(d.obj.position.z)] });
+      }
+    }
   }
 
   playersInOrder() {
@@ -1175,6 +1235,24 @@ export class SimWorld {
     // Firing on the RISING EDGE makes one press one item no matter how long the
     // field stays set or how the rates drift — the same contract `primary`
     // already has, and the reason a bow fires once when you let go.
+    // ── DROPPING, WHICH THE SERVER HAS NEVER DONE ──
+    //
+    // `drop` has been on the wire's allow-list since the beginning and NOTHING
+    // HERE EVER READ IT. Every drop happened in one browser: invisible to the
+    // other players, invisible to the agents, and gone the moment you
+    // reloaded. It is why a playtester who agreed a price could not pay — he
+    // put eighteen branches on the grass and neither mind could see them — and
+    // why a torch left at a meeting place was a torch only you could see.
+    //
+    // Edge-detected like `give`, and for the same reason: the field persists
+    // between packets and packets arrive at half the tick rate, so a held key
+    // would empty a pack.
+    const wantsDrop = !!(intent.drop || intent.dropHalf);
+    if (wantsDrop && !p.dropWasHeld) {
+      this.resolveDrop(p, intent.dropHalf ? 'half' : 1, intent.dropBurn);
+    }
+    p.dropWasHeld = wantsDrop;
+
     const wantsGive = intent.give || '';
     if (wantsGive && wantsGive !== p.giveWasHeld) {
       this.resolveGive(p, wantsGive, intent.giveItem, intent.giveCount || 1);
@@ -1541,9 +1619,16 @@ export class SimWorld {
       lo: this.pickups.dropped
         .filter((d) => !me || Math.hypot(d.obj.position.x - me.p[0], d.obj.position.z - me.p[2]) <= PICKUP.wireRadius)
         .map((d) => ({
+          // The id lets a viewer tell "the same branch, moved" from "a
+          // different branch", which is what makes it renderable at all rather
+          // than rebuilt and flickering every packet.
+          d: d.id,
           i: d.item,
           n: d.count,
           p: [round2(d.obj.position.x), round2(d.obj.position.y), round2(d.obj.position.z)],
+          // Seconds of flame left, for a torch somebody put down still alight.
+          // Absent on everything else, which is most things.
+          ...(d.burn > 0 ? { b: Math.round(d.burn) } : {}),
         })),
       cr: creatures,
       co: companions,
