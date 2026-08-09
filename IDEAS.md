@@ -1231,3 +1231,132 @@ be ignored. Pair it with a visible `answered/calls` ratio on the card — the
 failure rate is the signal, and it is currently only in the JSON. The one-shot
 "JSON only" repair retry (A25) is still the actual remedy; at 54% it would roughly
 halve the loss.
+
+## Added 2026-08-08 21:06, from RUN 2 EIGHTH LOOK — twelve unreported deaths, and a liar nobody could catch
+
+### A39 ††† STARVATION DEATH BYPASSES `onPlayerDied` ENTIRELY — TWELVE DEATHS, ZERO EVENTS **[S]**
+
+*The organising finding of the eighth look, and I believe the single highest-value
+fix left on this list.*
+
+Twelve respawns in 764 samples (six per mind), each identified by `hp→100`,
+`food→85` and a teleport to the same shore spawn ~340 m north-east of Rowan Moor.
+Eleven of the twelve kept the full pack through death.
+
+`onPlayerDied` (`src/sim/world.js:918`) — the only code that drops the pack and
+pushes `k:'death'` — is called from exactly two places, `world.js:353` (arrow) and
+`world.js:849` (creature). **Nothing calls it for hunger or cold.** `Vitals` revives
+itself at `src/player/vitals.js:155` and `onRespawn` moves the feet.
+
+So the most consequential thing that can happen to a mind produces:
+no event, no deed, no memory entry, no board field, and no dropped gear. A mind
+starved at hour 6.6 and woke at 6.9 across the map at full health with its branches
+still on its back, and **was never told.** Neither mind can know it has died six
+times, which is the simplest available explanation for both walking the same loop
+into the same hole all run.
+
+**Fix:** call `onPlayerDied(player, null)` from the vitals death path so the `death`
+event fires and the drop rule applies uniformly (`by` already falls back to
+`'the cold'`, which is finally true). Then surface it — a `deaths` count on the
+card and a `did('death', ...)` the mind can actually read. Small change, and it
+turns the world's most important event from invisible to legible.
+
+### A40 ††† A FAILED `accept` IS TOTALLY SILENT — THE "FOUND OUT" IS NOT IMPLEMENTED **[S]**
+
+*Sharpens A16 with the case that proves it.*
+
+At hour 22 Eachann offered "arrows for 9 branches" while carrying **a bow and
+nothing else**. Coinneach held exactly nine branches, said *"Done. Nine branches
+for the arrows,"* and spent four consecutive decisions on `take Eachann offer`.
+
+`resolveAccept` returned silently at `if (giver.inventory.countOf(deal.item) < 1)
+return;`. No event, no `glance`, no `refusedVerbs.accept`. The design comment at
+`world.js:699` says a mind "can offer what it does not have **and be found out**."
+Nothing in the code implements the finding-out. Whole-run evidence: **zero `trade`
+deeds in 764 samples, zero `I traded` strings in 3.7 MB of log.**
+
+**Fix:** every one of the seven silent `return`s in `resolveAccept` pushes a
+`glance`-style event naming the reason, at minimum to the taker. "Eachann has no
+arrow" is the single sentence that would have ended a four-hour deadlock, and it
+is also what makes a liar cost something — which is the entire point of allowing
+the lie.
+
+### A41 ††† `offer`/`accept` MOVE EXACTLY ONE ITEM FOR ONE — THE MINDS BARGAIN IN QUANTITIES **[M]**
+
+*Narrower and more actionable than A18.*
+
+```js
+if (giver.inventory.remove(deal.item, 1) !== 1) return;
+if (taker.inventory.remove(deal.want, 1) !== 1) { giver.inventory.add(deal.item, 1); return; }
+```
+
+Hardcoded `1` on both sides, and `offer` has no quantity field at all. "Nine
+branches for the arrows" was never executable **even with a full quiver.**
+
+Both minds bargain in quantities constantly and have all run: *"one hide for two
+venison"*, *"nine branches for arrows, or I'll owe you"*, *"one branch for one
+arrow"*. They are negotiating in a language the verb cannot represent, and then
+the silence of A40 means they never learn that.
+
+**Fix:** `offer` takes `n` and `wantN` (default 1); `resolveAccept` moves those
+counts all-or-nothing with the existing rollback discipline. The models are already
+writing the numbers — the world just has to read them.
+
+### A42 †† A HIGH FAILURE RATE IS AS BAD AS A SPENT BUDGET, AND ONLY ONE OF THEM HAS A TAG **[S]**
+
+Coinneach: 156 calls, **83 failures, 73 answered** — a 53% failure rate on
+`no json in reply`. `providers.js:398` returns `this.fallback.decide(brief)` on
+every failure, so **half of that seat's run was the scripted brain wearing kimi's
+name.** The seat sat at 156 of 1500 calls with `spent: false`, so the red `SPENT`
+tag would never have fired.
+
+**Fix:** a `FALLING BACK` tag on the card, same visual weight as `SPENT`, armed
+above ~20% failure over a rolling window and able to clear. Extends the A36/A38
+`STALE` proposal to the case that actually occurred. Any run report should also
+print *answered* decisions, never *calls*, as the seat's real sample size.
+
+### A43 †† CADENCE ASYMMETRY INVALIDATES MODEL COMPARISON — 599 REAL DECISIONS TO 73 **[S]**
+
+`roster-duo.json` gives Eachann a 20 s cadence and Coinneach 75 s. Combined with
+A42, real model decisions this run ran **599 to 73 — 8:1.** Everything comparative
+in the last eight entries rests on that, including A21's "`plan` splits the models
+cleanly."
+
+**Fix:** equal cadence is the default for any run intended to compare models, and
+the board should print each seat's answered-decision count next to its name so the
+asymmetry is impossible to miss. Cadence stays a knob for *watchability* runs, not
+benchmark runs — this is the Part D "world frozen, model the only variable"
+principle applied to the one variable nobody was controlling.
+
+### A44 †† `analyse.mjs` REPORTS `accept` AS NEVER USED, AND IT IS THE MOST-USED SOCIAL VERB **[S]**
+
+The analyser tests `goal.toLowerCase().includes('accept')`, but `goals.js:137`
+renders the verb as `` `take ${p.target} offer` ``. The word never appears, so
+`accept` can never match. Counted properly: **175 samples for Eachann, 150 for
+Coinneach.** `attack`, `follow`, `guard` are genuinely unused; `accept` is not.
+
+This is the eighth time the instrument made a model look worse than it was, and
+the first time the instrument was the analyser every entry has been quoting.
+
+**Fix:** match on `goal.kind` — the id is right there — instead of grepping the
+human-readable `describe()` string. Every verb-usage number in entries 1–7 should
+be treated as a floor until re-derived.
+
+### A45 † CORRECTION TO A31/A34 — `refusedVerbs` WORKS; IT IS SPARSE, NOT UNREACHABLE **[—]**
+
+A31 said "zero bytes across two full runs"; A34 corrected that to "not broken,
+unreachable". Both are now wrong. Eachann's card carries `{"avoid": 16}`, first
+seen at sample 678. The plumbing is fine.
+
+It stays nearly blank for a different reason than either entry guessed: the
+refusal paths that *would* be informative are the ones that `return` silently
+without calling `this.refuse` at all — A40 being the important one. Wiring A40
+will populate this column on its own.
+
+### A46 † CARCASSES ARE REACHABLE AND STILL MOSTLY IGNORED **[S]**
+
+`gather venison` now fires — Eachann 3, Coinneach 1, plus 2 `venison_cooked` — so
+the 2026-08-08 fix works. But against **8 kills and twelve starvation deaths**,
+they still walk away from meat far more often than they eat it. Not an instrument
+fault this time; worth one cheap nudge (the kill outcome naming the carcass and
+what it yields) before concluding anything about the models.

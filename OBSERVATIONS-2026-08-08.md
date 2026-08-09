@@ -1674,3 +1674,191 @@ is still the right fix — but it must be able to clear and re-arm, not latch.
 **Twenty arrows came out of seven branches in front of Eachann's eyes, and five
 game hours later he is still offering those arrows for flint to make arrows —
 because `"I made 12 arrows at the fire"` never says what went in.**
+
+---
+
+## 21:06 — RUN 2, eighth look (764 samples, game hour 21.2 → 3.0 next day, ~250 real minutes)
+
+Live board at fetch: `at 12010`, 760 calls of 6000, both minds alive and fed
+(`E hp100 f73 / C hp100 f71`). No `SPENT` tag on either seat — budgets are
+599/1500 and 156/1500. **The run is healthy; the findings below are not about it
+stopping.**
+
+### THE HEADLINE: TWELVE DEATHS, AND THE WORLD NEVER MENTIONED ONE OF THEM
+
+Searching the sampler for health jumping up by more than 40 in a single 20 s
+sample finds twelve events, six per mind. Every one of them has the same three
+fingerprints:
+
+```
+Eachann   h6.6 -> 6.9   hp 7->100   food 0->85
+   inv BEFORE: bow, hide x1, gold x1, arrow x2, wood x8
+   inv AFTER : bow, hide x1, gold x1, arrow x2, wood x8
+   where BEFORE: 286 m south-east of Rowan Moor
+   where AFTER : 336 m north-east of Rowan Moor
+```
+
+Health to exactly 100, food to exactly 85, and the body **teleported to ~340 m
+north-east of Rowan Moor** — the same shore spawn, all twelve times, from six
+different places on the map. That is a death and a respawn. It is not eating.
+
+**Eleven of the twelve kept the entire pack** — wood x22, hide x10, gold x1, all
+of it — through death. The twelfth (Coinneach, `hide x13, gold x2, wood x3` →
+`bow` only) dropped correctly.
+
+### THE MECHANISM: STARVING TO DEATH DOES NOT GO THROUGH THE DEATH FUNCTION
+
+`onPlayerDied` (`src/sim/world.js:918`) is the only thing in the game that drops
+a dead player's pack and pushes the `k:'death'` event. It is called from exactly
+two sites:
+
+```
+src/sim/world.js:353    if (target.body.dead) this.onPlayerDied(target, by);       // an arrow
+src/sim/world.js:849    if (victim.body.dead) this.onPlayerDied(victim, creature); // a creature
+```
+
+**Nothing calls it when a body runs out of food or heat.** `Vitals` revives on its
+own clock — `src/player/vitals.js:155`, `if (this.deathTime >= VITALS.respawnDelay)
+this.revive();` — and `onRespawn` moves the feet to the shore. So a starvation
+death is: full health back, full food back, teleported across the map, pack intact,
+**and no `death` event, no deed, no memory entry, no board field.**
+
+Eachann starved to death at hour 6.6 and woke at hour 6.9 four hundred metres away
+with his branches still on his back. He was never told any of it happened. Neither
+mind has any way of knowing it has died six times, which is the plainest possible
+explanation for why both keep walking the same loop into the same hole.
+
+The `death` event even has a `by: killer?.species?.name ?? killer?.name ?? 'the
+cold'` fallback with a comment about the cold — the one death it names is the one
+death that can never reach it.
+
+### CORRECTION — "BOTH MINDS STARVED AND RECOVERED" WAS WRONG, TWICE
+
+The 19:33 and 20:36 entries both closed with a line like *"Both minds starved and
+recovered. Food hit `E0 / C1` and rebounded to `E77 / C82`."*
+
+They did not recover. **They died.** Food going 0 → 85 inside one 20 s sample *is*
+the respawn signature — that is the number `revive()` writes, and I read it as a
+meal twice. The rebound I was pointing at as evidence of resilience was the
+instrument failing to report a death. Seventh time a model looked worse than it
+was because of the harness, and this one was mine to catch two looks ago.
+
+### THE TRADE: AGREED IN ENGLISH, FOUR TIMES, AND NEVER EXECUTABLE
+
+The last hours of the day are the cleanest trade evidence this project has:
+
+```
+h20.8  E: offer arrows to Coinneach for 9 branches  [bow]
+       C: offer branches to Eachann for arrows      [bow, wood x9]
+h22    E: offer arrows to Coinneach for 9 branches  [bow]
+       C: take Eachann offer                        [bow, wood x9]
+h22.4  C: take Eachann offer                        [bow, wood x9]
+h22.7  C: take Eachann offer                        [bow, wood x9]
+h23    C: take Eachann offer                        [bow, wood x9]
+```
+
+Coinneach: *"Done. Nine branches for the arrows."* Eachann: *"Nine branches for
+the arrows, hand them over."* Coinneach is holding **exactly the nine branches**
+and spends four consecutive decisions accepting.
+
+**Eachann is carrying a bow and nothing else. He has no arrows.** He spent the
+evening selling goods he did not own, which the design explicitly permits —
+`world.js:699`, *"a mind can offer what it does not have and be found out."*
+
+**The finding-out is not implemented.** `resolveAccept` returns silently at
+`if (giver.inventory.countOf(deal.item) < 1) return;` — no event, no `glance`, no
+`refusedVerbs.accept`, nothing. Coinneach accepted an empty offer four times and
+the world's entire response was silence. Confirmed at the log level: **zero `trade`
+deeds across 764 samples, and zero occurrences of the string `I traded` in 3.7 MB
+of sampler log.** A16 and A30 stand, now with a liar to point at.
+
+### NEW — THE PRIMITIVE MOVES ONE ITEM FOR ONE ITEM, AND BOTH MINDS BARGAIN IN QUANTITIES
+
+Sharper than A18, which said the protocol cannot express the agreed price. It is
+narrower than that. `resolveAccept`:
+
+```js
+if (giver.inventory.remove(deal.item, 1) !== 1) return;
+if (taker.inventory.remove(deal.want, 1) !== 1) { giver.inventory.add(deal.item, 1); return; }
+```
+
+**One, hardcoded, both sides.** `offer` has `item` and `want` and no quantity field
+at all. So "nine branches for the arrows" could not have executed even with a full
+quiver — the best the world can do is one arrow for one branch.
+
+Both minds bargain in quantities constantly, and have all run:
+*"one hide for two venison"* · *"Coinneach, one hide for two venison now"* ·
+*"nine branches for arrows, or I'll owe you"* · *"one branch for one arrow"*.
+They are negotiating in a language the verb cannot represent.
+
+### CORRECTION — `refusedVerbs` HAS PRODUCED ITS FIRST BYTES
+
+A31 said "zero bytes across two full runs"; A34 corrected it to "not broken,
+unreachable". **Both are now contradicted.** Eachann's card carries:
+
+```json
+"refusedVerbs": {"avoid": 16}
+```
+
+first seen at sample 678. The column works and the plumbing is fine. It is still
+nearly blank — one verb of fifteen, on one of two seats, and `accept` is refused
+silently rather than counted (above) — but "unreachable" is the wrong diagnosis.
+
+### CORRECTION — MY OWN ANALYSER REPORTS `accept` AS NEVER USED. IT IS WRONG
+
+`analyse.mjs` prints `WHAT NOBODY EVER DID: accept, attack, follow, guard`. The
+test is `goal.toLowerCase().includes(v)`. But `goals.js:137` renders the verb as:
+
+```js
+accept: { describe: (p) => `take ${p.target ?? 'their'} offer` }
+```
+
+The word "accept" never appears in an accept goal. Counting properly, **accept is
+one of the most-used verbs in the run** — 175 samples for Eachann, 150 for
+Coinneach. `attack`, `follow` and `guard` are genuinely unused; `accept` is not.
+Eighth time the instrument made a model look worse than it was, and this time the
+instrument is the analyser I have been quoting in every entry.
+
+### COINNEACH RAN ON THE SCRIPTED BRAIN FOR 53% OF THE RUN, AND NO TAG SAID SO
+
+```
+Coinneach  kimi-k2.6   156 calls · 73 answered · 83 failed · lastError "no json in reply"
+Eachann    grok-4.20   599 calls · 599 answered · 1 failed
+```
+
+`providers.js:398` — **every** failure returns `this.fallback.decide(brief)`. So
+83 of Coinneach's 156 decisions were the scripted brain wearing kimi's name. The
+brief warns about the red `SPENT` tag for exactly this reason; **`SPENT` would not
+have caught this** — the seat is at 156 of 1500 calls and `spent: false`. The
+failure rate is on the card as `0.53` and nothing shouts.
+
+Compounding it: **Eachann had 599 decisions to Coinneach's 156** (20 s vs 75 s
+cadence), so real model decisions ran **599 to 73, an 8:1 gap**. Any comparison of
+grok against kimi from this run is meaningless, and A21's "`plan` splits the models
+cleanly" needs re-testing at equal cadence before it can be believed.
+
+### Confirmed, no change
+
+- **Speech remains the run's headline success** — 68 distinct lines from Eachann,
+  38 from Coinneach, against a baseline of ONE sentence across two days and six
+  models. The free `say` rider is doing its job and should not be touched.
+- **`note` unused on all 764 cards.** Eighth check, two vendors, ~672 real
+  decisions, not one note written. **`plan` remains the other success** — 12
+  distinct coherent multi-step plans, e.g. Coinneach's
+  `["get flint from the scaur","trade Eachann for arrows","hunt the deer west"]`.
+- **`also out there` works.** Eachann held *"make for north — why: get arrows from
+  Ben"* at 453 m, and the pair closed from ~600 m to trade range on purpose. A19
+  stands; reachability is not the blocker.
+- **Carcasses: `gather venison` fires, and is still rare.** Eachann 3, Coinneach 1,
+  plus 2 `venison_cooked` — against 8 kills. They still mostly walk away from meat
+  and then starve to death.
+- **Fires: 95, gathers 477** (Eachann alone picked up wood 276 times). The
+  10-branch price is still not biting. A32 stands.
+- **`astray` 39 vs `loosed` 7 on Coinneach** — more arrows went astray than were
+  ever fired. Same rolling-window defect as A29, now showing as an impossible ratio.
+
+### The one-line version
+
+**Two minds shook hands on nine branches for arrows that one of them did not have,
+the world said nothing to either of them, and between them they had already starved
+to death twelve times without once being told.**
