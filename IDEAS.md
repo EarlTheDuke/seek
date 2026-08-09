@@ -1425,3 +1425,66 @@ quantity — *"one hide for two venison"*, *"nine branches for the arrows"*,
 all-or-nothing swap. Until then the verb cannot express any deal these models
 actually make, and A47/A48 would only get them a worse trade than the one they
 agreed to.
+
+### A51 ††† THE SPEECH THROTTLE IS TUNED AGAINST CADENCE, EATS HALF A FAST SEAT'S LINES, AND IS SILENT **[S]**
+
+`agent.js:1123` gates `say` on `sinceSpoke > AGENTS.speakEveryHours`, and `:1144`
+logs the drop to the console and returns. In the 22:05 run **338 lines were eaten,
+133 of them distinct, 100% of them Eachann's** — 47% of his answered turns.
+Coinneach lost none. The cause is arithmetic, not intent: ~0.3 game hours pass per
+20 s, so `speakEveryHours: 0.5` (`config.js:934`) ≈ **33 real seconds**, and
+Eachann's cadence is 20 s while Coinneach's is 75 s. A faster seat is gagged for
+being fast. The swallowed lines include `"deal struck"` ×7 and `"deal, arrow now"`
+×15 — **the throttle was eating the acceptances during the deadlock of A47/A48.**
+
+**Fix, in order of value:** (1) make the gate per-*mind-turn* rather than per game
+hour, or scale it by that seat's cadence, so no seat is penalised for thinking
+often; (2) never drop a `say` silently — feed it back as
+`refuse('say', 'too soon, 0.12h to wait')` so the mind stops repeating into a wall.
+This also revises every earlier note calling grok "repetitive": some of that
+repetition is the instrument.
+
+### A52 ††† DEATH CONFISCATES THE PACK AND THE MIND IS NEVER TOLD **[S]**
+
+`#679 → #680`: hp 67, food 23, **20 arrows, 10 wood** → hp 100, food 84, **0
+arrows, 0 wood**, in one 20-second step, after 33 damage near a troll. Eachann then
+ran the rest of the session on `plan: ["get arrows","hunt troll for pay"]` and
+`"anyone seen loose arrows?"` — sound reasoning from a pack he does not know was
+emptied. Both minds have now held **zero arrows for 200 consecutive samples** and
+are still forming hunting goals. Deaths are frequent (93 and 72 wounded samples,
+clean `95→0` slopes at ~11 hp/sample) and entirely unannounced.
+
+**Fix:** on respawn, put it in the brief — *"you died near Black Moss; you lost 20
+arrows and 10 branches"* — and add a `deeds` entry so it shows on the card. If the
+drop is meant to be recoverable, say where it fell. A world that takes your
+inventory without a sentence makes every downstream decision look like stupidity.
+
+### A53 ††† A GATHER YIELDS 9.8 BRANCHES AND A FIRE COSTS 10 — THE 10× PRICE BOUGHT ONE ACTION **[S]**
+
+Whole-run wood economy: **560 distinct gathers, 5,474 branches** (Eachann
+366/3,720 = 10.2 each; Coinneach 194/1,754 = 9.0 each). Raising the fire price from
+1 to 10 therefore raised the cost of a fire from *one-tenth of a gather* to *one
+gather*, and fires went **up**: 126 here versus the 106 that motivated the change.
+A32 diagnosed the symptom; this is the cause — the yield was never looked at.
+
+**Fix:** price the fire against the *gather*, not against the branch. Either drop
+the per-gather yield to ~2–3 (a bundle of deadfall, not a cord of wood), or raise
+the fire to ~40, or make gathering cost real time. Any of the three makes wood a
+decision; none of them is the current state, where one bend of the back is one
+night's fire.
+
+### A54 †† BOTH VENDORS TALK TO A "Ben" WHO IS NOT IN THE WORLD **[M]**
+
+Every `minds.log` line reads `2 alive`. There is no third body. Both minds
+nevertheless address one: *"Ben, got meat if you need it"* (grok), *"doing fine,
+Ben. got food to trade?"* (kimi), and — worst — *"where are those arrows Ben spoke
+of"*, which invents a remembered conversation and then plans against it. Two
+independent vendors converging on the same absent name is a prompt smell, not a
+coincidence.
+
+**Fix:** audit the brief for anything that names or implies a third party (the
+`also out there` block, the worked examples in `agent.js:83` and `hud.js:307` both
+literally use "Ben" — check none of that text ships into the prompt). Then state
+the roster explicitly in the brief: *"there are two people alive in this world: you
+and Coinneach."* A mind that hallucinates a trading partner will never close a
+trade with the real one.

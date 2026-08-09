@@ -1949,3 +1949,106 @@ that effectively does not circulate, and fails at line 764 — silently.
 **For thirty-nine minutes one man held thirteen arrows and the other held the
 branches to pay for them, both said so out loud, and the world let them stand there
 until nightfall without once saying no.**
+
+---
+
+## 2026-08-08, 22:05 — 929 samples, 309 real minutes, game hour 5.5
+
+Board still answering. `spend.calls` 911 of 6000, **`spent: false` on both seats** —
+everything below is the models' own behaviour, not the scripted brain.
+
+Since the 21:35 entry: Eachann 720 calls / 719 answered, Coinneach 191 / 92
+(**failure rate 0.52, still "no json in reply"** — A42 unchanged, half of kimi's
+turns never reach kimi). Fires 126 (was 110), gathers 599 (was 536).
+
+### THE SPEECH THROTTLE ATE 338 LINES — ALL FROM ONE SEAT — AND TOLD NOBODY
+
+`minds.log` logs a line the board never shows:
+
+```
+Eachann: (wanted to say "where are those arrows Ben spoke of" — too soon, 0.38h of 0.5h)
+```
+
+**338 of those in the log. 133 distinct lines. Every single one is Eachann's;
+Coinneach has zero.** Against 719 answered calls, **47% of Eachann's turns produced
+speech that nobody heard and he was never told was dropped** (`agent.js:1123`
+checks `sinceSpoke > AGENTS.speakEveryHours`; `:1144` logs the drop and moves on).
+
+The most-swallowed lines are the ones that mattered:
+
+```
+28 × "that one is mine"        18 × "here eat before you drop"
+18 × "coming with meat now"    15 × "deal, arrow now"
+13 × "arrow for flint"         12 × "coming for the arrows"
+ 7 × "deal struck"
+```
+
+**"deal struck" and "deal, arrow now" were swallowed twenty-two times between
+them.** The trade deadlock of the last three entries is not only A47/A48 — a large
+share of the acceptances were never delivered in the first place.
+
+**And the throttle is a cadence bug, not a design.** ~0.3 game hours pass per 20 s
+sample, so `speakEveryHours: 0.5` (`config.js:934`) is about **33 real seconds**.
+Eachann's cadence is 20 s, so he can be heard at most every other turn; Coinneach's
+is 75 s (~1.1 game hours), so he never hits the limit at all. The faster seat is
+silently gagged for being fast. This also revises the "repetitive grok" reading of
+the earlier entries: much of the apparent repetition is a man saying a thing again
+because the world ate it.
+
+### DEATH EMPTIES THE PACK, AND THE MIND IS NEVER TOLD WHAT IT LOST
+
+Sample-by-sample around the moment Eachann's twenty arrows vanished:
+
+```
+#679  h0.8   food 23  hp  67  arrows 20  wood 10   goal "keep away from troll"
+#680  h1.1   food 84  hp 100  arrows  0  wood  0   goal "keep away from troll"
+```
+
+One 20-second step: hp restored, food restored, **pack wiped**. He had just taken
+33 damage. He then spent the rest of the run on *"anyone seen loose arrows?"* and
+*"where are those arrows Ben spoke of"*, with the plan `["get arrows","hunt troll
+for pay"]` — reasoning correctly from a pack he does not know was emptied.
+
+**For the last 200 samples (~67 real minutes) neither mind has held a single
+arrow.** Both cards read `carrying: [{bow, 1}]`. They are still forming hunting
+goals and still haggling over arrows nobody has.
+
+Dying is routine and equally silent: **Eachann spent 93 of 933 samples below full
+health, Coinneach 72**, with clean death curves — `95 84 73 62 51 40 29 18 7 0` at
+~11 hp per sample. This hardens the earlier "starved to death twelve times" entry
+with the actual slope, and adds to it: *death also confiscates everything you own.*
+
+### THE 10-BRANCH FIRE PRICE DID NOTHING, AND HERE IS THE ARITHMETIC
+
+**A gather yields 9.8 branches. A fire costs 10.** Across the run: 560 distinct
+wood gathers totalling **5,474 branches** (Eachann 366/3,720; Coinneach 194/1,754).
+The 10× price rise (1 → 10) bought exactly **one gather action**, and fires went
+*up*: 126 here against the 106 that motivated the fix. A32 was right that the price
+was not biting; the reason is that the yield was never looked at.
+
+### Confirmed, no change
+
+- **`note`: zero on all 929 cards, both vendors. Tenth check.** Retire it or make
+  it do something.
+- **`plan` still works.** Coinneach's three-step plan survived four hours unchanged:
+  `["gather nine branches","trade to Eachann for arrows","hunt the deer"]`.
+  Eachann's has moved on: `["get arrows","hunt troll for pay"]`.
+- **`refusedVerbs`: Eachann `{avoid: 16}`, Coinneach `{}`** — no movement since
+  21:35. Live, but only ever catches `avoid`.
+- **Trade deeds across all 933 samples: 0.** `give` remains the only social verb
+  that moves goods — 29 distinct gives, **every one Eachann → Coinneach, none back**.
+- **Peak gold either mind ever held: 2.** A49 stands.
+
+### "Ben" is not in the world, and both vendors talk to him
+
+Every line of `minds.log` reads `2 alive`. There is no third body. Yet both minds
+address a Ben — *"Ben, got meat if you need it"* (grok), *"doing fine, Ben. got food
+to trade?"* (kimi), and now *"where are those arrows Ben spoke of"*, which invents
+a conversation that never happened. Two different vendors converging on the same
+absent third party is worth a look at what the brief actually names.
+
+### The one-line version
+
+**A man said "deal struck" seven times into a throttle that ate it, died to a troll
+that took his twenty arrows without a word, and spent the next hour asking whether
+anyone had seen them.**
