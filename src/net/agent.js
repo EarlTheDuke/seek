@@ -57,7 +57,7 @@ import { bearingName, describePosition, findDistrict, nearbyDistricts } from '..
 // three places.
 import { RECIPES, canCraft } from '../items/recipes.js';
 import { EDIBLE, getItem } from '../items/registry.js';
-import { AGENTS, BOW, PLAYER, NET, SURVIVAL, PICKUP, MINDS } from '../config.js';
+import { AGENTS, BOW, PLAYER, NET, SURVIVAL, PICKUP, MINDS, SOCIAL } from '../config.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -332,6 +332,19 @@ export class Agent {
               // Where the string actually is. Crouching drops it 0.67 m and the
               // solver has to know — see `aimAt`.
               this.eye = msg.data.me.e ?? PLAYER.eyeHeight;
+              // ── A DEAL ON THE TABLE IS ALSO A HAIL ──
+              //
+              // Somebody has stopped what they were doing and is walking over
+              // to trade with you. Standing still while they arrive is both
+              // the courteous reading and the only one that ever settles: in
+              // the third melee hour three offers were accepted and only two
+              // became trades, and the one that failed failed because the
+              // counterparty had walked away between the offer and the answer.
+              //
+              // Only the RECIPIENT is held — `me.of` is set for nobody else —
+              // so the offerer keeps closing and there is no deadlock of two
+              // bodies politely waiting for each other.
+              if (msg.data.me.of?.n) this.noteHail(msg.data.me.of.n);
             }
             // ── remember what HAPPENED, not only what you noticed while thinking ──
             //
@@ -376,6 +389,17 @@ export class Agent {
             // brief, which is the whole point of the mode.
             if (this.orders === 'obeys') this.takeOrder(msg.data.n, msg.data.m);
             this.memory.add(this.hours, `${msg.data.n} said "${msg.data.m}"`, MINDS.weight.heard);
+            // ── AND STOP WALKING, IF THEY ARE NEAR ENOUGH TO BE TALKING TO YOU ──
+            //
+            // Not a decision and not the mind's business: it is what a body
+            // does when somebody within earshot says something. The mind gets
+            // the sentence in `heard` and answers in its own time; the legs
+            // stop now, because by the time a model has answered, a body at
+            // 4 m/s is forty metres away and the moment has gone.
+            //
+            // See `SOCIAL.hailRange`. This is the whole of the playtester's
+            // "I could close to 0.02 m and then lose them".
+            this.noteHail(msg.data.n);
             break;
           case S_ERROR:
             this.onLog?.(`${this.name}: server says ${msg.data.m}`);
@@ -1222,6 +1246,94 @@ export class Agent {
   }
 
   /**
+   * Somebody said something. Where are they, and are they talking to me?
+   *
+   * A chat message carries no position, so the speaker is looked up in the
+   * snapshot by name — the server sends every player every tick. Out of
+   * earshot means out of the conversation: somebody shouting from 400 m away
+   * across the glen is not hailing you, and should not be able to stop you.
+   */
+  noteHail(who) {
+    if (!who || who === this.name) return;
+    for (const p of this.snapshot?.pl ?? []) {
+      if (this.others.get(p.id) !== who) continue;
+      const d = Math.hypot(p.p[0] - (this._x ?? 0), p.p[2] - (this._z ?? 0));
+      if (d > SOCIAL.hailRange) return;
+      this.hailedBy = who;
+      this.hailFor = SOCIAL.hailHoldSeconds;
+      this.hailAt = { x: p.p[0], z: p.p[2] };
+      return;
+    }
+  }
+
+  /**
+   * Stand still and face whoever wants you. Returns true if it took the tick.
+   *
+   * ── WHY A BODY DOES THIS AND A MIND DOES NOT ──
+   *
+   * Because a mind is seconds away. The cadences on the roster run from 20 to
+   * 75 seconds, and a body walking at 4 m/s covers eighty metres in twenty of
+   * them. Waiting for the model to decide to stand still is waiting for it to
+   * decide something about a situation that has already ended. So this is
+   * reflex, like flinching, and every seat gets it — including the scripted
+   * control, because it is the body's behaviour and not the brain's.
+   *
+   * TWO THINGS IT MUST NOT DO.
+   *
+   * It must not freeze somebody who is trying to reach YOU. If my own goal is
+   * to hand you something, or take your offer, or walk to you, then stopping
+   * is the exact opposite of what is wanted — and both of us holding still
+   * three metres apart is the deadlock this was written to end, not start.
+   *
+   * And it must not hold a body still while something is eating it. `avoid` is
+   * how the mind says "get away from that", and a hail cannot override it.
+   */
+  holdForHail(dt, i) {
+    if (!(this.hailFor > 0)) return false;
+    this.hailFor -= dt;
+
+    // ── A BODY IN REAL TROUBLE DOES NOT STOP TO CHAT ──
+    //
+    // This runs BEFORE `upkeep`, so the emergencies `upkeep` exists for have to
+    // be declined here or a starving body would stand politely while it died.
+    //
+    // NOT `AGENTS.eatBelow`/`warmBelow`, which was the first attempt and which
+    // quietly swallowed the whole feature: those are the lines at which a body
+    // decides to go and eat or walk to a fire, and an agent twenty minutes into
+    // a run is below them almost permanently. See `SOCIAL.tooHungryToTalk`.
+    const starving = this.food !== undefined && this.food < SOCIAL.tooHungryToTalk;
+    const freezing = this.coreC !== undefined && this.coreC < SOCIAL.tooColdToTalk;
+    if (starving || freezing) return false;
+
+    const g = this.goal ?? {};
+    const closing = g.kind === 'give' || g.kind === 'offer' || g.kind === 'accept'
+      || g.kind === 'approach' || g.kind === 'follow';
+    if (closing || g.kind === 'avoid') {
+      this.hailFor = 0;
+      return false;
+    }
+
+    // Face them, so it reads as being listened to rather than as a body that
+    // happened to stop. `aimYaw` and not a `lookYaw` delta: an agent's look
+    // deltas are rate-limited on the way out and the server integrates a
+    // fraction of them — the same bug that made agents unable to aim.
+    if (this.hailAt) {
+      const dx = this.hailAt.x - (this._x ?? 0);
+      const dz = this.hailAt.z - (this._z ?? 0);
+      if (dx || dz) {
+        this.yaw = Math.atan2(-dx, -dz);
+        i.aimYaw = this.yaw;
+      }
+    }
+    i.forward = 0;
+    i.strafe = 0;
+    i.sprint = false;
+    i.crouch = false;
+    this.trackSelf(dt, 0);
+    return true;
+  }
+
+  /**
    * The reflex layer: turn a standing goal into this tick's intent.
    *
    * Deliberately dumb, and deliberately never blocked on the model. Dead
@@ -1258,6 +1370,24 @@ export class Agent {
     // Eating, cooking and getting a fire lit. It only takes the tick when
     // something is actually wrong; the rest of the time it returns straight
     // away and the goal drives, exactly as it always has.
+    // ── SOMEBODY IS TALKING TO YOU ──
+    //
+    // BEFORE `upkeep`, and that placement is the whole fix rather than a
+    // detail. `upkeep` does not only handle the instant emergencies — it also
+    // WALKS TO A FIRE, up to `fireWalkRange` (45 m), returning true on every
+    // tick of that walk. Put the hail after it and any agent that is cold or
+    // hungry never reaches this line at all, which with `HUNGER=52` is most of
+    // them most of the time.
+    //
+    // Measured, and it is why this comment exists: a freshly joined agent held
+    // for the full six seconds while the scripted control — alive long enough
+    // to be cold — walked straight past a man standing 3.6 m away saying her
+    // name. The check passed; the game did not.
+    //
+    // `holdForHail` declines for a body that is actually in trouble, which is
+    // the part `upkeep` was standing in for.
+    if (this.holdForHail(dt, i)) return;
+
     if (this.upkeep(dt, i)) {
       this.trackSelf(dt, i.forward ? 4.1 : 0);
       return;

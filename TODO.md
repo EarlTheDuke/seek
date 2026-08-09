@@ -42,17 +42,30 @@ the playtester's *"20 branches to Coinneach, five times, nothing left my pack"*
 
 # TIER 2 — trade is nearly wired
 
-### 2a. Agents do not stop when you hail them † **[M]**
+### 2a. Agents do not stop when you hail them  ✅ DONE 2026-08-09
 
-`SOCIAL.giveRange` is 3.0 m against a body moving at ~4 m/s that never pauses.
-He closed to **0.02 m** and still could not complete a handover. Morag's five
-arrows were always "at my fire tonight", and he re-planned before Ben could
-arrive.
+Being spoken to within `SOCIAL.hailRange` (16 m) now stops a body for six
+seconds and turns it to face the speaker, and a standing offer does the same to
+the person it was made to. A reflex, not a decision: the cadences run 20-75
+seconds and a body at 4 m/s is eighty metres away by the time a model has
+answered. Every seat gets it, including the scripted control.
 
-This is also what is still costing us agent-to-agent trades: run 3 produced
-three accepts and only two settled trades, and the loss is the counterparty
-walking off between the offer and the answer. **Being hailed should be a reason
-to stand still and face the speaker.**
+It declines for a body that is genuinely in trouble, for one already walking
+towards you (`give`/`offer`/`accept`/`approach`/`follow` — both of us waiting
+politely is the deadlock this ends, not starts), and for `avoid`.
+
+**Live proof, two real agents on a real server:** the caller walked at her and
+spoke from inside earshot; she stood still for 89 consecutive samples (~4.5 s)
+and the caller closed **24.9 m → 5.5 m** during it. `hailcheck`, 20.
+
+Two bugs of mine on the way, both of which passed every assertion before the
+game disagreed. The reflex was first placed after `upkeep`, which does not only
+handle instant emergencies but WALKS TO A FIRE, returning true on every tick of
+that walk — so a cold or hungry agent never reached it. Then the carve-out
+reused `AGENTS.eatBelow` (45) and `warmBelow`, which are maintenance lines
+rather than emergencies, and an agent twenty minutes in is below them almost
+permanently, which swallowed the feature again. `hailcheck` now asserts the
+source order, and `SOCIAL.tooHungryToTalk` / `tooColdToTalk` name the real ones.
 
 ### 2b. A contract, rather than an item **[M]**
 

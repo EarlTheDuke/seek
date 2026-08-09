@@ -1219,6 +1219,51 @@ export const SOCIAL = {
   // apart by SOLID can still trade — a rule that made people unable to reach
   // each other the moment collision was switched on would be a fine bug.
   giveRange: 3.0,
+
+  // ── BEING SPOKEN TO IS A REASON TO STOP WALKING ──
+  //
+  // The single most-reported thing about playing with these agents, from a
+  // playtester who tried for three sessions to hire one:
+  //
+  //   > agents move at roughly my sprint speed and never stop, so I could
+  //   > close to 0.02 m and then lose them. Morag's five arrows were always
+  //   > "at my fire tonight", and he re-planned before I could arrive.
+  //   > giveRange: 3 against a target moving at 4 m/s is close to impossible
+  //   > on foot.
+  //
+  // It costs the agents nothing and it is what a person does. It also fixes
+  // the same loss between two AGENTS: in the third melee hour three offers
+  // were accepted and only two settled, and the one that failed failed because
+  // the counterparty had walked off between the offer and the answer.
+  //
+  // `hailRange` is generous — a good deal wider than `giveRange`, because the
+  // whole point is to be stopped from a distance you could still shout across,
+  // and then walked up to.
+  hailRange: 16,
+  // Long enough to arrive from `hailRange` at a walk, and short enough that
+  // somebody shouting cannot pin a body in place: about four seconds of walking
+  // covers the range, and this is that plus a pause.
+  hailHoldSeconds: 6,
+
+  // ── WHEN A BODY IS TOO FAR GONE TO BE POLITE ──
+  //
+  // The hail reflex runs before `upkeep`, so it has to decline for itself when
+  // something is genuinely wrong. The first attempt reused `AGENTS.eatBelow`
+  // (45) and `AGENTS.warmBelow` (35.4) on the reasoning that there should be
+  // one answer to "am I in trouble" rather than two that can drift apart.
+  //
+  // That reasoning was wrong, and measurably so: those are MAINTENANCE
+  // thresholds — the point where a body decides to go and eat, or to walk to a
+  // fire. They are not emergencies. An agent twenty minutes into a run with
+  // `HUNGER=52` is below 45 almost permanently, so the carve-out swallowed the
+  // whole feature and the scripted control still walked away from a man
+  // standing 3.6 m off saying her name.
+  //
+  // These are the real emergencies: nearly empty, and properly hypothermic.
+  // Between them and the maintenance lines is the ordinary state of everybody
+  // in this game, and in that state you stop when you are spoken to.
+  tooHungryToTalk: 15,
+  tooColdToTalk: 34.4,
 };
 
 // ── Networking ──────────────────────────────────────────────────────────────
