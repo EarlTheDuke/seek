@@ -5852,3 +5852,144 @@ successful thing in this run is invisible on the instrument built to show it.**
   Eachann's 145); the reliability half does not. **Fifth time the instrument has been mistaken for
   the model.**
 - **Speech: 7 of 7 model seats, 0 of 1 scripted.** Settled; stop re-asking.
+
+---
+
+## 2026-08-09 16:45 — starving to death is free, and I watched it happen twice
+
+**Which run this is.** The scheduled task still describes the two-mind duo (`roster-duo.json`,
+`duo2.jsonl`). That is not what is running. `duo2.jsonl` last grew at **11:28**, five hours ago.
+The live world is the **eight-seat melee** off `roster-melee.json` — seven model seats and
+Iseabail scripted — sampled into **`eval28.jsonl`**. Everything below is that run.
+
+Two instrument notes first, because both cost me time:
+
+- **`eval28.jsonl` stopped at 15:52** and the board is still live at 16:45. `samp28.mjs` has
+  `if (n < 60)` hard-coded, so the sampler retires after 60 samples — **20 real minutes** — and
+  the world ran on for another hour unobserved. Every "final" number below that needed more than
+  20 minutes I took from the live board directly.
+- **`samp28.mjs` writes `{t, b}`; `analyse.mjs` reads `{realMs, board}`.** The analyser crashes on
+  its own project's log. I re-emitted into the expected shape to run it.
+
+### Hunger kills. A193 is wrong, and I am withdrawing it.
+
+The 16:11 entry read `hungerDamageBelow: 0` as "hunger **never** deals damage" and built A193 on
+it — *"starvation has no teeth"*, *"Seonaid is sitting on food 1 in no danger whatever"*. That is
+a misreading of a threshold as a switch. `src/player/body.js:237`:
+
+```js
+if (this.hunger <= SURVIVAL.hungerDamageBelow) {
+  this.damage(SURVIVAL.hungerDamagePerSec * dt, { kind: 'hunger' });
+```
+
+It is `<=`, and the config comment says so plainly — `hungerDamageBelow: 0, // and then it kills
+you`. At *exactly* empty it fires, at `hungerDamagePerSec: 0.55`. Seonaid on food 1 was one point
+from the cliff, not safe.
+
+I watched it run on Eachann, live, at 8-second reads:
+
+```
+at=4188  food 1   hp 100
+at=4199  food 0   hp  99     <- damage starts on the tick food reaches 0
+at=4211  food 0   hp  91
+   ...            (~0.7 hp per board-second)
+at=4334  food 0   hp   3
+at=4341  food 85  hp 100     <- dead, and back
+```
+
+Observed decay is ~0.7 hp/board-second against a configured 0.55/s, so hunger accounts for most of
+it and cold may be adding the rest. Four of eight seats reached food 0 in the sampled window
+(Fingal h20.9, Tormod h21.2, Iseabail h3.3, Eachann h23.7) and every one of them died.
+
+### A192 is confirmed — it is no longer an inference
+
+The 16:11 entry bet that Ailsa's food jumping 17→82 across an unobserved gap was a death and a
+respawn refill, and flagged that the card cannot show it. That bet was right, and the mechanism is
+now on camera in six separate instances: **hp falls to 0, and about 3.4 s later (`respawnDelay`)
+the seat reads hp 100 and food 85** — `hungerStart` exactly. Ailsa did it again between two of my
+reads today, 13/0 at 16:31 and 100/76 at 16:52.
+
+The card still has no death field, so all of this is invisible to a watcher. A192's fix stands and
+should move up the list.
+
+### The bug: **a hunger death costs nothing at all**
+
+Eachann died at h23.7 carrying **277 branches and 48 arrows**, and stood up still carrying all
+277 and all 48. Meanwhile Coinneach went from `wood x105, arrow x16` to a bare bow across *his*
+death. Same world, same tick rate, opposite outcomes — so I went to the code.
+
+`onPlayerDied` — the function that drops your pack and pushes the `death` event — is reachable
+from **exactly two call sites**:
+
+- `src/sim/world.js:380` — a player's arrow lands and the target is dead
+- `src/sim/world.js:1033` — a creature bites and the victim is dead
+
+**Hunger is not one of them.** `body.js:239` calls `damage(…, {kind:'hunger'})`, which sets `dead`
+on vitals, and `src/player/vitals.js:169` simply revives after `respawnDelay`. Nothing in that path
+touches `onPlayerDied`. So starving to death:
+
+- drops **nothing** — you keep the whole pack
+- pushes **no `death` event** — the chat column and the report never mention it
+- refills you to **food 85, hp 100**
+
+There is a small proof of intent sitting right there. `world.js:1127` builds the death line as
+``by: killer?.species?.name ?? killer?.name ?? 'the cold'``. *"The cold"* is the fallback written
+for a death with no killer — an environmental death — and **no environmental death can ever reach
+that line.** The fallback is for a case the code makes unreachable.
+
+So A193's *conclusion* survives its broken premise, and gets worse. Not "hunger never hurts" —
+hunger hurts, and then hands you a free full stomach and lets you keep everything you were
+carrying. **Dying of hunger is strictly better than eating.** It is the cheapest meal in the game,
+it is free, and it is the only food source that never runs out.
+
+Right now, at `at=4429`: **Morag is on hp 48 / food 0 with 224 branches in her pack.** Seonaid is
+on 5, Coinneach on 13. A general starvation is running through a camp where nobody is short of
+anything except food, and the seats keep gathering wood.
+
+### Trade settled six times — and the settling verb is confirmed
+
+The 16:11 entry found *"exactly one settled trade in the whole run"* and diagnosed the cause:
+both sides post `offer`, nobody writes `accept`, and only Ailsa's literal `take Morag offer` ever
+settled. **That diagnosis is now confirmed by six more settlements**, and the entry's headline
+number is superseded for the later stretch. Live board:
+
+```
+h10.13 / h10.18  Tormod   "I got arrow from Morag for hide"      <- intention h9.95  take Morag offer
+h10.42 / h10.47  Morag    "I got hide from Eachann for arrow"    <- intention h10.24 take Eachann offer
+h11.15 / h11.20  Ailsa    "I got hide from Fingal for arrow"     <- intention h11.14 take Fingal offer
+```
+
+Three pairs, five models (opus-5, grok-4.20, grok-4.5, sonnet-5, haiku-4.5), and **every single
+settlement is preceded by an intention of the literal form `take <name> offer`.** Not one mutual
+`offer`/`offer` pair has ever settled. The verb is the whole story.
+
+The price is the other half: **one hide for one arrow, six times, across five different models.**
+That is the first stable exchange rate this world has produced.
+
+### Ailsa waited at the fire for a promise the world cannot hold
+
+Her three spoken lines, verbatim, in order:
+
+> *"wood's brought, waiting on my share"* · *"here with my wood, waiting on meat"* ·
+> *"still waiting on that meat, brought my wood"*
+
+Her plan: `["bring branches to Morag's fire", "wait for meat share", "keep watch, stay warm"]`.
+She delivered the wood, stood at the fire, went to hp 13 / food 0, and died. Morag's `note` —
+still the only `note` on the board — reads *"Fingal owes me a cut if he uses my fire. Coinneach
+owes branches."* Both minds are keeping a ledger of obligations **in prose**, because there is
+nowhere else to put one. Ailsa died of a debt the world has no way to represent or settle.
+
+### The small columns
+
+- **`refusedVerbs`: `{"follow":1}` on Tormod, and nothing else — fourth checkpoint unchanged.**
+  Given the six silent `return`s in `resolveAccept` noted at 16:11, this remains a column that
+  measures instrumentation, not refusals.
+- **`plan`: 7 of 7 model seats populated, 0 of 1 scripted.** Unchanged, still a clean control.
+- **`note`: 1 seat in 8, still Morag.** Four runs, one user.
+- **Venison works — question answered, close it.** `gather venison` fired for real (Eachann picked
+  up 2 at h12.38 and 3 at h18.32), cooking works, eating works, and one cooked cut was traded
+  (Morag→Ailsa, h17.46). The carcass path is no longer the bottleneck.
+- **Nobody is SPENT** — no red tag anywhere, all seats under 250. But **Eachann is at 221/250**
+  and burning ~3 calls a minute. He will go scripted within the hour, and he is the seat whose
+  hoarding is the run's best character evidence. Anyone reading this board after ~17:30 must check
+  `mind.spent` on his card before crediting grok-4.20 with anything.

@@ -3975,3 +3975,107 @@ the one player who saw it coming"; two more players saw it coming within the day
 the first time: wood is effectively unlimited, and a hoard of it is not a capital position because
 anybody can mint one by walking.** The *idea* in A188 — a monopolist with running costs, a fire
 that needs feeding — is still worth building; it just was not what the data showed.
+
+### A196 A HUNGER DEATH NEVER CALLS `onPlayerDied` — STARVING IS THE CHEAPEST MEAL IN THE GAME **[S]**
+
+**This is the highest-value fix in the file.** `onPlayerDied` — the function that drops your pack
+and pushes the `death` event — has exactly two call sites: `src/sim/world.js:380` (a player's arrow
+kills) and `src/sim/world.js:1033` (a creature's bite kills). Hunger reaches death by a third road:
+`src/player/body.js:239` → `damage({kind:'hunger'})` → `dead` on vitals → `src/player/vitals.js:169`
+revives after `respawnDelay`. **That road never touches `onPlayerDied`.**
+
+Observed live, end to end: Eachann died of hunger at h23.7 carrying **277 branches and 48 arrows**
+and stood up carrying all of them, at hp 100 / food 85. Coinneach, killed by a creature, went from
+`wood x105, arrow x16` to a bare bow.
+
+So a hunger death **drops nothing, announces nothing, and refills you to `hungerStart`**. Dying of
+hunger is strictly better than eating: free, instant, keeps your whole pack, and never runs out.
+No food price can hold against a free substitute. This is the root cause under A187's failed
+market and under A193.
+
+There is a tell in the code that this was never intended: `world.js:1127` writes
+``by: killer?.species?.name ?? killer?.name ?? 'the cold'`` — *"the cold"* is the fallback for a
+death with no killer, and **no killerless death can reach that line.**
+
+**Fix:** route the environmental death through the same door — call `onPlayerDied(player, null)`
+when vitals go dead without a killer, so the pack drops and the `death` event fires with
+`by: 'the cold'`. One call site. It makes hunger cost something, gives A192 its event for free,
+and turns "the cold" from dead code into the line it was written to be.
+
+### A197 CORRECTS A193 — HUNGER *DOES* DAMAGE; THE PREMISE WAS A MISREAD THRESHOLD
+
+A193 said `hungerDamageBelow: 0` meant hunger **never** deals damage, and that Seonaid on food 1
+was *"in no danger whatever"*. Wrong. `body.js:237` is `if (this.hunger <= SURVIVAL.hungerDamageBelow)`
+— a **`<=`** — so it fires at exactly empty, at `hungerDamagePerSec: 0.55`. The config's own comment
+says it: `hungerDamageBelow: 0, // and then it kills you`. Seonaid was one point from the cliff.
+
+Watched live on Eachann: food hits 0 at `at=4199` and hp starts falling on that same tick,
+100 → 3 over ~135 board-seconds (~0.7 hp/board-s, so hunger plus a little cold). Four of eight
+seats starved to death in the sampled window.
+
+A193's *conclusion* survives and gets worse — see A196. The teeth are real; the death they cause
+is free. **Sixth time a claim in this file rested on reading a config value without reading the
+comparison next to it.** Worth the standing rule: quote the line that uses the constant, not the
+line that sets it.
+
+### A198 A PROMISE IS THE ONE THING TWO MINDS AGREE ON AND THE WORLD CANNOT HOLD **[M]**
+
+Ailsa brought wood to Morag's fire, said her three lines —
+
+> *"wood's brought, waiting on my share"* · *"here with my wood, waiting on meat"* ·
+> *"still waiting on that meat, brought my wood"*
+
+— with `plan: ["bring branches to Morag's fire", "wait for meat share", "keep watch, stay warm"]`,
+and starved to death at the fire. Morag, the counterparty, was keeping the books **in prose**, in
+the only `note` on the board: *"Fingal owes me a cut if he uses my fire. Coinneach owes branches."*
+
+Both sides understood the deal. The world has no object for it. `offer` is strictly synchronous —
+both bodies in `giveRange`, both halves present *now* — so a bargain with a gap between the two
+legs ("bring wood, get meat when I've cooked") cannot be expressed, only spoken about.
+
+**Fix:** a standing debt — `owe(name, item, count)` written by one side, visible on the other's
+card, settled by a later `give`. It is the smallest thing that makes the speech these models
+already produce mechanically real, and both A187's market and this run's fire-merchant economy
+need it before they can price anything.
+
+### A199 `take <name> offer` IS THE SETTLING VERB, CONFIRMED SIX MORE TIMES **[S]**
+
+Confirming the 16:11 diagnosis with a much larger sample, and superseding its *"exactly one settled
+trade"* count for the later run. Six settlements, three pairs, five different models:
+
+```
+h10.13 / h10.18  Tormod  got arrow from Morag for hide     <- h9.95  "take Morag offer"
+h10.42 / h10.47  Morag   got hide from Eachann for arrow   <- h10.24 "take Eachann offer"
+h11.15 / h11.20  Ailsa   got hide from Fingal for arrow    <- h11.14 "take Fingal offer"
+```
+
+**Every settlement is preceded by the literal form `take <name> offer`. No mutual `offer`/`offer`
+pair has ever settled**, including Morag and Tormod's perfectly matched twenty-arrows-for-venison
+deal where both sides said "done". The mechanism works; the word is the barrier.
+
+**Fix, in order of cost:** (1) make a mutual `offer` that matches a standing offer settle it —
+if you post the mirror image of a deal pointing at you, you have accepted it; (2) failing that,
+make the six silent `return`s in `resolveAccept` (`src/sim/world.js:874`) push a refusal so
+`refusedVerbs` finally counts the thing it was built for.
+
+### A200 ONE HIDE FOR ONE ARROW, SIX TIMES, ACROSS FIVE MODELS — THE FIRST STABLE PRICE **[S]**
+
+Worth recording as a result rather than a fix. Every one of the six settlements above cleared at
+**1 hide : 1 arrow**, between opus-5, grok-4.20, grok-4.5, sonnet-5 and haiku-4.5, with no shared
+context beyond what each mind could see and hear. Set against A187's chaotic ten-arrows-for-a-cut,
+the difference is that hide and arrow are both **countable, carryable and unspoiled** — while food
+competes with a free substitute (A196). Fix A196 and this is the pair to watch for whether a second
+price forms around venison.
+
+### A201 THE SAMPLER RETIRES AFTER 20 MINUTES AND THE ANALYSER CANNOT READ ITS OUTPUT **[S]**
+
+Two instrument faults that cost most of an evaluation slot:
+
+- `samp28.mjs` has `if (n < 60)` hard-coded — 60 samples at 20 s is **20 real minutes**, then it
+  closes the stream. `eval28.jsonl` stops at 15:52; the world was still live at 16:45. Anything
+  needing more than a 20-minute window has to be re-derived off the live board by hand.
+- `samp28.mjs` writes `{t, b}`; `analyse.mjs` reads `{realMs, board}`. **The analyser crashes on
+  the log its own project just produced** — `Cannot read properties of undefined (reading 'players')`.
+
+**Fix:** drop the sample cap (or make it an argument), and settle on one record shape. A sampler
+that stops before the run does is worse than no sampler, because the file looks complete.
