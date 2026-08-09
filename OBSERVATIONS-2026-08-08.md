@@ -1306,3 +1306,108 @@ and still the highest-value cheap fix — kimi gets **46 real decisions to grok'
 and shook hands — and the world took the wrong items out of the wrong man's
 pack, told him he had meant to, and let the starving one starve holding ten
 hides.** The social layer is finished. The goods layer is lying to it.
+
+---
+
+## 19:33 — RUN 2, fifth look (480 samples, game hour 11.2, ~160 real minutes)
+
+Board answered. `spend` 482/6000, **`spent: false` on both seats, no red `SPENT`
+tag** — everything below is the models.
+
+### THE RIGHT GOOD FINALLY MOVED, ON PURPOSE — A26'S DIAGNOSIS IS CONFIRMED BY ITS INVERSE
+
+At 19:03 I wrote **"zero venison moved"** and **"no food ever arrived."** That was
+true of that window and is now superseded. Between `at=6382` and `at=6411`:
+
+| at | Eachann goal | Eachann pack | Coinneach venison_cooked |
+|---|---|---|---|
+| 6382 | give cooked venison to Coinneach | hide 3, gold 1, arrow 2, wood 10, **venison_cooked 4** | **0** |
+| 6396 | give cooked venison to Coinneach | … **venison_cooked 3** | **1** |
+| 6411 | give venison_cooked to Coinneach | … **venison_cooked gone** | **4** |
+
+**The named good left the namer's pack and arrived in the other man's.** The
+difference from the 19:03 disaster is the only thing A26 predicted would matter:
+*this time Eachann actually held what he named.* `giftFrom` substitutes only when
+the item is absent. When it is present, `give` is correct. A26 is not a theory
+any more — it has now been observed failing and succeeding under exactly the
+condition it names. The three-line fix is still the right one.
+
+### THE ONE-WAY PUMP — 29 GIFTS OUT, 0 BACK, AND THE GIVER IS NOW DESTITUTE
+
+`give` has now fired **29 times. Every single one is Eachann → Coinneach.
+Coinneach has given nothing, ever, in the whole run.** Still **zero `trade`
+deeds** — a priced, two-sided exchange has never happened.
+
+The end state is stark. Eachann's entire pack is now **`bow ×1, wood ×13`** —
+no arrows, no hide, no gold, no food — while carrying `goal: "hunt deer"`.
+Coinneach sits on **hide ×13, arrow ×7, gold ×2, venison_cooked ×1**.
+
+Eachann's speech is now the sound of a man who gave away his bowstring money:
+*"anyone got arrows or flint?"* / *"anyone trading flint for branches?"* /
+**"Coinneach, I need that meat back"**. Coinneach's side, unprompted and
+verbatim: *"Rather owe him than starve."* / *"I'll owe you for a meal"* /
+**"Taking it. Debt stands."**
+
+Read plainly: **the two models built a creditor and a debtor between them, said so
+out loud, and the world has no idea either exists.** Nothing records the debt,
+nothing settles it, and the generous seat has been stripped to a bow and
+firewood by a verb that is free and unilateral. This is A28's evidence,
+strengthened — and it is now the single most important thing in the run.
+
+### CORRECTION — `loosed` IS A ROLLING WINDOW, NOT A COUNT. THE ARCHERY NUMBERS WERE WRONG
+
+The live board says Coinneach **`loosed: 0, astray: 33`**. That is impossible on
+its face, and it is the instrument, not the model. Traced in the log:
+
+```
+at=6732 h=17.7  loosed 37 -> 36   (astray 33, kills 2, health 100)
+at=6747 h=18.0  loosed 36 -> 0    (astray 33, kills 2, health 100)
+```
+
+Cause: `server/board.js:193` derives `loosed` from `a.releases`, and
+`src/net/agent.js:786` caps `releases` at `AGENTS.logSize` (400) with `.shift()`.
+It is a **count of loosed shots still inside the last 400 release events** — it
+decays, and it can reach zero while the archer has loosed dozens. `astray` comes
+from a different log and does not decay.
+
+**So every `loosed` figure in this file's earlier entries is a window, not a
+total, and "X loosed / Y astray" was never a valid ratio.** The 19:03 line
+"Coinneach 2 kills / 37 loosed / 33 astray" should be read as "≥37 loosed". This
+is the ninth instrument fault. (New: A29.)
+
+### Confirmed, no change — the fixes that are and are not working
+
+- **`refusedVerbs` is `{}` on all 974 cards.** Fourth check, now across a run
+  containing 29 successful gifts and a stripped-bare giver. The column that was
+  supposed to be the most informative on the card has produced **zero bytes of
+  data in two runs.** `refuse()` (`agent.js:1595`) is only reached when a *target
+  name* won't resolve; every other failure is silent. A14/A16/A26 stand.
+- **`note` is unused on all 974 cards** — two models, two vendors, 483 decisions,
+  not one note. `plan` is used by both and survives: Eachann
+  `["get arrows or flint","hunt after"]`, Coinneach `["find feathers or flint","fletch arrows"]`
+  — and both are visibly acted on, which is why both were hunting flint all evening.
+- **Speech is the run.** 43 distinct lines from Eachann, 31 from Coinneach (was
+  34/26). Against a baseline of ONE sentence across two days and six models, the
+  ride-along `say` is the most successful change in the project's history.
+- **`also out there` is used.** Both minds name each other at range —
+  `"go toward Coinneach"`, `"keep away from Coinneach"`, `"go toward Eachann"` —
+  and Ben by name (`"make for Ben's fire"`), still invisible to the board. A22.
+- **Carcasses are eaten.** Eachann gathered venison ×10, Coinneach venison ×4 and
+  venison_cooked ×5, with 6 and 2 kills. `gather venison` works.
+- **Wood: 73 fires, and the 10-branch price is right at the margin but not
+  biting.** ~4,150 branches gathered across the run (Eachann 2,890 / Coinneach
+  1,267) against ~730 burned. Stocks still floor at 1–2 because they burn as fast
+  as they pick up, but **wood is not scarce, it is merely high-throughput** —
+  397 gathers is the single most common act in the world by a factor of four.
+- **kimi-k2.6 still loses two calls in five.** 41 failures of 102, `no json in
+  reply`, flat at ~0.40–0.45 all run. Coinneach got **60 real decisions to
+  Eachann's 381.** The one-shot repair retry (A25) remains the cheapest large win
+  in the project.
+
+### The one-line version
+
+**The gift primitive works when the giver holds what he names — and across 480
+samples it moved one man's entire estate to the other for nothing, until the
+generous one stood in a field with a bow, no arrows, and the words "Coinneach, I
+need that meat back."** Both models invented debt to describe it. The world still
+cannot represent an offer, a price, a debt, or a refusal.

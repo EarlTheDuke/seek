@@ -1053,3 +1053,68 @@ price can actually bind (with A26 and A27 first, or it will fail silently
 again); (2) a visible **debt ledger** on the card — `owes: [{who, what, since}]`
 — since two models from two vendors both reached for it without being told it
 existed. That is the strongest signal in the run about what to build next.
+
+### A29 †† `loosed` IS A ROLLING WINDOW REPORTED AS A LIFETIME COUNT **[S]**
+The board's `loosed` decays and can hit zero while the archer keeps shooting.
+`server/board.js:193` counts loosed shots inside `a.releases`, which
+`src/net/agent.js:786` caps at `AGENTS.logSize` (400) with `.shift()`. Observed
+live: Coinneach `37 → 36 → 0` across two samples at h17.7–18.0 with `astray`
+frozen at 33, kills 2, health 100 — no death, no respawn, just the buffer
+rolling. The live board now reads **`loosed: 0, astray: 33`**, which is
+arithmetically impossible and has already been quoted as fact in this file.
+
+Fix: keep a plain `this.loosedTotal++` beside the ring buffer and report that;
+leave `releases` alone for the recent-window views. Ninth instrument fault, and
+the second one where a decaying log was read as a total — worth a sweep for the
+same shape in `astray`, `kills`, `wounds` and `decisions`.
+
+### A30 †† `give` IS FREE, UNILATERAL AND UNRECORDED — IT PUMPED ONE SEAT DRY **[M]**
+29 `give` deeds in one run, **all in one direction**, zero back, zero `trade`.
+End state: Eachann holding `bow ×1, wood ×13` and asking the man he fed
+*"Coinneach, I need that meat back"*; Coinneach holding `hide ×13, arrow ×7,
+gold ×2` and saying *"Taking it. Debt stands."*
+
+This is not a model failure — grok gave deliberately and correctly (see A26's
+confirmation: the venison transfer at `at=6382–6411` moved the named good). It is
+that **`give` has no counterparty step, no cost, and no memory.** A mind can
+empty itself in one direction and neither side's card shows that anything is
+owed.
+
+Fix, cheapest first: (1) surface the imbalance on the card — `gaveTo` /
+`gotFrom` tallies per person, so a mind can *see* it is being pumped; (2) the
+debt ledger from A28 — `owes: [{who, what, since}]`; (3) only then make `give`
+cost something or require acknowledgement. Do **not** nerf `give` before minds
+can see the balance — the generosity is the good behaviour here, and it is
+currently invisible to the giver.
+
+### A31 †† `refusedVerbs` HAS PRODUCED ZERO BYTES ACROSS TWO FULL RUNS **[S]**
+Fourth consecutive check: `{}` on **all 974 cards** of run 2, in a run that
+contained 29 successful gifts, a bare-handed archer, a 41% mind-failure rate and
+an agreed price that never bound. The card column billed as the most informative
+one has never once fired.
+
+Root cause is narrow and known: `refuse()` (`src/net/agent.js:1595`) is only
+reached when a **target name** fails to resolve. Every post-arrival failure —
+A26's silent substitution, the missing `accept` path, an `offer` with no taker —
+returns without calling it.
+
+Fix: call `refuse(verb, reason)` at **every** early return in the intent
+handlers, not just name resolution. Until then, "nobody reached for the trade
+verbs" remains an unmeasurable claim — the same mistake A27 already caught once.
+This should be done *before* the next live run or that run cannot answer the
+question it is being staged to answer.
+
+### A32 †† 397 GATHERS, 73 FIRES, 4,150 BRANCHES — THE WORLD IS A PICKUP SIMULATOR **[M]**
+Gathering is the most common act in the world by a factor of four over
+everything else combined. The 10-branch fire price (up from 1) did **not** make
+wood scarce; it made it high-throughput. ~4,150 branches gathered against ~730
+burned, with stocks flooring at 1–2 only because both minds burn as fast as they
+stoop.
+
+Observation, not yet a fix: the scarcity that actually bit this run was
+**arrows and flint** — both minds spent the whole evening on it
+(`plan: ["get arrows or flint","hunt after"]` /
+`["find feathers or flint","fletch arrows"]`), and it is what finally drove them
+to attempt trade. Wood is not the interesting constraint; **the crafting chain
+is.** Consider tightening flint/feather availability and leaving wood alone,
+rather than pricing fires higher again.
