@@ -390,6 +390,30 @@ check('and every feed goes through it, none left writing only locally',
     'nine metres is where a second fire is absurd, not where it is wasteful; a body that wanders clears nine constantly');
 }
 
+// ── AND WHAT THE PRICE COSTS IN TREES ──
+//
+// Raising the fire to ten branches without looking at what a tree YIELDS made a
+// whole felled tree a third of one fire. Ben, within the hour: "all trees seem
+// to be saying 'this tree is already cut'". They were — he had cut them.
+//
+// Asserted as a RATIO rather than as two numbers, so either can be retuned and
+// this still means what it says: a tree has to be worth roughly a fire, or the
+// price of warmth is measured in half-hour regrow timers.
+{
+  const { STRUCTURES: ST, SURVIVAL: SV, AXE: AX } = await import('../src/config.js');
+  const perTree = ST.chopYield;
+  const perTreeAxe = perTree + AX.chopBonus;
+  check(`one tree is about one fire — ${perTree} branches against ${SV.woodToLight}`,
+    SV.woodToLight / perTree <= 1.5,
+    `${(SV.woodToLight / perTree).toFixed(2)} trees per fire bare-handed`);
+  check('  …and an axe makes it exactly one',
+    SV.woodToLight / perTreeAxe <= 1.05,
+    `${(SV.woodToLight / perTreeAxe).toFixed(2)} with an axe`);
+  check('  …and a tree is still not free — it is worth felling, not farming',
+    perTree < SV.woodToLight * 2,
+    'one tree must not stock a whole camp');
+}
+
 const passed = results.filter(Boolean).length;
 console.log(`\n  ${passed}/${results.length}\n`);
 process.exit(passed === results.length ? 0 : 1);

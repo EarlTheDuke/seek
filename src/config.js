@@ -1144,7 +1144,24 @@ export const STRUCTURES = {
   // Gathering. Trees and rocks already exist as scattered objects with
   // colliders; these are how long you stand there and what you get.
   chopSeconds: 3.2,
-  chopYield: 3, // wood per tree
+  // ── WHAT A WHOLE TREE IS WORTH, AND IT WAS CALIBRATED AGAINST A 1-BRANCH FIRE ──
+  //
+  // Three. A felled tree gave three branches, which was fine when lighting a
+  // fire cost ONE of them — a tree was three fires. The moment lighting went to
+  // `SURVIVAL.woodToLight` (10), a whole tree became a THIRD OF ONE FIRE, and a
+  // player needing a fire had to fell three trees and then wait
+  // `regrowHours` (30 game hours, about half a real hour) for any of them.
+  //
+  // Ben, within the hour: "all trees seem to be saying 'this tree is already
+  // cut'". They were. He had cut them, because I made a fire cost three of them
+  // and never checked what a tree was worth.
+  //
+  // Eight, so ONE TREE IS ONE FIRE. That is also the honest real-world reading:
+  // a felled tree is an armful of firewood and then some, and three branches
+  // was always a strange thing for a whole tree to be. Deadfall is untouched
+  // and remains the main supply — this is about the tree being a fair trade for
+  // the axe-work, not about making wood free.
+  chopYield: 8, // wood per tree — one tree, one fire
   quarrySeconds: 4.0,
   quarryYield: 2, // stone per boulder
   // A gathered tree or rock is gone for this long before the world regrows it.
