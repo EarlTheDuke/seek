@@ -2052,3 +2052,108 @@ absent third party is worth a look at what the brief actually names.
 **A man said "deal struck" seven times into a throttle that ate it, died to a troll
 that took his twenty arrows without a word, and spent the next hour asking whether
 anyone had seen them.**
+
+---
+
+## 2026-08-08 22:40 — RUN 2, samples 934–1027 (board still live, `at 15859`)
+
+Neither seat is `SPENT`: Eachann 786/1500, Coinneach 210/1500; wallet 995/6000.
+Everything below is the model's behaviour, not the scripted brain.
+
+### BOTH MINDS SPENT THE RUN HUNTING FOR "FLINT" AND "FEATHERS", WHICH DO NOT EXIST
+
+This is the root cause of the arrow economy, and it undoes my own earlier reading
+of it.
+
+The recipe (`src/items/recipes.js:105`):
+
+```js
+fletch_arrows: { inputs: { wood: 2 }, outputs: { arrow: 4 }, requires: 'fire' }
+```
+
+**Two branches at a fire. That is the entire cost of four arrows.** A grep for
+`flint` and `feather` across `src/`, `server/`, `PROMPT.md`,
+`WHAT-A-MIND-IS-GIVEN.md` and `roster-duo.json` returns **two hits, both the English
+word "feathered" in unrelated terrain comments**. Neither item exists. Nothing shown
+to a mind ever mentions either.
+
+Both models invented them anyway, from real-world archery priors, and then built the
+whole failed economy on top:
+
+- Coinneach's plan for **254 of 1027 samples**: `["find feathers or flint","fletch
+  arrows"]`. For another **146**: `["get flint from the scaur","trade Eachann for
+  arrows","hunt the deer west"]`.
+- Eachann, out loud: *"anyone got flint?"* / *"anyone got flint or feathers?"* /
+  *"anyone trading flint for branches?"* / *"got branches for your flint"* /
+  *"arrow for flint"*.
+- Coinneach, back: *"got feathers or flint?"* / *"Eachann, no flint here"* /
+  *"No flint."*
+
+**Correction to the 21:35 and 22:05 entries.** I read the nine-branches-for-arrows
+haggle as a trade-mechanism failure and went looking for the bug in
+`resolveAccept`. The silent `return`s are real and still worth fixing — but they are
+not why these two never got arrows. They were negotiating for a good either could
+have manufactured from **2 of the 9–14 branches already in his hand**, while
+standing at his own fire. Coinneach proved he knows how: *"I made 12 arrows at the
+fire"* at h12.82. Then he went back to looking for flint.
+
+### THE ARROW DROUGHT BROKE — BY AUTARKY, NOT BY TRADE
+
+Superseding the 22:05 entry's *"for the last 200 samples neither mind has held a
+single arrow"*: that ended. Eachann crafted 8 arrows at h15.40 and 8 more at h18.54
+and closes the window holding **18**.
+
+He did it alone. **Trade deeds across all 1027 samples: 0.** The `did('trade', …)`
+hook at `agent.js:485` works and would log one; it has never fired. Every good that
+moved in this world moved by unilateral `give` — 29 of them, **every one Eachann →
+Coinneach, none back**, confirmed by matched inventory steps (h13.70: Eachann
+`arrow 5→2, hide 5→2`; Coinneach `arrow 2→5, hide 6→9`).
+
+So the instrument is fine and the verb works. The bargain is what never closes.
+
+### THE TWO SEATS HAVE COMPLETELY DIVERGED, AND ONE IS STARVING AT A FIRE
+
+Final ten samples:
+
+```
+at15859   Eachann   arrow 18  food 59  hp 100      Coinneach   arrow 0  food 9  hp 100
+```
+
+Coinneach is losing ~1.2 food per sample and will hit 0 in roughly eight. Whole-run
+totals, Eachann first: kills **8 / 2**, crafts **17 / 3**, eats **8 / 5**.
+
+His last 29 deeds — the entire 94-sample window — are **gather branches, light
+fire, gather branches, light fire**. Not one hunt. Not one meal. Not one craft. He
+has 9 wood and a fire and is 2 branches from four arrows, and his stated plan is to
+find flint.
+
+**The confound, stated plainly:** Eachann got **785 answered decisions** to
+Coinneach's **99** — a 20 s vs 75 s cadence multiplied by kimi's unchanged **53%
+`"no json in reply"` failure rate** (110 of 210). That is ~8× the effective agency.
+This run cannot separate *model quality* from *decisions per hour*; the divergence
+is real but its cause is not isolated. A same-cadence, same-failure-rate pairing is
+the only way to read it.
+
+### Confirmed, no change
+
+- **`note`: zero on all 1027 cards, both vendors. Eleventh check.** Retire it.
+- **`plan` works and is the best field on the card** — 13 distinct plans from
+  Coinneach, 3 from Eachann, all coherent, all acted on. It is also how we caught
+  the flint delusion, because a mind writes its false premise down there.
+- **`refusedVerbs`: Eachann `{avoid: 16}`, Coinneach `{}`** — unmoved across the
+  whole run. It only ever catches `avoid`. `offer` and `accept` never appear in it
+  despite ~25 trade-shaped intentions, because `resolveAccept`'s eight bare
+  `return`s (`world.js:749–764`) call nothing, and `this.acted` — which *does* count
+  offer/accept attempts at `agent.js:1288` — **is never published to the board**.
+- **Speech remains the success story**: 101 distinct lines from Eachann, 44 from
+  Coinneach. Both name each other constantly. `say` was the cheapest fix and is the
+  one that changed the world most.
+- **Fires: 142 sampled** (Eachann 93, Coinneach 49). A53 stands — the 10-branch
+  price is one gather.
+- **Peak gold either mind ever held: 2.** A49 stands.
+
+### The one-line version
+
+**Two models haggled all day over arrows they could each have made from two of the
+branches in their hands, because both of them independently decided this world has
+flint and feathers in it, and it has neither.**

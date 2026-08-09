@@ -1488,3 +1488,63 @@ literally use "Ben" — check none of that text ships into the prompt). Then sta
 the roster explicitly in the brief: *"there are two people alive in this world: you
 and Coinneach."* A mind that hallucinates a trading partner will never close a
 trade with the real one.
+
+## Added 2026-08-08 22:40, from RUN 2 samples 934–1027 — the flint delusion
+
+### A55 ††† BOTH MODELS INVENTED "FLINT" AND "FEATHERS" AND BUILT THE ARROW ECONOMY ON THEM **[S]**
+
+`fletch_arrows` (`src/items/recipes.js:105`) is `{ inputs: { wood: 2 }, outputs:
+{ arrow: 4 }, requires: 'fire' }`. **Two branches at a fire.** `flint` and `feather`
+do not exist anywhere in `src/`, `server/`, or any brief text — grep returns only
+the word "feathered" in two terrain comments.
+
+Both vendors invented both items and spent the run acquiring them. Coinneach's plan
+for **254 of 1027 samples**: `["find feathers or flint","fletch arrows"]`; for 146
+more, `["get flint from the scaur", …]`. Eachann out loud: *"anyone got flint or
+feathers?"*, *"arrow for flint"*, *"got branches for your flint"*. Coinneach starves
+at food 9 holding 9 wood beside his own fire, 2 branches from four arrows.
+
+This is A54's disease in a second organ: a model fills a gap in the brief with its
+real-world prior, then plans against the invention for hours. It is *also* the actual
+cause of the nine-branches deadlock — not the `resolveAccept` bug I first blamed.
+
+**Fix (cheap, and it fixes A54 too):** the brief must state the closed world, not
+imply it. Give every mind (a) **the full recipe book with its literal inputs** —
+"fletch arrows: 2 wood, at a fire" — and (b) **the complete item list that exists**,
+and say plainly that nothing else does. A mind that can read the recipe cannot
+haggle for a reagent that was never in it. Today the brief advertises the *verb*
+`craft` and never the *cost*, so the model supplies the cost from Wikipedia.
+
+### A56 †† `this.acted` ALREADY COUNTS EVERY OFFER AND ACCEPT ATTEMPT AND IS NEVER PUBLISHED **[S]**
+
+`agent.js:1288` does `this.acted[this.target.act]++` for every act that reaches
+REACH, including `offer` and `accept`; `agent.js:1610` does the same for every deed.
+`server/board.js` never reads it. So the board can show that a mind *intended* to
+trade and that no trade *completed*, and has no column for the middle — did the body
+arrive and reach for it?
+
+That middle is exactly what has been unknowable for three runs. `refusedVerbs`
+cannot fill the gap: it stayed `{avoid: 16}` / `{}` across all 1027 samples, because
+`resolveAccept`'s eight bare `return`s (`world.js:749–764`) call neither `refuse()`
+nor `did()`.
+
+**Fix:** add `acted` to the card next to `refusedVerbs` (one line in `board.js:287`),
+and make each of the eight `return`s in `resolveAccept` call
+`taker.refuse('accept', <the actual reason>)` first — "he is not holding a hide",
+"you are not holding branches", "nobody has offered you anything". Then a failed
+bargain teaches both the mind and the watcher, and A9/A49's hypotheses become
+one-glance readable instead of grep-and-guess.
+
+### A57 †† THE BENCH CANNOT SEPARATE MODEL QUALITY FROM DECISIONS PER HOUR **[M]**
+
+Eachann finished the window thriving (18 arrows, food 59, 8 kills, 17 crafts);
+Coinneach starving (0 arrows, food 9, 2 kills, 3 crafts). Tempting to read as
+grok > kimi. It is not readable: **785 answered decisions vs 99** — a 20 s vs 75 s
+cadence *multiplied by* kimi's 53% `no json in reply` rate (110 of 210). ~8× the
+effective agency. Three variables moved at once.
+
+**Fix:** make cadence and *answered*-call budget the controlled axes. Pair seats at
+identical cadence, and spend the budget in *answered* calls rather than attempted
+ones so a 53%-failure vendor gets the same number of real turns. Ideally run the
+same model in both seats once as a null control — if two grok seats diverge this far
+on their own, none of the cross-model rankings in this file mean anything.
