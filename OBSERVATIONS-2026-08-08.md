@@ -3155,3 +3155,92 @@ the mind, thirteen hides simply stopped existing.
 those were a free meal and a fast-travel, and the one that actually cost something
 took the entire hide treasury both minds had spent all day bargaining over — and
 told neither of them.**
+
+---
+
+## 2026-08-09 11:10 PDT — RUN 2, TWELFTH LOOK: the seat went `SPENT` mid-bargain, and the board froze holding a deal for meat that never existed
+
+2,020 samples · 11.2 real hours · 1,902 calls of 6,000. Board live.
+
+### Read this before you read the board
+
+**Eachann is `SPENT`.** First seen at **s1997, 10:57:37**, at exactly 1,500 / 1,500
+calls. The 03:35 entry predicted this ~25 minutes out and burning ~2.2 calls/min;
+it landed at 26 minutes. **Everything on Eachann's card after 10:57:37 is the
+scripted brain, not grok** — that is the last 23 samples and the live board right now.
+
+The signature to recognise it by, because it is a trap:
+
+```
+s1996  E calls1499       goal: pick up what is lying about   said: "one hide for your venison? done"
+s1997  E calls1500 SPENT goal: pick up what is lying about   said: "one hide for your venison? done"
+s1998  E calls1500 SPENT goal: find shelter and settle...    said: "one hide for your venison? done"
+   ...23 samples, goal frozen, said frozen...
+```
+
+`said` is a last-3 rolling buffer and the scripted brain never speaks, so **the
+model's final sentence stays pinned to the card forever.** The live board at this
+moment shows Eachann saying *"one hide for your venison? done"* three times over
+while holding hide ×19. It reads exactly like a mind actively closing a trade. It
+is a dead string. This is the sixth time the instrument has made a model look like
+something it isn't, and the first time it has done it by *flattering* one.
+
+### The finding: 21 minutes of agreement over goods the seller did not have
+
+Coinneach held the goal `offer hide to Eachann for venison` for **63 of the 120
+samples since s1900** — twenty-one minutes — and said it six different ways:
+
+> *"one hide for venison, I'm starving"* · *"one hide for venison, fair trade"* ·
+> *"Hide for meat. Now."* · *"one hide, one share. Done."* · *"One hide for venison."* ·
+> *"my hide, your meat."*
+
+Eachann answered *"one hide one share"* from s1960, then at **s1991** flipped to
+*"one hide for your venison? done"*. Both cards, simultaneously, on the same price.
+
+**Nothing moved.** Eachann's hides go 15 → 17 → 19 across the window (his own
+gathering); Coinneach sits at 2 throughout. No venison on either side, ever.
+
+And the reason is not only the broken `accept` (0 deeds in 2,020 samples, twelfth
+check — see the 02:05 and 03:35 entries). It is simpler and worse:
+
+**Eachann carried zero venison in all 120 samples of the negotiation.** His pack
+across the whole window is `bow ×1, hide ×19, arrow ×7`. Coinneach spent
+twenty-one minutes buying meat from a man with an empty larder, and the man agreed
+to sell it. Neither could have known: a mind is given its **own** `carrying`
+([WHAT-A-MIND-IS-GIVEN.md:22](WHAT-A-MIND-IS-GIVEN.md:22)) and is told of others
+only as a name and a bearing — *"also out there: Coinneach, a long way south-west"*
+([agent.js:2574](src/net/agent.js:2574)). **There is no way to see what another
+person is carrying, so every bargain in this world is struck blind on both sides.**
+
+The order of events is the sharp end of it. Coinneach abandoned the offer at
+**s1990** — one sample *before* Eachann said "done". Eachann went `SPENT` seven
+samples after that. The only deal two models ever talked all the way to yes
+expired because the buyer gave up one turn early, the goods were imaginary, and
+then the seller ran out of money.
+
+### Where the run stands as of 11:04:57
+
+**Coinneach is at food 0 and on the starvation ramp**, carrying `bow, arrow ×14,
+hide ×2` — the buying power he spent all night trying to acquire, and nobody left
+to spend it on. He has 403 / 1,500 calls, so he will keep thinking; the other mind
+in his world is a script that will answer *"one hide for your venison? done"* until
+the process is killed. **The run is effectively over as a two-model experiment.**
+
+### Re-checked, unchanged
+
+- **`note`: zero uses, twenty-first check.** Both cards `""`, 2,020 samples.
+- **`refusedVerbs`: `{"avoid": 16}` / `{}`.** Unmoved since s681. It did not record
+  63 samples of an offer going nowhere.
+- **`plan` still works** — `["get meat","trade with Coinneach"]` (648 samples) and
+  `["get meat","keep an arrow nocked for Eachann"]` (334). Twenty distinct plans
+  from Coinneach, five from Eachann, all on-topic, all durable.
+- **Speech is abundant** — 179 distinct utterances from Eachann, 100 from Coinneach.
+- **Coinneach's parse failure is 43.7% all-run (176/403)**, all `no json in reply`.
+- Gather counts remain bout meters (02:05 entry); no branch totals quoted here.
+
+### The one-line version
+
+**Two models talked a trade all the way to "done" on both cards at once — for meat
+the seller had never had, in a world where neither can see the other's pack — and
+the buyer quit one turn early, the seller's call budget ran out seven turns after
+that, and the board has been showing his last words as a live offer ever since.**

@@ -2192,3 +2192,62 @@ for free.
 Related: the 20 s / 75 s cadence split means the shared 6,000-call budget is spent
 **4:1 by clock speed**, not by anything either mind does — Eachann is at 1,442/1,500
 while Coinneach is at 384.
+
+### A93 ††† A MIND CANNOT SEE WHAT ANOTHER IS CARRYING, SO EVERY BARGAIN IS BLIND **[M]**
+
+The run's one fully-agreed trade — *"one hide for venison"*, held by Coinneach for
+63 samples and answered *"one hide for your venison? done"* by Eachann — was for
+meat **Eachann did not have and had not had for the entire 120-sample window**
+(`bow ×1, hide ×19, arrow ×7`, unchanged). Twenty-one minutes of competent
+negotiation over an imaginary good.
+
+Neither could have known. A mind gets its own `carrying`
+([WHAT-A-MIND-IS-GIVEN.md:22](WHAT-A-MIND-IS-GIVEN.md:22)) and gets others as a
+name and a bearing only ([agent.js:2574](src/net/agent.js:2574)). Until that
+changes, *every* offer either mind makes is a guess, and the models will keep
+looking foolish for a reason that is entirely the instrument's.
+
+Cheapest fix that keeps the fog honest: within `REACH`, put the other person's
+pack on the card — you can see what a man is carrying when you are standing next
+to him. Second-cheapest: make `offer` fail *loudly* — `refuse('offer', 'Eachann
+has no venison')` — which costs nothing and lands in `refusedVerbs`, where it
+would finally have something to say.
+
+### A94 ††† A `SPENT` SEAT KEEPS BROADCASTING THE MODEL'S LAST SENTENCE **[S]**
+
+Eachann hit `SPENT` at s1997 (1,500/1,500 calls, 10:57:37). For the 23 samples
+since — and on the live board right now — his card reads *"one hide for your
+venison? done"* three times over, because `said` is a last-3 rolling buffer and
+the scripted brain never speaks. His `goal` is likewise frozen.
+
+**The card of a dead mind is indistinguishable from a mind mid-bargain, except
+that it is more consistent.** That is a worse failure than a blank card: it reads
+as conviction. Blank `said` and `goal` on `SPENT`, or stamp them
+`— no mind (budget spent) —`. Sixth time the instrument has misrepresented a
+model; first time in the model's favour.
+
+### A95 †† THE CALL BUDGET IS SPENT BY CLOCK SPEED, AND THE FAST SEAT ENDS THE RUN **[M]**
+
+Final tally: Eachann 1,500 calls, Coinneach 403. The 20 s / 75 s cadence split
+handed one seat 79% of the shared budget for no reason either mind controls, and
+when the fast seat exhausted, **the run stopped being a two-model experiment**
+while 4,098 of the 6,000 calls were still unspent. Coinneach is now starving
+(food 0) opposite a script that will answer him identically forever.
+
+Budget per seat rather than per world, or scale cadence so seats exhaust together.
+Sharpens A92: kimi's 43.7% parse-failure rate (176/403) wasted the *scarce* half
+of the run's thinking. (A92 said "45% and getting worse" off a 16-call window; the
+all-run figure held at ~44% and the final window ran 2 failures in 18. **The
+"getting worse" read was window noise — withdrawn.** The 44% baseline stands.)
+
+### A96 †† THE OFFER STANDS FOR ONE TURN, SO AGREEMENT NEEDS BOTH MINDS ON THE SAME TICK **[M]**
+
+Coinneach dropped `offer hide to Eachann for venison` at s1990. Eachann said
+*"done"* at s1991 — **one sample later**. At a 20 s / 75 s cadence split, requiring
+two minds to hold a matching intent simultaneously is a coin-flip they lost after
+twenty-one minutes of trying.
+
+Make an offer an object that persists — it stands until accepted, withdrawn, or it
+times out, and it shows on both cards while it stands. That single change would
+have closed this run's one real bargain, and it is a precondition for `accept`
+ever being used even after the id-matching bug (02:05 entry) is fixed.
