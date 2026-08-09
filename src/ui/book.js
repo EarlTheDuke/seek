@@ -86,8 +86,16 @@ export function buildBook({ inventory = null, companion = null } = {}) {
 
   // ── build ──
   // A fire is first because it is the thing everything else needs, and it is
-  // not in BUILDABLE — it is lit rather than built, from a single branch.
-  const fire = priceOf({ wood: 1 }, inventory);
+  // not in BUILDABLE — it is lit rather than built.
+  //
+  // `SURVIVAL.woodToLight`, AND THIS FILE HAD IT HARD-CODED AS 1. The rule at
+  // the top of this file is that nothing here restates a number, because "being
+  // quietly wrong is worse than being absent — you would trust it". The fire
+  // slipped past that rule by being the one thing NOT in BUILDABLE, so when the
+  // price went from one branch to ten the reference kept confidently saying one.
+  // Exactly the failure the rule was written to prevent, in the file that
+  // wrote it.
+  const fire = priceOf({ wood: SURVIVAL.woodToLight }, inventory);
   const buildRows = [{
     name: 'Fire',
     cost: fire.cost,

@@ -141,6 +141,28 @@ const slow = rowFor(buildBook({ inventory: pack({ fish: 1 }) }), RECIPES.cook_fi
 RECIPES.cook_fish.seconds = wasReps;
 check('and so do the times', slow === '999s', `"${slow}"`);
 
+// ── THE FIRE'S PRICE, WHICH THIS FILE'S OWN RULE DID NOT COVER ──
+//
+// book.js opens by saying nothing in it restates a number, because "being
+// quietly wrong is worse than being absent — you would trust it". The fire
+// slipped past that rule by being the one buildable thing NOT in BUILDABLE: it
+// was hard-coded as `{ wood: 1 }`, so when lighting went from one branch to
+// SURVIVAL.woodToLight the reference kept confidently saying one.
+{
+  const { SURVIVAL: S } = await import('../src/config.js');
+  const rich = pack({ wood: S.woodToLight + 2 });
+  const poor = pack({ wood: 1 });
+  const rowOf = (inv) => buildBook({ inventory: inv })[0].rows.find((r) => r.name === 'Fire');
+  check('the book prices a fire from SURVIVAL.woodToLight, not a literal',
+    rowOf(rich).cost === amountText('wood', S.woodToLight),
+    `"${rowOf(rich).cost}" with the constant at ${S.woodToLight}`);
+  check('  …and says how many more you need when you are short',
+    /9 branches/.test(rowOf(poor).note ?? '') || /branch/.test(rowOf(poor).note ?? ''),
+    `"${rowOf(poor).note}" holding one branch`);
+  check('  …and one branch is NOT enough any more',
+    rowOf(poor).can === false, 'a reference that says you can when you cannot is the worst kind');
+}
+
 const failed = results.filter((r) => !r).length;
 console.log(`\n  ${results.length - failed}/${results.length} passed\n`);
 process.exit(failed ? 1 : 0);
