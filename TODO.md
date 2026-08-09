@@ -106,6 +106,41 @@ a spot without either of them being there.
 
 ## 5. World and balance
 
+### 5z † Deadfall never grows back **[S]**
+`Pickups.taken` is a Set with the comment `// loot keys already collected —
+never come back`, and it means it: every branch picked up is gone for the
+session. Trees regrow in 30 game hours and quarried rock does too; the deadfall
+lying between them does not.
+
+That was survivable when a fire cost one branch. It is not now that a fire costs
+ten — the near ground gets stripped permanently and the glen only ever gets
+poorer. In the melee run, eight bodies had gathered so hard that one was
+carrying FIFTY branches while the wood on the ground around them was gone for
+good.
+
+The mechanism already exists: `Harvest.taken` is a Map of key -> the hour it
+comes back. Deadfall wants the same treatment, which turns the glen from
+depleting into seasonal — which is both what a person would expect of fallen
+wood and what makes a camp somewhere sustainable.
+
+### 5y †† A ROSTER ENTRY CAN SILENTLY SCRIPT A SEAT **[S]**
+Fingal ran the whole melee at 0 answered / 43 failed on
+`http 400 — This model does not support the effort parameter`, so a paid seat
+was the scripted brain for an hour and the board's model column still said
+claude-haiku-4-5.
+
+The cause was mine and providers.js had already written the warning: "`low`
+unless told otherwise. NULL OMITS IT ENTIRELY, which is required for the older
+models: `output_config.effort` is rejected by Haiku 4.5 and Sonnet 4.5. Set
+`effort: null` in a roster entry for those." I wrote the roster without it.
+
+Two fixes, and the second matters more: set `effort: null` on Haiku entries, AND
+make the provider RETRY WITHOUT the parameter when a vendor rejects it. A
+documented footgun that every roster author must remember is a footgun that will
+be stepped on again — `keycheck` cannot catch this because it sends no prompt.
+
+
+
 - **`maxAlive: 26`** — goblins fill the cap and there is no room for a troll.
   Two of three nights had nothing bigger available. **[S]**
 - **A troll is 420 hp** against a 26-damage arrow. That is five clean head shots
