@@ -2242,3 +2242,131 @@ the whole point of not reserving.
 **A man starved to death for the ninth time, woke up fed and holding everything he
 owned, and went straight back to bargaining for food — and the world has never once
 told either of them that dying is free.**
+
+---
+
+## 2026-08-08 23:35 — RUN 2 still live, samples 1124→1202 (`at` 17172→18513)
+
+Board answering. **No `SPENT` tag on either seat** — Eachann 925/1500, Coinneach
+246/1500, session 1171 of 6000, `exhausted:false`. Everything below is the models.
+
+### THE THIRD BARGAIN "CLOSED", AND WHAT CHANGED HANDS WAS BRANCHES BOTH MEN BELIEVE ARE MEAT
+
+Both minds said the deal was done, in their own words:
+
+> **Eachann:** *"Done. Meat for your fifty branches."* → *"Here's the meat."*
+> **Coinneach:** *"Forty-eight. I owe you two branches."* → *"Done. I owe you two."*
+
+Eachann's card, live, right now:
+
+```
+goal "give venison to Coinneach"   why "fulfil trade"
+carrying   bow:1  arrow:19  hide:3  wood:69          <-- no venison. none.
+deeds      h16.84 "I gave wood to Coinneach"
+           h16.95 "I gave wood to Coinneach"
+           h17.10 "I gave wood to Coinneach"
+```
+
+He is not lying this time. He asks the engine for `give venison`, and
+`giftFrom` (`world.js:802–816`) walks named → edible → **largest stack**. He holds no
+venison and nothing edible, so it hands over the top of his biggest pile: a branch.
+`resolveGive` then logs the substitution honestly — *"I gave wood"* — and tells
+**nobody**. The receiver gets no event naming what he actually got, and the giver's
+own mouth keeps saying *"Here's the meat."*
+
+The function's docstring says it is *"what to hand over when a mind did not say."*
+It is also, unmarked, what happens when a mind **did** say and was wrong.
+
+### AND THE MAN RECEIVING THE BRANCHES IS GATHERING BRANCHES TO PAY FOR THEM
+
+Coinneach's card, the same instant:
+
+```
+goal "pick up what is lying about"   why "fifteen short of fifty for Eachann's meat"
+carrying  bow:1  wood:43  arrow:7
+```
+
+Measured ledger, `at`18353 → `at`18513 — every matched step where one pack loses
+exactly what the other gains:
+
+```
+at18353   Eachann -1 arrow  -> Coinneach +1
+at18367   Eachann -1 wood -1 arrow -> Coinneach +1 +1
+at18382   Eachann -3 wood   -> Coinneach +3
+at18411   Eachann -2 wood   -> Coinneach +2
+at18498   Eachann -2 wood   -> Coinneach +2
+at18513   Eachann -6 wood   -> Coinneach +6
+```
+
+**Reverse transfers: zero.** Eachann's wood has gone **124 → 69** since the
+handshake — he has paid out ~55 branches, almost exactly the fifty he was owed —
+while Coinneach, receiving them, counts himself *"fifteen short of fifty"* and keeps
+picking branches off the ground to settle the debt.
+
+**Whole-run give deeds: 45. All 45 are Eachann's. Coinneach has never given anything
+to anyone in 1,202 samples.** (Supersedes the 29 at sample 1027 and 30 at 1124.)
+
+### WHY NO PRICE IN THIS WORLD CAN EVER BE PAID
+
+`resolveGive(from, toName, itemId)` — **there is no quantity parameter.** The body
+hardcodes `from.inventory.remove(id, 1)` / `to.inventory.add(id, 1)`
+(`world.js:682–687`), and the intent is `{give, giveItem}` with no count field
+anywhere in the protocol. `offer` and `accept` are the same (A50).
+
+It is deliberate. `world.js:1149–1160` edge-detects `give` on the rising edge because
+`givecheck` once held the field for eight packets and *"twelve arrows changed hands,
+which is the entire stack and not what anybody asked for."* The stack transfer was
+the bug; one-per-press was the fix.
+
+So: **every price these two models have ever named is a quantity, and the engine has
+no way to move a quantity.** Fifty branches is fifty separate decisions — at
+Eachann's 20 s cadence, about seventeen game-hours of doing nothing else. The
+`-6 wood` step above is six gives, not one.
+
+| negotiation | price named | what the engine can move |
+|---|---|---|
+| hide ↔ venison | *"one hide for **two** venison"* | 1 |
+| branches ↔ arrows | *"**nine** branches for the arrows"* | 1 |
+| branches ↔ meat | *"meat for **fifty**"* | 1 |
+
+### `refusedVerbs` — SOLVED, AND IT IS WIRED TO THE ONE PLACE REFUSALS DO NOT HAPPEN
+
+Unmoved all run: Eachann `{avoid: 16}`, Coinneach `{}`. The cause is now exact.
+`grep -o "this.refuse('...'"` over `agent.js` returns **seven call sites — one per
+verb** (`avoid, give, offer, accept, attack, hunt, gather`), and every one of them is
+the same pre-flight check: *"there is nobody called X"* / *"nothing called X"*.
+
+Every **downstream** failure — out of range, you don't hold it, no matching offer —
+is a silent `return` inside `world.js`. `avoid` is the only verb whose *sole* failure
+mode is the name lookup. That is the entire reason it is the only verb that ever
+appears in the column.
+
+This is not a tuning problem and A56's `this.acted` patch is the right fix, but it
+understated the scope: **`refusedVerbs` today cannot see any failure that happens
+after the name resolves**, which is all of them.
+
+### Confirmed, no change
+
+- **Carcasses work — the fix landed.** `gather venison` fired 5 times: Eachann 3, 3,
+  4, 2 at h0.37/h7.80/h9.68/h21.17, Coinneach 4 at h12.02, plus 12 cooks at fires.
+  Meat is being eaten off kills. First live confirmation.
+- **`plan` is the best field on the card.** Non-empty in **1198/1202** of Coinneach's
+  samples (16 distinct) and **955/1202** of Eachann's (3 distinct), and it tracks the
+  live goal — Coinneach's current *["gather to fifty","get meat from Eachann","hunt
+  if he won't deal"]* is exactly what he is doing.
+- **`note`: zero on all 1,202 cards, both vendors. Thirteenth check.** Retire it.
+- **Starvation census, whole run: 20 deaths — Eachann 9, Coinneach 11.** Two new this
+  window (`at`17814, `at`17959). **18 of 20 kept the pack byte for byte.** A58 stands;
+  supersedes the 17 at sample 1124.
+- **kimi-k2.6 `no json in reply`: 121 of 246 (49%)**, flat all run. A42/A57 stand.
+- **Trade deeds (`k:'trade'`): still 0.** `accept` has never completed once. Verbs
+  with zero completed deeds all run: **accept/trade, attack, follow, guard.**
+- **Speech is still the success story** — 105 distinct lines from Eachann, 53 from
+  Coinneach, both naming each other constantly.
+
+### The one-line version
+
+**Two men shook hands on fifty branches for a side of venison; the seller had no
+venison, so the engine quietly handed over his branches one at a time while he said
+"here's the meat" — and the buyer, taking delivery of his own currency, went off to
+gather more of it to pay the bill.**

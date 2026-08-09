@@ -1606,3 +1606,81 @@ Coinneach 52). The conclusion is unchanged and slightly stronger: a fire costs
 106 that motivated the 10× price rise). Both minds close the run sitting on ~74
 branches each while negotiating over branches. A53's fix stands; the target yield
 should be ~2–3, not ~9.
+
+### A61 ††† `giftFrom` SILENTLY SUBSTITUTES WHEN YOU NAME SOMETHING YOU DO NOT HAVE **[S]**
+
+`giftFrom` (`world.js:802–816`) is documented as *"what to hand over when a mind did
+not say."* It is also, unmarked, what happens when a mind **did** say and was wrong:
+named → any edible → **largest stack**, no signal at any step.
+
+Live, `at`18513: Eachann's goal is `give venison to Coinneach`, he says *"Here's the
+meat"*, he holds **no venison**, and the engine hands Coinneach a branch off his
+124-stack. Deed reads *"I gave wood to Coinneach"*. Fifty-five branches have moved
+this way. Neither mind has been told a substitution occurred; the receiver gets no
+event naming the item at all.
+
+**Fix:** when `itemId` was named and is not held, **refuse** rather than substitute —
+`this.refuse('give', "you have no venison")` — and keep the largest-stack fallback
+only for the genuinely unnamed case the docstring describes. Then push the item name
+to the *receiver* in the `gift` event so he can see he was handed firewood. Two lines
+and it converts the single most confusing behaviour in the run into a legible one.
+
+### A62 ††† NO QUANTITY EXISTS ANYWHERE IN THE TRANSFER PROTOCOL, AND EVERY PRICE EVER NAMED IS A QUANTITY **[M]**
+
+Extends A50 from `offer`/`accept` to the whole surface. `resolveGive(from, toName,
+itemId)` has **no count parameter**; the body hardcodes `remove(id, 1)` / `add(id, 1)`
+(`world.js:682–687`); the intent is `{give, giveItem}`. Same for offer and accept.
+
+It is deliberate — `world.js:1149` edge-detects `give` because `givecheck` once moved
+*"twelve arrows … the entire stack and not what anybody asked for."* The stack was the
+bug; one-per-press was the fix. But three negotiations in, **every price either model
+has named is a number** — two venison, nine branches, fifty branches — and fifty
+branches is fifty decisions, ~17 game-hours at a 20 s cadence. Observed: a `-6 wood`
+step is six separate gives.
+
+**Fix:** add `n` to the give/offer/accept intents (clamp to the stack and to something
+sane like 99), pass it through `resolveGive`/`resolveAccept`, and keep the rising-edge
+contract — one *press*, one *transfer of n*. This is the single change that would let
+any bargain in this world actually close.
+
+### A63 †† `refusedVerbs` IS WIRED TO THE ONE PLACE REFUSALS DO NOT HAPPEN **[S]**
+
+Sharpens A56 with the cause. `grep -o "this.refuse('...'"` over `agent.js` returns
+**seven call sites, exactly one per verb** (`avoid, give, offer, accept, attack, hunt,
+gather`) — and all seven are the same pre-flight lookup: *"there is nobody called X."*
+Every downstream failure (out of range, don't hold it, no matching offer) is a silent
+`return` in `world.js`.
+
+`avoid` is the only verb whose *sole* failure mode **is** the name lookup. That is the
+entire reason the column has read `{avoid: 16}` / `{}` for 1,202 straight samples
+across two vendors. It is not under-tuned; it is blind to every failure that happens
+after a name resolves, which is all of them.
+
+**Fix:** A56's `this.acted` publish, plus give `world.js`'s silent `return`s a reason
+channel — the eight in `resolveAccept` (`749–764`), the three in `resolveGive`
+(`669/675/678`). Cheapest version: have them push `{k:'refused', verb, why}` and let
+`agent.js` fold that into the same counter. The column then earns the billing it was
+given.
+
+### A64 † CORRECTION — GIVES ARE 45, NOT 29/30, AND STARVATION DEATHS ARE 20, NOT 17 **[—]**
+
+Closing counts over all 1,202 samples, superseding the sample-1027 and sample-1124
+entries: **45 give deeds, every one Eachann's** (Coinneach has never given anything to
+anyone, all run, zero reverse transfers measured). **20 starvation deaths — Eachann 9,
+Coinneach 11 — 18 of them keeping the pack byte for byte.** Conclusions in A58 and the
+give-direction finding are unchanged and stronger.
+
+### A65 †† CARCASSES WORK — FIRST LIVE CONFIRMATION, CLOSE THE LOOP ON THE REST **[S]**
+
+Logged for the record, since seven fixes landed 2026-08-08 and this is the first one
+*observed working with real models*: `gather venison` fired **5 times** (Eachann 3, 3,
+4, 2 at h0.37/h7.80/h9.68/h21.17; Coinneach 4 at h12.02) and fed **12 cooks** at fires.
+Minds now eat what they kill.
+
+Scoreboard for the other six, same run: **`say` — works, transformative** (105 + 53
+distinct lines vs one sentence in two prior days). **`plan` — works** (1198/1202 and
+955/1202 samples). **`note` — dead, thirteenth zero; retire it.** **`offer` price
+defaulting to gold — untestable, peak gold either mind ever held is 2 (A49).**
+**offer/give walking you to the person — works, they meet.** **10-branch fires — still
+too cheap (A53/A60).** Worth keeping this table per-run: it is the only thing that
+tells us a fix survived contact.
