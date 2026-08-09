@@ -2607,3 +2607,59 @@ whoever nearly does** — the worst of both, and A100's "still not scarce" holds
 the outcome line — *"you have 9 branches; a fire needs 10"*. One sentence, and it
 converts a silent wall into the single most actionable thing the world could tell
 him. Cheaper and more general than retuning the number.
+
+### A115 †††† THE FLETCHING GATE CANNOT BE REACHED BY THE ECONOMY THAT FEEDS IT **[S]**
+
+Three numbers that were tuned separately and cannot be satisfied together:
+
+| | value | where |
+|---|---|---|
+| `AGENTS.spareWood` — wood needed to fletch | **14** (so 15+) | [config.js:999](src/config.js:999) |
+| `SURVIVAL.woodToLight` — cost of a fire | **10** | [config.js:1698](src/config.js:1698) |
+| branches from a felled tree | **8** | [config.js:1151](src/config.js:1151) |
+
+One tree never opens the gate. Two trees (16) does — but a cold body lights a
+fire first, drops to 6, and is two trees from an arrow again. Arrows are food
+(A108), so **the fire and the quiver compete for one pool, cold is immediate and
+hunger is slow, the fire wins, and the body starves with a bow on its back.**
+
+**Measured, s2462–s2555 (94 samples):** gate open **2/94 (2%)** for Eachann,
+**0/94 (0%)** for Coinneach; **zero arrows on both, 94/94**; deeds were 51
+gathers and 17 fires and *nothing else* — no `eat`, no `craft`, no `killed`.
+Both starved five samples apart (s2522, s2527). Binned run-wide, Coinneach's
+gate sits at 0–1% in seven of eleven bins.
+
+This is not a model failure. The seat that starved hardest was `SPENT` — a
+script — and the constraint is arithmetic.
+
+**Fix, cheapest first:** (a) drop `spareWood` to ~11, so *one fire's worth spare*
+means what the comment says it means rather than one-and-a-half; or (b) make
+`fletch_arrows` cost fewer branches than a fire, so a body that cannot afford
+warmth can still afford to hunt. Either restores the intended ordering — fire
+first, then arrows — instead of the current "fire only, forever". [firecheck.js:386](server/firecheck.js:386)
+already asserts `spareWood > woodToLight`; that check is passing and is the
+wrong invariant — it should assert the gate is *reachable* from one night's
+gathering.
+
+### A116 †† `plan` SURVIVES ITS AUTHOR'S DEATH AND IS NEVER RE-READ **[S]**
+
+Extends A103 (`plan` is durable but never reconciled with `goal`) with the
+sharper version: it is not reconciled with **reality or with death** either.
+
+Coinneach's plan read `["eat what I get", "find arrows", "feed the fire"]` for
+**93 of 94 samples** — across zero wood, zero arrows and zero food, **through
+his own starvation death at s2522**, and through 33 samples of respawned life
+after it. Two of its three items were impossible for most of that stretch and
+nothing said so.
+
+Two details worth keeping: he wrote *"find arrows"* (a scavenge he cannot
+control) rather than *"make arrows"* while standing at a fire that could fletch
+them — and he only wrote *"make arrows"* **after** dying, at s2555, whereupon
+wood went 0 → 6 on the next tick. One sample, so not yet a result, but it is the
+first plan-rewrite-then-act in the file.
+
+**Fix:** clear `plan` on death, and put each plan line's feasibility next to it
+in the brief — *"feed the fire — you have 0 branches, a fire needs 10"*. The
+mind already writes honest `why` lines about exactly these constraints (*"zero
+branches, shivering, need fire and shafts"*); it simply never revisits the list
+it wrote them against.

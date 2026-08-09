@@ -3777,3 +3777,112 @@ brain with no tag on the board, the only tell being that `why` goes null — and
 the ticks that *were* his, kimi-k2.6 held `take Eachann offer` for 53 samples,
 produced no deed, registered no refusal, and starved to death buying venison from
 a script that has never carried food.**
+
+## 2026-08-09 07:05 PDT — RUN 2, EIGHTEENTH LOOK: they both starved with the fletching gate shut, and the gate is arithmetic
+
+Board answers. Sampler at **s2555**, `at 38156`, sim-hour 2.3, 851 real minutes.
+Window is **s2462–s2555** (94 samples, ~31 real minutes, sim h21.3 → h2.3).
+Eachann `SPENT` since s1997 — **red tag; those 94 samples are the script, not
+grok.** Coinneach `spent: false`, 508 calls, **222 failures (43.7%)** — and 9 of
+his 18 calls *in this window* failed, so read him as ~half script too (A112).
+
+### The finding: `spareWood` (14) > `woodToLight` (10) > a felled tree (8)
+
+Both minds starved to death five samples apart — **Coinneach s2522** (hp 6→100,
+food 0→85) and **Eachann s2527** (hp 0→100, food 0→84) — each holding
+`goal: "stay still and watch"`. In the whole window their deeds are
+**51 gathers and 17 fires and nothing else**: no `eat`, no `killed`, no `craft`.
+They gathered and burned wood for half an hour and neither ate once.
+
+They could not eat because they could not shoot, and they could not shoot
+because of one comparison. [agent.js:1359](src/net/agent.js:1359):
+
+```js
+this.count('arrow') < AGENTS.lowArrows &&      // 0 < 5   — open all window
+this.count('wood')  >= AGENTS.spareWood        // wood >= 14 — the wall
+```
+
+Measured over the 94 samples:
+
+| | wood ≥ 14 (gate open) | zero arrows | max wood held |
+|---|---|---|---|
+| Eachann | **2 / 94 (2%)** | 94 / 94 (100%) | 17 |
+| Coinneach | **0 / 94 (0%)** | 94 / 94 (100%) | 13 |
+
+The three numbers cannot be satisfied together. A felled tree gives **8**
+([config.js:1151](src/config.js:1151), raised so "one tree is one fire"),
+lighting costs **10**, fletching needs **15**. So: two trees (16) opens the gate
+— but a cold body lights first, drops to 6, and is two trees away from an arrow
+again. Every one of the 17 fires in this window knocked its owner back under the
+gate. **The fire and the quiver draw on the same pool, cold is immediate and
+hunger is slow, so the fire always wins and then they starve.**
+
+This is A108's arrow famine with its mechanism attached, and it is not a model
+failure — the seat that starved hardest was a script, and it is arithmetic.
+
+### It is a late-run condition, not a constant
+
+Binned across the run, the gate-open share swings hugely and then shuts:
+
+```
+s0–250    E 49%  C 34%        s1500–1750  E 42%  C 91%
+s500–750  E  1%  C  0%        s2000–2250  E 11%  C  0%
+s1000–1250 E 84%  C 72%       s2500–end   E  0%  C  0%   ← both die here
+```
+
+Peak packs were **154** and **178** branches. So wood is not globally scarce;
+availability is spiky (`regrowHours` 30) and the deaths land in the trough.
+Note also that **Coinneach's gate is at or near 0% in seven of eleven bins** —
+he has been chronically unable to fletch for most of the run, which is the real
+reason his shooting numbers are what they are.
+
+### Correcting A114
+
+A114 said Coinneach "gathered to 9, stopped, and was never told he was one
+branch short." **The first half holds and the second is wrong.** The 9-wood
+plateau ran s2378→~s2477 (~99 samples) and then he *did* break it — wood 9 → 13
+at s2480 — and lit **9 fires** in this window. He was not permanently stuck at 9.
+The partial-progress message A114 asks for is still worth having, but it should
+be argued as ergonomics, not as the thing that trapped him.
+
+### `plan` outlives its author
+
+Coinneach's plan read `["eat what I get", "find arrows", "feed the fire"]` for
+**93 of 94 samples** — through zero wood, zero arrows, zero food, **through his
+own death at s2522**, and through 33 samples of respawned life after it. It was
+never reconciled with the fact that two of its three items had become impossible.
+At the very last sample (s2555) he rewrote it to
+`["gather wood", "trade hide to Eachann for meat", "make arrows"]` with
+`why: "zero branches, shivering, need fire and shafts"` — and wood went 0 → 6 on
+the next tick. That is the first plan-rewrite-then-act I have seen, but it is
+**one sample; too early to call.** Note he only wrote *"make arrows"* after
+dying — for the whole preceding stretch his plan said *"find arrows"*, a scavenge
+he cannot control, while the fire he was standing at could have fletched them.
+
+### Re-checked
+
+- **Trade: still zero.** No `give`/`offer`/`accept` deed for either mind. Nothing
+  has moved between them since s1748 — **807 samples, ~4.5 real hours.**
+- **`note`: `""` on both cards, 27th consecutive check.** Zero uses, whole run.
+- **`refusedVerbs`: `{"avoid": 16}` / `{}`.** Unmoved since s681. Coinneach spent
+  20 samples on `offer hide to Eachann for share` (s2532–s2548) with no deed and
+  no entry — A113's shape, again.
+- **Speech: 6 lines, all Coinneach** — *"One hide. One share. Done." · "A hide
+  for meat. Done." · "Give me the venison. You have your hide." · "camp here,
+  fire and sleep" · "fetching wood"*. Eachann: **0**; the `SPENT` script has no
+  `say`, and his card still displays the frozen `"one hide for your venison?
+  done"` as if it were live (A94/A97).
+- **`why` remains the one self-authored field that works** — 10 distinct honest
+  lines tracking the real constraint: *"no food"* → *"need to eat"* → *"got no
+  food and winter's here"* → *"dark and no arrows"* → *"zero branches,
+  shivering, need fire and shafts"*. He named his own death correctly and had no
+  verb that answered it.
+- **Budget: 2007 of 6000 calls.** 3,993 stranded behind the per-seat cap (A111).
+
+### The one-line version
+
+**Both minds starved to death within ninety seconds of each other while gathering
+51 times and lighting 17 fires, because fletching needs 15 branches, a fire costs
+10 and a tree gives 8 — so every fire they lit to survive the night put an arrow
+further out of reach, and the gate that lets a body make arrows was open for 2 of
+94 samples on one seat and 0 of 94 on the other.**
