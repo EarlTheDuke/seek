@@ -3643,3 +3643,45 @@ is ever raised above 20 s, because it is the sample interval, not the cap, that 
 
 **Also retired: a suspected 5-stack cap on `carrying`.** melee3 maxes at 5 with 67 cards there;
 `duo2.jsonl` has a card at **6**. There is no cap and the inventory readings are sound.
+
+### A177 †† `avoid` REFUSES A THREAT IT CAN SEE, `accept` NEVER REFUSES ANYTHING — ONE EDIT EACH **[S]**
+
+**Reopened: this file recorded the `avoid` half as fixed at `9ba2a4f` and it was not.** That
+commit touches only price/noun resolution; [agent.js:2788](src/net/agent.js:2788) is unchanged
+since `ed78363` (08-08 15:30), the commit that *added* the instrument that found it.
+
+The two social verbs resolve their target through opposite lookups:
+
+```
+avoid   agent.js:2789   find()    → CONTACTS, culled at AGENTS.noticeRange (140 m)
+accept  agent.js:2562   anyone()  → the unculled snapshot, always resolves
+```
+
+- `avoid` past 140 m → `refuse('avoid')` **then `this.roam()`**: a mind fleeing a goblin
+  wanders at random instead. Ailsa paid this **24 times** in duo2, and "keep away from a
+  goblin" is still a live goal (8 / 2 / 7 across duo2 / melee2 / melee3).
+- `accept` always resolves, so it never refuses and never reports — the mechanism that let
+  Coinneach hold `take Eachann offer` for **53 samples** and starve to death against a
+  counterparty he could not reach.
+
+**Fix:** give `avoid` the unculled lookup for *position* (you can flee something you last saw
+at 200 m; the useless answer is to roam), and give `accept` a **range check** that calls
+`refuse('accept', 'X is 340 m away')`. Both are a one-line lookup swap in opposite directions.
+**[S]**, and it is the highest value-per-line item on this list.
+
+### A178 `note` IS A ONE-MODEL FIELD — 1 SEAT IN 7 HAS EVER WRITTEN ONE **[S]**
+
+Across **520 samples and three runs**, only `claude-opus-5` (Morag) has ever put a word in
+`note`: 1, 1 and 3 distinct strings in duo2, melee2, melee3. Never sonnet-5, grok-4.5,
+grok-4.20, kimi-k2.6 (×2) or haiku-4.5. This is **not** general scratchpad blindness —
+`plan` is written by every model seat in every run (A173; melee3: 45 / 20 / 9 / 3 / 2 / 2 / 2).
+
+The one model that uses it uses it well, and two ways: a warning that outlives the danger
+(*"Tormod and Ben dead to goblins north-east. Do not go that way."*) and a **rewritten state
+scratchpad** (*"No food, no wood. 12 arrows. Deer NW."* → *"16 branches. No food. Trade fire
+for meat."* → *"25 branches…"*) — a mind keeping its own books because nothing else does.
+
+**Fix:** diff how `plan` and `note` are presented in `WHAT-A-MIND-IS-GIVEN.md` / the prompt.
+`plan` gets adopted by 7 seats in 7 and `note` by 1; the difference is almost certainly in the
+wording or in whether last tick's value is echoed back. Echo the current `note` back to the
+mind the way `plan` is, and re-measure. **[S]**

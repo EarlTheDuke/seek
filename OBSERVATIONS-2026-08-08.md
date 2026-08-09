@@ -5346,3 +5346,69 @@ See A174.
 holds **shot** rejections — `{"d":29,"why":"too far","slant":34.9,"dy":-5.8,"leadBy":5.9}`,
 `{"d":20,"why":"ground in the way 11 m out"}` — 138 distinct entries, Iseabail alone 80.
 **A155 stands unchanged and this is the seventh empty check.**
+
+## 2026-08-09 14:35 PDT — A BUG THIS FILE MARKED FIXED WAS NEVER TOUCHED: `avoid` still cannot see the thing it is fleeing
+
+**Still no run.** `board.json` refuses the connection at 14:31 (curl exit 7, no HTTP status);
+only `:5173` is listening. `melee3.jsonl` (13:19) is still the newest sample file — nothing has
+been written since. Not restarted, per standing orders. Everything below is re-reading logs
+that already exist, plus the source.
+
+### Correction to the 13:37 entry, and it reopens a live bug
+
+Line 4909 of this file says of the two bugs `refusedVerbs` caught:
+
+> "…were both *resolution* failures, and **both were fixed at `9ba2a4f`**."
+
+**One of them was.** `git show 9ba2a4f` touches only price/noun resolution — its own message is
+entirely about `resolveItemId` and `'branch'`/`'branches'`. It does not contain the string
+`avoid`, `140`, or `noticeRange`. And [agent.js:2788](src/net/agent.js:2788), the `avoid` case,
+has not been modified since **`ed78363` (08-08 15:30)** — the commit that *added* the
+instrumentation that found it. The flee bug was reported, written up as closed, and never fixed.
+
+The disappearance of Ailsa's `avoid: 24` after duo2 is **not** evidence of a fix. In `melee2`
+and `melee3` `refusedVerbs` is `{}` for *every* verb on *every* card; `avoid` vanished along
+with everything else. Meanwhile minds kept reaching for it — "keep away from a goblin" appears
+as a goal **8 times in duo2, 2 in melee2, 7 in melee3**.
+
+### The two social verbs use opposite lookups, and both are wrong in opposite directions
+
+```
+avoid   agent.js:2789   find(...)     → nearestOf(pred, false)  → CONTACTS, culled at 140 m
+accept  agent.js:2562   anyone(...)   → the unculled snapshot
+```
+
+- **`avoid` refuses a threat it can see.** Past 140 m `find` returns nothing, so a mind that
+  says *"keep away from the goblin"* gets `refuse('avoid')` **and then `this.roam()`** — it
+  wanders at random instead of fleeing. Ailsa paid this 24 times in one run.
+- **`accept` never refuses at all**, because `anyone()` always finds the counterparty — which
+  is the mechanism at line 3730 that let Coinneach hold `take Eachann offer` for 53 samples
+  and starve to death against a partner he could not reach.
+
+Same class of bug, same file, opposite sign. Fixing them together is one edit each and they
+should not be filed apart. **A177.**
+
+### `note` is a one-model field: 1 seat in 7 has ever written one
+
+Across **520 samples and three runs**, exactly one seat has ever put a word in `note`:
+
+| run | who wrote a note | who did not |
+|---|---|---|
+| duo2 | Morag (`claude-opus-5`) — 1 | the other 7 seats |
+| melee2 | Morag — 1 | the other 7 |
+| melee3 | Morag — 3 | the other 7 |
+
+Never `claude-sonnet-5`, never `grok-4.5`, never `grok-4.20`, never `kimi-k2.6` (×2), never
+`haiku-4.5`. Contrast `plan`, which **every** model seat writes in **every** run (A173):
+melee3 is Morag 45, Fingal 20, Ailsa 9, Tormod 3, Coinneach 2, Seonaid 2, Eachann 2 distinct.
+
+So this is not "models don't use scratchpads" — it is something specific to `note`. And the
+one model that does use it uses it two different ways: as a warning that outlives the danger
+(*"Tormod and Ben dead to goblins north-east. Do not go that way."*, *"Goblin roams NE of Rowan
+Moor. Don't go north alone."*) and, in melee3, as a **state scratchpad it rewrites** —
+`"No food, no wood. 12 arrows. Deer NW."` → `"16 branches. No food. Trade fire for meat."` →
+`"25 branches. No food. Trade fire for meat."`. That is a mind keeping its own books because
+nothing else does. **A178.**
+
+`a062c7c`'s *"`note` is not dead, it is unverified"* stands, with the sample size now named:
+n = 1 model.
