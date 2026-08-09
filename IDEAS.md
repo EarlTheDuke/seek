@@ -2033,3 +2033,83 @@ card** ("Eachann offers you cooked venison for hide") so `accept` has an obvious
 referent; (c) log an `offer` deed so a posted bid is visible on the board at all —
 right now `offer` is the only verb that produces no deed line, which is why nobody
 watching could tell Eachann was trying.
+
+### A84 ††††† THE TRADE VERBS HAVE NO QUANTITY FIELD, AND BOTH MODELS PRICE IN QUANTITIES **[M]**
+
+**The root cause under A48, A82 and A83 — and none of those three fixes reach it.**
+
+Observed (03:05 entry): of the 132 distinct things these two minds have said, the priced
+ones all name an amount — *"fifty branches for your meat"*, *"nine branches for arrows"*,
+*"One hide for two venison"*, *"Six arrows. Robbery, but fine."* The primitive they aim
+at cannot hold any of it:
+
+```js
+from.offer = { to: to.id, item, want };          // world.js:729 — no count
+giver.inventory.remove(deal.item, 1);            // world.js:766 — one for one
+taker.inventory.remove(deal.want, 1);
+```
+
+`offerItem` and `offerWant` are the only two fields on the wire
+([agent.js:1194](src/net/agent.js:1194)). **Every priced bargain either model has struck
+this run was unrepresentable at the instant it was struck.** The forty-one-branch `give`
+spam is not merely a leak — it is the only way to express "fifty" in this world, one
+model call per branch.
+
+**Fix:** add `n` to the offer and to `accept`'s transfer (`offerN`, `wantN`, default 1),
+clamp to what both packs hold, and let `give` take a count too. Then teach the prompt
+the count exists — the models already write it in prose. Until this lands, A82 and A83
+turn a fraudulent trade into a *refused* trade, which is better and still not a market.
+
+### A85 †††† `astray` EXCEEDS `loosed` ON EVERY CARD — THE HIT RATE IS UNCOMPUTABLE **[S]**
+
+Whole run, both minds: Eachann **79 astray / 45 loosed**, Coinneach **232 / 183**.
+[board.js:190](server/board.js:190) says in its own comment that loosed is "the honest
+denominator" — and the denominator is smaller than the numerator in every sample.
+
+`astray` is `strays.length` off the `shots` log; `loosed` counts `releases` where the
+loosed flag is set. Two logs, two writers, no agreement.
+
+This burned a reading in the 03:05 entry: "kimi hits 3%, grok 31%" was written and then
+pulled, because the ratio has no meaning. **Any earlier entry in OBSERVATIONS that
+quoted accuracy off these two fields is suspect.** Fix: one writer for both, or drop
+`loosed` from the card and stop implying a rate that is not there.
+
+### A86 †††† `accept` REQUIRES THE BUYER TO ALREADY HOLD THE SELLER'S PRICE **[S]**
+
+```js
+if (taker.inventory.countOf(deal.want) < 1) return;   // world.js:764
+```
+
+Structural deadlock, not a string bug (that is A83). The seller names what they want;
+the buyer must already be carrying it before the check runs. Observed live: Coinneach
+handed over his only hide, then every accept he could reach was dead before evaluation —
+the thing he needed to hold was the thing he had just paid with.
+
+Compounding it, `resolveAccept` has **eight bare `return`s** and none reaches the mind,
+the board, or `refusedVerbs`. Eachann selected `take Coinneach offer` at h19.24, said
+*"here is your venison"*, and got silence identical to choosing a verb that does not
+exist.
+
+**Fix:** keep the precondition — it is what stops minting — but **say so**. Each of the
+eight returns gets a one-line refusal the mind reads next tick: *"he has posted no
+offer"*, *"you have no hide to pay with"*, *"too far — 60 m"*. Eight strings. It would
+have turned this run's single most confusing hour into a legible negotiation.
+
+### A87 ††† A GATHERING BOUT HAS NO CAP AND NO EXIT — ONE ATE SEVEN GAME HOURS **[M]**
+
+Coinneach, h21.52 → h04.72, consecutive deeds: `3 · 6 · 8 · 11 · 15 · 17 · 22 · 23 · 27
+· 30 · 34 · 37 · 42 · 45 · 48 · 51 · 54 · 56 · 61 · 65 · 68 · 72 · 78 · 79` → one fire.
+
+**One bout, counting up in place, straight through the night.** Nothing in the world
+bounded it and nothing on the card told him he was in it — the deed just kept
+incrementing, so every call read "still gathering, going well".
+
+Two consequences worth separating: (a) it confirms the bout-meter reading (c05017b) on a
+clean single run, and (b) it prices the 10-branch fire honestly at **about three minutes
+of one bout** — wood is the only unbounded free good in the world, which is why the
+10× fire cost changed nothing and why both minds end their nights holding 100+ branches
+and zero gold.
+
+**Fix:** cap the bout (diminishing returns per bout, or a hard stop at ~20), and show
+`gathering, 34 so far` as a *state* rather than a rising deed, so a mind can tell "I am
+still doing this" from "I did this".

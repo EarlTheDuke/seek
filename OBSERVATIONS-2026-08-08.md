@@ -2900,3 +2900,147 @@ strict** (see 00:34 entry).
 unfulfillable second `give` made the engine pay Eachann out of his woodpile six
 branches at a time, 40 so far, while Eachann's three venison never moved and nothing
 on either card said a word about it.**
+
+## 2026-08-09 03:05 PDT — RUN 2, samples 1744–1834 (`at 27630`): THEY HAVE BEEN QUOTING PRICES ALL DAY AND THE TRADE VERBS CANNOT HOLD A NUMBER
+
+Board live. **Neither seat is `SPENT`** — but read the budget note below before the next
+entry. Eachann 1,381 calls of 1,500, Coinneach 368 of 1,500. All of this is the models.
+Spend 1,749 of 6,000. Game hour 16.6 → 20.3.
+
+### The finding: `offer` and `accept` have no quantity field, and never have
+
+Every priced bargain either mind has struck names an amount out loud. Verbatim, from
+the 132 distinct utterances this run:
+
+```
+"fifty branches for your meat. I'm hungry."
+"nine branches for arrows, or I'll owe you"
+"One hide for two venison. Now."
+"Six arrows. Robbery, but fine."
+"Forty-eight. I owe you two branches."
+```
+
+The primitive they are aimed at is this, [world.js:729](src/sim/world.js:729):
+
+```js
+from.offer = { to: to.id, item, want };     // no count. anywhere.
+```
+
+and it clears, [world.js:766](src/sim/world.js:766), like this:
+
+```js
+giver.inventory.remove(deal.item, 1);
+taker.inventory.remove(deal.want, 1);
+```
+
+**One of a thing for one of a thing.** The wire agrees — `offerItem` and `offerWant`
+are the only two fields in the protocol ([agent.js:1194](src/net/agent.js:1194)), and
+there is no third. So *"fifty branches for your meat"* was not a hard bargain the engine
+refused; it was a sentence with no representation. Neither model was ever wrong. They
+were negotiating in a currency the verb set cannot spell.
+
+This reframes the whole `give`-spam problem. Coinneach paying Eachann one branch per
+model call, forty-one calls deep, is not a bug in `give` alone — **it is the only way to
+express a quantity in this world.** A48/A82 fix the leak; they do not give anybody a
+price.
+
+### `take Coinneach offer` fired, and died on a null
+
+At h19.24 Eachann's card read, exactly:
+
+```
+goal  "take Coinneach offer"
+why   "he agreed to the trade"
+said  "here is your venison"
+```
+
+He reached the clearing verb *by name*. Nothing moved. Coinneach had not posted an
+offer — his goal at the time was `give hide to Eachann` — so `resolveAccept` hit
+`if (!deal || deal.to !== taker.id) return;` and stopped.
+
+`resolveAccept` has **eight bare `return`s** and not one of them reaches the mind, the
+board, or `refusedVerbs`. From where either model sits, a correctly-chosen verb against
+a live partner is indistinguishable from a verb that does not exist.
+
+And there is a worse one three lines down:
+
+```js
+if (taker.inventory.countOf(deal.want) < 1) return;
+```
+
+**The buyer must already be holding the seller's asking price.** Coinneach had just
+handed over his only hide; every accept he could have attempted was dead before it was
+checked. Two minds, in reach, both willing — and the precondition is one neither could
+satisfy.
+
+### The 41-branch drain stopped, and the engine had nothing to do with it
+
+Traced by sample: Coinneach's wood 123 → 100 by h17.80, then back up to 167 as he
+re-gathered. The gives stop at h17.80 for one reason — **his goal moved off `give hide
+to Eachann` on its own.** Nothing refused him, nothing told him, and nothing capped it.
+
+Final bill for the one bargain both models closed in good faith, whole run:
+
+| | paid | received |
+|---|---|---|
+| Coinneach | 1 hide + 41 branches | **nothing** |
+| Eachann | nothing | 1 hide + 41 branches |
+
+Eachann's 3 venison at sample 1834 are **his own** — he killed a deer at h18.27 and
+gathered them at h18.60. Coinneach ends the window on 0 hide, 0 venison, 0 cooked, and
+fed himself by hunting. He was not paid; he recovered.
+
+### One gathering bout ate the entire night
+
+Coinneach's deed line, consecutive, h21.52 → h04.72:
+
+```
+3 · 6 · 8 · 11 · 15 · 17 · 22 · 23 · 27 · 30 · 34 · 37 · 42 · 45 · 48 · 51 · 54 · 56 · 61 · 65 · 68 · 72 · 78 · 79  →  "I set a fire going"
+```
+
+That is **one continuous bout counting up in place for seven game hours**, ending at 79
+branches and one fire. It confirms the bout-meter reading (c05017b) on a clean single
+run, and it prices the fire honestly: **10 branches is about three minutes of one
+bout.** Wood is the only unbounded free good in the world, and it is what both minds
+spend their nights on.
+
+### Correction: every hit-rate number in this file is unsound
+
+`astray` exceeds `loosed` on **both** cards, all run — Eachann 79 astray / 45 loosed,
+Coinneach 232 / 183. [board.js:190](server/board.js:190) calls loosed "the honest
+denominator". The denominator is smaller than the numerator, because `astray` is
+`strays.length` off the `shots` log while `loosed` counts `releases` with the loosed
+flag, and the two logs do not agree.
+
+I was one paragraph from reporting "Coinneach hits 3%, Eachann 31% — kimi shoots into
+the ground". **I cannot support that and neither can any earlier entry that quoted these
+two fields together.** The asymmetry may be real; the arithmetic behind it is not.
+
+### Budget, loudly, for whoever reads the next board
+
+**Eachann is at 1,381 of 1,500 calls — 92%** — and burned 66 in the last 26 minutes.
+He hits `SPENT` in roughly **45 minutes**, and from that moment his card is the scripted
+brain. Coinneach is at 368 (25%) only because **44% of his calls never parse** (162
+failures, all `no json in reply`; 10 of 18 in this window alone, 56% — it is getting
+worse, not better). The 20 s / 75 s cadence split means the budget is spent 4:1 by
+clock speed rather than by anything either mind is doing.
+
+### Re-checked, unchanged
+
+- **`note`: zero uses, nineteenth check.** Both cards `""`, 1,834 samples. A70 stands.
+- **`refusedVerbs`: `{"avoid": 16}` on Eachann, `{}` on Coinneach.** Unmoved since
+  sample 681. The eight silent returns above are exactly why. A75 stands.
+- **`accept`: 0 deeds in 1,834 samples** — now with a live instance of a model
+  *choosing it* and getting nothing.
+- **`attack`, `follow`, `guard`: never once a goal**, whole run, while Coinneach's plan
+  says `"keep an arrow nocked for Eachann"`. A81 stands.
+- Speech works and is not the problem: **132 distinct utterances**, in character, by
+  name, both directions. Carcasses work (A65): 19 kills, 20 eats, venison gathered and
+  cooked by both.
+
+### The one-line version
+
+**Both minds have spent all day quoting each other prices in branches and arrows, and
+the trade primitive moves exactly one item for one item with no count field anywhere in
+it — so the only way to pay fifty branches in this world is fifty model calls, which is
+precisely what the board recorded.**
