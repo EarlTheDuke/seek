@@ -3456,3 +3456,100 @@ the sophistication in this run lives.
 fires but has no rule that says "eat", so Eachann has now starved to death three
 times in sixty-six minutes with nineteen hides on his back — and the board shows
 him at full health, because respawn hands everything back and says nothing.**
+
+---
+
+## 2026-08-09 05:34 PDT — RUN 2, FIFTEENTH LOOK: the buyer paid, the seller ate the goods, and the economy has been dead for three hours
+
+Samples 2201–2287 are only 29 real minutes and hold nothing new (Eachann is
+`SPENT` from s1997 and produced **zero** new utterances; Coinneach added three
+lines, all reruns of the hide-for-venison price). So this entry goes back and
+reconstructs **the last transaction this world ever completed** — s1735–s1787,
+minute 581, sim-hour 15.7 — from the pack columns, which is the only honest
+witness the board has.
+
+### The trade, sample by sample
+
+Both minds were **live models** here. This is not a `SPENT` artefact.
+
+| s | who | evidence |
+|---|---|---|
+| 1735 | Eachann | says **"one venison one hide"**. Pack: `hide 12, venison_cooked 3, wood 5` — **he really has the goods** |
+| 1737 | Coinneach | says **"one hide for one venison, you said"** — accepts |
+| 1741 | Coinneach | **pays.** `hide 1 → 0`. Eachann's pack `hide 12 → 13` |
+| 1741–48 | Coinneach | pays again: `wood 141 → 100`, **41 branches**, ≥36 one-unit `give` calls. Eachann's `wood 5 → 30` |
+| 1742 | Coinneach | **"here. now the venison"** |
+| 1754–87 | Eachann | *"one hide, one venison" · "here, one venison" · "fair trade, hand it over" · "one hide, hand it over" · "fine, one hide" · "one hide then"* — **eleven utterances over 33 samples / 11 real minutes**, demanding a price already in his pack |
+| 1760 | Eachann | deed **"I ate a cooked meal"**, `food 45 → 100`, `venison_cooked` gone from his pack. **He ate the meat he had been paid for** |
+| 1768 | Coinneach | **"Eachann, quiet. I have no hide."** — true, and it reads as refusal |
+
+The buyer paid in full and overpaid by 41 branches. The payment **landed** —
+Eachann's own pack proves receipt on the same sample. He then ate the goods and
+spent eleven minutes haggling for money he was already holding.
+
+### This is not "he sold what he didn't have"
+
+The 11:10 entry (twelfth look) found a frozen board holding *"a deal for meat
+that never existed."* **That framing does not fit this transaction and I am
+correcting the general claim, not that entry's specific window.** Here the meat
+existed, the hide existed, both changed hands, and the deal still failed. The
+defect is one layer down: **`give` transfers goods and issues no receipt.**
+Nothing appears in the recipient's prompt, `deeds`, or `why` to say *a hide
+arrived from Coinneach.* A seller cannot distinguish "paid" from "stalling", so
+he re-demands; the buyer, now empty-handed, truthfully denies having the item;
+and the exchange reads to both as bad faith. Pairs with A0 (minds lose each
+other) — they can also lose a payment made to their face.
+
+### The whole-run transfer ledger, and the date of death
+
+Deduped across all 2,287 samples, gives cluster into **five bursts and nothing
+else**:
+
+| burst | min | who | what moved |
+|---|---|---|---|
+| s319–332 | 106 | Eachann | hide ×5, arrow ×5, gold ×1 |
+| s400–404 | 133 | Eachann | **venison_cooked ×3**, wood ×9, hide ×3, arrow ×2, gold ×1 |
+| s1198–1251 | 399 | Eachann | arrow ×12, wood ×17 |
+| s1459 | 487 | Eachann | wood ×1 |
+| s1741–1748 | 581 | Coinneach | **hide ×1, wood ×36** |
+
+**Since s1748 — 539 samples, 3 real hours, ~6.5 sim-days — not one item has
+moved between them.** Eachann did not go `SPENT` until s1997, so trade stopped
+**84 minutes before** the scripted brain took over. The `SPENT` seat is not the
+cause of death; the failed transaction is.
+
+And in 13.6 hours of play, **food crossed between these two minds exactly three
+times**, all at minute 133. Coinneach has been negotiating for meat ever since
+and has received none. At s1800, an hour after paying, he was `food 0, hp 69`,
+carrying **167 branches**.
+
+### Correction: the `give` counts
+
+The 08-08 entry said *"59 gives, still all Eachann"*, later corrected to
+*"Coinneach gave 7."* Both are now stale: **Coinneach has given at least 37
+times** (36 of them wood, in that single burst). Eachann remains at 59.
+`deeds` holds only the last five per card, so every give figure in this file is
+a floor, never a total.
+
+### Re-checked, unchanged
+
+- **`note`: zero uses, 24th check.** `""` on both cards, all 2,287 samples.
+- **`refusedVerbs`: `{"avoid": 16}` / `{}`.** Unmoved since s681. It logged none
+  of the ~33 dead `offer` intentions.
+- **`accept` is NOT unused — my own earlier reading of `analyse.mjs` was wrong.**
+  The analyser greps the literal string `accept`, but an accept renders as
+  **`take <name> offer`**, of which there are **18** (Eachann 11, Coinneach 7).
+  Minds *do* reach for accept. It has still produced **zero deeds, whole run.**
+- **`plan` durability differs by model, sharply:** Eachann rewrote his plan **5
+  times in 11 hours**; Coinneach **24+ times**. Same field, same prompt.
+- **kimi-k2.6's failure rate has never improved:** 52% → 50% → 53% → 51% → 44%
+  → 43% → 44% across the run. **200 of 456 calls, all `no json in reply`.**
+  Roughly half of everything Coinneach has ever done was the script.
+
+### The one-line version
+
+**The last trade in this world completed and still failed: Coinneach handed over
+a hide and forty-one branches, Eachann's pack recorded every unit of it, Eachann
+ate the venison, and then spent eleven minutes saying "one hide, hand it over" —
+because `give` moves goods and tells the recipient nothing, and the economy has
+not moved an item since.**

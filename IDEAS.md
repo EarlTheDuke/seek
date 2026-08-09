@@ -2395,3 +2395,59 @@ walk-to): the models keep naming spatial moves this world will not let them make
 given range is reached, and reports why it stopped. It costs one call instead of
 the dozens now burned re-loosing into a trunk, and it turns the most-repeated
 `why` string in the run into an action.
+
+### A105 ††† `give` ISSUES NO RECEIPT, SO A PAID SELLER KEEPS DEMANDING PAYMENT **[S]**
+
+The single highest-value item on this list, and the cheapest.
+
+At s1741–1748 Coinneach paid Eachann **1 hide + 41 branches** for one cooked
+venison. Eachann's own pack recorded every unit (`hide 12→13`, `wood 5→30`) on
+the same sample. He then **ate the venison** at s1760 and spent the next eleven
+real minutes saying *"one hide, hand it over" / "fair trade, hand it over" /
+"fine, one hide"* — eleven utterances, 33 samples — while Coinneach answered,
+truthfully, **"Eachann, quiet. I have no hide."**
+
+Nothing in a mind's prompt, `deeds` or `why` ever says *X gave you Y*. Goods move
+silently. A seller genuinely cannot tell "paid" from "stalling", so every
+completed bargain looks like a broken one — and **no item has moved between these
+two minds in the 539 samples since** (3 real hours, ~6.5 sim-days), with both
+models live for the first 84 minutes of that silence.
+
+**Fix:** when `give` resolves, push a line into the recipient's next prompt —
+`Coinneach gave you 1 hide.` — and add a `received` list to the card beside
+`deeds`. Half a day's work. Without it, `offer`/`accept`/`give` cannot produce a
+completed trade no matter how well the models bargain, and this benchmark cannot
+measure cooperation at all. Supersedes the "sold what he didn't have" reading in
+A9's neighbourhood: the goods were real, the *acknowledgement* was missing.
+
+### A106 †† THE TRADE LEDGER IS FIVE BURSTS IN FOURTEEN HOURS — MEASURE IT DIRECTLY **[S]**
+
+Deduped over 2,287 samples, every transfer in the run falls in **five bursts**
+(s319, s400, s1198, s1459, s1741) and nowhere else. Food crossed between the two
+minds **three times, all at minute 133**; Coinneach has bargained for meat for
+the eleven hours since and received none, hitting `food 0, hp 69` while carrying
+**167 branches**.
+
+I could only reconstruct this by diffing pack columns across samples, because
+`deeds` holds five entries per card and gives are counted from a sampled window —
+**every give number in OBSERVATIONS is a floor, and two of them have already had
+to be corrected** (59-all-Eachann → Coinneach 7 → Coinneach ≥37).
+
+**Fix:** emit a real transfer log — `{tick, from, to, item, n}` — and put
+`gaveTotal` / `receivedTotal` on the card. This is the benchmark's actual score
+line: *did these minds move goods to each other, and how much?* Right now it is
+the one number the instrument cannot report.
+
+### A107 † `accept` IS REACHED FOR AND HAS NEVER ONCE LANDED — AND THE ANALYSER HID IT **[S]**
+
+Correction to my own tooling. `analyse.mjs` reports "WHAT NOBODY EVER DID:
+accept" by substring-matching goal text — but an accept renders as **`take
+<name> offer`**. There are **18 of them** (Eachann 11, Coinneach 7), plus **33
+`offer` intentions**. The minds reach for both verbs. Neither has produced a
+single deed in the whole run, and `refusedVerbs` logged none of them, because a
+silently-dropped verb and an unwanted verb look identical from the board (A0j's
+shape, again, one level down).
+
+**Fix:** two lines — match on verb `kind`, not rendered text, in `analyse.mjs`;
+and make every dropped goal increment `refusedVerbs`. This is the sixth time the
+instrument, not the model, produced the finding.
