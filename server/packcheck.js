@@ -187,6 +187,57 @@ function main() {
       browser.countOf('bow') === 1);
   }
 
+  // ── 4. AND THE TREES, WHICH THIS FIX BROKE BEFORE IT FIXED THEM ─────────
+  //
+  // Reported by Ben within the hour of shipping the reconcile: "I am cutting
+  // branches but they are not going into my inventory."
+  //
+  // Cutting a tree was BROWSER-ONLY. That was invisible for as long as the
+  // browser owned its own pack — it just meant the server disagreed, quietly,
+  // which is the very disease this file exists to cure. The moment the server
+  // became the authority, the disagreement became visible and brutal: wood
+  // appeared for one frame and the next snapshot wiped it.
+  //
+  // The lesson is bigger than the trees. MAKING ONE SIDE AUTHORITATIVE TURNS
+  // EVERY REMAINING LOCAL MUTATION INTO A VISIBLE BUG. Anything that can still
+  // mint an item on the client has to move, and this is the assertion that
+  // says so out loud for the next one.
+  {
+    const w = new SimWorld({ headless: true });
+    const p = w.addPlayer(1, 'Jack');
+    const trunk = w.scatterColliders.list.find((c) => c.tag === 'tree' && c.kind === 1);
+    check('the server knows where the trees are at all',
+      !!trunk, trunk ? `nearest trunk at ${Math.round(trunk.x)}, ${Math.round(trunk.z)}` : 'no trees on the server');
+
+    p.ctrl.position.set(trunk.x, 0, trunk.z);
+    const before = p.inventory.countOf('wood');
+    const cut = w.harvestFor(p);
+    check('CUTTING A TREE HAPPENS ON THE SERVER, and the branches are real',
+      cut && p.inventory.countOf('wood') > before,
+      `wood ${before} -> ${p.inventory.countOf('wood')}`);
+
+    const ev = w.events.find((e) => e.k === 'cut');
+    check('  …and it says so, with the stump, so the browser can grey it out',
+      !!ev && ev.by === p.id && Array.isArray(ev.at) && ev.count > 0,
+      ev ? JSON.stringify(ev) : 'no event — the browser would go on offering the same trunk');
+
+    check('  …and the same trunk cannot be cut twice',
+      w.harvestFor(p) === false || w.events.filter((e) => e.k === 'cut').length === 1,
+      'a spent tree stays spent until it regrows');
+  }
+
+  {
+    // The clock that regrows it must not wrap. `clock.hours` is % 24, and a
+    // regrow time of `hours + 30` off a wrapping clock is a tree that came back
+    // yesterday. This project has been caught by that clock three times.
+    const w = new SimWorld({ headless: true });
+    const start = w.totalHours;
+    for (let i = 0; i < 60 * 60 * 30; i++) w.step(1 / 60);   // half an hour of ticks
+    check('THE HARVEST CLOCK DOES NOT WRAP AT MIDNIGHT',
+      w.totalHours > start && w.totalHours >= w.clock.hours,
+      `totalHours ${start.toFixed(2)} -> ${w.totalHours.toFixed(2)}, wall clock reads ${w.clock.hours.toFixed(2)}`);
+  }
+
   const failed = results.filter((r) => !r.pass);
   console.log(`\n  ${results.length - failed.length}/${results.length} passed\n`);
   process.exit(failed.length ? 1 : 0);

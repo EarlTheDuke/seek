@@ -502,6 +502,12 @@ function boot() {
           } else if (!byMe) {
             hud.chat(null, `${e.from} offers ${e.n} ${amountText(e.item, e.gives ?? 1)} for ${amountText(e.want, e.asks ?? 1)}`);
           }
+        } else if (e.k === 'cut') {
+          // The stump is marked spent HERE, on the server's word, so the prompt
+          // stops offering a trunk the server has already taken — and does not
+          // grey out one it refused.
+          if (e.at) harvest.take(e.at[0], e.at[1], totalHours);
+          if (byMe) hud.toast(`${e.verb} — ${amountText(e.id, e.count)}`, 1.8);
         } else if (e.k === 'nosuch') {
           if (byMe) hud.toast(`there is no such thing as "${e.word}" here`, 2.4);
         }
@@ -2087,11 +2093,27 @@ function boot() {
           `<b>E</b>  ${source.verb} ${source.tag} — ${amount} ${itemName(source.item).toLowerCase()}` +
           (hasAxe ? ' <b>(axe)</b>' : ''),
         run: () => {
-          harvest.take(source.x, source.z, totalHours);
-          inventory.add(source.item, amount);
+          // ── WHO FELLS THE TREE ──
+          //
+          // Connected, the server does. This used to cut locally and credit the
+          // local pack, which was invisible for as long as the browser owned
+          // that pack — and stopped being invisible the hour the server took it
+          // over: the wood appeared for one frame and the next snapshot wiped
+          // it. Reported as "I am cutting branches but they are not going into
+          // my inventory", and it was mine.
+          //
+          // `interact` already means "use the thing in front of you" on both
+          // sides, so nothing new goes on the wire. The branches, the sound and
+          // the spent stump all arrive on the `cut` event.
           audio.impact?.(source.tag === 'tree' ? 'wood' : 'rock', {
             x: source.x, y: ctrl.position.y + 1, z: source.z,
           });
+          if (serverOwnsPack()) {
+            pendingCollect = true;
+            return null;                 // the server will say what came of it
+          }
+          harvest.take(source.x, source.z, totalHours);
+          inventory.add(source.item, amount);
           return `${source.verb} — ${amount} ${itemName(source.item).toLowerCase()}`;
         },
       };

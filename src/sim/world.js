@@ -21,7 +21,7 @@
 // which is a handful of kilobytes a second for a world of unbounded size.
 
 import * as THREE from 'three';
-import { SEED, WATER_LEVEL, LOADOUT, TIME, SOCIAL, SURVIVAL, PLAYER, PICKUP, WILDLIFE } from '../config.js';
+import { SEED, WATER_LEVEL, LOADOUT, TIME, SOCIAL, SURVIVAL, PLAYER, PICKUP, WILDLIFE, STRUCTURES, AXE } from '../config.js';
 import { placeStrangeness, darkness } from '../world/strangeness.js';
 import { describePosition } from '../world/placenames.js';
 import { findRegion } from '../world/regions.js';
@@ -54,6 +54,7 @@ import { Controller } from '../player/controller.js';
 import { StealthProfile } from '../player/stealth.js';
 import { Body } from '../player/body.js';
 import { Fires } from '../world/fires.js';
+import { Harvest } from '../world/structures.js';
 import { sampleEnvironment } from '../world/environment.js';
 import { insulationOf, EDIBLE, getItem, resolveItemId, resolveItemCount } from '../items/registry.js';
 import { Inventory } from '../items/inventory.js';
@@ -200,6 +201,26 @@ export class SimWorld {
     });
 
     this.pickups = new Pickups(this.scene, { inventory: null, projectiles: null });
+    // ── THE TREES AND THE ROCK, ON THE SERVER ──
+    //
+    // They were browser-only, and that was survivable for exactly as long as
+    // the browser also owned the pack. It stopped being survivable the moment
+    // the server did: `inventory.applyRemote` overwrites the client's pack five
+    // times a second, so wood cut locally appeared for a frame and vanished.
+    // Reported within the hour — "I am cutting branches but they are not going
+    // into my inventory" — and it was mine.
+    //
+    // The server already knows where every trunk is: `scatterColliders` is
+    // built from the seed for exactly this reason. `Harvest` is pure logic over
+    // that field, so it runs here unchanged.
+    this.harvest = new Harvest();
+    // ── AND A CLOCK THAT DOES NOT WRAP ──
+    //
+    // `clock.hours` is `% 24`, and a regrow time of `hours + 30` computed from
+    // a wrapping clock is a tree that comes back yesterday. This project has
+    // been caught by that clock three times; this is the fourth place that
+    // needs the monotonic one.
+    this.totalHours = hours;
     this.projectiles = new Projectiles(this.scene, {
       colliders: [this.scatterColliders],
       wildlife: this.wildlife,
@@ -898,6 +919,48 @@ export class SimWorld {
     });
   }
 
+  /**
+   * Cut the nearest tree or quarry the nearest rock within reach.
+   *
+   * The browser has done this since the beginning and the server never did,
+   * which was invisible while the browser owned its own pack. It stopped being
+   * invisible the hour the server took the pack over: wood cut locally was
+   * wiped by the next snapshot, one frame later.
+   *
+   * The yield matches the browser's exactly — `STRUCTURES.chopYield` for a
+   * tree, `quarryYield` for rock, plus the axe bonus if one is carried — so a
+   * player who cuts a tree gets the same eight branches whether or not anybody
+   * is connected. An axe is worth more here than in a fight.
+   *
+   * @returns {boolean} whether anything was actually taken.
+   */
+  harvestFor(p) {
+    const source = this.harvest.nearestSource(
+      this.scatterColliders, p.ctrl.position, STRUCTURES.useRange, this.totalHours
+    );
+    if (!source) return false;
+
+    const hasAxe = p.inventory.countOf('axe') > 0;
+    const bonus = hasAxe ? (source.tag === 'tree' ? AXE.chopBonus : AXE.quarryBonus) : 0;
+    const amount = source.amount + bonus;
+
+    // Marked taken BEFORE the pack is credited, so a pack that turns out to be
+    // full cannot be retried against the same trunk for free.
+    this.harvest.take(source.x, source.z, this.totalHours);
+    const took = p.inventory.add(source.item, amount);
+    if (!took) return false;
+
+    this.events.push({
+      k: 'cut', by: p.id, n: p.name, tag: source.tag,
+      id: source.item, count: took, verb: source.verb,
+      // Where the stump is, so the browser can grey out the prompt on the same
+      // trunk the server actually spent — rather than guessing, and rather than
+      // marking it spent for a cut that may have been refused.
+      at: [round2(source.x), round2(source.z)],
+    });
+    return true;
+  }
+
   /** The one person of that name who is not you, or null. */
   playerNamed(name, notThis = null) {
     const want = String(name ?? '').trim().toLowerCase();
@@ -1077,7 +1140,9 @@ export class SimWorld {
     this.tick++;
 
     if (this.clock.running) {
-      this.clock.hours = (this.clock.hours + (dt / 60 / TIME.dayMinutes) * 24) % 24;
+      const advance = (dt / 60 / TIME.dayMinutes) * 24;
+      this.clock.hours = (this.clock.hours + advance) % 24;
+      this.totalHours += advance;   // never wraps; what `Harvest` needs
     }
     this.weather.update(dt);
     this.fires.update(dt, this.weather);
@@ -1338,6 +1403,16 @@ export class SimWorld {
     if (intent.interact) {
       const got = this.pickups.collectFor(p.ctrl.position, p.inventory);
       if (got) p.dirty = true;
+      // ── ...AND IF THERE WAS NOTHING LYING THERE, WORK WHAT IS STANDING ──
+      //
+      // `E` has always meant "use the thing in front of you", and for a player
+      // that has always included cutting a tree and quarrying rock. Both were
+      // resolved in the browser against its own inventory, which the server now
+      // overwrites — so this is where they have to happen instead.
+      //
+      // Pickup first because loot on the ground is the more perishable thing;
+      // a tree is not going anywhere.
+      else if (this.harvestFor(p)) p.dirty = true;
     }
 
     // ── two intents that crossed the wire for a year and were never read ──
