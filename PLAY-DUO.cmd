@@ -81,7 +81,7 @@ REM  seat reaches it.
 set "MAX_CALLS=1500"
 
 REM  Your name in the game.
-set "MYNAME=Ben"
+set "MYNAME=Jack"
 
 echo.
 echo   Starting the world...

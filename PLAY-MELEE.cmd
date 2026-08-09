@@ -79,7 +79,7 @@ REM  250 is a ceiling nothing should reach - it is there to stop a runaway, not
 REM  to shape the run. The board shows a red SPENT tag if a seat hits it.
 set "MAX_CALLS=250"
 
-set "MYNAME=Ben"
+set "MYNAME=Jack"
 
 echo.
 echo   Starting the world...

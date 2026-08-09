@@ -73,7 +73,7 @@ set "PERSONAS=on"
 set "NARRATE=on"
 set "BOARD=on"
 set "MINDS_HUNTERS=0"
-set "MYNAME=Ben"
+set "MYNAME=Jack"
 
 echo.
 echo   Starting the world...

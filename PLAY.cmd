@@ -86,7 +86,7 @@ REM  Uncomment for a straight brawl anywhere, including at the spawn:
 REM  set "PVP_EVERYWHERE=on"
 
 REM  Your name in the game. Change it if you like.
-set "MYNAME=Ben"
+set "MYNAME=Jack"
 
 echo   Starting the world...
 start "Highlands - SERVER  (leave me open)" cmd /k node server\server.js 8080
