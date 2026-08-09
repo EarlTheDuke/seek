@@ -339,7 +339,15 @@ Same edit, natural sibling. Lighting is the expensive act (10); feeding is 1.
 Currently they're the same, which is why nobody ever bothers to keep a fire
 alive — it's the same price to walk away and light a fresh one.
 
-### A3 † Nobody has ever seen the six new verbs work live **[S]**
+### ~~A3~~ ✅ **ANSWERED 2026-08-08 (run 2)** — the verbs are never reached for **[S]**
+*`refusedVerbs` came back `{}` on both cards over 121 samples, with `refuse()`
+verified as wired on all ten paths including offer/accept/give/attack. A whole
+day did pass with none of them fired, so — per the paragraph below — the question
+has now become "does the prompt make these verbs reachable", and the answer to
+**that** is yes (A0g shipped, verified live). See A8: the remaining explanation
+is that nothing in the world made trade worth doing.*
+
+
 `give`, `offer`, `accept`, `attack`, and the fixed quarry match all pass their
 checks in isolation and **have never once been chosen by a real model in a live
 run.** That's not a bug report, it's a gap in evidence, and it's the reason the
@@ -369,6 +377,106 @@ and be *correct*. See C4/E2 for the fixes; noting it here as a known hole.
 ### A7 Deaths, hunger and cold are not on the board **[S]**
 The board shows goal, why, deeds, arrows, gold, food. It doesn't show warmth,
 health, or a death count. Those are the stakes; they should be the columns.
+
+---
+
+## Added 2026-08-08 17:34, from RUN 2 — the first live look at the seven fixes
+
+*Run 2 was clean: no `SPENT` seat, both minds under a 1500 cap, 139 real
+decisions. What follows is evidence, not inference. Full trace at the end of
+`OBSERVATIONS-2026-08-08.md`.*
+
+### A8 ††† THE WORLD IS TOO EASY TO NEED ANYBODY — make survival require a second person **[M]**
+**The single most important item on this list now**, because it supersedes the
+reachability story that A0/A0g were built on.
+
+Reachability is **built, live, and confirmed working**: `also out there` is not
+distance-gated (`agent.js:299` fills names for every player at any range), and
+`providers.js:308-311` offers `offer`/`accept`/`give` on every call with the
+sentence saying the verb walks you there. Both minds had the other's name and
+bearing ~139 times. Trade was still **zero**.
+
+Meanwhile both minds ended **health 100**, with food *higher* than they started
+(50 → 62 and 50 → 83) and a wood surplus after 24 fires. Nobody froze, nobody
+starved, nobody ran short of anything.
+
+> A trade needs a shortage. There wasn't one, so the correct play was to ignore
+> the other person — and both models made it.
+
+Concretely: asymmetric starting kit (one gets the bow, one gets the arrows), a
+consumable only one seat can make, or a cold night that costs more wood than one
+person can gather in a day. **Every social measurement in Part D is now blocked
+on this, not on A0.** E1 (winter) and E4 (a two-person troll) are the large
+versions of the same idea; A8 is the cheap one that tests the hypothesis first.
+
+### A9 ††† A mind writes "trade a hide for food" in its own plan and never selects the verb **[M]**
+Coinneach wrote six three-step plans and **three of them named trade**:
+`["gather wood","trade a hide for food","fletch arrows"]`. The plan persisted,
+was handed back in the prompt, and `refusedVerbs` proves the verb was **never
+attempted**.
+
+So the gap is not knowledge, not prompting, and not verb arity. It is that
+**nothing connects the plan to the next decision.** Options, cheapest first:
+(a) when plan step *n* names a verb the model has, put that verb and its exact
+argument shape directly in the prompt next to the step; (b) ask for the next
+action and the plan in the same reply, so the two are written together;
+(c) score plan-follow-through as its own metric (this is D4's cheap-talk axis,
+and it now has a live signal to measure).
+
+### A10 †† The speech gate bins 4 lines for every 1 it lets through **[S]**
+`AGENTS.speakEveryHours = 0.5`; at Eachann's 20 s cadence that gagged **55
+lines in 39 minutes**, all from the one seat, e.g.
+`(wanted to say "mine to keep" — too soon, 0.38h of 0.5h)`. Those are claims
+over carcasses — the exact content a social benchmark exists to observe.
+
+Speech is free and it is the whole point. Make the gate **per-cadence, not
+per-hour** (a seat may speak once per *n* decisions), or drop it to 0.1h. Also:
+`MINDS.speakEveryHours = 0.4` is a shadow copy of the same constant with a
+different value that does not bind — delete one of them before it bites.
+
+### A11 †† Nobody speaks TO anybody, and one mind hailed a person who does not exist **[S]**
+All 23 lines this run were soliloquies. The only explicit trade solicitation was
+Coinneach's **"doing fine, Ben. got food to trade?"** — and `roster-duo.json`
+contains only Eachann and Coinneach. **There is no Ben.** A model tried to open a
+negotiation and addressed it to nobody.
+
+Two fixes: (1) `say` should take an optional target, and a targeted line should
+be delivered to that person's `heard` at any range the world allows — a hail is
+useless if it evaporates; (2) if a mind names somebody who isn't on the roster,
+**refuse it and say so** (`refuse('say', 'there is nobody called "Ben"')`), which
+is exactly what the refusal channel exists for and would have caught this in one
+sample.
+
+### A12 †† `goTo <person>` has still never been observed firing **[S]**
+A0 shipped the half that tells a mind *where* somebody is. The other half — a
+goal that resolves against that name — has no live evidence. Both minds were told
+the other's bearing on essentially every call and **neither ever set a goal to go
+find the other**, closing from 275 m at best. Verify `goTo <person>` resolves
+against the `far` list, and if it does, say so in the prompt in one sentence the
+way A0g did for `offer`. If it doesn't, that is the bug.
+
+### A13 † `note` is a dead field — cut it or give it a job **[S]**
+**Zero uses across 139 calls by two different models.** `plan` earned its place
+in the same run (six real plans from kimi). Either prompt for `note` explicitly
+("anything you want to remember tomorrow"), or remove it — an unused field is
+prompt tokens on every call for nothing.
+
+### A14 † Hold `refusedVerbs` to the standard the shoot-refusal channel already sets **[S]**
+`refusedVerbs` worked and answered its question on the first outing — **the six
+verbs are never reached for, not refused** — which retires A3 and rules out
+A0g's arity theory. But it is a bare count. The archery channel next to it
+records `{"d":46,"why":"too far","slant":47.5,"dy":-10.2,"leadBy":0.4}` — enough
+to reconstruct the decision. Give refusals the same treatment: the verb, the
+argument that failed, and the game hour. Cheap, and it is the column that has
+already paid for itself twice.
+
+### A15 ††† Fire now costs 10 branches and wood is still not scarce **[S]**
+A1 landed and worked in the right direction — **106 fires → 24**. But wood held
+peaked at **67** and **45** branches and both minds ended in surplus after 149
+gathers. The cost is visible and still not *binding*. Either raise it again, or
+(better, and this is A8's cheap edge) make branches slower to find rather than
+fires dearer to light — a mind that spends its day gathering is a mind with a
+reason to buy wood from someone who has 67 of them.
 
 ---
 
@@ -698,6 +806,14 @@ assumes there's behaviour to measure. If today's duo run ends with two minds who
 never once spoke to each other, the right response is to fix *reachability* —
 prompt, prompting, verb salience — before building a scoreboard for behaviours
 that never occur.
+
+> **UPDATE, 2026-08-08 17:34 (run 2).** Reachability got fixed and it was not
+> enough. Both minds had the other's name and bearing on ~139 calls, had the
+> trade verbs on every call, and one wrote *"trade a hide for food"* into its own
+> plan three times. Trade: zero. Both also ended the run healthier than they
+> started. **The caveat stands but the diagnosis moves: it is scarcity, not
+> reachability.** See A8, and do not build Part D's social axes until a run
+> produces a single trade.
 
 **The scripted control is still winning.** Until a paid model beats a hundred
 lines of if-statements at staying alive, "which model is best" is a less

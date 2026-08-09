@@ -855,3 +855,162 @@ write a line to the event log.
 - **Spend:** 527 calls, ~53p. It will not rise much — only one seat still bills.
 
 ---
+
+---
+
+# RUN 2 — 17:34, the first live look at the seven fixes
+
+*A **new run**, started 16:51 — not a continuation of everything above. Sampler
+`duo2.jsonl`, 121 samples over 39 real minutes, game hour 20.1. Same roster:
+Eachann on `grok-4.20-0309-non-reasoning` at 20 s, Coinneach on `kimi-k2.6` at
+75 s. Board live at time of writing.*
+
+## First, the thing that invalidated the last run: it did not happen
+
+`spend: 139 of 6000`. **Eachann 110/1500, Coinneach 29/1500, `spent: false`,
+`fellBack: false` on both.** The per-agent cap is now 1500, not 400, and neither
+seat came near it. **No `SPENT` tag. Everything below is the models.**
+
+## `refusedVerbs` came back empty — and that IS the answer
+
+Both cards, all 121 samples: `"refusedVerbs": {}`.
+
+I checked the wiring rather than trusting it. `Agent.refuse()` (`src/net/agent.js:1595`)
+increments the counter and is called on **ten** paths, including
+`offer` (2554), `accept` (2565), `give` (2529), `attack` (2545), `follow`/`guard`
+(2477), and a catch-all for an unrecognised verb (1054). A malformed `offer`, an
+`offer` at a name that isn't there, an `offer` at nobody — **all three would show
+up in that object.** It is empty.
+
+So the column did its job on its first live outing and the answer is the
+uncomfortable one:
+
+> **The six unused verbs are not being refused. They are never being reached
+> for.** Across 139 decisions, neither model emitted a social verb once.
+
+**This corrects A0g in `IDEAS.md`.** A0g's second cause — "`offer` takes three
+arguments and any one wrong makes it a silent no-op" — is now ruled out as the
+explanation. Wrong arguments would have been counted. There were no attempts to
+get wrong.
+
+## The plan field works, and it is where the trade lives
+
+| | plans written | notes written |
+|---|---|---|
+| Eachann (grok non-reasoning) | **0** across 110 calls | 0 |
+| Coinneach (kimi-k2.6) | **6 distinct**, always 3 steps | 0 |
+
+Coinneach's six, verbatim:
+
+```
+["kill a deer","butcher it","find firewood"]
+["take what I killed","find firewood","craft arrows"]
+["gather deadfall","fletch arrows","hunt again"]
+["get warm at Sunny Rigg","trade a hide for food","fletch arrows"]
+["gather wood","trade a hide for food","fletch arrows"]
+["scavenge a kill","trade hide for meat","hunt north"]
+```
+
+**Three of the six name trade.** The plan persisted across samples, it was handed
+back in the prompt, and step 2 was *"trade a hide for food"* — and
+`refusedVerbs` proves the verb was never once attempted. A mind wrote down its
+intention to trade, read it back, and did not act on it. That is a sharper
+finding than "nobody traded".
+
+`note` is dead: **zero uses in 139 calls.** Two fields shipped; one earns its
+place, one does not.
+
+## Speech: alive, and the harness is binning most of it
+
+**23 distinct lines** this run against **one sentence across the previous two
+days.** The zero-cost ride-along works.
+
+But `minds.log` records **55 suppressed lines**, and all 55 are Eachann's:
+
+```
+Eachann: (wanted to say "that one's mine" — too soon, 0.36h of 0.5h)
+Eachann: (wanted to say "mine to keep" — too soon, 0.38h of 0.5h)
+Eachann: (wanted to say "cold enough to crack stone" — too soon, 0.42h of 0.5h)
+```
+
+`AGENTS.speakEveryHours = 0.5` (confirmed at runtime; `MINDS.speakEveryHours =
+0.4` is a shadow copy that does not bind this gate). At a 20 s cadence the fast
+seat is being gagged roughly **four times for every line it gets out**. The
+suppressed lines are not filler — "mine to keep" is a claim over a carcass.
+
+**And nobody spoke *to* anybody.** Every one of the 23 is a soliloquy. The single
+explicit trade solicitation in the whole run is Coinneach's:
+
+> **"doing fine, Ben. got food to trade?"**
+
+`roster-duo.json` contains exactly two names, Eachann and Coinneach. **There is
+no Ben in the world.** The blunt model asked out loud to trade, and addressed it
+to somebody who does not exist.
+
+## Trade: zero — and this time the instrument is clean
+
+I went looking for the harness fault, because five of these have been the
+harness. It isn't, this time:
+
+- **`also out there` is not gated on proximity.** `this.others` is filled from
+  the initial player-list message for every player at any range
+  (`src/net/agent.js:299`), and the far channel only skips names it doesn't have
+  (890). Both minds were handed the other's name and bearing on every call.
+- **The verb menu is unconditional.** `src/minds/providers.js:308-311` lists
+  `offer`/`accept`/`give` every call, including the A0g sentence:
+  *"You do NOT need to approach first: offer and give both walk you to them."*
+
+Nothing was withheld. What actually stopped it is geometry:
+
+```
+9 samples where both are quoted off the same landmark
+closest 275 m · mean 376 m · furthest 425 m
+within 140 m (noticeRange): 0/9
+within   3 m (can trade):   0/9
+```
+
+**They never once entered each other's contact list.** And in ~139 briefs that
+each named the other's bearing, **neither ever set a goal to go and find the
+other.** A0's fix tells a mind where somebody is; it does not give it a reason to
+walk there, and `goTo <person>` — A0's second half — has still never been
+observed firing.
+
+## The world is too easy, and that is now the headline
+
+| | health | food start → end | wood peak → end | fires |
+|---|---|---|---|---|
+| Eachann | 100 | 50 → 62 (peak 85) | 67 → 35 | 13 |
+| Coinneach | 100 | 50 → 83 (peak 100) | 45 → 32 | 11 |
+
+Both minds ended **healthier and better fed than they started**, holding a wood
+surplus, having burned 24 fires at 10 branches each across 149 gathers. Neither
+froze. Neither starved. **Neither needed the other for anything.**
+
+That is the best available explanation for zero trade that does not blame the
+models — and it supersedes the reachability story. **Reachability is now built,
+measured, and confirmed working, and trade is still zero.** The next hypothesis
+is *scarcity*, not *prompting*.
+
+## The two fixes that plainly worked
+
+**Carcasses (A0c) — closed, with verbatim proof.** Coinneach:
+`I picked up 4 venison` → `I made 3 cooked venison at the fire` → ate 3 meals.
+Eachann cooked one, ate it, still carries one. Minds now eat what they kill.
+
+**Fire at 10 branches (A1) — right direction, wrong magnitude.** 106 fires in the
+last run, **24** in this one. But nobody was ever short of wood: peaks of 67 and
+45 branches held, both ending in surplus. The cost is now visible and still not
+binding.
+
+## Still broken
+
+- **kimi-k2.6: 14 failures of 29 calls — 48%, `"no json in reply"`.** Unchanged
+  from yesterday's 43–57%. `decisions` (29) counts *calls*, not *answers* (15) —
+  so for half its turns Coinneach coasted on its previous intention rather than
+  deciding. At 75 s cadence that is one real decision every 2.5 minutes. **A5 is
+  now the largest instrument tax in the harness**, and it makes the blunter,
+  more socially-inclined model look passive.
+- **Archery: 78% astray.** Eachann 3 kills / 18 loosed / 12 astray; Coinneach
+  2 / 20 / 16. The shoot-refusal channel, by contrast, is excellent — it records
+  real geometry (`{"d":46,"why":"too far","slant":47.5,"dy":-10.2,"leadBy":0.4}`).
+  That is the standard `refusedVerbs` should be held to.
