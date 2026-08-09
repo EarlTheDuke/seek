@@ -76,7 +76,11 @@ export class PlayerInput {
     // it. A transient refusal is now transient: the lock is simply not held, and
     // the next click on the canvas asks again.
     this.lockRefused = false;
-    this.unlockedAt = 0;
+    // ──Infinity and not 0. `now()` is `performance.now()`, which is milliseconds
+    // since the page loaded — so "released at zero" means "released as the page
+    // opened", and every request in the first 1.4 s of the session would be
+    // deferred as though it were inside a cooldown. `lockcheck` caught it.
+    this.unlockedAt = -Infinity;
     this.relockClick = false;
     this.dragging = false;
     this.onLockUnavailable = null;
@@ -216,15 +220,17 @@ export class PlayerInput {
     if (typeof this.dom.requestPointerLock !== 'function') {
       return this.lockUnavailable(new Error('no pointer lock in this browser'));
     }
-    // Chrome refuses a re-lock for ~1.25 s after Escape released one. Asking
-    // inside that window is what used to kill the mouse for good; wait it out
-    // and ask again instead.
-    const since = now() - this.unlockedAt;
-    if (since < LOCK_COOLDOWN_MS) {
-      clearTimeout(this._relockTimer);
-      this._relockTimer = setTimeout(() => this.requestLock(), LOCK_COOLDOWN_MS - since + 30);
-      return;
-    }
+    // ── ASK NOW, RETRY IF REFUSED ──
+    //
+    // Not "wait out the cooldown first". Chrome only enforces the ~1.25 s window
+    // when the USER left the lock with Escape; a lock the page released itself
+    // — which is what `openSay` does so there is a caret to type into — can be
+    // retaken straight away. Pre-emptively waiting would put a second and a half
+    // between closing the say box and being able to aim, every single time,
+    // to cover a case that is often not happening.
+    //
+    // So: try immediately, and if the browser says no, come back when the window
+    // has passed. Instant in the good case, recovered in the bad one.
     let result;
     try {
       result = this.dom.requestPointerLock();
@@ -245,6 +251,15 @@ export class PlayerInput {
     this.lockRefused = true;
     this.locked = false;
     this.dom.style.cursor = 'grab';
+    // ...and come back for it. Without this the refusal is final until the
+    // player works out for themselves that clicking helps, which is exactly the
+    // dead end this whole change exists to remove.
+    const waited = now() - this.unlockedAt;
+    clearTimeout(this._relockTimer);
+    this._relockTimer = setTimeout(
+      () => { if (!this.locked) this.requestLock(); },
+      Math.max(60, LOCK_COOLDOWN_MS - waited + 40),
+    );
     this.onLockRefused?.(err);
   }
 
