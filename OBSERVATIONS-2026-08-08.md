@@ -1862,3 +1862,90 @@ cleanly" needs re-testing at equal cadence before it can be believed.
 **Two minds shook hands on nine branches for arrows that one of them did not have,
 the world said nothing to either of them, and between them they had already starved
 to death twelve times without once being told.**
+
+---
+
+## 2026-08-08, 21:35 — 846 samples, 279 real minutes, game hour 1.7
+
+Board still answering. Neither seat is `SPENT` (828 calls of 6000, `spent: false`
+on both) — **everything below is the models' own behaviour.**
+
+Since the 764-sample entry: Eachann 654 calls / 653 answered, Coinneach 174 / 81
+answered (**failure rate still 0.53, "no json in reply"** — A42 unchanged, half of
+kimi's turns are still the scripted brain in kimi's name). Fires 110 (was 95),
+gathers 536 (was 477).
+
+### CORRECTION — THE TRADE DID NOT FAIL BECAUSE EACHANN WAS LYING
+
+The last entry pinned the dead trade on Eachann selling arrows he did not own, and
+on `resolveAccept`'s silent `if (giver.inventory.countOf(deal.item) < 1) return;`.
+**That explanation is wrong, or at least badly incomplete.** Counting samples where
+Coinneach holds a live accept goal *and* both packs are actually full:
+
+```
+118 samples with C accepting, E holding arrows, C holding wood
+  #210  E arrows=13 wood=76  |  C wood=2  goal="take Eachann offer"
+  #211  E arrows=13 wood=76  |  C wood=2  goal="take Eachann offer"
+  ... 116 more
+```
+
+**Thirteen arrows in his pack, seventy-six branches, the taker accepting, ~39 real
+minutes of it — and `trade` deeds across the whole 846-sample run: 0.** The liar
+story explained the evening. It does not explain the afternoon. Something closes
+the door even when both sides are good for it.
+
+### THE TOP SUSPECT: NOTHING IN THE CODEBASE NORMALISES AN ITEM NAME
+
+`resolveOffer` (`world.js:725`) stores the model's raw strings; `resolveAccept`
+(`world.js:763-764`) does `countOf(deal.item)` / `countOf(deal.want)` against them.
+A grep for alias/synonym/normalise across `src` returns **nothing** — there is no
+mapping layer at all.
+
+The world's item id is `wood`. The world's own deed text is *"I picked up 10
+**branches**"*. Both minds say **branches**, every time, all run. If a model writes
+`want: "branches"`, `countOf` returns 0 and accept returns silently. The world
+teaches them a word it will not accept back.
+
+This is a hypothesis, not a confirmed cause, and it is unconfirmable from the board
+**because the board never shows the standing offer** — `player.offer` is not on the
+card. Six silent `return`s in `resolveAccept` (lines 749, 752, 758, 762, 763, 764)
+and not one of them leaves a trace anywhere a watcher or a mind can see.
+
+### THE DEADLOCK NEVER BROKE, AND THAT IS THE COST OF SILENCE
+
+The nine-branches-for-arrows haggle is **still live at the final sample**. Eachann's
+last words: *"Coinneach, nine now or arrows stay mine"* / *"nine mine now"*.
+Coinneach's last plan: `["gather nine branches","trade to Eachann for arrows","hunt
+the deer"]`. Trade attempts are visible in **421 of 846 samples — half the run** —
+with zero completions.
+
+Neither mind ever concludes the deal is impossible, because nothing ever tells them
+it failed. A silent `return` does not cost one trade; it captures both minds for the
+rest of the day. Meanwhile both hit `food 0` (Eachann in 66 samples, Coinneach 62).
+
+### THE DEFAULT PRICE IS A COIN NOBODY HAS
+
+`world.js:725` — an offer with no price named means gold. Across 279 minutes the
+**highest gold either mind ever held was 2** (Eachann first at sample 67, Coinneach
+at 332; both finish on 0). Any unpriced offer therefore resolves against a currency
+that effectively does not circulate, and fails at line 764 — silently.
+
+### Confirmed, no change
+
+- **Speech is still the success story** — now 85 distinct lines from Eachann, 42
+  from Coinneach, against a baseline of one sentence across two days and six models.
+- **`plan` works and evolves.** Coinneach ran 11 distinct coherent plans, and they
+  chain: `["scavenge a kill","trade hide for meat","hunt north"]` →
+  `["gather nine branches","trade to Eachann for arrows","hunt the deer"]`.
+- **`note`: still zero, on all 846 cards, both vendors.** Ninth check.
+- **`refusedVerbs` is live and incrementing** — `avoid` climbed 2 → 8 → 13 → 16
+  between samples 678 and 843. A45 stands.
+- **`give` is the only social verb that actually moves goods**: 29 distinct give
+  deeds, versus 0 trades.
+- **`astray` 39 vs `loosed` 7 on Coinneach** — still impossible, still A29.
+
+### The one-line version
+
+**For thirty-nine minutes one man held thirteen arrows and the other held the
+branches to pay for them, both said so out loud, and the world let them stand there
+until nightfall without once saying no.**

@@ -1360,3 +1360,68 @@ the 2026-08-08 fix works. But against **8 kills and twelve starvation deaths**,
 they still walk away from meat far more often than they eat it. Not an instrument
 fault this time; worth one cheap nudge (the kill outcome naming the carcass and
 what it yields) before concluding anything about the models.
+
+### A47 ††† AN ITEM NAME IS NEVER NORMALISED, SO "branches" ≠ `wood` AND THE TRADE DIES SILENTLY **[S]**
+
+`resolveOffer` (`world.js:725`) stores the model's raw `item`/`want` strings and
+`resolveAccept` (`world.js:763-764`) counts them verbatim. A grep for
+alias/synonym/normalise across `src` returns **nothing** — there is no mapping
+layer anywhere in the codebase.
+
+The id is `wood`. The world's own deed text is *"I picked up 10 **branches**"*.
+Both minds say "branches" in every single trade line of the run. Evidence that
+something beyond the known liar-path is blocking trades: **118 samples where
+Coinneach was accepting, Eachann held 13 arrows and 76 wood, Coinneach held wood —
+and 0 trades in 846 samples.** The packs were full and it still would not close.
+
+**Fix:** one normalisation function on the way in — plurals, the world's own
+display nouns ("branch"/"branches" → `wood`, "meat" → `venison`), case, articles —
+shared by `offer`, `accept`, `give` and `gather`. Then a `refuse('accept', …)`
+naming the unrecognised word, so the next failure is legible instead of inferred.
+This is the highest-value small fix on the list: it plausibly unblocks the one
+behaviour the roster exists to test.
+
+### A48 ††† `resolveAccept` HAS SIX SILENT `return`s, AND SILENCE CAPTURES BOTH MINDS FOR THE REST OF THE DAY **[S]**
+
+Lines 749, 752, 758, 762, 763, 764 — dead, no offer, out of range, untradeable
+item, giver short, taker short. Every one returns without an event, a `glance`, or
+a `refusedVerbs` tick. A40 asked for this on the giver path; the run shows the cost
+is far larger than one lost swap.
+
+The nine-branches haggle was **still live at the final sample of a 279-minute run**,
+and trade attempts appear in **421 of 846 samples — half the run, zero
+completions.** Eachann's last words are *"nine mine now"*; Coinneach's last plan is
+still `["gather nine branches","trade to Eachann for arrows","hunt the deer"]`.
+Neither mind ever concludes the deal is impossible, because nothing ever says it
+failed. Both hit `food 0` while standing in the deadlock.
+
+**Fix:** give all six a `refuse('accept', <reason>)` with the specific reason, and
+put the standing offer on the board card. Right now `player.offer` is not exposed,
+so a dead trade is undiagnosable from the board — which is why this took nine
+entries to reach.
+
+### A49 †† THE DEFAULT PRICE IS GOLD, AND THE MOST GOLD EITHER MIND EVER HELD WAS 2 **[S]**
+
+`world.js:725` defaults an unpriced `want` to `gold` on the reasonable ground that
+"sell you this venison" means "for coin". In this world it does not. Across 279
+minutes the peak holding was **2 gold for Eachann (sample 67) and 2 for Coinneach
+(sample 332)**; both finished on 0. An unpriced offer therefore resolves against a
+currency that does not circulate and fails at line 764 — silently, per A48.
+
+**Fix:** either make coin actually circulate (game drops, or paying for kills), or
+default the price to *barter* — refuse the offer and ask for a price — rather than
+to a token the world barely issues. Defaulting to a plausible-sounding dead end is
+worse than defaulting to a refusal that says what is missing.
+
+### A50 † OFFER AND ACCEPT MOVE EXACTLY ONE ITEM, AND BOTH MINDS ONLY EVER BARGAIN IN QUANTITIES **[M]**
+
+Restated from the last entry because the new data hardens it: with the packs full
+for 118 samples, a *successful* accept would still have moved one arrow for one
+branch against an agreed price of nine. Every trade line in the run names a
+quantity — *"one hide for two venison"*, *"nine branches for the arrows"*,
+*"twenty arrows mine now"*.
+
+**Fix:** add `n` to both sides of `offer` and honour it in `resolveAccept`'s
+all-or-nothing swap. Until then the verb cannot express any deal these models
+actually make, and A47/A48 would only get them a worse trade than the one they
+agreed to.
