@@ -2614,13 +2614,37 @@ function boot() {
         torch.lit = false;
         hud.toast('you stow the torch', 1.2);
       }
+      // ── AND SAY WHY IT IS NOT LIT, WHICH IS THE WHOLE PROBLEM ──
+      //
+      // Ben made a torch and it did not light. The torch was working: it lights
+      // when you HOLD it at a fire, and his was in the pack. Nothing anywhere
+      // said so — he had a torch, he was at a fire, and the game was silent.
+      //
+      // Rate-limited, because a hint that fires every frame is not a hint.
+      const atFire = !!fires.nearest(ctrl.position, SURVIVAL.fireReach);
       if (holding && !torch.lit) {
-        const at = fires.nearest(ctrl.position, SURVIVAL.fireReach);
-        if (at && at.burning !== false) {
+        if (atFire) {
           torch.lit = true;
           torch.left = getItem('torch')?.burnSeconds ?? 300;
           hud.toast('the torch catches', 1.6);
+        } else if (time - (torch.toldAt ?? -99) > 6) {
+          torch.toldAt = time;
+          hud.toast('you need a fire to light it', 2);
         }
+      }
+      // The case that actually caught him: a torch in the pack, standing at a
+      // fire, with something else in hand. It names the KEY, because "hold it"
+      // is advice and "press 3" is an instruction.
+      if (!holding && atFire && inventory.countOf('torch') > 0
+          && time - (torch.toldAt ?? -99) > 8) {
+        torch.toldAt = time;
+        const slot = inventory.slots.findIndex((sl) => sl?.item === 'torch');
+        hud.toast(
+          slot >= 0 && slot < 5
+            ? `press ${slot + 1} to hold your torch and light it here`
+            : 'hold your torch at the fire to light it',
+          3,
+        );
       }
       if (holding && torch.lit) {
         torch.left -= dt;
