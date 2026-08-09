@@ -4081,3 +4081,128 @@ now with all three legs falsifiable from one card.
 `find shelter and settle for the night` for twenty samples while its health fell
 100 → 15, and was right about the fire every step of the way — because nothing on
 the card ever told it that hunger now outranked nightfall.**
+
+---
+
+## 2026-08-09 08:35 PDT — RUN 2, TWENTY-FIRST LOOK: the trade system can only move **one item**, and neither mind has ever negotiated a price that was not a **quantity**
+
+Run live at **s2822**, board `at 42428`, game **day ~37, hour 13.7**, ~940 real
+minutes. Budget **2,064 of 6,000**. Eachann `spent: true` since **s1997**
+(`at 30013`, game h22.5) — **29% of all samples are the script, not the model**.
+Coinneach live: **564 calls, 261 failures (46%)**, every one `no json in reply`.
+
+### The finding, traced from the log into the source and back
+
+I have been recording "trade: zero" for twenty looks. That is wrong in an
+important way. **Trade happened — 96 times — and every instance moved exactly one
+object.** The full-run deed counts, deduped:
+
+| | give deeds | shape |
+|---|---|---|
+| Eachann | **59** | 11 bursts: `arrow ×8`, `venison_cooked ×18`, `wood ×9`, `hide ×3` … |
+| Coinneach | **37** | **one unbroken burst — 37 single hides, h15.64 → h17.80** |
+
+The `h` stamps are **0.05 apart, every one of them.** One item, one tick.
+Coinneach's entire trading career in 37 game days is **2.16 game hours spent
+handing over one pile of hides one hide at a time.** Eachann paid 18 cooked
+venison the same way across a full game hour.
+
+Now what they were actually agreeing, verbatim, from the same run:
+
+```
+Eachann    "nine branches now or no arrows"
+Coinneach  "Done. Nine branches for the arrows."
+Eachann    "seventy-four branches? I'll give you some meat for fifty"
+Coinneach  "Fifty branches. Give me the meat."
+Coinneach  "six arrows, nine branches. I'll take it."
+```
+
+**Every price either mind has ever named is a quantity. The economy cannot
+express one.** Three places, all confirmed:
+
+- `src/minds/goals.js:141` — `give.params: ['target', 'item']`. **No count.**
+  `offer.params: ['target', 'item', 'want']` (`:132`). **No count on either side.**
+- `src/net/agent.js:2534` — the agent's give builds
+  `actAlso: { giveItem: g.item ?? '' }` and **never sets `giveCount`**, so
+  `src/sim/world.js:1234`'s `intent.giveCount || 1` resolves to **1, always**.
+- `resolveGive` **already supports 1–99** and its own comment names this exact
+  case: *"A player settling 'nine branches for the arrows' sends nine."* It was
+  built for the human playtester and **never wired to the agent path.**
+- `resolveAccept` (`world.js:825-831`) hardcodes `remove(deal.item, 1)` and
+  `remove(deal.want, 1)`. Even a working accept is **1-for-1, permanently.**
+
+So: the minds negotiated competently, in numbers, in plain speech, and then had
+to pay in a currency of one — 50 branches is 50 ticks, and starvation, nightfall
+and death interrupted every long payment. **This was the instrument, not the
+models.** Sixth time.
+
+### Correction: `accept` was not "never used" — it was chosen constantly and failed in silence
+
+Earlier entries and the analyser record `accept` under *"what nobody ever did"*.
+That reads off deeds. `accept.describe` renders as **`take <name> offer`**, and
+that string appears in **1,459 intention-samples**. The models pick it. It
+produces **zero deeds and zero refusals** because `resolveAccept` has **six bare
+`return`s** — dead giver, no `deal`, wrong target, out of range, giver short,
+taker short — and the offer docs call this *"silent by design"*. `offer` is the
+same: **1,821 intention-samples, 38 distinct offers, zero deeds, zero refusals.**
+
+### `refusedVerbs` — the brief's "single most informative column" — logged **two words** in 2,822 samples
+
+- Eachann: `{avoid: 16}` for **2,141 samples**, then **reset to `{}`** on death for 678.
+- Coinneach: `{}` for 2,776 samples, `{hunt: 2}` for 46.
+
+**Never `offer`, never `accept`, never `give`.** The verbs that fail 3,280
+intention-samples running are precisely the ones it does not record, because
+their failure path never calls `refuse()`. It also **zeroes on death**, so it
+cannot accumulate. As instrumented it is not the most informative column; it is
+close to inert.
+
+### What the 2026-08-08 fixes actually did — honestly
+
+- **Speech: this one worked, and the brief's premise is out of date.** Not one
+  sentence. **~180 distinct lines from Eachann, ~125 from Coinneach**, and it is
+  real bilateral haggling with price movement — Eachann opens *"Coinneach, one
+  hide for two venison?"* and closes at *"one hide one share"*. This is the best
+  thing in the run.
+- **Carcasses: worked.** `gather venison` fires — Eachann **33 venison**,
+  Coinneach **12 venison + 5 venison_cooked**.
+- **`plan`: used and durable** — Coinneach **27 distinct plans**, Eachann 5
+  (frozen since he went spent). It is written honestly and, per A116, still not
+  acted on.
+- **`note`: `""` on both, 2,822/2,822. 30th consecutive check.** Dead field.
+- **Fire cost at 10 branches: did not create scarcity.** **268 fires = 2,680
+  branches, against 20,904 gathered — 12.8%.** Peak wood held was **154**
+  (Eachann, h0.9) and **178** (Coinneach, h4.6).
+- **`also out there`:** still unanswerable from the board — it exposes no contacts.
+
+### Correcting A115 (the fletching gate)
+
+A115 measured max wood 14 and 11 and read a standing wood shortage. At run scale
+that is wrong: wood peaks at **154/178** and they gather 20,904 branches. The
+gate is real **inside the death-loop regime** — **52 respawns** (25 + 27) across
+37 game days, and death is where the pack goes — but it is not a property of the
+world's wood supply. The shortage is a *death* symptom.
+
+### The window (last 80 samples, `at 40949 → 42466`, h12.4 → 12.7)
+
+Coinneach walked to Eachann **three separate times**, saying:
+
+```
+"Eachann. I'm starved. What's your price for a share?"   why: "need venison, will pay or owe"
+"What for a share? I have branches."                     why: "he has meat and I do not"
+"I need meat, Eachann. I will owe you."                  why: "starving and he has meat"
+```
+
+He is bargaining with **a script that went spent 800 samples ago and is carrying
+`bow, hide ×19, wood ×4` — no meat at all.** Eachann fell **hp 100 → 6** on food
+0 through the window holding those 19 hides; Coinneach went food 62 → 12 at
+hp 100. Deeds for the pair in 25 real minutes: **52 gathers, 15 fires, nothing
+else.**
+
+### The one-line version
+
+**Both minds can negotiate a price out loud and neither can pay one: `give` and
+`accept` move exactly one object per tick, `give`'s existing 1–99 count was built
+for the human and never wired to the agent, and `offer`/`accept` fail through six
+silent `return`s that `refusedVerbs` — the column meant to catch exactly this —
+does not record.**

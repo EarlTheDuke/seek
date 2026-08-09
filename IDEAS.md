@@ -2783,3 +2783,106 @@ Evidence: twentieth look, 2026-08-09 08:07. In the same 37-minute window Eachann
 starved on the same 11-point ladder **carrying `hide x19`**, and the pair's entire
 output was 38 wood-gathers and 8 fires — 80 branches burned, **zero deeds done at
 a fire**. A115's gate, at run scale: the fire is a pure sink.
+
+### A121 ††††† TRADE MOVES ONE OBJECT AND EVERY PRICE THEY NAME IS A NUMBER **[S]**
+
+The single highest-value fix on this list, and most of it is already written.
+
+Measured, full run (2,822 samples, 37 game days): **96 give deeds, every one a
+single object.** Coinneach's whole trading career is **37 consecutive single-hide
+gives, h15.64 → h17.80 — 2.16 game hours to pay one pile.** Eachann paid 18
+cooked venison the same way, one per tick, across a full game hour. Meanwhile
+every price either mind ever named was a quantity: *"nine branches now or no
+arrows"* → *"Done. Nine branches for the arrows."*; *"fifty branches for your
+meat"*; *"six arrows, nine branches. I'll take it."*
+
+Root cause, three lines of code:
+
+- `src/minds/goals.js:141` `give.params: ['target','item']` — **no count**.
+  `:132` `offer.params: ['target','item','want']` — **no count on either side**.
+  The mind cannot *say* nine even though it keeps saying nine.
+- `src/net/agent.js:2534` builds `actAlso: { giveItem }` and never sets
+  `giveCount`, so `world.js:1234`'s `intent.giveCount || 1` is always 1 —
+  **`resolveGive` already clamps 1–99 and its own comment names this exact case**
+  (*"A player settling 'nine branches for the arrows' sends nine"*). It was wired
+  for the human playtester and never for the agent.
+- `resolveAccept` (`world.js:825-831`) hardcodes `remove(..., 1)` twice.
+
+**Fix:** (a) add `count` to `give.params` and `count`/`wantCount` to
+`offer.params`; (b) pass `giveCount: g.count` in `agent.js`'s give case — that
+line alone unblocks half of it; (c) make `resolveAccept` move `deal.count` for
+`deal.wantCount` with the same both-debits-first rollback it already has. Until
+this lands, no negotiated price in this world is payable and every trade
+observation is measuring the harness.
+
+### A122 †††† `offer` AND `accept` FAIL THROUGH SIX SILENT `return`s — AND `refusedVerbs` DOES NOT SEE IT **[S]**
+
+Correcting the record: earlier entries and the analyser list `accept` under
+*"what nobody ever did"*. That reads deeds. `accept.describe` renders as
+**`take <name> offer`**, and that string appears in **1,459 intention-samples**.
+The models choose it constantly. `offer`: **1,821 intention-samples, 38 distinct
+offers.** Between them: **zero deeds, zero refusals, 2,822 samples.**
+
+`resolveAccept` returns bare on: dead taker, no giver by that name, no `deal`,
+`deal.to !== taker.id`, out of `giveRange`, giver short, taker short. `resolveGive`
+does the same on four. The offer docblock calls this *"silent by design"* — which
+is right for the *liar* case it was written for (an offer that was true five
+minutes ago should just fail), but it means **the two verbs the whole economy
+rests on are the only ones that cannot report why they did nothing.**
+
+And `refusedVerbs`, the column meant to catch exactly this, logged **two words in
+2,822 samples**: `avoid` (Eachann ×16, frozen 2,141 samples) and `hunt`
+(Coinneach ×2, 46 samples). Never offer, accept or give. It also **resets to `{}`
+on death**, so it cannot accumulate across the 52 respawns this run.
+
+**Fix:** (a) call `refuse()` on the *reachable* failures — nobody by that name,
+out of reach, you have none, they have none, no offer stands — and keep silence
+only for the deliberate liar case; (b) carry the reason back onto the card so
+*"he had no hide"* is distinguishable from *"I never tried"*; (c) make
+`refusedVerbs` survive death, or state on the card that it is per-life.
+
+### A123 ††† kimi-k2.6 LOSES 46% OF ITS CALLS TO `no json in reply`, STEADY ALL RUN **[S]**
+
+**261 failures of 564 calls.** By quarter: **54% / 34% / 41% / 55%** — not a
+warm-up, not a rate limit, not degradation. Nearly half of the only live mind's
+budget produces nothing, and each failure is a decision the world does not get.
+Eachann's grok seat, same harness: **1 failure in 1,500.** So this is
+model-specific formatting, not the prompt being impossible.
+
+**Fix:** (a) log one failing reply verbatim — nobody has looked at what kimi
+actually returns, and it is probably prose-wrapped or fenced JSON that a
+three-line extractor would recover; (b) one repair retry before counting the
+call spent; (c) surface `failureRate` on the card, because a seat at 46% is
+half-present and the board currently shows it as live.
+
+### A124 †† THE FLETCHING GATE (A115) IS A DEATH SYMPTOM, NOT A WOOD SHORTAGE **[S]**
+
+Correcting A115. It measured max wood **14 and 11** in a window and read a
+standing shortage where `woodToLight 10` starves `spareWood 14`. At run scale the
+premise fails: wood peaks at **154** (Eachann, h0.9) and **178** (Coinneach,
+h4.6), they gather **20,904 branches**, and the 268 fires burn **2,680 — 12.8%**
+of it. Wood is abundant.
+
+What is actually eating the pack is **death: 52 respawns across 37 game days**
+(25 Eachann, 27 Coinneach), and per A119 the violent path strips the inventory.
+The gate is real *inside the death loop* and vanishes outside it. **This matters
+for sequencing:** tuning `woodToLight`/`spareWood` would fix nothing. Fix dying
+(A118/A120) and the wood economy fixes itself.
+
+### A125 †† SPEECH WORKED — SAY SO, AND BUILD ON IT **[M]**
+
+The one unambiguous win of the 2026-08-08 fixes, and the brief still describes
+this world as having produced *one sentence in two days*. Full run: **~180
+distinct lines from Eachann, ~125 from Coinneach**, and they are not narration —
+they are bilateral haggling with a named counterparty and **real price movement**
+(Eachann opens *"Coinneach, one hide for two venison?"*, holds *"nine branches now
+or no arrows"* for a dozen turns, and settles at *"one hide one share"*).
+
+Riding `say` along on any verb at zero cost is what did it. **Build on it:**
+(a) the transcript is the best artefact this project has produced — give it its
+own view, ordered, both sides interleaved, rather than a per-card `said` array
+that freezes when a seat goes spent; (b) a mind currently cannot hear a reply it
+did not cause — the haggling above is two monologues that happen to rhyme, and
+the fact that they converge on a price anyway is a strong argument for a real
+`heard` channel; (c) do A121 first, or the speech keeps agreeing prices the
+world cannot settle.
