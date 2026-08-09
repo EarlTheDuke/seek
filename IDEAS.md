@@ -2976,8 +2976,11 @@ scarcity.
 `feat(offer): a price you did not name means coin` is in the sampled binary. It
 has never once been reached: **every one of the 28 distinct `offer` goals names a
 barter price** (`for flint`, `for 9 branches`, `for 2 venison`, `for arrows`), and
-`gold` reads **0 on both cards across all 3,000 samples** against 3 gold gathers in
-the world's history. Minds do not omit a price, so the default is dead code — and
+~~`gold` reads **0 on both cards across all 3,000 samples**~~ **— CORRECTED
+2026-08-09: false.** Gold is non-zero on **611/6,184 player-samples** and one coin
+crossed between players twice (`at 5411`, `at 6440`) — but as A133's silent `give`
+substitution, not as a priced sale. The conclusion below stands; this sentence was
+wrong and must not be requoted. Minds do not omit a price, so the default is dead code — and
 because there is no coin, every negotiation must solve a *double coincidence of
 wants*, which is why so many of them fail with both parties still talking.
 
@@ -3024,3 +3027,61 @@ shamed over; (b) a **claim** on a fresh carcass for N seconds to its killer, so
 gives `refusedVerbs` something real to say (A63/A75) and makes *"Trade or fight"* a
 choice with two live sides. Both are small; together they are the difference
 between minds *narrating* an economy and *having* one.
+
+### A133 ††† `give` HANDS OVER THE WRONG GOOD FOUR TIMES IN FIVE — FIX THIS BEFORE ANY OTHER TRADE WORK **[S]**
+
+`World.giftFrom` (`src/sim/world.js:890`) falls back when you do not hold what you
+named: first any edible, then **the largest stack in your pack**. Silently. Measured
+over the whole run: **80 of 103 gives handed over a good the mind never named.**
+Coinneach held the goal `"give hide to Eachann"` for a game hour saying *"One hide.
+Give me the venison."* and the engine shipped **38 branches, one per tick**. Eachann's
+`"give venison to Coinneach"` shipped arrows, hides and **2 gold**.
+
+This is the instrument fault behind three earlier readings. Every entry that counted
+`give` deeds as "the trade verbs work" was counting a verb that fired and a
+transaction that was wrong. It also explains why Eachann ends the run holding
+**`hide ×19`** after nineteen game days of trying to trade hides: wood is always his
+biggest stack, so he can never actually hand one over.
+
+**Fix:** delete the largest-stack fallback. If the named good is not held, **refuse
+and say so** — `noteOutcome("you have no venison")` — which is exactly the signal
+`refusedVerbs` was built for and has never once received (A63/A75/A122). Keep the
+`resolveItemId` synonym pass ("a branch" → `wood`); that part is right. The edible
+fallback is defensible for a bare `give` with no item named, but must not apply when
+the mind named something specific.
+
+### A134 ††† THE WORLD HAS A TERMINAL STATE AND BOTH MINDS ARE IN IT — DYING IS THE CHEAPEST MEAL **[M]**
+
+From game-day 26 to day 40 — **fourteen game days** — neither mind has eaten, killed,
+crafted or traded. They gather wood, light fires, starve, die and respawn, forever.
+Two numbers make it a designed outcome rather than a failure:
+
+- **Death costs nothing.** Inventory survives intact across all **59 deaths**
+  (`bow, hide ×19, wood ×3` before and after, six deaths running).
+- **Respawn pays 84–85 food**, against the **50** the run started with.
+
+So the starve→die→respawn cycle is a **reliable, competence-free food source that
+outperforms hunting.** No amount of model intelligence will beat it, because it is
+strictly cheaper than the alternative. Compounding it, the fletching gate stays shut:
+`AGENTS.spareWood` is 14, a fire spends at 10, and samples holding ≥14 wood fell from
+**34% before `at 34000` to 4% after** — no wood, no arrows, no kills.
+
+**Fix, in order of value:** (a) **make death cost something** — drop the pack, or
+respawn at the food you died with (`deathcheck.js:161` says the local body already
+does this, so the agent path has diverged); (b) **respawn hungry**, not fed; (c) drop
+`spareWood` to ~11 or make the fire reflex leave the fletching cost behind, so the two
+sinks stop being mutually exclusive. Without (a) the other two only delay the loop.
+
+### A135 †† THE ANALYSER UNDERCOUNTS EVERY DEED — ITS DEDUPE KEY COLLAPSES GAME DAYS **[S]**
+
+`analyse.mjs` dedupes deeds by `(h, what, text)`. Game hours wrap at 24, so a fire lit
+at h12.3 on day 3 and another at h12.3 on day 17 are **one deed**. Real counts are
+higher across the board: fires **375, not 296**; Eachann's gathers **998, not 963**.
+Every count in `OBSERVATIONS-2026-08-08.md` written from this tool is a floor, and the
+error grows with run length — precisely when the run gets interesting.
+
+**Fix:** carry a day counter (increment when `hours` drops by more than ~6) and key on
+`(day, h, what, id, n, text)`, attributing a deed whose `h` is more than 6 h ahead of
+the card's current `hours` to the previous day. Twelve lines; it is already written in
+`dig-eval20c.mjs` in the scratchpad and can be lifted straight across. Also print
+**the commit list between `bootedAt` and now** (A131) while in there.

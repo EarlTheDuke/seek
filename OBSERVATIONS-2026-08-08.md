@@ -4387,3 +4387,103 @@ inside it** (`hp 0, food 0` at `at 44045`, respawned to 100/73).
   Coinneach got **334 usable decisions to Eachann's 1,499** — a 4.5× handicap. Any
   reading of "Coinneach is the weaker mind" is reading the parser, not the model.
 - `astray > loosed` is A110 (`loosed` is a ring buffer), already resolved.
+
+---
+
+## 2026-08-09 10:06 PDT — RUN 2, TWENTY-FOURTH LOOK: **`give` has been shipping the wrong goods all run — 80 of 103 gives handed over something the mind never named, and that is why the world starved**
+
+Board live at `at 47019`, 3,090 samples, `spend 2126/6000`. **No restart** — same PIDs,
+all `2026-08-08 16:51`, 17.2 h up. So every 08-09 commit is still absent, including
+`feat(fire)` (that one is a keyboard-player fix anyway — Shift+F — and does not touch
+the agent craft path; do not credit or blame it here). Window: 85 samples, `at 45584 →
+47019`.
+
+### The finding: `giftFrom` substitutes silently, and it substituted on four gives in five
+
+`src/sim/world.js:890` — if you do not hold what you named, `give` hands over an
+edible instead, and failing that **your largest stack**. Nobody is told. Day-aware
+count of every give deed in the run against the goal on the same card:
+
+```
+                gives   what the engine ACTUALLY handed over
+Eachann   64    wood 27, arrow 24, hide 8, venison_cooked 3, gold 2
+Coinneach 39    wood 38, hide 1
+
+gives whose goal named a DIFFERENT good than the deed: 80 / 103
+```
+
+Coinneach spent `at 26273 → 27236` with the goal **`"give hide to Eachann"`** and the
+words *"One hide. Give me the venison."* The engine shipped **38 branches, one per
+tick** — his largest stack. Eachann's **`"give venison to Coinneach"`** shipped arrows,
+hides and **two gold**.
+
+This reframes three earlier entries. The 96-plus `give` deeds were read as "the trade
+verbs work." **The verb fires; the transaction is wrong.** The minds negotiated a price
+in plain English, agreed it, walked to each other, and the engine paid out of the wrong
+sack. Eachann still carries **`hide ×19` after nineteen game days of trying to trade
+hides away** — he cannot give one, because wood is always his biggest stack.
+
+### Correction to A130 — gold was never zero, and it moved twice
+
+A130 says *"`gold` reads 0 on both cards across all 3,000 samples."* **False.** Gold is
+non-zero on **611/6,184 player-samples**, and one coin crossed between players twice:
+
+```
+at 5411  Eachann 2→1   Coinneach 0→1     E goal "give venison to Coinneach" · C goal "take Eachann offer"
+at 6440  Eachann 1→0   Coinneach 1→2     E goal "give venison_cooked to Coinneach"
+```
+
+Both are the substitution above, not a priced sale — gold was simply in reach of
+`giftFrom`. A130's *conclusion* (the world is pure barter, the coin default is dead)
+survives; its evidence sentence does not, and it should be fixed rather than repeated.
+
+### The world reached a terminal state on game-day 26 and has not left it
+
+Last of each deed, day-aware, against a final **day 40**:
+
+```
+              last kill   last eat   last craft   last give
+Eachann        day 26      day 25      day 29       day 19
+Coinneach      day 26      day 26      day 24       day 23
+gather / place ────────────── still running at day 40 ──────────────
+```
+
+**Fourteen game days in which nobody has eaten, killed, crafted or traded.** Neither
+mind has carried an arrow since `at 34415` / `at 32456`. The mechanism is A-8749c67's
+fletching gate, now measurable: `AGENTS.spareWood` is **14** and a fire spends at
+**10** (`world.js:1338`), so the fire reflex takes the wood before the quiver ever can.
+
+```
+samples holding wood ≥ 14 (the fletch gate)
+  before at 34000   Eachann 767/2270 (34%)   Coinneach 610/2270 (27%)
+  after  at 34000   Eachann  34/832  ( 4%)   Coinneach   4/832  (0.5%)
+```
+
+### Dying is free, and it feeds better than hunting
+
+**59 deaths** (Eachann 28, Coinneach 31), all starvation. Inventory survives every one
+of them intact — `bow, hide ×19, wood ×3` before and after, six deaths running — and
+respawn hands back **food 84–85** against the **50** they started the run with. So the
+loop the pair have settled into is not a failure to survive. **It is the cheapest meal
+in the game**, and it needs no arrows, no trade and no competence.
+
+### The brief's checklist, answered
+
+- **`refusedVerbs` — the least informative column, not the most.** Two words in the
+  whole run: `{avoid:16}` (2,411 samples) and `{hunt:2}` (316). Frozen counters. 34th check.
+- **`plan` is alive and `note` is dead.** Coinneach wrote **29 distinct plans**, Eachann 5,
+  and they carry intent across decisions — *`["gather nine branches","trade to Eachann for
+  arrows","hunt the deer"]`*. `note` is empty on **0/6,184** player-samples. 34th check.
+- **Speech: confirmed live.** Coinneach wrote 5 new lines this window — *"out here wood is
+  worth more than gold"*, *"wet as a stoat's pocket out here"*.
+- **Fires: 375** day-aware, not the analyser's 296 (its dedupe key collapses repeated
+  game hours across days — the same flaw understated every deed count in this file).
+  **22,367 branches gathered against 3,750 burned: wood is not scarce, it is a treadmill.**
+- **`SPENT` still applies to Eachann** (`at 30013` onward) — but note the collapse is
+  **not** the script's doing: Coinneach is live, and he stopped hunting on the same day.
+
+### kimi's parser handicap, unchanged
+
+**275/627 = 44%** `no json in reply`, against grok's 1/1,500. Coinneach has had **352
+usable decisions to Eachann's 1,499.** Any comparison of these two models is a
+comparison of parsers. 4th consecutive check.
