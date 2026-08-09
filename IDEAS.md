@@ -3263,3 +3263,63 @@ to 60 over the run, because wood income scaled faster than the price. Eachann al
 make deadfall local and slow to return, which `9abc3b2` already established it does not
 do. Scarcity has to bind the *rate*, not the *price* — while a mind can pick up 70
 branches in one action, no fire cost will ever make wood matter.
+
+### A149 †† A PRICE IN THE NOUN SLOT KILLS THE OFFER — `resolveItemId` cannot read "6 hides" **[S]**
+
+`src/items/registry.js:601` strips a leading article (`a|an|the|some`) and a trailing
+`s`. It does **not** strip a leading quantity. So `"6 hides"` → `"6 hide"` → `null` →
+`nosuch` → `refuse('offer', …)`, and `"twelve branches"` dies the same way. This is the
+mechanism behind `Morag [claude-opus-5] { offer: 17 }` in melee run 1: his bare-noun
+offers settled (*"I traded venison_cooked to Tormod for wood"*), and **both of his
+priced offers were refused**. He ended the run holding 7 unsellable hides while
+starving, having said *"Ailsa — six hides for venison, now. I'm hurt and starving."*
+
+This is the direct sequel to the 08:35 finding that no mind has ever negotiated a price
+that was not a quantity — **they do name quantities, and the parser throws them away.**
+
+**Fix:** strip a leading integer or number-word in `resolveItemId` and return the count
+alongside the id, so `offer 6 hides for venison` becomes an offer of 6. One regex and a
+return-shape change. Until then every attempt to price a trade is silently a typo.
+
+### A150 †† `avoid` IS THE ONLY VERB THAT CANNOT REACH PAST 140 m, AND IT IS THE ONE YOU NEED AT RANGE **[S]**
+
+`offer`, `accept` and `approach` resolve a target with `find(...) ?? anyone(...)`.
+`avoid` (`src/net/agent.js:2632`) uses **`find` alone**, which is bounded by
+`AGENTS.noticeRange`. A mind hears *"four goblins south-west"* through speech or memory
+— from beyond 140 m, which is precisely the moment fleeing is useful — reaches for
+`avoid`, and is told *"there is no goblin near you to keep away from."*
+
+Evidence: `Ailsa [claude-sonnet-5] { avoid: 24 }` — 24 reaches, 24 refusals, on goals
+`keep away from goblin` and `keep away from troll hunt`. The seat written as *"careful
+to the point of timid"* was refused its defining verb every time it tried, and was the
+**only seat in the run to reach food 0**. Its persona was unplayable by construction.
+
+**Fix:** give `avoid` the same `?? anyone(...)` fallback, and let it resolve a bearing
+from memory when there is no body to point at — running away from a remembered direction
+is a coherent act. Separately, `"troll hunt"` can never resolve to an entity; refusals
+should fall back to a *kind* match (any goblin) before giving up.
+
+### A151 †† NOBODY HAS EVER HELD A COIN, SO `offer`'s DEFAULT PRICE CANNOT SETTLE **[M]**
+
+`gold` was **0 for all eight seats across all 222 samples** of melee run 1, and 0 in
+every prior run in this file. The recent fix that makes a priceless `offer` default to
+gold (*"'I will sell you this venison' with no price named means 'for coin'"*) is
+therefore a default to **a good that does not exist in the world**. All 10 completed
+trades were barter, and all 10 were the same pair: `venison_cooked ⇄ wood`.
+
+**Fix:** either seed each mind with a purse at spawn so the default is payable, or make
+the no-price default *"name your price"* — an open offer the other side answers — rather
+than a silent conversion to an unobtainable currency. The first is one line; the second
+is the more interesting world.
+
+### A152 †† THE SAMPLER NESTS UNDER `board`, AND THE ANALYSER'S SHAPE IS UNDOCUMENTED **[S]**
+
+Sampler lines are `{realMs, board:{at, players:[…]}}`, not `{at, players:[…]}` like the
+live endpoint. Reading `line.players` returns `undefined` and every derived count comes
+back **empty rather than erroring** — which reads exactly like the real finding
+"no seat ever used this field." I filed that false negative this run before catching it,
+and this file has already been burned five times by the instrument rather than the model.
+
+**Fix:** have the sampler write the same shape the endpoint serves (or `analyse.mjs`
+export a single `readSamples()` that both it and any ad-hoc script import). A one-line
+schema note at the top of the `.jsonl` would also do it.

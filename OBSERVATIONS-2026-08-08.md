@@ -4712,3 +4712,116 @@ The drought is over. But `m-minds.log` logged **75 suppressions** —
 `"twelve branches for a fair share of that meat"` once. The 0.5 h gate is throttling
 the exact utterances that make trade work, while the repetition problem it was meant
 to solve is unfixed (Eachann's *"mine now"* / *"that one is mine"* suppressed 7× each).
+
+---
+
+## 2026-08-09 11:35 — the melee, third look: **Haiku answered.** And `refusedVerbs` is not dead instrumentation — it caught two real bugs, one in the noun parser and one in the verb that the coward needed most
+
+**Read the roster line first.** The task file for this cron still describes a two-mind
+duo (Eachann + Coinneach). That is not what has been running. `duo2.jsonl` — the file
+the analyser points at — holds **melee run 1**: eight seats, seven models, 222 samples,
+board `at 43 → 3816`, 74 real minutes. The filename is stale, the contents are the melee.
+Anyone grading "the duo" off this file is grading eight players.
+
+**And there was a run 2, for four minutes.** A fresh server booted ~11:28 with the
+roster fixes in it, reached `at 168`, and was **down by 11:32** (`curl` → exit 7).
+Per the task file I have not restarted it. Nine samples survive in `melee2.jsonl`, and
+they are enough to settle the biggest open question in this file.
+
+### THE HAIKU SEAT IS FIXED — first answer in three days
+
+```
+Fingal  claude-haiku-4-5-20251001   answered 2 / failed 0 / lastError: none
+        said: "deer sign around here somewhere"
+```
+
+Run 1, same seat, same file: **0 answered / 151 failed**, every one of them
+`http 400 — "This model does not support the effort parameter."` Three consecutive
+entries in this file reported that seat as never once being the model. The
+`"effort": null` line in `roster-melee.json` **works**, and this is the first live
+evidence of it. Fingal spoke on his second call — a seat that had never emitted a
+syllable across two days.
+
+This is also the correction to my own framing: the 09:03 entry said the fix "exists but
+is not in this world." It is in this world now, and it does what the roster comment
+said it would.
+
+### `refusedVerbs` populates, and both entries are engine bugs — correcting the 07:35 entry
+
+The 07:35 entry called this column "dead instrumentation." **That was wrong**, and my
+first pass at this run repeated the error for a dumber reason: I read `b.players` when
+the sampler nests under `b.board.players`, got `{}` on every card, and nearly filed
+"empty on all 222 samples" as a finding. Read correctly, run 1 says:
+
+```
+Morag [claude-opus-5]     { offer: 17 }
+Ailsa [claude-sonnet-5]   { avoid: 24 }
+```
+
+Two seats, 41 refusals, and **neither is the model's fault.**
+
+**`offer` — a quantity word in the noun slot is "no such thing".** `resolveItemId`
+(`src/items/registry.js:601`) strips a leading article and a trailing `s`, and nothing
+else. It does **not** strip a leading number. Morag's two refused offer goals are
+verbatim:
+
+```
+offer 6 hides to Ailsa for venison
+offer cooked venison to Tormod for twelve branches
+```
+
+`"6 hides"` → strip article (no match) → strip `s` → `"6 hide"` → `null` →
+`nosuch` event → `refuse('offer', 'there is no such thing as "6 hides"')`
+(`world.js:794` → `agent.js:532`). `"twelve branches"` fails the same way.
+Morag's offers that named a **bare** noun went through — the trade log has
+*"I traded venison_cooked to Tormod for wood"* twice. **The offers that named a price
+are the ones that died.** He finished the run carrying **7 hides**, starving, having
+said out loud: *"Ailsa — six hides for venison, now. I'm hurt and starving, can't chase."*
+
+*Loose end, stated rather than papered over:* Ailsa's goal `offer 3 branches to Morag
+for 2 cooked venison` should fail by the same path and her card shows **no** `offer`
+refusal. Either that decision was superseded before her body executed it, or the item
+slot is parsed from something other than the goal string I can see. The code path is
+confirmed; the count is not fully accounted for.
+
+**`avoid` — the one movement verb with no long-range fallback.** `offer`, `accept` and
+`approach` all resolve a name with `find(...) ?? anyone(...)`, where `anyone` searches
+every player at any range. `avoid` (`agent.js:2632`) uses **`find` alone**, and `find`
+stops at `AGENTS.noticeRange` (140 m). Ailsa's two avoid goals were `keep away from
+goblin` and `keep away from troll hunt` — things she learned about from *speech and
+memory*, i.e. from beyond 140 m, which is exactly when you want to run. She reached for
+it **24 times and was refused 24 times.** The seat scripted as *"careful to the point of
+timid… would rather go hungry than take a risk"* was denied its defining verb every
+single time, and ended the run at **food 0** — the only seat to hit zero. `"troll hunt"`
+is not an entity at all and could never resolve.
+
+### Trade: 10 exchanges, one commodity pair, and gold has still never moved
+
+Run 1 delivered **10 things changing hands** — this holds up the 11:05 entry rather than
+correcting it. But every one is the same swap:
+
+```
+venison_cooked ⇄ wood     (Morag↔Ailsa ×3, Morag↔Tormod ×2, and their mirror lines)
+```
+
+Social verbs were **24 of 341 decisions (7.0%)**, spread across opus-5, sonnet-5,
+grok-4.5 and kimi. Meanwhile **`gold` was 0 for all eight seats in all 222 samples** —
+nobody has ever held a coin, so `offer`'s new default-to-gold price can never settle.
+The economy is barter-only in practice.
+
+### The control is still beating the paid seats on the only metric that kills you
+
+```
+Iseabail  SCRIPTED  food 92  kills 1  |  Ailsa sonnet-5 food 0  ·  Coinneach kimi food 9
+                                      |  Seonaid kimi food 9   ·  Morag opus-5 food 59
+```
+
+A hundred lines of if-statements finished second on food out of eight. Fourth time this
+file has recorded it.
+
+### kimi's parser handicap, 7th consecutive check
+
+`Coinneach 27 answered / 23 failed (54%)`, `Seonaid 13 / 37 (26%)`, both
+`no json in reply`, against **0 failures** for opus-5, sonnet-5 and both Groks.
+Seonaid was the model for one decision in four. Any standing that ranks these seats
+is still ranking a JSON parser.
