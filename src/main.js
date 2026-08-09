@@ -63,7 +63,13 @@ import { PetAvatars } from './net/petavatars.js';
 import { sampleEnvironment } from './world/environment.js';
 import { insulationOf } from './items/registry.js';
 import { RECIPES, bestAvailable, craft } from './items/recipes.js';
-import { AUDIO, SURVIVAL } from './config.js';
+// NET is read by the drift reconciliation in `onSnapshot`. IT WAS USED AND NOT
+// IMPORTED, which a bundler does not catch — a bare identifier is assumed to be
+// a global — so the build was green and EVERY SNAPSHOT threw
+// "ReferenceError: NET is not defined", dropping the game to the title screen
+// with the clock, the weather and the fires frozen. See `lockcheck`'s sibling
+// `importcheck`, added in the same commit.
+import { AUDIO, SURVIVAL, NET } from './config.js';
 import { Wildlife } from './creatures/manager.js';
 import { Weather } from './world/weather.js';
 import { Rain } from './fx/rain.js';

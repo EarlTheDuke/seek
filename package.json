@@ -65,7 +65,8 @@
     "plancheck": "node server/plancheck.js",
     "farcheck": "node server/farcheck.js",
     "lootcheck": "node server/lootcheck.js",
-    "lockcheck": "node server/lockcheck.js"
+    "lockcheck": "node server/lockcheck.js",
+    "importcheck": "node server/importcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",
