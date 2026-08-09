@@ -386,7 +386,14 @@ health, or a death count. Those are the stakes; they should be the columns.
 decisions. What follows is evidence, not inference. Full trace at the end of
 `OBSERVATIONS-2026-08-08.md`.*
 
-### A8 ††† THE WORLD IS TOO EASY TO NEED ANYBODY — make survival require a second person **[M]**
+### ~~A8~~ ❌ **FALSIFIED 2026-08-08 18:05** — scarcity arrived and changed nothing **[M]**
+
+> Coinneach reached **0 food** and starved **1 m** from a man carrying 3 cooked
+> venison, saying *"I'll take that deal, Eachann"*. The world got exactly as
+> hard as this item asked for and trade stayed at zero. Hunger was never the
+> blocker — see **A16**. Keep the difficulty work if it is wanted for its own
+> sake; it is no longer the trade fix, and it is no longer the top item.
+
 **The single most important item on this list now**, because it supersedes the
 reachability story that A0/A0g were built on.
 
@@ -408,6 +415,13 @@ consumable only one seat can make, or a cold night that costs more wood than one
 person can gather in a day. **Every social measurement in Part D is now blocked
 on this, not on A0.** E1 (winter) and E4 (a two-person troll) are the large
 versions of the same idea; A8 is the cheap one that tests the hypothesis first.
+
+### ~~A9~~ ❌ **FALSIFIED 2026-08-08 18:05** — the verb WAS selected, repeatedly **[M]**
+
+> Both minds set trade goals on 12 samples simultaneously and walked 400 m to
+> execute them. The premise below — that the plan never becomes the verb — was
+> an artefact of reading an empty `refusedVerbs`, which is blind to every way a
+> trade actually fails (**A16**). The plan-to-verb path works.
 
 ### A9 ††† A mind writes "trade a hide for food" in its own plan and never selects the verb **[M]**
 Coinneach wrote six three-step plans and **three of them named trade**:
@@ -815,8 +829,106 @@ that never occur.
 > reachability.** See A8, and do not build Part D's social axes until a run
 > produces a single trade.
 
+> **UPDATE, 2026-08-08 18:05 (run 2 continued). Both diagnoses above were
+> wrong.** The minds crossed 400 m to reach each other, named a price out loud,
+> agreed it, and stood 1 m apart while one starved to 0 food. Reachability
+> works; scarcity arrived; trade is still zero. **The blocker is the trade
+> primitive itself** — `resolveAccept` refuses in silence seven ways, `accept`
+> has no way to know an offer is standing, and the protocol cannot express the
+> two-for-one price both minds agreed. See **A16–A18**.
+>
+> The caveat now inverts: **there is behaviour to measure.** Two models
+> negotiated unprompted. Part D's social axes are no longer speculative — they
+> are blocked on thirty lines of feedback in `world.js`.
+
 **The scripted control is still winning.** Until a paid model beats a hundred
 lines of if-statements at staying alive, "which model is best" is a less
 interesting question than "why is none of them good at this." That's not a
 reason to stop — it's the most interesting finding the project has, and it
 deserves to be measured properly rather than explained away.
+
+---
+
+## Added 2026-08-08 18:05, from RUN 2 CONTINUED — the first observed convergence
+
+Two minds crossed 400 m to reach each other, agreed a price in speech, stood
+1 m apart, and did not trade. See the 18:05 entry in
+`OBSERVATIONS-2026-08-08.md`. **A8 and A9 are both falsified by it** and are
+struck through below.
+
+### A16 ††† `resolveAccept` FAILS SILENTLY SEVEN WAYS — this is the whole blocker **[S]**
+
+`src/sim/world.js:746-780` has seven bare `return`s: no offer standing, wrong
+recipient, out of range, untradeable item, giver lacks the item, taker lacks the
+price, rollback. **None emits an event, an outcome line, or a `refusedVerbs`
+entry.** A mind that tries to trade and fails learns nothing and retries
+forever — observed for six consecutive samples with one mind at 0 food.
+
+Give every one of them a sentence and a `refuse('accept', …)`:
+*"there is no offer from Eachann to take"*, *"Coinneach has no venison to pay
+with"*, *"you are 40 m from Eachann"*. The shoot-refusal channel already sets
+this standard (A14) and it is the best-working thing in the harness. Same for
+`resolveOffer`. **This is the single highest-value fix in the file and it is
+maybe thirty lines.**
+
+### A17 ††† THE DOUBLE-ACCEPT DEADLOCK — nothing tells a mind an offer is standing **[S]**
+
+Observed h1.1→h2.9: both minds held `take <other> offer` simultaneously, 1–7 m
+apart, for six samples. `accept` requires a *standing* offer; neither had one,
+so both did nothing, silently, forever.
+
+Nothing in the brief tells a mind **whether an offer is currently open, from
+whom, or for what.** The offer event is written to memory once (`agent.js:479`)
+and then decays like any other line. Put live offers in the brief as their own
+channel — *"Eachann is offering: 1 hide for 1 venison"* — and expire them
+visibly. A mind cannot accept what it cannot see is on the table.
+
+### A18 ††† THE PROTOCOL CANNOT EXPRESS THE PRICE BOTH MINDS AGREED **[M]**
+
+Both said *"one hide for two venison"*, out loud, repeatedly, by name.
+`resolveAccept` is hard-wired 1-for-1: `remove(deal.item, 1)` / `add(…, 1)`.
+**There is no quantity anywhere in the trade path.** Even a perfect handshake
+would have silently paid one venison against a two-venison agreement — which is
+worse than refusing, because it looks like theft.
+
+Add `n` and `wantN` to the offer, carry them through the swap, and put them in
+the `trade` event so the log shows the real price. Without this, `offer` cannot
+represent the only bargain a model has ever actually proposed.
+
+**And check the item ids while you are in there:** Eachann's only meat is
+`venison_cooked`; `venison` is a different id and there is **no aliasing
+anywhere in `src/items/`**. A `want: "venison"` will not match his pack. Log the
+parsed `{item, want}` on the offer event — the board never shows it, so this is
+still inference, and it is cheap to settle.
+
+### A19 †† THE OFFER-WALK WORKS — say so, and stop blaming reachability **[—]**
+
+Not a fix; a result worth recording. `offer` returning a walk-to-target
+(`agent.js:2558`) took two minds from 228 m to 1 m in ~2 game hours while both
+held trade goals. **A0, A0g and the offer-walk are done and confirmed live.**
+Every remaining trade failure is downstream of arrival. Do not spend another
+run on proximity, prompt salience, or verb menus.
+
+### A20 † Eachann offered backwards, and that one IS the model **[S]**
+
+Coinneach has hides and needs meat. Eachann has meat and needs nothing.
+Eachann's goal: *"offer hide to Coinneach for 2 venison"* — he mirrored
+Coinneach's sentence instead of inverting it, offering the good he already had
+six of in exchange for the good the starving man did not have. Both minds spent
+the endgame offering hides and wanting venison.
+
+grok-4.20-non-reasoning parrots a price rather than reasoning about who holds
+what. Worth keeping as a **capability axis** (D3): *does a model invert a
+proposed trade correctly?* But fix A16 first — right now this error is
+indistinguishable from the four harness faults sitting on top of it.
+
+### A21 †† `plan` splits the models cleanly — it is a live capability signal **[—]**
+
+Coinneach (kimi-k2.6) carried a plan on **214 of 218** samples, 7 distinct, and
+it tracked his real state: `["gather wood","trade a hide for food","fletch
+arrows"]` at wood 2 → `["eat","find feathers or flint","fletch arrows"]` at food
+0. Eachann (grok non-reasoning): **0 of 218, never once.**
+
+That is a sharp, free, per-model behavioural difference from a field the world
+never reads. Score it (A0h/D3). And it strengthens the case for cutting `note`
+(A13): empty for **both** minds on **every sample of the entire run**.

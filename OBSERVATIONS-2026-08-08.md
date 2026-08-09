@@ -1014,3 +1014,112 @@ binding.
   2 / 20 / 16. The shoot-refusal channel, by contrast, is excellent — it records
   real geometry (`{"d":46,"why":"too far","slant":47.5,"dy":-10.2,"leadBy":0.4}`).
   That is the standard `refusedVerbs` should be held to.
+
+---
+
+# 18:05 — THEY FOUND EACH OTHER, AGREED A PRICE, AND THE TRADE VERB DID NOTHING
+
+Game hour 2.9 (day 2), 234 calls of 6000, 219 samples over ~73 real minutes.
+Neither seat is `SPENT` — both are still the model (Eachann 185/1500,
+Coinneach 49/1500). Everything below is model behaviour, not the script.
+
+## Two earlier readings in this file are now wrong. Both of them.
+
+**"They never once entered each other's contact list… neither ever set a goal to
+go and find the other."** (§ *Trade: zero — the instrument is clean*, 17:34)
+— **Falsified.** They converged deliberately and are now standing on top of
+each other:
+
+```
+ h23.8  E: offer hide to Coinneach for 2 venison  C: offer hide to Eachann...  diff landmark   Cfood 4
+ h0.4   E: offer hide to Coinneach for 2 venison  C: take Eachann offer        23 m radial     Cfood 2
+ h0.8   E: offer hide to Coinneach for 2 venison  C: take Eachann offer         5 m radial     Cfood 1
+ h1.1   E: take Coinneach offer                   C: take Eachann offer         7 m radial     Cfood 0
+ h1.7   E: take Coinneach offer                   C: take Eachann offer         1 m radial     Cfood 0
+ h2.9   E: take Coinneach offer                   C: take Eachann offer         1 m radial     Cfood 0
+```
+
+228 m → 1 m in ~2 game hours, both holding trade goals the whole way. The
+`offer`-walks-you-to-them fix **works**. This is the first observed convergence
+in the project.
+
+**"It is scarcity, not reachability."** (§ *The world is too easy*, 17:34)
+— **Falsified.** Scarcity arrived exactly as ordered. Coinneach went
+50 → 0 food and is starving. He is starving **one metre** from a man carrying
+3 cooked venison, having said *"I'll take that deal, Eachann"*, with
+`why: "starving, need the venison"`. Trade is still zero. The world got hard
+enough and it changed nothing.
+
+## What actually stops it: `resolveAccept` fails silently, seven different ways
+
+`src/sim/world.js:746-780` has **seven bare `return`s** — no offer standing,
+wrong recipient, out of range, untradeable, giver lacks the item, taker lacks
+the price, rollback. Not one pushes an event, an outcome line, or a
+`refusedVerbs` entry. **A mind that tries to trade and fails is told nothing at
+all,** so it tries the identical thing again. That is what the last six samples
+are.
+
+Three separate blockers are stacked in that window, and the harness reported
+none of them:
+
+1. **h0.8 — the handshake lined up and still failed.** Eachann had a standing
+   offer, Coinneach was accepting, 5 m apart. But Eachann's offer was
+   *hide for venison* — and `resolveAccept` requires
+   `taker.inventory.countOf(deal.want) >= 1`. Coinneach had no venison; that
+   was the entire point of the trade. **The starving man was asked to pay in
+   meat.** Silent return.
+2. **h1.1 onward — the double-accept deadlock.** Both flipped to `take X offer`
+   simultaneously. `accept` needs a *standing* offer; neither had one. Six
+   consecutive samples of two minds politely accepting nothing.
+3. **The agreed price is inexpressible.** Both said *"one hide for two
+   venison"*, repeatedly, by name. `resolveAccept` is hard-wired 1-for-1
+   (`remove(item, 1)` / `add(item, 1)`). There is no quantity in the protocol.
+   Even a perfect handshake would have silently paid one venison.
+
+**Likely fourth, not yet confirmed:** Eachann's only meat is `venison_cooked`.
+`venison` and `venison_cooked` are distinct ids and there is **no item-name
+aliasing anywhere in `src/items/`**. A `want: "venison"` will not match a pack
+holding `venison_cooked`. To confirm, log the parsed `{item, want}` on the
+offer event — the board never shows it.
+
+## `refusedVerbs` is empty, and that is now a *fault*, not an answer
+
+At 17:34 I wrote that an empty `refusedVerbs` was itself the finding — the verbs
+were never reached for. That reading no longer holds. The verbs were reached
+for on 12 samples by both minds at once, failed every time, and the column is
+**still `{}`**. `refuse()` is only called on an unresolvable *name*
+(`agent.js:2554, 2565`); every way a trade can actually fail is downstream of it
+and silent. The most informative column on the card is blind to the exact event
+it was built to catch.
+
+## The rest, briefly
+
+- **Speech is fixed and it is the best thing in the run.** 36 distinct
+  sentences, and they are *directed and transactional*:
+  `"Coinneach, one hide for two venison now"` → `"I'll take that deal, Eachann"`
+  → `"deal struck"`. From ONE sentence in two days to a negotiation. Both minds
+  said something on ~206/219 samples.
+- **`plan` is real for kimi, dead for grok.** Coinneach carried a plan on
+  **214 of 218** samples, 7 distinct, and it tracks his state honestly —
+  `["gather wood","trade a hide for food","fletch arrows"]` at wood 2, then
+  `["eat","find feathers or flint","fletch arrows"]` at food 0. Eachann: **0 of
+  218.** `note` is empty for both minds on every sample of the entire run —
+  still a dead field (A13).
+- **kimi-k2.6: 22 failures of 49 calls (45%), `"no json in reply"`.** Unchanged.
+  At 75 s cadence that is ~26 real decisions in 27 game hours. The more socially
+  competent model gets a quarter of the other's turns.
+- **Archery: 74–89% astray.** Eachann 5 kills/38 loosed/28 astray; Coinneach
+  2/37/33. Verbatim: *"flew true and still missed, at 23 m, into the ground"* —
+  five times, at 21–23 m. Shot refusals are still the best channel in the
+  harness (`{"d":23,"why":"too far","slant":26.2,"dy":0.1,"leadBy":3.9}`).
+- **Fires: 37 sampled at 10 branches each; Eachann ends holding 76 wood.**
+  A15 stands — wood is still not scarce.
+
+## The one-line version
+
+**The models did their job. Two minds found each other across 400 m of moor,
+named a price out loud, agreed on it, and walked into arm's reach — and the
+trade primitive refused them in silence, four ways at once, while one of them
+starved.** This is the sixth time an instrument fault has been read as a model
+fault, and the first time the models have unambiguously earned the benefit of
+the doubt.
