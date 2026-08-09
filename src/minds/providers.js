@@ -507,7 +507,28 @@ export class AnthropicProvider extends ModelProvider {
         messages: [{ role: 'user', content: briefToText(brief) }],
       }),
     });
-    if (!res.ok) throw await httpError(res);
+    if (!res.ok) {
+      const err = await httpError(res);
+      // ── A SEAT MUST NOT BE SCRIPTED ALL RUN OVER ONE OPTIONAL FIELD ──
+      //
+      // `output_config.effort` is rejected outright by Haiku 4.5 and Sonnet
+      // 4.5, and the fix has been documented in this file for weeks: put
+      // `effort: null` in the roster entry. It was documented and I still
+      // wrote a melee roster without it, and Fingal spent an hour at 0
+      // answered / 52 failed while the board went on saying claude-haiku-4-5.
+      //
+      // A footgun every roster author has to remember is a footgun that gets
+      // stepped on. `keycheck` cannot catch it either, because it sends no
+      // prompt. So the provider now takes the hint itself: drop the field,
+      // retry once, and carry on for the rest of the run without it. The
+      // parameter is an optimisation; the seat thinking at all is not.
+      if (res.status === 400 && this.effort && /effort/i.test(err?.message ?? '')) {
+        this.effort = null;
+        this.droppedEffort = true;
+        return this.request(brief, signal);
+      }
+      throw err;
+    }
     const data = await res.json();
 
     // ── NAME THE REFUSAL AND THE TRUNCATION, or they read as "rubbish reply" ──
@@ -605,6 +626,25 @@ export class OpenAiProvider extends ModelProvider {
     });
     if (!res.ok) throw await httpError(res);
     const data = await res.json();
+
+    // ── "no json in reply" IS A LIE WHEN WE CUT THE MODEL OFF OURSELVES ──
+    //
+    // Measured on the melee: Coinneach 11 answered / 6 failed and Seonaid 6
+    // answered / 11 failed, both saying `no json in reply` — which reads as
+    // "kimi cannot follow the contract" and blames the model. It is not the
+    // model. kimi-k2.6 reasons before it answers, that reasoning bills against
+    // `max_tokens`, and when the budget runs out mid-thought the content field
+    // arrives empty or cut. The vendor already tells us which it was, in
+    // `finish_reason`; we were throwing that away and guessing.
+    //
+    // The standing lesson in this project, for about the fifth time: THE
+    // INSTRUMENT MUST NOT LAUNDER OUR OWN FAULT INTO THE THING WE ARE
+    // MEASURING. Say `reply cut off at 3000 tokens` and the fix is obvious.
+    const choice = data?.choices?.[0];
+    if (choice?.finish_reason === 'length') {
+      throw new Error(`reply cut off at ${this.maxTokens} tokens — raise maxTokens for this seat`);
+    }
+
     return {
       // `content` is where every one of them puts it. A reasoning model may
       // ALSO return `reasoning_content`; this does not read it — the contract

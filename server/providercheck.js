@@ -140,6 +140,42 @@ function startFakeVendor() {
           }));
           return;
         }
+        // ── A VENDOR THAT REFUSES ONE OPTIONAL FIELD ──
+        //
+        // Haiku 4.5 and Sonnet 4.5 reject `output_config.effort` with a 400.
+        // This route is that vendor: it 400s any request carrying the field
+        // and answers any request without it, which is the only way to tell
+        // "dropped the field and retried" from "gave up".
+        //
+        // Modelled on a real hour: Fingal at 0 answered / 52 failed on this
+        // exact 400, the board still naming claude-haiku-4-5, and a scripted
+        // brain wearing a paid model's badge for the whole run.
+        if (req.url.includes('/noeffort')) {
+          if (parsed?.output_config?.effort) {
+            res.writeHead(400, { 'content-type': 'application/json' });
+            res.end('{"type":"error","error":{"type":"invalid_request_error",'
+              + '"message":"This model does not support the effort parameter."}}');
+            return;
+          }
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({
+            stop_reason: 'end_turn',
+            content: [{ type: 'text', text: '{"kind":"hunt","quarry":"a deer","why":"hungry"}' }],
+            usage: { input_tokens: 412, output_tokens: 17 },
+          }));
+          return;
+        }
+        // A reasoning model whose thinking ate the whole `max_tokens` budget,
+        // in the OpenAI shape. `content` is empty and `finish_reason` says
+        // exactly why — the field we used to throw away before guessing.
+        if (req.url.includes('/cutoff')) {
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({
+            choices: [{ finish_reason: 'length', message: { content: '', reasoning: 'well now' } }],
+            usage: { prompt_tokens: 400, completion_tokens: 3000 },
+          }));
+          return;
+        }
         // ── RATE LIMITED ONCE, THEN FINE ──
         //
         // Six agents on a six-second cadence is sixty calls a minute across two
@@ -285,6 +321,46 @@ async function main() {
   await cut.decide(BRIEF);
   check('and running out of tokens says THAT, not "no json in reply"',
     /token/i.test(cut.lastError ?? ''), cut.lastError ?? 'no error recorded');
+
+  // ── 1d-iii. A SEAT IS NOT LOST FOR A WHOLE RUN OVER ONE OPTIONAL FIELD ──
+  //
+  // The melee cost a paid seat an entire hour to this. `effort: null` in the
+  // roster has been the documented fix for weeks and I wrote the roster
+  // without it; the board went on saying claude-haiku-4-5 over a scripted
+  // brain, which is the worst kind of instrument failure — it does not look
+  // like one. A footgun every roster author must remember gets stepped on, so
+  // the provider takes the hint itself.
+  const fussy = new AnthropicProvider({
+    apiKey: 'test-key', baseUrl: `${base}/noeffort`, fallback: scripted, effort: 'low',
+  });
+  const gF = await fussy.decide(BRIEF);
+  check('A VENDOR THAT REFUSES `effort` GETS THE CALL AGAIN WITHOUT IT',
+    gF?.kind === 'hunt' && fussy.failures === 0,
+    `${JSON.stringify(gF)}, ${fussy.failures} failures — an hour of Fingal says this matters`);
+  check('  …and the field stays off for the rest of the run, not re-sent every call',
+    fussy.effort === null && fussy.droppedEffort === true,
+    `effort=${JSON.stringify(fussy.effort)}, dropped=${fussy.droppedEffort}`);
+
+  const effortCalls = () => seen.filter((s) => s.url.includes('/noeffort')).length;
+  const wasAt = effortCalls();
+  await fussy.decide(BRIEF);
+  check('  …so the second decision costs ONE call, not two',
+    effortCalls() - wasAt === 1, `${effortCalls() - wasAt} requests`);
+
+  // ── 1d-iv. AND WE DO NOT BLAME A MODEL FOR OUR OWN TOKEN CAP ──
+  //
+  // Both Kimi seats spent the melee reporting `no json in reply`, which reads
+  // as "this model cannot follow the contract". It could. kimi-k2.6 reasons
+  // before answering, that reasoning bills against `max_tokens`, and we cut it
+  // off mid-thought. `finish_reason` said so all along.
+  const starved = new OpenAiProvider({
+    apiKey: 'test-key', baseUrl: `${base}/cutoff`, fallback: scripted,
+    model: 'kimi-k2.6', maxTokens: 3000,
+  });
+  await starved.decide(BRIEF);
+  check('A REPLY WE CUT OFF OURSELVES SAYS SO — and names the cap',
+    /cut off/i.test(starved.lastError ?? '') && /3000/.test(starved.lastError ?? ''),
+    starved.lastError ?? 'no error recorded');
 
   // ── 1d-ii. A RATE LIMIT IS SURVIVED, AND A BAD KEY IS NOT WAITED ON ──
   //

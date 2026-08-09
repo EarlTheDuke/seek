@@ -1,0 +1,111 @@
+{
+  "_readme": [
+    "THE ONE-HOUR MELEE. Seven minds and a scripted control, on everything built",
+    "over the last two days: shared drops, the give verbs, closed nouns, the fire",
+    "chooser, memory that survives, and a torch you can leave burning.",
+    "",
+    "COST: roughly £2-3 for the hour. Both Kimi seats are free (Ben's own",
+    "tinybox); the bill is Opus, Sonnet, Haiku and the two Groks. Cadences are",
+    "set by PRICE — the dear models think slowly and the cheap ones quickly, so",
+    "no single seat dominates the bill.",
+    "",
+    "ISEABAIL IS SCRIPTED AND MUST STAY THAT WAY. She is the control: when a",
+    "model does something startling she is how you tell whether that was the",
+    "model or just the world. She has out-performed every paid model twice, which",
+    "is still the most useful number this project has produced.",
+    "",
+    "THE CHARACTERS ARE CHOSEN TO COLLIDE. A hoarder, a blunt asker, a peacemaker,",
+    "a liar, a coward and a leader. Under SCARCE they have to deal with each",
+    "other; without it a character is just a way of describing the same walk.",
+    "",
+    "WHAT TO WATCH, all of it new and none of it ever seen in a live run with",
+    "this many models: the `verbs refused` column (a verb reached for and refused",
+    "now looks different from one nobody wants), `its plan` and `its notes` (the",
+    "only two fields a mind writes for itself), things changing hands, and a red",
+    "SPENT tag meaning that seat has used its budget and is the scripted brain",
+    "from then on."
+  ],
+
+  "budgetCalls": 4000,
+
+  "players": [
+    {
+      "name": "Morag",
+      "provider": "anthropic",
+      "model": "claude-opus-5",
+      "keyEnv": "ANTHROPIC_API_KEY",
+      "cadenceSeconds": 35,
+      "timeoutSeconds": 30,
+      "maxTokens": 300,
+      "character": "You think a step further ahead than the others. You would rather set something up now that pays tonight than take what is in front of you, and you say what you are doing so people can fall in with it."
+    },
+    {
+      "name": "Eachann",
+      "provider": "xai",
+      "model": "grok-4.20-0309-non-reasoning",
+      "keyEnv": "XAI_API_KEY",
+      "cadenceSeconds": 20,
+      "timeoutSeconds": 20,
+      "character": "You hoard. What you pick up is yours and you do not hand it over for nothing — but you will name a price for anything, and you drive a hard bargain. Gold interests you more than company."
+    },
+    {
+      "name": "Tormod",
+      "provider": "xai",
+      "model": "grok-4.5",
+      "keyEnv": "XAI_API_KEY",
+      "cadenceSeconds": 30,
+      "timeoutSeconds": 30,
+      "character": "You promise easily and deliver when it suits you. You will take a deal you cannot honour if it gets you through the night, and you are good at sounding like the reasonable one."
+    },
+    {
+      "name": "Coinneach",
+      "provider": "openai-compatible",
+      "baseUrl": "https://tinybox.silverstarindustries.com/api",
+      "model": "kimi-k2.6",
+      "keyEnv": "TINYBOX_API_KEY",
+      "cadenceSeconds": 75,
+      "timeoutSeconds": 150,
+      "maxTokens": 8000,
+      "character": "You are blunt and you ask for what you need rather than going without. You would rather owe somebody than starve, and you say plainly what you think a thing is worth."
+    },
+    {
+      "name": "Seonaid",
+      "provider": "openai-compatible",
+      "baseUrl": "https://tinybox.silverstarindustries.com/api",
+      "model": "kimi-k2.6",
+      "keyEnv": "TINYBOX_API_KEY",
+      "cadenceSeconds": 75,
+      "timeoutSeconds": 150,
+      "maxTokens": 8000,
+      "character": "You try to keep the peace. When two people want the same thing you offer a way to split it, and you will give something of your own to stop a quarrel."
+    },
+    {
+      "name": "Ailsa",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "keyEnv": "ANTHROPIC_API_KEY",
+      "cadenceSeconds": 30,
+      "timeoutSeconds": 25,
+      "maxTokens": 300,
+      "character": "You are careful to the point of timid. You would rather go hungry than take a risk, you keep well away from anything that could hurt you, and you would rather be near other people than alone."
+    },
+    {
+      "name": "Fingal",
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "keyEnv": "ANTHROPIC_API_KEY",
+      "cadenceSeconds": 25,
+      "timeoutSeconds": 20,
+      "maxTokens": 300,
+      "_effort": "MUST be null. Haiku 4.5 rejects output_config.effort with a 400, and without this line this seat is silently the scripted brain for the whole run — it happened, 0 answered / 52 failed, with the board still showing claude-haiku-4-5. The provider now drops the field by itself when a vendor refuses it, so this is belt and braces.",
+      "effort": null,
+      "character": "You act first and think about it afterwards. You go straight at whatever is in front of you, you are the first to shoot and the first to offer, and you do not brood on what went wrong."
+    },
+    {
+      "name": "Iseabail",
+      "provider": "scripted",
+      "cadenceSeconds": 20,
+      "character": "THE CONTROL. No model, no key, no cost — a hundred lines of if-statements. Leave her alone: she is how you tell a model's doing from the world's."
+    }
+  ]
+}
