@@ -2113,3 +2113,82 @@ and zero gold.
 **Fix:** cap the bout (diminishing returns per bout, or a hard stop at ~20), and show
 `gathering, 34 so far` as a *state* rather than a rising deed, so a mind can tell "I am
 still doing this" from "I did this".
+
+## Added 2026-08-09 03:35, from RUN 2 ELEVENTH LOOK — the goblin took the treasury and told nobody
+
+### A88 †††† A DEATH THAT TAKES YOUR PACK NEVER SAYS WHAT IT TOOK **[S]**
+
+30 respawns this run; 29 kept the pack (starvation path, A39). The one that went
+through `onPlayerDied` stripped Coinneach to his bow at hour 2.6:
+
+```
+s606 hp=39 food=0  bow x1, hide x13, gold x2, wood x3
+s607 hp=100 food=85  bow x1
+```
+
+**13 hides and 2 gold — the largest concentration of wealth in the run, and the
+buying power behind every bargain either mind attempted all day.** The `death`
+event reaches memory ([agent.js:542](src/net/agent.js:542)) as *"Coinneach was
+killed by Goblin <place>"* — third person, and **silent about the pack.** The
+event already computes `lost: dropped.length` and never renders it. Card otherwise
+byte-identical across the wipe: same deeds, same goal, same `why`.
+
+**Fix (three strings, no new state):** make the victim's own memory first-person
+and itemised — *"A goblin killed me at Broad Loch. My 13 hides, 2 gold and 3
+branches are lying where I fell."* `onPlayerDied` already has `dropped` and `at`.
+Then the mind can go back for it, which is the only reason the drop rule exists.
+
+**Resolves the loose end in A39** ("eleven of the twelve kept the full pack") —
+the twelfth was the creature path, working as written. A39's fix stands and this
+is its other half: A39 makes starvation *fire* the event, A88 makes the event
+*legible to the person it happened to*.
+
+### A89 ††† `KEEP_ON_DEATH` IS ONE ITEM, SO A CREATURE DEATH IS A TOTAL WIPE **[S]**
+
+`const KEEP_ON_DEATH = new Set(['bow']);` ([world.js:33](src/sim/world.js:33)).
+Everything else — hides, gold, arrows, firewood, food — drops. Combined with A88's
+silence, one goblin at hour 2.6 undid nineteen hours of accumulation with no
+notice and no recovery path, and the run's economy never got back to where it was
+(gold has read 0/0 for 1,300 samples since).
+
+That is a **very** sharp edge for a world whose only other death is free. Either
+soften it (keep the quiver and the coin — losing tools is the interesting part,
+losing money is just a reset) or make the drop findable: a `where my pack fell`
+line on the card until it is recovered or despawns.
+
+### A90 ††† THE SELLER'S PRICE HAS NO DIMINISHING RETURN, SO BARGAINING DEADLOCKS **[M]**
+
+The run ends in a stable impasse, correctly reasoned by both sides. Eachann has
+held **hide x15 since s1829** and never lowered his price of one hide; Coinneach
+held 0 hides through the whole negotiation. *"my kill, my price"* vs *"Keep your
+hide-price, I'll fill my own belly."* Both then fed themselves by hunting.
+
+Nothing in the world makes a sixteenth hide worth less to Eachann than a first,
+so there is no pressure on him to take branches, arrows or a debt instead — all
+of which Coinneach explicitly offered. **This is not a model failure; it is a
+missing price signal.** Give hides a use that saturates (a shelter costs N hides
+and then you are done) or a carry cost, and the seller starts wanting the other
+man's goods.
+
+### A91 †† COUNTING DEATHS BY `hp === 0` UNDERCOUNTS ~5× — USE THE FOOD JUMP **[S]**
+
+Methodological, for whoever writes the next analyser. At a 20 s sample the
+`hp === 0` tick is caught 6 times in 30. The reliable signature is
+`food ≤ 3 → food 84–85` **with** `hp → 100`. Every death number in this file taken
+off `hp === 0` alone is a floor, not a count.
+
+*(A39's twelve-in-764 was taken off the full signature and scales correctly to
+30-in-1,918 — it is confirmed, not corrected.)*
+
+### A92 †† KIMI'S CALLS ARE 45% WASTE AND GETTING WORSE **[S]**
+
+Coinneach: **172 failures in 384 calls all-run (45%), 10 of 16 (63%) in the last
+window**, every one `no json in reply`. This is an instrument cost, not a model
+verdict — the 212 calls that *did* parse produced ~90 in-character utterances and
+a correctly-reasoned bargaining position (A90). A retry-once-on-unparseable, or a
+stricter response format, would roughly double the kimi seat's effective thinking
+for free.
+
+Related: the 20 s / 75 s cadence split means the shared 6,000-call budget is spent
+**4:1 by clock speed**, not by anything either mind does — Eachann is at 1,442/1,500
+while Coinneach is at 384.

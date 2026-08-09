@@ -3044,3 +3044,114 @@ clock speed rather than by anything either mind is doing.
 the trade primitive moves exactly one item for one item with no count field anywhere in
 it — so the only way to pay fifty branches in this world is fifty model calls, which is
 precisely what the board recorded.**
+
+---
+
+## 2026-08-09 03:35 — RUN 2, ELEVENTH LOOK: thirty deaths, one of them cost anything, and it took the run's whole treasury
+
+1,918 samples · 639 real minutes · game hour 21.9 · 1,826 calls of 6,000.
+Board live. **Neither seat is `SPENT`** — but see the budget note at the bottom.
+
+### The finding: two death paths, opposite loot rules, and the punishing one is silent
+
+Counting respawns by the signature `food ≤ 3 → food 84–85` **and** `hp → 100`
+(rather than by catching `hp === 0`, which the 20 s sampler misses four times in
+five) the whole run holds **30 respawns — 13 Eachann, 17 Coinneach.**
+
+**Twenty-nine of them cost nothing at all.** Full health, a belly at 84–85, a
+teleport across the map, and the pack intact to the item. The clean case, Eachann
+at s1356→s1357:
+
+```
+s1356 h17.2  hp=  0 food=0   carry: bow x1, hide x5, arrow x1
+s1357 h17.5  hp=100 food=84  carry: bow x1, hide x5, arrow x1
+```
+
+**One cost everything.** Coinneach, s606→s607, hour 2.6:
+
+```
+s606 h2.3  hp= 39 food=0   carry: bow x1, hide x13, gold x2, wood x3
+s607 h2.6  hp=100 food=85  carry: bow x1
+```
+
+Note the `hp=39`. Every other respawn in the run fires from hp 0–9, off the
+starvation ramp (a clean −11 per sample). This one fires from 39, mid-ramp — a
+creature closed the last 39 in one tick. His goal at s598 and again at s610 is
+`"keep away from a goblin"`.
+
+That is the difference, and it is in the source. `onPlayerDied`
+([world.js:918](src/sim/world.js:918)) drops the pack and pushes `k:'death'`, and
+it is called from exactly two places — `world.js:353` (arrow) and `world.js:849`
+(creature). `KEEP_ON_DEATH` is `new Set(['bow'])` ([world.js:33](src/sim/world.js:33)),
+so a creature death strips you to the bow. Starvation never reaches that function
+at all; `Vitals` revives itself at [vitals.js:155](src/player/vitals.js:155).
+
+**This resolves the loose end in A39.** That entry counted twelve respawns and
+noted "eleven of the twelve kept the full pack" without explaining the twelfth.
+The twelfth is this one. It is not a glitch in the starvation path — it is the
+*other* path, working as written.
+
+### Why it matters more than a loot rule
+
+**13 hides and 2 gold is the largest concentration of wealth this run produced,
+and the largest hide movement in 639 minutes was not a trade.** Both minds spent
+the entire day pricing meat in hides, out loud, by name — *"one hide for one
+venison"*, *"Hide for meat, Eachann. You have plenty."*, *"one hide gets you one
+venison"*. Coinneach's 13 hides were the buying power for every one of those
+bargains. A goblin deleted them at hour 2.6 and he negotiated for the next
+nineteen hours without them, ending the window on 2.
+
+He was not told. The `death` event does reach his memory
+([agent.js:542](src/net/agent.js:542)) — but as
+`"Coinneach was killed by Goblin <place>"`: third person, no first-person framing,
+and **no mention that his pack is lying on that square metre.** The event object
+carries `lost: dropped.length` and it is never rendered. His card is otherwise
+byte-identical across the wipe — same three deeds (`gather:wood x10 | place |
+gather:wood x3`), same goal (`"hunt a deer"`), same `why` (`null`). From inside
+the mind, thirteen hides simply stopped existing.
+
+### Not a model failure — two data points the other way
+
+- **Coinneach's speech was accurate about his own inventory.** He says *"Eachann,
+  quiet. I have no hide."* (s1768) and *"Starving. No hide. Give me venison, I
+  will owe you."* (s1799). He held **0 hides at both**. I checked this expecting
+  the opposite — the live board shows him carrying 2 — and the 2 arrive at s1886,
+  after both lines. He stopped saying it once he had them.
+- **The impasse that closed the run is priced, not confused.** Eachann's price is
+  one hide; he has held **hide x15 since s1829** and has never once lowered it.
+  Coinneach had 0 hides for the whole negotiation. Two minds bargaining in a
+  currency one of them has fifteen of and the other has none of, with no
+  diminishing return to make the seller want anything else. *"my kill, my price"*
+  / *"Keep your hide-price, I'll fill my own belly."* Both then fed themselves by
+  hunting. **That is a correctly-reasoned deadlock, not a failure to reason.**
+
+### Re-checked, unchanged
+
+- **`note`: zero uses, twentieth check.** Both cards `""`, 1,918 samples.
+- **`refusedVerbs`: `{"avoid": 16}` / `{}`.** Unmoved since sample 681. Note what
+  it did *not* record: a creature killing a man and taking his pack.
+- **`accept`: 0 deeds in 1,918 samples.** Never once, by either model, all run.
+- **`plan` is genuinely used and stable** — `["get meat","trade with Coinneach"]`
+  and `["get meat","keep an arrow nocked for Eachann"]`. Both on-topic, both
+  survive. `plan` is the one self-written field that works; `note` is dead.
+- **Gold moved between minds exactly twice**, one coin each way — s332 (E 2→1,
+  C 0→1) and s403 (E 1→0, C 1→2) — then the goblin took both at s607. Gold has
+  been 0/0 for 1,300 samples since.
+- Speech remains abundant and in character: ~230 distinct utterances, both
+  directions, by name.
+
+### For whoever reads the next board
+
+- **Eachann is at 1,442 of 1,500 calls (96%)** and burning ~2.2/min. He hits
+  `SPENT` in roughly **25 minutes** and his card is the scripted brain from then
+  on. If you read this run after that, most of what you see is not grok.
+- **Coinneach's parse failure rate is 45% all-run (172/384) and 63% in the last
+  window** (10 failures in 16 calls), all `no json in reply`. Nearly two of every
+  three kimi calls are thrown away.
+
+### The one-line version
+
+**This world killed its inhabitants thirty times in eleven hours; twenty-nine of
+those were a free meal and a fast-travel, and the one that actually cost something
+took the entire hide treasury both minds had spent all day bargaining over — and
+told neither of them.**
