@@ -64,6 +64,17 @@ export const RECIPES = {
     requires: 'fire',
     seconds: 6,
     verb: 'bind',
+    // ── OR IT SHADOWS FLETCHING FOR EVER ──
+    //
+    // `bestAvailable` returns the FIRST recipe it can make, and a torch costs
+    // three branches where arrows cost two — so with any wood at all the fire
+    // bound a torch and there was no way to reach Fletch Arrows. A playtester
+    // hit exactly that: "at a fire, F silently binds a torch every single time,
+    // even with three torches already."
+    //
+    // Same trap as the cloak, which I avoided by ordering, and then walked into
+    // anyway by leaving the cap off. Two is what a person carries.
+    maxHeld: 2,
   },
 
 

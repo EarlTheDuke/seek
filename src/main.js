@@ -24,7 +24,7 @@ import {
   nearbyDistricts,
   bearingName,
 } from './world/placenames.js';
-import { sanitiseIntent, IDLE_INTENT } from './sim/intents.js';
+import { sanitiseIntent, IDLE_INTENT, createIntent, clearIntent } from './sim/intents.js';
 import { setScarcity } from './world/scarcity.js';
 import { CameraFeel } from './player/cameraFeel.js';
 import { ViewModel } from './player/viewmodel.js';
@@ -443,6 +443,44 @@ function boot() {
         // that landed at 15:40. See `Body.applyRemoteCore` — and note `me.f` is
         // deliberately still NOT read, because nothing can yet feed that body.
         if (snap.me) vitals.applyRemoteCore(snap.me.c);
+        // ── AND WHERE THE SERVER THINKS YOU ARE STANDING ──
+        //
+        // The server integrates YOUR intents through ITS OWN physics —
+        // collisions, slopes, wading, the hunger slowdown, the speed scale a
+        // drawn bow applies — and this client integrates the same intents
+        // through its own. Two simulations, one input, and until now NOTHING
+        // EVER COMPARED THEM. `me.p` has been in every snapshot and was read
+        // only on death, for the respawn (see the note on the 417 m bug).
+        //
+        // So they drift, unboundedly, and every consequence lands on the
+        // server's copy. A playtester measured 25 m: their arrows left from
+        // where the ghost stood, so hits registered client-side and the
+        // goblin's health never moved; and they lost 46 health to goblins
+        // beating up a body they could not see. They only landed two kills by
+        // measuring the offset by hand and aiming from the ghost's coordinates.
+        //
+        // Corrected in proportion to how wrong it is. Under `driftIgnore` it is
+        // interpolation noise and touching it would fight the controller every
+        // packet. Between that and `driftSnap` it is eased over — invisible at
+        // a few per cent a packet, and it converges because the error stops
+        // growing. Past `driftSnap` something has gone badly wrong and a hard
+        // correction is kinder than a body that cannot shoot.
+        //
+        // OFFLINE IS UNTOUCHED: no server, no snapshots, no correction, so
+        // single player stays byte-identical.
+        if (snap.me?.p && !vitals.dead) {
+          const dx = snap.me.p[0] - ctrl.position.x;
+          const dz = snap.me.p[2] - ctrl.position.z;
+          const off = Math.hypot(dx, dz);
+          if (off > NET.driftSnap) {
+            ctrl.teleport(new THREE.Vector3(snap.me.p[0], snap.me.p[1], snap.me.p[2]), ctrl.yaw);
+            terrain.buildImmediate(ctrl.position.x, ctrl.position.z);
+            hud.toast('caught up with the world', 1.4);
+          } else if (off > NET.driftIgnore) {
+            ctrl.position.x += dx * NET.driftEase;
+            ctrl.position.z += dz * NET.driftEase;
+          }
+        }
         // ── and what time it is ──
         // Delivered RAW here rather than through the interpolator for the same
         // reason as the health and the events: the buffer exists to smooth
@@ -2486,6 +2524,9 @@ function boot() {
   // ── the loop ────────────────────────────────────────────────────────────
   let last = performance.now();
   let time = 0;
+  // The dead body's intent — mutable, because the network path writes aim onto
+  // whatever it sends. See where it is used.
+  const deadIntent = createIntent();
 
   /** One simulation + render step. Split out so it can be driven manually. */
   function stepWorld(dt) {
@@ -2495,7 +2536,19 @@ function boot() {
     // ── gather this tick's intent ──
     // The single place player will becomes simulation input. A network packet
     // or an LLM agent would substitute here and nothing below would notice.
-    const intent = vitals.dead ? IDLE_INTENT : sanitiseIntent(input.poll());
+    // ── A DEAD BODY STILL NEEDS A WRITEABLE INTENT ──
+    //
+    // This was `IDLE_INTENT`, which is `Object.freeze`d and SHARED. Further down
+    // the frame the network path stamps `aimYaw`/`aimPitch` onto whatever intent
+    // it is about to send — so dying WHILE CONNECTED threw
+    // "TypeError: Cannot assign to read only property 'aimYaw'" straight out of
+    // stepWorld, and the player got "something went wrong — see the console" at
+    // the exact moment they died. Invisible in single player, which is where it
+    // was tested; found by an agent playtesting over a real server.
+    //
+    // A private, mutable copy cleared each frame. `IDLE_INTENT` stays frozen and
+    // stays the do-nothing default for callers that only READ it.
+    const intent = vitals.dead ? clearIntent(deadIntent) : sanitiseIntent(input.poll());
 
     // The trigger is edge-detected from the INTENT rather than straight off the
     // mouse event, so this is the same code path the headless sim and (later) a

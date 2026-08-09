@@ -1211,6 +1211,23 @@ export const SOCIAL = {
 // every machine, so terrain, trees, caves, barrows and place names never cross
 // the wire — only what moved.
 export const NET = {
+  // ── KEEPING THE TWO COPIES OF YOU IN THE SAME PLACE ──
+  //
+  // The server runs your intents through its own physics and so does the
+  // browser. Nothing compared the two, so they drifted — measured at 25 m by a
+  // playtester, whose arrows then left from where the server thought they
+  // stood while creatures attacked a body they could not see.
+  //
+  // Under `driftIgnore` metres it is interpolation noise; correcting it would
+  // fight the controller on every packet. Between that and `driftSnap` it is
+  // eased over at `driftEase` of the error per snapshot — at 20 Hz that closes
+  // a 3 m gap in about a second and is invisible. Past `driftSnap` something has
+  // gone badly wrong and a hard correction is kinder than a body that cannot
+  // shoot straight.
+  driftIgnore: 0.6,
+  driftEase: 0.08,
+  driftSnap: 10,
+
   defaultPort: 8080,
   // How often the client tells the server what it wants. The server holds the
   // last intent it was given, so this only costs input latency, not fidelity —
