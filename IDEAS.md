@@ -1794,3 +1794,61 @@ a forager can't out-gather, and gathering is free.
 (a second `place` moves your fire rather than adding one), or make deadfall a finite
 node that depletes and regrows on a timer. Raising the branch cost again just raises
 the gather count.
+
+## Added 2026-08-09 01:05, from RUN 2 samples 1378–1474 — the death that the trade bug caused
+
+### A72 ††† STARVATION DEATH IS FREE — FULL HEALTH, FOOD 84, PACK INTACT, 25 TIMES **[M]**
+
+*Correction to A52, which said death confiscates the pack.* Over 1,474 samples,
+`hp ≤ 20 → hp ≥ 95` fires **25 times** (Eachann 12, Coinneach 13) and the pack is
+**byte-identical across 24 of them**. Coinneach at `at21808`: `hp4 food0
+[bow:1,wood:6,arrow:18]` → `hp100 food84 [bow:1,wood:6,arrow:18]`. 24 of 25 are
+`food 0 → 84/85`, i.e. starvation. A52 generalised from one troll mauling (food 23),
+which is A58's *other* death rule; even that one only trimmed wood (154 → 40), which
+reads as a respawn carry cap, not confiscation.
+
+So the loop is: forage, ignore hunger, die, wake at full health with your kit and a
+full belly, repeat — 25 times in 490 minutes. **Every scarcity lever in this world
+(fire cost A53/A71, arrow economy A55, the whole trade protocol) is downstream of a
+death that costs nothing.** Eachann ends the run at food 19 holding 40 branches, 7
+hides and 14 arrows after 804 branch gathers: the richest man in the world, starving
+on a schedule, correctly, because starving is cheaper than stopping to eat.
+
+**Fix, cheapest first:** make the starvation respawn cost something a mind can feel
+and *is told about* — wake at food 30 not 84, drop the pack where you fell as a
+gatherable, or park the seat for N ticks. Any of the three makes food a real
+constraint. Do this **before** tuning fire prices or arrow yields; those are noise
+until dying hurts.
+
+### A73 ††† THE `accept` STRING BUG IS NOW A CAUSE OF DEATH, NOT JUST A MISSING FEATURE **[S]**
+
+Eleven consecutive samples, `at21662 → at21793`, Coinneach at food 0 with health
+falling `100 → 4`, goal unchanged the whole way: `take Eachann offer`, `why =
+starving, taking meat for arrows`, saying *"Done. Six arrows for the meat."* In the
+same eleven samples Eachann held `give meat to Coinneach` and `offer meat to
+Coinneach for 6 arrows`, saying *"six arrows for the meat"*.
+
+Both minds agreed a price, both reached for the verb, and `resolveAccept` ran
+`countOf("6 arrows")` against the id `arrow`, got 0, and returned silently (A68).
+Combined with A48's silence, neither mind ever learned to re-phrase, because from
+inside there was nothing to learn from.
+
+**This promotes A68 from [M] polish to the top of the queue.** It is not "trade does
+not work yet" — it is the single defect for which we now have an unambiguous live
+cost. Ship A68's normaliser (word → id, and harvest the stripped count as A62's `n`)
+plus A63's loud refusal, and re-run *this exact roster* to see whether the same two
+minds close the same bargain.
+
+### A74 †† A MIND IS NEVER TOLD IT DIED, AND REASONS FROM A BODY 84 FOOD OUT OF DATE **[S]**
+
+Sharper live evidence for A52's surviving half. After respawning at `at21808` with
+food 84, Coinneach ran **eight more samples** on `why = starving, taking meat for
+arrows`, then `why = need that meat before dark` at food 81 — still negotiating for a
+meal he no longer needed, two minutes of wall clock after being filled up. His `plan`
+(`["eat what I get","rest until light","hunt at dawn"]`) never updated either, because
+nothing contradicted it.
+
+This is the eighth time (A29, A41, A50, A57, A61, A66, A68, now this) the instrument
+made a mind look worse than it is. **Fix:** one `deeds` line and one brief line on
+respawn — *"you died of hunger near Broad Loch; you woke fed"* — and the mind
+self-corrects on the next turn for free.

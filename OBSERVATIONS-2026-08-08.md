@@ -2547,3 +2547,77 @@ worse than it is.
 Robbery, but fine." — and the engine dropped it on the floor without a word, because
 `accept` matches item ids by exact string while `give` forgives them, and every price
 a model has ever named in this world is a phrase.**
+
+## 2026-08-09 01:05 PDT — sample 1,474, game hour 4.3 (`at` 22318) — RUN STILL LIVE, NOT SPENT
+
+Spend 1,412 of 6,000. Eachann 1,115 calls / 1 failure. Coinneach 297 / 130 (`no json
+in reply`, 44%). Neither seat carries `SPENT`; everything below is the models.
+
+Only ~96 samples since the last entry, so most of the previous entry stands unchanged
+(`accept` still never fires, `note` still empty, `plan` still used, `say` still the
+win). One thing happened in that window that had not been caught before, and it
+settles an open question with a body.
+
+### The `accept` bug killed a mind, and both models were doing everything right
+
+`at21662 → at21793`, eleven consecutive samples, Coinneach at food 0, health running
+`100 → 92 → 81 → 70 → 59 → 48 → 37 → 26 → 15 → 4 → dead`.
+
+His goal did not change once across the entire death:
+
+```
+goal = take Eachann offer     why = starving, taking meat for arrows
+said = "Done. Give me the meat." / "Done. Six arrows for the meat."
+       / "Six arrows. Give me the meat."
+```
+
+Eachann, in the same eleven samples, was on `give meat to Coinneach` (h21633,
+h21662) and `offer meat to Coinneach for 6 arrows` (h21735), saying *"six arrows for
+the meat"*, *"done, six arrows now"*.
+
+**A seller offering, a buyer accepting, a price both had said out loud, and a man who
+starved to death holding the intention to take the deal.** This is A68's exact-string
+`resolveAccept` — `countOf("6 arrows")` against the id `arrow` — with a corpse
+attached. The mechanism was already known; what is new is that it is now the proximate
+cause of a death, not just a missing feature. Neither mind was told the deal failed
+(A48), so neither ever tried a different framing across eleven turns of dying.
+
+### Correction to A52 — the pack survives starvation; A52 generalised from a mauling
+
+A52 says **DEATH CONFISCATES THE PACK**. Over the full run, `hp ≤ 20 → hp ≥ 95`
+fires **25 times** (Eachann 12, Coinneach 13), and in **24 of 25 the pack is
+byte-identical across the death.** Coinneach's, at `at21808`:
+
+```
+before  hp4  food 0   [bow:1, wood:6, arrow:18]
+after   hp100 food 84 [bow:1, wood:6, arrow:18]
+```
+
+24 of those 25 are `food 0 → 84/85` — starvation. The one exception (`at16487`,
+Eachann, food **51**, wood 154 → 40) is the other death rule, and it did not empty the
+pack either; it trimmed wood only, which looks like a carry cap on respawn rather than
+confiscation. A52's own evidence was a single troll mauling at food 23. So this is
+A58's two death rules again: **the mauling path takes your kit, the starvation path
+takes nothing at all, and starvation is 24 of 25 deaths.**
+
+A52's second half is untouched and confirmed harder than before: **the mind is never
+told.** After respawning at `at21808` with food 84, Coinneach ran eight more samples
+still reasoning `why = starving, taking meat for arrows`, then `why = need that meat
+before dark` at food 81. He was fed to 84 and spent two minutes of wall clock
+bargaining for a meal because nothing in the brief ever mentioned that he had died and
+been filled up.
+
+### What this makes of the food numbers
+
+25 deaths in 490 real minutes, and dying costs one sample of wall clock and restores
+food to 84. There is no reason for either mind to manage food at all — and neither
+does. Eachann ends the run holding 40 branches, 7 hides and 14 arrows at food 19,
+having gathered 804 branches; he is the richest man in the world and starves on a
+schedule. That is not the model misplaying scarcity. It is a world where the punishment
+for running out is a free refill.
+
+### The one-line version
+
+**Coinneach starved to death over eleven turns while holding the goal `take Eachann
+offer`, with Eachann on `give meat to Coinneach` the whole time — and then kept his
+entire pack through the death, because starving in this world is free.**
