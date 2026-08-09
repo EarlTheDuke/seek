@@ -2157,3 +2157,88 @@ the only way to read it.
 **Two models haggled all day over arrows they could each have made from two of the
 branches in their hands, because both of them independently decided this world has
 flint and feathers in it, and it has neither.**
+
+---
+
+## 2026-08-08 23:06 — RUN 2 still live, samples 1027→1124 (`at` 15859→17172)
+
+Board answering. **No `SPENT` tag on either seat** — Eachann 851/1500, Coinneach
+227/1500, session 1078 of 6000, `exhausted:false`. Everything below is the models.
+
+### THE 22:40 PREDICTION WAS RIGHT, AND THE OUTCOME WAS THE OPPOSITE OF THE POINT
+
+The last entry said Coinneach was "losing ~1.2 food per sample and will hit 0 in
+roughly eight." He hit 0 at `at`15990 and bled out: hp **100 → 92 → 59 → 26 → 4**.
+Then, at `at`16136, one 44-second step later:
+
+```
+before   h16.9  food 0   hp  4   213 m NE of Heather Thicket   bow:1, wood:10, arrow:12
+after    h17.8  food 85  hp 100  342 m NE of Rowan Moor        bow:1, wood:10, arrow:12
+```
+
+He starved to death, woke across the map full-fed, and **kept the pack byte for
+byte — including the twelve arrows he had spent the entire day begging Eachann
+for.** He was never told any of it happened.
+
+**Whole-run starvation census, all 1124 samples: 17 deaths — Eachann 8, Coinneach
+9.** Sixteen of the seventeen kept the pack identically; the seventeenth gained a
+branch. A39 called this at twelve-in-764; this closes the number.
+
+**The two death rules are exact opposites and nobody chose that.** A52's death
+(troll, `at`≈13600) confiscated 20 arrows and 10 wood, because a creature kill runs
+`onPlayerDied` (`world.js:849`). Starving does not — `Vitals` revives itself and
+nothing calls `onPlayerDied` at all. So being mauled costs you everything and
+starving costs you nothing, and neither one is announced. For Coinneach today,
+**starving was the cheapest way to get a meal**: hp and food restored, pack intact,
+zero decisions spent. There is no hunger pressure in this world, which is the
+simplest available answer to why nobody will pay for food.
+
+### THE THIRD NEGOTIATION OPENED, AND IT HAS THE SAME SHAPE AS THE FIRST TWO
+
+New in this window, verbatim:
+
+> **Coinneach:** *"Eachann. Branches for food. What do you have?"*
+> **Coinneach:** *"seventy-four branches. What food can you spare?"*
+> **Eachann:** *"seventy-four branches? I'll give you some meat for fifty"*
+
+Both cards carry `plan` lines that match — Coinneach *["find Eachann at dawn, trade
+branches for food"]*, Eachann *["get arrows","hunt troll for pay"]* — and both are
+standing in Heather Thicket. Three negotiations this run, every one priced in a
+quantity the engine cannot express:
+
+| | price named | engine |
+|---|---|---|
+| hide ↔ venison | *"one hide for **two** venison"* | 1-for-1 |
+| branches ↔ arrows | *"**nine** branches for the arrows"* | 1-for-1 |
+| branches ↔ meat | *"meat for **fifty**"* | 1-for-1 |
+
+**Trade deeds across all 1124 samples: 0.** `did('trade', …)` (`agent.js:485`) works
+and has never fired. A41/A50 predicted this twice; this is the third confirmation.
+
+And this one could not close even with quantities, for a second reason: **Eachann
+is selling meat he does not have.** He holds venison in 194 of 1124 samples (17%);
+he last held any at `at`16063, and has advertised *"got meat"* continuously since.
+That is the designed liar mechanic working — `resolveOffer` reserves nothing on
+purpose — but `resolveAccept` then returns silently at
+`giver.inventory.countOf(deal.item) < 1`, so the lie is never *found out*, which was
+the whole point of not reserving.
+
+### Confirmed, no change
+
+- **`note`: zero on all 1124 cards, both vendors. Twelfth check.** Retire it.
+- **`plan` remains the best field on the card** and survives: Coinneach's plan was
+  written before the window and drove his goals at h8.36 (*"go toward Eachann /
+  need to trade for food"*) and h10.06 (*"offer branches to Eachann for food"*).
+- **`refusedVerbs` still `{avoid: 16}` / `{}`** — unmoved. It cannot see any of the
+  above. A56 stands.
+- **kimi-k2.6 `no json in reply`: 116 of 227 (51%)**, flat across the whole run, not
+  a late degradation. A42/A57 stand.
+- **Wood, closing numbers** (supersedes A53's): **769 gathers, 8,939 branches
+  (11.6 each), 145 fires.** The 10-branch fire is still ~one gather.
+- Verbs with zero completed deeds all run: **trade/accept, attack, follow, guard.**
+
+### The one-line version
+
+**A man starved to death for the ninth time, woke up fed and holding everything he
+owned, and went straight back to bargaining for food — and the world has never once
+told either of them that dying is free.**

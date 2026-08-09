@@ -1548,3 +1548,61 @@ identical cadence, and spend the budget in *answered* calls rather than attempte
 ones so a 53%-failure vendor gets the same number of real turns. Ideally run the
 same model in both seats once as a null control — if two grok seats diverge this far
 on their own, none of the cross-model rankings in this file mean anything.
+
+## Added 2026-08-08 23:06, from RUN 2 samples 1027–1124 — the two death rules
+
+### A58 ††† THE WORLD HAS TWO OPPOSITE DEATH RULES AND NOBODY CHOSE EITHER **[S]**
+
+*Sharpens A39 and A52, which are both right and describe different code paths.*
+
+- **Killed by a creature or an arrow** → `onPlayerDied` (`world.js:353`, `:849`) →
+  the pack is dropped on the ground. A52 measured it: 20 arrows and 10 wood gone in
+  one step.
+- **Starved** → `Vitals` revives itself, `onPlayerDied` is never called → **hp→100,
+  food→85, teleport to spawn, pack untouched.**
+
+Whole-run census, 1124 samples: **17 starvation deaths (Eachann 8, Coinneach 9), 16
+of them byte-identical packs across the death.** Coinneach's ninth, at `at`16136,
+restored him from `food 0 / hp 4` to `food 85 / hp 100` and kept the 12 arrows he
+had spent the day trying to buy.
+
+So the world punishes bad luck with total confiscation and punishes bad planning
+with a free meal. **Starving is currently the cheapest food source in the game**,
+which removes the only standing reason to trade for food — and both minds have
+spent all day trying to trade for food.
+
+**Fix:** pick one rule and apply it to both paths. Route the vitals death through
+`onPlayerDied(player, null)` (A39's fix) so the `death` event fires; then decide the
+drop rule *once*, deliberately, and make hunger cost something — even "you wake with
+half your pack and no food" would restore the pressure. Whatever is chosen, say it
+in the brief (A52).
+
+### A59 †† A LIE IS NEVER FOUND OUT, WHICH IS THE ONE THING THE NO-ESCROW DESIGN WAS FOR **[S]**
+
+`resolveOffer`'s comment is explicit that nothing is reserved *so that* "a mind can
+offer what it does not have and be found out." Measured: Eachann holds venison in
+**194 of 1124 samples (17%)**, last held any at `at`16063, and has advertised
+*"got meat"* / *"I'll give you some meat for fifty"* continuously since. Coinneach
+walked to him for it.
+
+But `resolveAccept` returns bare at `giver.inventory.countOf(deal.item) < 1`
+(`world.js:763`). Nothing is said, nothing is logged, no `k:'trade'` and no
+`k:'welch'`. The liar is never caught, the mark never learns, and the roster's
+stated experiment — *"this roster has a liar in it to test"* — has produced no
+readable result in three runs.
+
+**Fix:** the cheapest half of A48 with the highest payoff — push a
+`k:'welched'` event when the giver comes up short, so both minds get
+*"Eachann had no venison after all"* in memory and the board gets a column. That one
+event turns the no-escrow design from an untested claim into the observable it was
+built to be.
+
+### A60 † CORRECTION TO A53's ARITHMETIC — THE YIELD IS 11.6, NOT 9.8 **[—]**
+
+A53 measured 560 gathers / 5,474 branches at sample 934. Closing numbers over all
+1124: **769 gathers, 8,939 branches — 11.6 per gather — and 145 fires** (Eachann 93,
+Coinneach 52). The conclusion is unchanged and slightly stronger: a fire costs
+*less* than one gather, and fires rose again (145 vs the 126 at sample 934 and the
+106 that motivated the 10× price rise). Both minds close the run sitting on ~74
+branches each while negotiating over branches. A53's fix stands; the target yield
+should be ~2–3, not ~9.
