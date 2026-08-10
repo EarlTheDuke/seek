@@ -4338,3 +4338,114 @@ two free-text fields with overlapping purpose means the second one gets ignored.
 **Fix:** either give `note` a job `plan` cannot do — a single line that *persists verbatim* across
 decisions, so it is memory rather than restated intent — or delete it and spend the tokens on
 `plan`. Right now it is prompt weight paying for nothing.
+
+### A215 † A FAILED `accept` IS SILENT — SIX `return`s, NO EVENT, NO REFUSAL, NO OUTCOME LINE **[S]**
+
+`src/sim/world.js` `resolveAccept` bails on six conditions — dead, no such person, no offer, offer
+aimed at somebody else, out of `SOCIAL.giveRange`, either side short of the goods — and **every one
+of them is a bare `return`.** Nothing is pushed to `events`, so the mind gets no `outcome` line, no
+memory, and `refusedVerbs` stays empty.
+
+The 18:05 run is what that costs: **38 trade acts, 0 settlements**, and Eachann re-sent
+`take Morag offer` **eight times** across 440 ticks because nothing ever told him it had not worked.
+Across the whole run `refusedVerbs` reads `{"hunt": …}` on all eight cards and **zero** for
+`offer`/`accept` — the column that exists to separate "reached for and refused" from "never wanted"
+reports the second-most-used verb in the game as never refused.
+
+**Fix:** turn each `return` into `this.refuse('accept', …)` with the reason in words —
+*"Morag has no offer open for you"*, *"Eachann has not got the venison he promised"*, *"too far —
+you must be within 3 m"*. Cheap, mechanical, and it converts the single biggest blind spot on the
+board into a decision the mind can act on. **This is the one fix that would let the next run answer
+the question this one could not.**
+
+### A216 † AN OFFER IS A SINGLE SLOT AIMED AT ONE PERSON, AND IT IS SILENTLY OVERWRITTEN **[M]**
+
+`giver.offer = { to, item, want, gives, asks }` — one per player. Post a second offer and the first
+is gone, with no signal to the person who was still walking over to take it. The comment above
+`resolveOffer` calls the broadcast *"a market rather than six private conversations"*, but the data
+structure underneath is one private conversation at a time.
+
+Evidence, 18:05 run: Morag posted to Tormod (`at` 2115), Ailsa (`at` 2146), Tormod again
+(`at` 2176) inside 61 ticks. Any of the first two that somebody was closing on had already been
+overwritten by the time they arrived. Meanwhile Eachann accepted Morag eight times against no
+visible open offer at all.
+
+**Fix (small):** keep a small map of open offers per player, keyed by counterparty, with an
+expiry — an offer is words, but words last longer than one tick. **Fix (bigger, and the real one):**
+put the open offers *into the brief* as a table — *"open to you right now: Morag will give 5 wood
+for 1 cooked venison (you have 0)"*. The `offered` field already does this for a single deal; it
+just cannot show more than one.
+
+### A217 † YOU CAN ADVERTISE ONE OF SOMETHING YOU HOLD ZERO OF **[S]**
+
+`resolveOffer`: `const gives = Math.max(1, Math.min(resolveItemCount(itemId) ?? 1, from.inventory.countOf(item)));`
+
+The `Math.min` is the clamp that stops a mind advertising a hundred branches it has not got — and
+the `Math.max(1, …)` **re-inflates zero back to one**, defeating the clamp in exactly the case that
+matters. The comment above it says *"nobody can advertise a hundred branches they have not got"*;
+nobody can advertise a hundred, but everybody can advertise one.
+
+Live: Eachann ate his only cooked venison (deed *"h2.16 I ate a cooked meal"*, holdings 1 → 0 at
+`at≈1643`) and went on posting `offer cooked venison to Morag for branch` at `at` 1304, 1349 and
+1410, saying *"one branch now"*. Morag accepted twice. Nothing happened, twice, silently.
+
+**Fix:** `if (from.inventory.countOf(item) < 1) return this.refuse('offer', …)` — refuse to post an
+offer you cannot cover *at all*, and say so. Deliberate lying still belongs in the `say` channel
+where it can be seen and remembered, which is the design; a silently void offer is not lying, it is
+a no-op wearing a promise.
+
+### A218 † `refusedVerbs` COUNTS TICKS, NOT ATTEMPTS — AND THE DIFFERENCE INVERTS THE FINDING **[S]**
+
+`refuse()` is called from `resolve()`, which runs **every tick**, so a standing unsatisfiable goal
+accrues one refusal per tick until the mind changes its mind. It is a **dwell** counter wearing an
+**attempt** counter's name.
+
+Measured, 18:05 run: Seonaid's `hunt` went **44 → 70 inside one 20-second sample** while her seat
+decides once every **75 seconds**. Twenty-six refusals, at most one decision. Read as attempts it
+says kimi hammered `hunt`; read correctly it says kimi issued *"hunt a troll"* once and stood in it
+for seventy ticks. Same number, opposite conclusion about the model.
+
+**Fix:** count refusals **per decision** (one increment per deliberation, however many ticks it
+takes) and keep the tick count separately as `stuckTicks` — which is itself the most useful number
+on the card, because a body stuck in an impossible goal for seventy ticks is the failure mode this
+project keeps rediscovering. Supersedes half of A212: the counter is not under-reporting, it is
+over-reporting by a factor of the tick rate.
+
+### A219 A GIFT MOVES ONE ITEM PER DECISION, SO GENEROSITY COSTS A MODEL CALL PER BRANCH **[S]**
+
+Morag (opus-5), carrying 51 wood, gave Ailsa wood on four consecutive decisions — `h15.81`, `15.86`,
+`15.91`, `15.96` — one branch each. Ailsa did the same to Seonaid, four arrows, four calls. `give`
+takes a `giveCount` on the wire and the agent never sets it above 1.
+
+**Fix:** let the goal carry a count, as `offer` already does, and default it to what the mind's own
+sentence says — Morag said *"five branches, take them"* and handed over one. At the current cadence
+a mind that wants to move ten branches cannot: it will change its mind first.
+
+### A220 THE MARKET IS DENOMINATED IN A GOOD THE WORLD BARELY PRODUCES **[M]**
+
+Every trade act in the 18:05 run but one was priced in **cooked venison** — 16 offers, 22 accepts,
+five different minds, all wanting meat for branches. The world produced **2 kills in 26 game hours
+across 8 seats**, and across 124 samples the maximum cooked venison held by anybody was **1**.
+
+So the failure above is doubled: even with `accept` fixed, most of those deals could not have
+settled, because the goods did not exist. Wood, by contrast, is everywhere — 58 gathers, packs of
+40–51 branches against a 10-branch fire.
+
+**Fix:** this is A213 and A209 arriving from a third direction. Either the meat supply has to rise
+(deer that come back, or a hunt funnel that closes — see the approach failure in the 17:45 entry) or
+the minds need to be able to *see* that it will not, so they price something else. A one-line
+addition to the brief — *"cooked venison in the whole valley: 1"* — would turn a doomed negotiation
+into a decision, and it is the sort of thing a small community actually knows.
+
+### A221 kimi-k2.6 BURNS 8000 TOKENS AND EMITS NO JSON; THE ANTHROPIC SEATS DO IT IN 300 **[S]**
+
+18:05 run, per-seat failures: Coinneach *"reply cut off at 8000 tokens — raise maxTokens for this
+seat"*, Seonaid *"no json in reply"*. Both kimi seats, one failure each in ~30 calls (**3%**). The
+three Anthropic seats run at `maxTokens: 300` and failed **0 times in 236 calls**; grok-4.5 failed
+once on an abort.
+
+The reflex is to raise `maxTokens`, and the error message says so — but the seat already has 8000
+and used all of it. **The real fix is the opposite:** cap the kimi seats near the Anthropic budget
+and force the JSON (a stop sequence, a prefill, or a hard "reply with the object and nothing else"),
+so a seat cannot spend a whole decision thinking out loud. It also halves the cost of the free seat
+in wall-clock, which at cadence 75 is the slowest brain on the board.

@@ -6457,3 +6457,119 @@ real `ordered` flag is the only thing that fixes this; the heuristic cannot be s
 One live counter-example, and it is the good kind: Morag and Eachann finished the window mid-trade —
 `take Eachann offer` / *"food now, wood is cheap to me"* against `take Morag offer` / *"take her
 branch offer"*. Both model-authored, both with reasons, pointed at each other.
+
+## 2026-08-09 18:05 PDT — THE MARKET TALKED FOR HALF AN HOUR AND CLEARED NOTHING: 38 TRADE ACTS, 0 SETTLEMENTS — AND MY OWN 17:45 CLOSE WAS WRONG
+
+**First, the roster.** The scheduled task still describes a two-mind duo run (`roster-duo.json`,
+Eachann + Coinneach) and points at `duo2.jsonl`. That is stale — `duo2.jsonl` last grew at 11:28.
+What is actually live is the **eight-seat melee** (`roster-melee.json`), sampled to `eval30.jsonl`.
+This entry is that run, `at` **1000 → 2329**, 124 samples over **29 real minutes**, `spend.calls`
+**206 → 488**. Same run the 17:30/17:40/17:45 entries were watching; it did not die, and the day
+clock wrapped through midnight at `at≈1540`, which is why raw `h` values are not a timeline.
+
+### The correction I owe: those two were not "mid-trade". They never finished.
+
+The 17:45 addendum closed on a hopeful note — *"Morag and Eachann finished the window mid-trade …
+Both model-authored, both with reasons, pointed at each other."* **They never settled.** Ordered by
+the tick each intention first appeared:
+
+```
+at 1000  Eachann   take Morag offer
+at 1005  Eachann   offer cooked venison to Morag for branch
+at 1106  Eachann   take Morag offer
+at 1141  Eachann   offer cooked venison to Morag for branch
+at 1167  Eachann   take Morag offer
+at 1182  Eachann   take Morag offer
+at 1202  Eachann   take Morag offer
+at 1243  Eachann   take Morag offer
+at 1263  Eachann   take Morag offer
+at 1304  Eachann   offer cooked venison to Morag for branch
+at 1349  Eachann   offer cooked venison to Morag for branch
+at 1384  Eachann   take Morag offer
+at 1410  Morag     take Eachann offer          <- and Eachann re-offers on the same tick
+at 1425  Eachann   take Morag offer
+at 1440  Morag     take Eachann offer
+```
+
+Fifteen trade acts between those two across 440 ticks, then eight more from Morag alone
+(`at` 1689 / 1795 / 1901). **Zero `trade` deeds in the entire log.** Across all eight seats:
+**16 `offer` + 22 `accept` = 38 trade acts, 0 settlements**, over 282 model calls.
+
+### That breaks the rule this file confirmed at 16:11
+
+The 16:11 entry, reinforced at 16:45, established that *"every single settlement is preceded by an
+intention of the literal form `take <name> offer`"* — the verb was the whole story. **This window
+has 22 `take <name> offer` intentions and not one settlement.** So `accept` is necessary and is
+**not** sufficient, and the earlier finding should be read as "accept is the verb that *can* settle",
+not "accept settles".
+
+Two things in the data point at why, and I can prove one of them:
+
+1. **Eachann advertised meat he had eaten.** He held exactly **1 cooked venison** at `at 1000` and
+   **0 from `at 1643` onward** — his own deed says *"h2.16 I ate a cooked meal"*. He went on posting
+   `offer cooked venison to Morag for branch` at `at` 1304, 1349, 1410 and saying *"one branch now"*.
+   `resolveOffer` clamps the count to holdings but floors it at one — `Math.max(1, Math.min(…))` —
+   so **holding zero still advertises one**, and `resolveAccept` then bails on
+   `giver.inventory.countOf(deal.item) < gives`, silently.
+2. **Eachann accepted an offer that does not appear to exist.** In the 23 of Morag's 38 captured
+   decisions in this window, Morag posts no offer to Eachann at all — her offers go to Tormod
+   (`at` 2115, 2176) and Ailsa (`at` 2146), all *after* his eight accepts. `giver.offer` is a
+   **single slot aimed at one person**; `resolveAccept` returns silently on `deal.to !== taker.id`.
+   *Caveat, stated because this file has been burned before:* the `intentions` array holds only the
+   last five, and I captured 23 of Morag's 38 decisions (~60%), so I cannot rule out an unseen
+   offer. What is not in doubt is the outcome — nothing changed hands.
+
+Either way the mechanism is the same and it is the harness, not the models: **`accept` is a
+one-shot pulse** — `agent.js` fires `i.accept` for exactly one tick on arrival and then drops the
+target — and **`resolveAccept` has six silent `return`s**. A failed trade is indistinguishable from
+a successful one from inside a mind: no event, no outcome line, no refusal. Which is exactly why
+`refusedVerbs` shows `{"hunt": …}` on all eight cards and **zero `offer`/`accept` refusals** while
+`accept` was the second-most-reached verb in the run.
+
+Meanwhile the verb that *does* work kept working: **8 gifts** (Ailsa → Seonaid ×4 arrows,
+Morag → Ailsa ×4 wood). `give` uses the same walk-then-act path, so closing is not the problem.
+Note also that a gift moves **one item per decision** — Morag spent four consecutive calls to hand
+over four branches while carrying fifty-one.
+
+### `refusedVerbs` is a DWELL counter, not an attempt counter
+
+Every change point of `hunt` across the run, all eight seats:
+
+```
+sample   time      Morag Each Torm Coin Seon Ails Fing Isea
+  0    00:32:26      -    -    -    -    -    -    -    -
+ 24    00:36:26      4    5    9    2    9    9    1    4     <- then FLAT for 20 minutes
+107    00:56:13      4    5    9    5   11   10    1    5
+118    00:59:53     17   15   28   19   43   31    1   13
+123    01:01:33     21   20   35   44   70   37    5   18
+```
+
+Seonaid went **44 → 70 in a single 20-second sample** while her seat decides once every **75 s**.
+Twenty-six refusals cannot be twenty-six attempts. `this.resolve(g)` runs every tick and `refuse()`
+increments every time, so the column measures **how many ticks a body stood inside an unsatisfiable
+goal**, not how many times a model reached for the verb. Seonaid's 70 is one decision — *"hunt a
+troll"* with no troll in sight — held for seventy ticks. Read as attempts it makes kimi look
+frantic; read correctly it makes kimi look **stuck**, which is a different bug and a worse one.
+Run total: **250 hunt refusals, 2 kills.**
+
+### The small columns
+
+- **`note` is now written by NOBODY.** Zero of seven model seats, all 124 samples. The 16:45 entry
+  had Morag using it as an obligation ledger; her note this run is `""`. A214 stands and hardens.
+- **`plan`: 7 of 7 model seats, 0 of 1 scripted** — 46 distinct lines from Morag, 25 from Ailsa,
+  2–5 from the rest. Still the cleanest model-vs-script signal on the card, and plans persist:
+  Morag's *"collect venison owed by Ailsa, Tormod"* survived across a dozen decisions.
+- **Speech: 184 distinct sentences across 7 seats** (Fingal 43, Morag 41, Ailsa 38). The "one
+  sentence in two days" era is dead and buried; every single trade act carried a spoken price.
+- **Nobody is `SPENT`** — highest is Eachann at 116/250. Nothing on this board is the scripted brain
+  except Iseabail, who is meant to be.
+- **The scripted control still cannot shoot:** Iseabail **24 arrows, 24 astray, 0 kills**. The seven
+  model seats: 33 loosed, 2 kills. A209's arrow budget is still the right ask.
+- **Both kimi seats failed once each in ~30 calls (3%)**, and the errors are the interesting part:
+  *"reply cut off at 8000 tokens — raise maxTokens for this seat"* and *"no json in reply"*. kimi
+  is configured at `maxTokens: 8000` and burned all of it without emitting JSON. The three Anthropic
+  seats run at `maxTokens: 300` with **0 failures in 236 calls**.
+- **Wood is not scarce and fires are not the problem.** 23 fires and 58 gathers in the window, and
+  the packs are fat — Morag 51 wood, Ailsa 47, Fingal 40, against a 10-branch fire. The 106-fire era
+  is over; nobody is short of wood. **They are short of meat**, and the whole market was denominated
+  in a good that only two kills all run ever produced.
