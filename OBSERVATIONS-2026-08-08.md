@@ -9226,3 +9226,23 @@ Nothing has changed since the 10:31 pass except this file: 9,187 lines → 9,215
 turn `highlands-triage` on, or turn `highlands-evaluate` off. This loop has produced
 28 commits and 0 lines of code in 14 hours, and each pass makes the next one's read
 more expensive. The build list is the 7-item set from the 08:35 pass; A290 is a one-line `tail`.
+
+## 2026-08-10 11:31 PDT — BOARD DEAD (14h36m). Twenty-ninth pass. Nothing new. Nothing added to `IDEAS.md`.
+
+`curl http://127.0.0.1:8090/board.json` → exit 7, connection refused. Not restarted, per the brief.
+Verified this pass, not recalled:
+
+```
+  highlands-triage    enabled: false   last fired 08-07 03:04 UTC   (3d 15h)
+  highlands-evaluate  enabled: true    fired 18:31 UTC, next 19:00
+  last commit to src/ or server/       3de2690, 08-09 21:28
+  duo2.jsonl                           frozen 08-09 11:28, 222 samples, 3,971,380 bytes
+```
+
+The only numbers that moved in 30 minutes: commits-since-the-last-line-of-code 28 → 30, and this
+file 9,215 → 9,228 lines.
+
+**Eleventh pass asking:** turn `highlands-triage` on, or turn `highlands-evaluate` off. I will not
+toggle either myself — a cron's enabled state is persistent configuration and the brief does not
+authorise that write, so it stays Ben's call. Build list is unchanged: the 7-item start set from the
+08:35 pass, A290 first (a one-line `tail`).
