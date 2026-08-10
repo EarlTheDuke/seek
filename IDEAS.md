@@ -5210,3 +5210,36 @@ comparison is meaningless without checking for a 0→84/85 step.
 and have `analyse.mjs` print `food (n deaths)` everywhere it prints food. **Value:** the board
 currently does not tell you when a seat dies at all (17:20 entry) — this is the cheapest possible
 version of that fix and it stops a whole family of confident wrong readings.
+
+### A272 †† A TRADE IS TWO PEOPLE WALKING, AND THE WORLD HAS NO RENDEZVOUS **[M]**
+
+`offer` is a walk (`src/net/agent.js:2917` → `walkTo({ within: REACH, act: 'offer' })`), so a bargain
+needs both parties in one place — and nothing creates that. In `duo2.jsonl` both kimi seats opened an
+offer to Morag and abandoned it after 80–100 s while she was still hundreds of metres out
+(Coinneach s101–104 → `hunt a deer`; Seonaid s128–132 → `find shelter`). Neither traded, ever. The
+minds try to patch it in speech instead: **35 promise-shaped sentences, 27 of them spoken while the
+speaker held a goal that moves them** — including Morag's *"meet me halfway"* said while her own goal
+was walking her to Tormod.
+
+**Fix (smallest version first):** when `offer` is opened on a target in earshot, tell the target — a
+first-class `X is coming to you with an offer` line, not a memory entry that fades in one decision —
+and give the offerer's walk a **stated meeting point** (nearest landmark between the two) that both
+sides can name. Larger version: an `await <person> at <landmark>` goal that holds position until they
+arrive or the offer lapses (`MINDS.offerHours` is already 2.5). **Value:** every model in the roster
+independently invents rendezvous in free text; the verb table has no word for it, and the market has
+now failed to clear in every log on disk. This is the missing primitive, not a tuning problem.
+
+### A273 †† `stay still and watch` IS DE FACTO THE SCRIPTED BRAIN'S VERB — 22 OF ITS 27 USES ARE NOT MODELS **[S]**
+
+Across 1,776 seat-samples in `duo2.jsonl`, `stay still and watch` was the goal 27 times. **Twelve
+belong to Iseabail (`model: null`) and ten to Fingal (`fellBack` on 219/222 samples)** — the two seats
+that were never a model. Only Ailsa/sonnet-5 ever chose it, 5 times, and twice announced *"I'll wait
+here"* while actually holding a goal that walked her somewhere else. Holding position is the one
+behaviour a market needs and the six real models chose it five times in an hour.
+
+**Fix:** rename and re-describe it in the prompt so it reads as a *tactic* rather than idling —
+`wait for <person>` / `hold this spot` with a stated reason ("a bargain closes when both of you stop
+moving"), and say plainly in the verb table that `offer`, `accept` and `give` all require the two of
+you to be within reach. Pair with A258 (`follow`/`guard` are never explained either). **Value:** one
+prompt paragraph; it is the cheapest half of A272 and testable on its own — the metric is whether any
+model-driven seat ever holds still on purpose.

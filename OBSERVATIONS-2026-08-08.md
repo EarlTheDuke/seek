@@ -7789,3 +7789,60 @@ at s221, the second-to-last sample. Fingal died **three times**, more than any o
 for Iseabail's 92. Reading a final `food` figure without checking for a 0→85 step measures how
 recently a seat died, not how well it ate. The point A267 was making — that a fallback-driven seat
 is indistinguishable on the card — stands; the evidence offered for it does not.
+
+## 2026-08-10 01:07 PDT — BOARD DEAD, NO NEW RUN. **A trade is two people walking, and the only verb that could hold a rendezvous belongs to the scripted brain: 22 of its 27 uses are seats that were not models.** Also, a hypothesis I formed today and disproved before writing it down
+
+**No new data today.** `http://127.0.0.1:8090/board.json` refuses the connection (curl exit 7) and
+`duo2.jsonl` has not been touched since 2026-08-09 11:28. Everything below is a re-read of that same
+222-sample, 8-seat log. I did not restart anything.
+
+### The hypothesis I started with, and why it is wrong
+
+`refusedVerbs` is non-empty on **2 of 8 seats for the whole run** — Morag/opus-5 `{offer: 17}`,
+Ailsa/sonnet-5 `{avoid: 24}` — and `{}` on the other six across all 222 samples. Three of those six
+*did* reach for `offer`: Tormod/grok-4.5 (3 distinct offer goals), Coinneach/kimi (1), Seonaid/kimi
+(1). That looked like the counter failing to fire for non-Anthropic seats.
+
+**It is not.** `src/net/agent.js:2917` refuses `offer` only when the named person does not exist;
+otherwise it calls `walkTo({ within: REACH, act: 'offer' })`. **An offer you cannot reach is a walk,
+not a refusal.** An empty `refusedVerbs` beside an unsettled offer is the harness behaving correctly.
+Recording this so nobody spends another hour on it — that is five instrument scares and this one was
+mine.
+
+### What actually kills the trade: nobody can hold still
+
+Because `offer` is a walk, and the counterparty is also walking, a trade needs a rendezvous. Nothing
+in the world makes one.
+
+    Coinneach (kimi)   s101–104  "offer branch to Morag for cooked venison"   4 samples ≈ 80 s
+                                 he is inside Broad Loch; Morag is 397→366 m out from Rowan Moor
+                       s105      goal becomes "hunt a deer".  Never traded, all run.
+    Seonaid   (kimi)   s128–132  "offer branch to Morag for venison"          5 samples ≈ 100 s
+                       s133      goal becomes "find shelter and settle for the night".  Never traded.
+
+*(Honest limit: both quote a different landmark from Morag in every one of those samples, so I cannot
+compute the gap between them — only that each was several hundred metres from its own landmark. The
+abandonment is measured; the distance closed is not.)*
+
+**The minds know the primitive is missing and try to build it out of speech.** 35 promise-shaped
+sentences in this log — `"meet me halfway"`, `"I'll wait at the loch with branches to trade"`,
+`"bring branches to Rowan Moor, fire at dusk"` (said six times). **27 of the 35 were spoken while the
+speaker held a goal that moves them.** Morag says *"Tormod, twelve branches and this cooked venison is
+yours — meet me halfway"* while her goal is `offer cooked venison to Tormod for twelve branches` —
+i.e. she is walking to Tormod while telling Tormod to walk to her. Both close, neither holds, and the
+meeting point is whatever the pathfinder decides.
+
+### The verb that could fix it is the one only the fallback uses
+
+`stay still and watch` is the goal in **27 of 1,776 seat-samples** — and **22 of those 27 are the two
+seats that were not models**: Iseabail (`model: null`) 12, Fingal (`fellBack` on 219 of 222 samples)
+10. The only model that ever chose to stand still is Ailsa/sonnet-5, **5 times**, and even she said
+*"I'll wait at the loch"* while holding `make for Broad Loch` and *"I'll wait here, got branches to
+trade for meat"* while holding `find shelter and settle for the night`.
+
+So the one behaviour a market needs — *I am here, come to me, I will not move* — is in practice the
+scripted brain's behaviour, and the six real models between them chose it five times in an hour.
+That is not the models being restless. `stay still and watch` reads like idling, it competes with
+every goal that makes progress, and nothing tells a mind that holding position is how a bargain
+closes.
+
