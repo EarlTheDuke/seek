@@ -4268,3 +4268,73 @@ after a change makes the recogniser write a `why`.
 **Second, smaller:** the run banner should print the mode each agent actually resolved, not the mode
 requested. The lie that cost the playtester two nights was a banner that could not be contradicted
 by the thing it described.
+
+### A211 † EVERY COUNTER ON THE CARD RESETS ON RESTART AND `hours` DOES NOT — SO THE BOARD LIES ABOUT RUN LENGTH **[S]**
+
+Five restarts in thirty-five minutes on 2026-08-09. `at`, `food`, `loosed`, `astray`, `kills`,
+`wounds` and `refusedVerbs` all reset to zero (food to exactly 52, the starting value); **`hours`
+climbs straight through, 8.9 → 17.2, untouched.**
+
+A card reading `hours 23.8, loosed 0` is therefore two true numbers that mean nothing together, and
+it reads as *"hunted all day, never shot"* when it means *"born four minutes ago"*. This produced
+two wrong findings in a single session — one of them a damning verdict on the models that was pure
+sampling artifact (Fingal read `loosed: 0` at the end and `loosed: 12` eight minutes earlier).
+
+It also retroactively taxes this file: **every "N game hours" figure that spans a restart is wall
+clock, not world life**, including the "23-hour run".
+
+**Fix:** put a **life id** on the board — a counter bumped every world start — and render it. Any
+reader diffing two samples then sees the boundary instead of inferring it, and any analyser can
+segment on it instead of guessing from `at` decreasing (which silently fails when a restart hides
+behind a board outage, as two of these five did). **Second:** either reset `hours` with everything
+else, or label it `hours (clock, survives restart)`. One of the two, not the current mix.
+
+### A212 † A REFUSED `hunt` SILENTLY BECOMES A WANDER, AND THE ONLY SIGNAL IS A COUNTER THAT READS `{}` MOST OF THE TIME **[M]**
+
+`hunt` with no quarry in sight calls `refuse()` and **returns `roam()`** (`src/net/agent.js:2694`).
+A body that decided to hunt and a body that decided to wander then do exactly the same thing, and
+the card's `goal` still says `hunt a deer`.
+
+The 2026-08-09 run logged **43 hunt refusals in fifty seconds across all eight seats at once** —
+including `Iseabail`, which has no model, so this is not a comprehension failure. Then flat for two
+minutes. The world moved, not the minds.
+
+Note this **corrects the 15:10 entry's "`refusedVerbs` is reporting a true zero"**: it was reporting
+a real zero *for that sample*. The counter resets per life (A211) and the refusals arrive in bursts,
+so a snapshot almost always shows `{}` and a snapshot is all anyone has been reading.
+
+**Fix, in order of value:**
+1. **Put what the body can see on the card** — at minimum a count of visible quarry. Nothing on
+   `board.json` carries it, which is why the cause of this burst *cannot be determined from the
+   board at all*: "they all clustered on Jack and lost the herd" and "the herd was hunted out" are
+   both consistent with every number available, and they want opposite fixes.
+2. **Make the refusal change the goal**, not just the counter — `searching for deer` is honest;
+   `hunt a deer` while roaming is not.
+3. Keep a **cumulative** refusal tally alongside the per-life one, so bursts survive a restart.
+
+### A213 DEER DO NOT COME BACK WHERE YOU KILLED THEM, AND NOTHING TELLS THE MINDS THAT **[M]**
+
+`src/creatures/manager.js:370` — *"Died there → `clearedSites`, gone for good. You hunted it out."*
+Herds left alive re-roll from the same hashes; herds killed are permanently gone. That is a good
+rule and a real economy: hunting has a stock, not a flow.
+
+But it is **completely invisible to a mind.** There is no signal that a valley is worked out, so the
+correct response — move on, or stop hunting and trade for meat — is unreachable except by luck. Six
+kills landed this run, and forty-three hunt refusals followed.
+
+**Fix:** the refusal line already reaches the brief; make it carry the history — *"no deer in sight;
+you have killed 3 here"*. Cheap, and it turns a dead end into a decision. **Bigger version:** a
+`where the deer are` line in the brief at `noticeRange`, which is the information a highlander would
+actually have and currently the only reason `hunt` is a coin flip.
+
+### A214 `note` IS A DEAD FIELD — ONE SEAT OF EIGHT USED IT, THREE TIMES, ALL RUN **[S]**
+
+Across 108 samples: `plan` written by **all seven** model seats (Morag 38 distinct lines, Ailsa 22).
+`note` written by **Morag only, three times.** Six of seven models never touched it.
+
+`plan` earns its place — the plans are specific and survive several decisions. `note` does not, and
+two free-text fields with overlapping purpose means the second one gets ignored.
+
+**Fix:** either give `note` a job `plan` cannot do — a single line that *persists verbatim* across
+decisions, so it is memory rather than restated intent — or delete it and spend the tokens on
+`plan`. Right now it is prompt weight paying for nothing.

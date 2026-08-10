@@ -6287,3 +6287,139 @@ instrumentation. Two seats make the danger concrete in the same minute:
 
 Same seat, same human, twenty seconds apart, and on the board they look like the same kind of fact.
 One is haiku-4.5 keeping its word; the other is a string match. **A210.**
+
+## 2026-08-09 17:40 PDT — `refusedVerbs` IS NOT A TRUE ZERO: 43 `hunt` REFUSALS IN FIFTY SECONDS, ACROSS ALL EIGHT SEATS AT ONCE — AND EVERY COUNTER ON THE CARD RESETS WHILE `hours` DOES NOT
+
+The roster the scheduled task describes (Eachann + Coinneach, two minds) is **not what is running.**
+The live board is the six-model melee: eight seats, seven with a model, `Iseabail` scripted. Board
+answered throughout. Spend at close: **235 of 4000 calls, `exhausted: false`, no `SPENT` tag on any
+seat, no fallbacks, `fellBack: false` everywhere.** One failure all run — Seonaid, `no json in
+reply`. Everything below is the models.
+
+### Two corrections to my own first readings, before anything else
+
+I got two things wrong in this session and caught both before writing them down. Recording them
+because the failure mode is the one this file keeps repeating.
+
+**1. "Morag gained +39 food from nowhere."** I had the same shape as the 16:08 entry's Ailsa finding
+and nearly filed it as corroboration. Traced per-sample, Morag's food decays −1 a tick and then
+jumps to **exactly 52** four times. 52 is the starting value. Those are respawns, not free food.
+
+**2. "Six of seven model seats held a hunt goal and never loosed an arrow."** Also wrong, and worse,
+because it was the sort of number that reads as a damning verdict on the models. **The counters
+reset on every restart.** Reading the last sample, Fingal shows `loosed: 0`; at 17:08:05 Fingal
+showed `loosed: 12`. That whole life was wiped thirty seconds later.
+
+### The instrument finding, which is why both of those went wrong
+
+The world restarted **five times in thirty-five minutes** — six world-lives, the last one stable for
+27 minutes and still going. And across every one of them:
+
+```
+17:01:36   at=77    food=46   hours 8.9
+17:01:56   at=3     food=52   hours 9.2     <- restart
+17:05:25   at=3     food=52   hours 12.5    <- restart
+17:08:36   at=5     food=52   hours 15.4    <- restart
+17:10:25   at=4     food=52   hours 17.1    <- restart
+```
+
+**`at`, `food`, `loosed`, `astray`, `kills`, `wounds` and `refusedVerbs` all reset. `hours` does
+not — it climbs straight through, monotonically, 8.9 → 17.2.** So a card can read *"hours 23.8,
+loosed 0"* and both numbers are true and mean nothing standing together: it is not a body that hunted
+for a day and never shot, it is a body that was born four minutes ago wearing an inherited clock.
+
+That has a consequence for this file. **Every "N game hours" figure here that spans a restart is
+measuring wall clock, not world life** — including the "23-hour run" and the "fifteen more game
+hours" of earlier entries. `at` is the only honest run-length field on the board, and it is the one
+nothing has been quoting.
+
+### The headline: `refusedVerbs` is alive, and the 15:10 entry's "true zero" was a sampling artifact
+
+Taking the **peak per world-life and summing** — the only correct way to read a resetting counter:
+
+```
+Morag      claude-opus-5        hunt 4
+Eachann    grok-4.20            hunt 5
+Tormod     grok-4.5             hunt 9
+Coinneach  kimi-k2.6            hunt 2
+Seonaid    kimi-k2.6            hunt 9
+Ailsa      claude-sonnet-5      hunt 9,  avoid 11
+Fingal     haiku-4.5            hunt 1
+Iseabail   (no model)           hunt 4
+                                ---------------
+                                hunt 43, avoid 11
+```
+
+`avoid 11` on Ailsa is **exactly** the eleven the 17:10 entry counted — independent confirmation
+that the per-life segmentation is reading the same events, and that A204 is still live.
+
+`hunt 43` is new, and the way it arrived is the whole point:
+
+```
+17:35:32  at=1141   total 0
+17:35:46  at=1152   total 7    every seat but Ailsa, one each
+17:35:52  at=1157   total 20
+17:36:06  at=1167   total 36
+17:36:26  at=1182   total 43
+17:36:32 → 17:38:26  at=1187…1274   total 43, flat, unchanged for two minutes
+```
+
+**Zero to 43 in fifty seconds across all eight seats simultaneously, then a dead stop.** Eight minds
+on different cadences — opus-5 against kimi at 75 s — cannot independently decide to hunt within the
+same twenty-second sample and independently stop within the next. This is a world event, not a
+decision. And **Iseabail, which has no model at all, took four of them**, which rules out a
+model-comprehension failure the same way it ruled one out for the ORDERS finding.
+
+### What the refusal is, and what it is not
+
+`src/net/agent.js:2694` — `hunt` refuses when nothing matching the quarry is in sight, says *"there
+is no deer in sight — you are searching, not hunting"*, and **returns `roam()`**.
+
+It is not a name-parser bug: `namesTheSame('a deer', 'deer')` strips the article and matches on the
+first branch. The refusals are honest.
+
+Two candidate causes, and **I did not separate them** — saying so rather than picking the tidier one:
+
+- **The bodies clustered.** At exactly that moment most seats carried the harness's ordered goal
+  `stay with Jack` (`why: null`, per the 17:30 entry). Eight bodies converging on one man all lose
+  sight of the same herd at the same instant, which fits the synchronisation exactly.
+- **The herd was hunted out.** `src/creatures/manager.js:370` — *"Died there → `clearedSites`, gone
+  for good. You hunted it out."* Killed herds never come back; only herds left alive re-roll. There
+  were **6 kills** this run.
+
+They want opposite fixes, and one sample of creature positions at 17:35:46 would settle it. Nothing
+on the board carries what a body can see, so it cannot be settled from `board.json` at all.
+
+### Archery, over all six lives — and the models outshoot the script four to one
+
+```
+                                loosed  astray  kills  wounds
+Morag      claude-opus-5             0       0      0       0
+Eachann    grok-4.20               21      18      2       1
+Tormod     grok-4.5                16      14      2       0
+Coinneach  kimi-k2.6                5       5      0       0
+Seonaid    kimi-k2.6                0       0      0       0
+Ailsa      claude-sonnet-5          0       0      0       0
+Fingal     haiku-4.5               16      10      2       2
+Iseabail   (no model)              26      25      0       1
+TOTAL                              84      72      6       4     11.9% hit
+```
+
+**The scripted control loosed more arrows than any model seat and hit least: 26 shots, one wound,
+3.8%.** The seven model seats between them: 58 arrows, 9 hits, **15.5%** — four times the control's
+rate. A209 asked for the control to get its own arrow budget; this is the number that justifies it,
+and it is also the first evidence in this file that the aiming path actually rewards a model's
+judgement rather than being noise.
+
+Three seats — Morag (opus-5), Seonaid (kimi), Ailsa (sonnet-5) — never loosed once across all six
+lives. Morag held a written plan of *"kill deer, bring it to Scaur fire"* and four refused hunts.
+
+### The two fields a mind writes for itself
+
+Across 108 samples and eight seats: **133 distinct sentences**, of which **7 name a deal** —
+*"Eachann, Ailsa, a branch each buys venison"*, *"Jack, let me at your fire. I owe you arrows."*
+Speech is thoroughly alive; the "one sentence in two days" era is over and stays over.
+
+`plan` is written by **all seven** model seats (Morag 38 distinct lines, Ailsa 22, Fingal 9).
+**`note` is written by one seat, Morag, three times, in the entire run. Six of seven models never
+touched it.** It is the only field on the card that is still effectively dead.
