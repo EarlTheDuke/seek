@@ -7413,3 +7413,106 @@ again.
 *(Caveat on the numbers: `refusedVerbs` values on a card are cumulative counters, so they must never
 be summed across samples — a naive sum over these 281 moments reports `hunt:2814`, which is not 2,814
 events. The 17:40 entry's per-window method is the correct one.)*
+
+## 2026-08-09 23:05 PDT — board still dead. **All three verbs the analyser prints as "WHAT NOBODY EVER DID" have been done — and the two that turn a crowd into a company are the only parameterised verbs the system prompt never explains**
+
+**The board is refused** (`board.json` → HTTP 000, connection refused; dead since 20:55, now ~130
+minutes). Nothing was restarted, per the brief. **Fifth consecutive entry with no new telemetry** —
+everything below is a fresh measurement over the existing eleven logs plus a direct read of the
+source, and every claim in it is reproducible without a running world.
+
+### The correction first, because I have been printing a false line for two days
+
+`analyse.mjs` ends every report with `WHAT NOBODY EVER DID: attack, follow, guard`. Rebuilding all
+**3,726** distinct decisions from the intention windows across all eleven sampler logs:
+
+```
+ATTACK    2 decisions  (1 model,  1 log)
+FOLLOW   23 decisions  (4 models, 7 logs)
+GUARD     3 decisions  (1 model,  3 logs)
+```
+
+All three have been reached for. The reason the line reads zero is that **the board never carries
+`kind`** — it carries `describeGoal()` output, so `follow` is on the wire as `"stay with Ailsa"` and
+`guard` as `"keep Jack from harm"`. Grepping for `"kind":"follow"` returns 0 across every log in the
+project and means nothing. (A225 flagged this list as unreliable in general; this settles all three
+entries with counts and quotes.) The verbs are also plainly *working* — 376 card-samples carry
+follow/guard as the live top-of-card goal, so the standing order holds across ticks as designed.
+
+### The real finding: co-operation is 0.75% of everything a mind has ever decided
+
+28 of 3,726. For scale, the top of the same census:
+
+```
+908  pick up what is lying about
+481  hunt a deer
+440  walk the country and see what is about
+413  hunt deer
+282  find shelter and settle for the night
+ 28  follow + guard + attack, combined, across eleven logs
+```
+
+`goals.js` says of the standing orders, verbatim, that they are *"what turns a crowd of individuals
+into a company. You cannot hunt a troll with people who each independently decide where to stand."*
+That feature is running at 0.75%.
+
+**And when a mind does reach for it, the reasoning is good.** Twenty-two of the 26 follow/guard
+decisions carry a model-written `why` (four are `why: null`, i.e. orders — see the 17:30 entry):
+
+```
+Fingal  claude-haiku-4-5  "stay with Ailsa"   why="she knows where deer are, safer together, I need meat before dark"
+Ailsa   claude-sonnet-5   "stay with Morag"   why="stay near the hunt, safer with group, hope for a cooked share"
+Fingal  claude-haiku-4-5  "stay with Tormod"  why="Jack's that way, Tormod's heading there now"
+Tormod  grok-4.5          "stay with Jack"    why="said I would, he knows the blighted ridge"
+```
+
+That last one is a mind keeping a promise it made in speech. This is not a capability the models
+lack. It is one they almost never pick.
+
+### The mechanism I can point at: `follow` and `guard` are the only parameterised verbs the prompt does not explain
+
+The prompt hands the model `Verbs: ${GOAL_IDS.join(', ')}` — a bare comma list — and then explains
+the parameters, verb by verb (`providers.js:277–312`). Auditing that block against `GOALS`:
+
+```
+hunt quarry ✓   approach target ✓   avoid target ✓   goTo place ✓   give target,item ✓
+attack target ✓   offer target,item,want ✓   accept target ✓   gather item ✓ (the A254 phantom)
+follow target ✗ NEVER EXPLAINED      guard target ✗ NEVER EXPLAINED
+```
+
+And a param-less reach is destroyed at the door — reproduced in one command:
+
+```
+{"kind":"follow"}  ->  {"kind":"wander","refused":"\"follow\" needs target — you sent none, so you wandered instead"}
+{"kind":"guard"}   ->  {"kind":"wander","refused":"\"guard\" needs target — you sent none, so you wandered instead"}
+```
+
+**I am not claiming this is the cause.** `attack` *is* explained (`providers.js:301`) and was chosen
+twice in the project's whole history, so being explained is plainly not sufficient. The honest
+statement is that the two verbs carrying the co-operation feature are the two the brief forgot, the
+fix is two lines of prose, and the before/after is measurable with the census above.
+
+### `guard` was aimed at a fire twice, and a fire cannot be guarded
+
+Two of the three `guard` decisions are Ailsa's `"keep fire from harm"`, `why="keep it burning while
+others fetch the venison"` — which is, in plain English, exactly right, and is the single most
+sustained co-operative act any mind has performed in this project. The resolver looks the target up
+through `nearestOf` (`agent.js:2765`), which iterates **`s.cr` (creatures) and `s.pl` (players) and
+nothing else**. A fire is neither. So it takes the `refuse('guard', 'there is nobody called "fire"
+to guard')` branch at `agent.js:2843` and roams. **Ninth instance of the standing pattern: the model
+looked worse than the instrument.** The verb table can express minding a person and cannot express
+minding a thing, and tending the fire is the job the world actually has.
+
+### Two instrument notes, one of which invalidated my own first pass
+
+- **The sampler has written two different schemas and nothing announces the change.** Older logs are
+  `{realMs, board:{…}}`; `eval28/29/30` are `{t, b:{…}}`. My first run of this census only knew the
+  newer one and reported **1,093 decisions from 3 logs** while silently reading the other eight as
+  empty — a third of the corpus, with no error. Handling both took one `||` and the count went to
+  **3,726**. Any script in the scratchpad that reads `o.b` alone is under-reporting by ~70%.
+- **`grep` cannot read `goals.js`.** The file contains literal `\x00-\x1f` bytes inside the
+  `.replace(/[…]/g,'')` sanitiser regexes (five of them), so ripgrep/grep classify it as binary and
+  print `Binary file src/minds/goals.js matches` instead of the lines. Every audit of the verb table
+  done by grep in this file has been reading nothing. Use `grep -a`, or read it in node.
+
+Scripts: `standing.mjs` and `never.mjs` in the scratchpad.

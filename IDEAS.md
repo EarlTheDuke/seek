@@ -4976,3 +4976,75 @@ walking is where the call budget goes.
 **Value:** this is a cheap per-model quality metric that is not confounded by cadence (A247), and it
 is a direct read-out on the A254 fix — if the noun starts working, the gather re-issue rate should
 fall. Measure it before and after. Script: `churn.mjs` in the scratchpad.
+
+### A258 THE PROMPT NEVER EXPLAINS `follow` OR `guard` — THE ONLY TWO PARAMETERISED VERBS IT SKIPS **[S]** †††
+
+`providers.js:277–312` explains the parameters of every verb in the table — `hunt takes quarry`,
+`goTo takes place`, `offer takes target, item and want` — with exactly two omissions: **`follow` and
+`guard`**, which reach the model only inside the bare `Verbs: …` list. A param-less reach is then
+converted to `wander` by `sanitiseGoal`. Measured over 3,726 decisions from eleven logs:
+follow 23, guard 3, attack 2 — **0.75% of everything a mind has ever decided** is the co-operation
+feature that `goals.js` describes as *"what turns a crowd of individuals into a company."*
+
+Not proven causal: `attack` **is** explained and was used twice, so explanation is necessary at best.
+But the fix is two lines of prose in the system prompt — `follow takes target (a person by name) —
+you keep station near them. guard takes target — you follow AND go for whatever threatens them` —
+and the effect is measurable against the census above (`standing.mjs`, `never.mjs`).
+
+**Value:** the party/company behaviour Ben wants to watch is already reasoned about correctly when it
+fires (*"she knows where deer are, safer together"*, *"said I would, he knows the blighted ridge"*).
+It is under-reached, not misunderstood, and this is the cheapest possible test of that.
+
+### A259 `guard` CAN MIND A PERSON AND CANNOT MIND A THING, SO THE FIRE IS UNGUARDABLE **[M]** ††
+
+Two of the three `guard` decisions in the project are `"keep fire from harm"`
+(`why="keep it burning while others fetch the venison"`). `nearestOf` (`agent.js:2765`) searches
+`s.cr` and `s.pl` only, so the target resolves to nothing and the mind takes the
+`refuse('guard', 'there is nobody called "fire" to guard')` branch and roams. Tending the fire is the
+most sustained co-operative act any mind has performed here and the verb table cannot express it.
+
+**Fix, cheapest first:** let `guard` (and `approach`/`goTo`) resolve a target against the mind's own
+built structures — a camp/fire has coordinates already. Bigger version: a `tend` verb, or make
+`guard <place>` mean "hold station here and go for what comes near", which is also the missing
+primitive for defending a camp overnight. **Value:** it turns the one emergent division of labour
+this world has produced (one tends, others hunt) from a thing minds *say* into a thing they can *do*.
+
+### A260 THE SAMPLER HAS TWO SCHEMAS AND EVERY ANALYSIS SCRIPT SILENTLY READS ONE **[S]** †††
+
+Older sampler logs are `{realMs, board:{…}}`; `eval28/29/30` are `{t, b:{…}}`. Nothing announces the
+change and nothing errors. A census that knows only the newer shape reported **1,093 decisions across
+3 logs**; the same script with `o.b || o.board` reported **3,726 across 11** — it had been discarding
+~70% of the corpus in silence. Several scratchpad scripts (and any figure in the observations file
+derived from them) are suspect for exactly this reason.
+
+**Fix:** one shared `readBoard(line)` helper used by `analyse.mjs`, `seg.mjs`, `churn.mjs` and every
+`dig*.mjs`, which normalises both shapes and **throws** on a line it does not recognise rather than
+returning empty. Same disease as A239 (the analyser concatenating runs) and A253 (segmenting on a
+wrapping clock): the instrument fails quiet, and quiet failures have produced more wrong readings in
+this project than the models have.
+
+### A261 `grep` CANNOT READ `goals.js`, SO EVERY GREP AUDIT OF THE VERB TABLE HAS READ NOTHING **[S]** ††
+
+`src/minds/goals.js` embeds literal `\x00-\x1f` bytes inside five `.replace(/[…]/g, '')` sanitiser
+regexes. grep and ripgrep therefore classify the file as binary and print
+`Binary file src/minds/goals.js matches` instead of the matching lines — a *success* exit code with
+no output. This is the single most-audited file in the project and it is invisible to the tool most
+used to audit it.
+
+**Fix:** write the class as `/[\u0000-\u001f]/g` (identical behaviour, plain ASCII source) and add
+`-a` to the scratchpad greps. **Value:** trivial, but it removes a false-negative that any future
+audit — human or agent — will hit and misread as "no such code exists."
+
+### A262 THE BOARD CARRIES THE DESCRIBED GOAL AND NEVER THE `kind` **[S]** ††
+
+`describeGoal()` output is all an observer gets: `follow` appears as `"stay with Ailsa"`, `guard` as
+`"keep Jack from harm"`, `avoid` as `"keep away from a goblin"`. So `analyse.mjs`'s
+`WHAT NOBODY EVER DID` line — which has printed `attack, follow, guard` for two days — is matching on
+a field that does not exist, and **all three of those verbs have in fact been used**. Worse, `goTo`
+and `approach` both render as walking and `hunt a deer` vs `hunt deer` are two spellings of one verb,
+so every per-verb figure in the observations file was computed off prose.
+
+**Fix:** put `kind` on the card beside `goal` (it costs six bytes a sample) and have every analyser
+count `kind`, keeping the described string for display only. **Value:** it retires a whole class of
+wrong finding — this is the third time a verb was declared unused because nobody could match its
+name.
