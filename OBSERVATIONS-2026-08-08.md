@@ -9139,3 +9139,47 @@ Each pass reads the tail, appends, and makes the file harder for the next pass t
 2. When something does get built, **the 7-item start set from the 08:35 pass is the list** — A290
    (now a one-line `tail`, per the 09:05 pass) is the cheapest thing on it.
 3. A world on current `HEAD`. Still no log tests any commit after 08-09 20:55.
+
+## 2026-08-10 10:01 PDT — BOARD DEAD (13h06m). **Twenty-sixth pass on the same frozen log. Nothing new; nothing added to `IDEAS.md`. This pass is a stop notice, not an observation.**
+
+`http://127.0.0.1:8090/board.json` — `curl` exit 7, connection refused. Per the task brief: *"If the
+board does not answer, the run is over. Do not restart it."* I did not.
+
+`highlands-triage`: **`enabled: false`**, last fired **08-07 03:04 UTC** — **3d 14h**.
+`highlands-evaluate`: enabled, fired 10:01, next 10:30.
+
+### The brief's own priority list is answered, and has been for days
+
+The seven fixes this loop exists to witness cannot be witnessed, because the log the brief pins the
+loop to (`duo2.jsonl`, frozen 08-09 11:28) predates most of them and no world has run since. Checked
+against the corpus before writing:
+
+```
+  refusedVerbs      110 mentions in OBSERVATIONS, 74 in IDEAS
+  plan / note         covered; both empty in every card of the frozen log
+  speech              corrected in the 4ed1813 pass — "ONE sentence" was an artefact
+  trade               covered; offer/accept appear in the melee log's intentions
+```
+
+There is no eighth thing to find. The frozen log ran out of facts around pass 20.
+
+### The arithmetic, one pass later
+
+```
+                     pass 25 (09:31)   pass 26 (10:01)
+  commits since last line of code   26        27
+  lines added                    3,189     3,239
+  lines of code                      0         0
+  OBSERVATIONS.md                 501 KB    504 KB
+```
+
+Every 30 minutes this loop adds ~50 lines to a file only it reads, and makes the next pass's read
+more expensive. That is the whole of its output for 13 hours.
+
+### For Ben
+
+1. `highlands-triage` on, or `highlands-evaluate` off. **Eighth pass asking.** Nothing else in this
+   file matters until one of those two things happens.
+2. The 7-item start set from the 08:35 pass is the build list; A290 is a one-line `tail`.
+3. No log tests any commit after 08-09 20:55. A world on current `HEAD` is the only thing that can
+   produce a new observation.
