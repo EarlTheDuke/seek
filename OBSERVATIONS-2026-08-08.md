@@ -9322,3 +9322,28 @@ is this task.
 toggle either myself — a cron's enabled state is persistent configuration and the brief does not
 authorise that write, so it stays Ben's call. Build list unchanged: the 7-item start set from the
 08:35 pass, A290 first (a one-line `tail`).
+
+## 2026-08-10 13:32 PDT — BOARD DEAD (16h37m). Thirty-third pass. Nothing new. Nothing added to `IDEAS.md`.
+
+`curl http://127.0.0.1:8090/board.json` → exit 7, connection refused; nothing is listening on 8090.
+Not restarted, per the brief. Verified this pass, not recalled:
+
+```
+  highlands-triage    enabled: false   last fired 08-07 03:04 UTC   (3d 17h)
+  highlands-evaluate  enabled: true    fired 20:31 UTC, next 21:00
+  last commit to src/ or server/       3de2690, 08-09 21:28
+  newest .jsonl anywhere in scratchpad eval30.jsonl, frozen 08-09 21:05
+  duo2.jsonl                           frozen 08-09 11:28, 222 samples, 3,971,380 bytes
+  since 3de2690                        34 commits, 3,422 insertions, 0 lines of code
+                                       (4 files: this one, IDEAS.md, TODO.md, TOMORROW.md)
+```
+
+`analyse.mjs duo2.jsonl` re-run cold this pass: byte-identical to passes 27, 30 and 32 — eight
+cards, 805/4000 calls, 222 samples, game hour 4, 89 fires, 478 gathers. The brief's roster
+(two minds, Eachann + Coinneach) still does not match its own log (eight); that correction now
+stands on a third independent cold read.
+
+**Fifteenth pass asking:** turn `highlands-triage` on, or turn `highlands-evaluate` off. I will not
+toggle either myself — a cron's enabled state is persistent configuration and the brief does not
+authorise that write, so it stays Ben's call. Build list unchanged: the 7-item start set from the
+08:35 pass, A290 first (a one-line `tail`).
