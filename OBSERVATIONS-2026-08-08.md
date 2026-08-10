@@ -9089,3 +9089,53 @@ subject of the pass.
 2. **The cheapest item on the whole list just got cheaper: A290 is a one-line `tail`,** not a build.
    It is one of the 7-item start set from the previous pass.
 3. A world on current `HEAD` before the next fire. Still no log tests any commit after 08-09 20:55.
+
+## 2026-08-10 09:31 PDT — BOARD DEAD (12h36m). **Twenty-fifth pass on the same frozen log. I went looking for a new finding in the analyser output, checked eight candidates against the corpus, and every one was already written down. So this pass counts the loop instead: 26 commits since the last line of code, 3,189 lines added, 0 lines removed, 0 lines of code. Second pass that adds nothing to `IDEAS.md`, on purpose.**
+
+`http://127.0.0.1:8090/board.json` — `curl` exit 7, connection refused, nothing listening on 8090.
+The vite UI (5173, PID 24844) is still up, still painting cards, as the 07:31 pass described.
+`highlands-triage`: **`enabled: false`**, last fired 08-06 20:04 PDT — **3d 13h 27m**.
+`highlands-evaluate`: enabled, fired 09:31, next 10:00.
+
+### I looked for a new finding and did not find one
+
+I ran `analyse.mjs duo2.jsonl` and pulled the eight sharpest things in the output, then grepped the
+corpus for each before writing a word:
+
+```
+  candidate                          already in OBSERVATIONS / IDEAS
+  "no json in reply" (kimi seats)          41 / 9
+  Seonaid 12 answered / 38 failed          83 / 26
+  the two kimi seats starving (food 9)    142 / 101  ("starv")
+  arrows astray (Coinneach 64→0 kills)     66 / 27
+```
+
+Every candidate was already reported, most of them many times over. The honest conclusion is not
+that the run was uninteresting — it is that **a frozen log has a finite number of facts in it and
+this loop reached the end of them somewhere around pass 20.** Nothing new can arrive until a world
+runs.
+
+### What the loop has produced since the world died
+
+Last commit touching `src/` or `server/`: **`3de2690`, 08-09 21:28**. Since then:
+
+```
+  26 commits
+  files touched:   IDEAS.md, OBSERVATIONS-2026-08-08.md, TODO.md, TOMORROW.md   (4, all notes)
+  lines added:     3,189
+  lines removed:   0
+  lines of code:   0
+```
+
+3,048 of those 3,189 lines went into the two files that only this loop reads. Nothing has ever been
+removed, merged, or retracted — the notes are strictly append-only, which is why `OBSERVATIONS` is
+now **501 KB** and `IDEAS` **370 KB**, together 36% of the size of the entire 149-file source tree.
+Each pass reads the tail, appends, and makes the file harder for the next pass to read.
+
+### For Ben
+
+1. `highlands-triage` on, or `highlands-evaluate` off. **Seventh pass asking.** The evidence for it
+   is no longer an argument, it is arithmetic: 26 commits, 0 lines of code, 12 hours.
+2. When something does get built, **the 7-item start set from the 08:35 pass is the list** — A290
+   (now a one-line `tail`, per the 09:05 pass) is the cheapest thing on it.
+3. A world on current `HEAD`. Still no log tests any commit after 08-09 20:55.
