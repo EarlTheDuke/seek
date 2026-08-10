@@ -508,6 +508,18 @@ function boot() {
           // grey out one it refused.
           if (e.at) harvest.take(e.at[0], e.at[1], totalHours);
           if (byMe) hud.toast(`${e.verb} — ${amountText(e.id, e.count)}`, 1.8);
+        } else if (e.k === 'made') {
+          // The other half of the cut: a craft the server actually did. Without
+          // this, suppressing the browser's own claim left crafting silent.
+          if (byMe) hud.toast(`${e.verb ?? 'made'} — ${amountText(e.id, e.count)}`, 1.8);
+        } else if (e.k === 'nomake') {
+          // ── A REFUSAL IS AN OUTCOME AND IT GETS SAID ──
+          //
+          // "standing at Morag's roaring camp fire, craftHere silently returns
+          // null with no message". It does return null — by design, since the
+          // server owns the pack now — but the server said nothing either, so
+          // the whole act vanished. A player cannot learn from silence.
+          if (byMe) hud.toast(e.why, 2.4);
         } else if (e.k === 'nosuch') {
           if (byMe) hud.toast(`there is no such thing as "${e.word}" here`, 2.4);
         }

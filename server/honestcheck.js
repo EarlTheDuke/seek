@@ -151,6 +151,75 @@ function main() {
       'so the four silences above are about failure, not about a broken event');
   }
 
+  // ── 5. THE ONE TIER 1a MISSED ────────────────────────────────────────────
+  //
+  // Confirmations were wired for hits, gifts, trades, offers, refusals and
+  // cuts — and craft was forgotten. So when the browser stopped announcing its
+  // own crafts, a REFUSED craft became completely silent: "standing at Morag's
+  // roaring camp fire, craftHere silently returns null with no message".
+  //
+  // Silence is not honesty. It is the same failure as a lie, one step quieter:
+  // the player cannot tell a refusal from a bug from a key that did not
+  // register.
+  {
+    const w = new SimWorld({ headless: true });
+    const p = w.addPlayer(1, 'Jack');
+    w.setIntent(p.id, { craft: 'fletch_arrows' });
+    w.stepPlayer(p, 1 / 60, {});
+    const no = w.events.find((e) => e.k === 'nomake');
+    check('A CRAFT THE SERVER REFUSES SAYS SO, AND SAYS WHY',
+      !!no && /fire/i.test(no.why ?? ''),
+      no ? JSON.stringify(no.why) : 'silence — a player cannot learn from it');
+  }
+
+  {
+    const w = new SimWorld({ headless: true });
+    const p = w.addPlayer(1, 'Jack');
+    p.inventory.add('wood', 12);
+    w.fires.light(p.ctrl.position.x, p.ctrl.position.z, 40);
+    w.setIntent(p.id, { craft: 'fletch_arrows' });
+    w.stepPlayer(p, 1 / 60, {});
+    const made = w.events.find((e) => e.k === 'made');
+    check('SENTINEL: a craft that WORKS says so too',
+      !!made && made.id === 'arrow' && made.count > 0,
+      made ? `${made.verb} ${made.count} ${made.id}` : 'nothing — crafting is silent again');
+  }
+
+  {
+    // ── ORDER OF OPERATIONS: CREDIT, THEN SPEND THE TREE ──
+    //
+    // `harvestFor` marked the trunk taken BEFORE crediting the pack, so a pack
+    // that could not take the wood lost the tree AND the branches — eight of
+    // them, for nothing. A playtester saw something of this shape: "wood stacks
+    // cap in a way that silently swallows cuts".
+    //
+    // NOTE, honestly: this inventory has no slot limit, so `add` never
+    // actually refuses today and his swallow was probably something else. The
+    // branch is still wrong and still worth holding to, because the day a cap
+    // arrives is not the day to discover this. So the refusal is INJECTED
+    // rather than contrived out of a full pack that cannot exist.
+    const w = new SimWorld({ headless: true });
+    const p = w.addPlayer(1, 'Jack');
+    const trunk = w.scatterColliders.list.find((c) => c.tag === 'tree' && c.kind === 1);
+    p.ctrl.position.set(trunk.x, 0, trunk.z);
+
+    const realAdd = p.inventory.add.bind(p.inventory);
+    p.inventory.add = () => 0;              // a pack that will take nothing
+    const cut = w.harvestFor(p);
+    p.inventory.add = realAdd;
+
+    const stillThere = !!w.harvest.nearestSource(
+      w.scatterColliders, p.ctrl.position, 6, w.totalHours
+    );
+    check('A PACK THAT CANNOT TAKE THE WOOD LEAVES THE TREE STANDING',
+      cut === false && stillThere,
+      cut ? 'it reported a cut' : (stillThere ? 'trunk still there, nothing lost'
+        : 'THE TRUNK WAS SPENT AND THE BRANCHES LOST — both, for nothing'));
+    check('  …and says why, rather than swallowing the press',
+      w.events.some((e) => e.k === 'nomake' && /carry/i.test(e.why ?? '')),
+      JSON.stringify(w.events.find((e) => e.k === 'nomake')?.why ?? null));
+  }
+
   const failed = results.filter((r) => !r.pass);
   console.log(`\n  ${results.length - failed.length}/${results.length} passed\n`);
   process.exit(failed.length ? 1 : 0);

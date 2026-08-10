@@ -952,11 +952,25 @@ export class SimWorld {
     const bonus = hasAxe ? (source.tag === 'tree' ? AXE.chopBonus : AXE.quarryBonus) : 0;
     const amount = source.amount + bonus;
 
-    // Marked taken BEFORE the pack is credited, so a pack that turns out to be
-    // full cannot be retried against the same trunk for free.
-    this.harvest.take(source.x, source.z, this.totalHours);
+    // ── CREDIT FIRST, THEN SPEND THE TREE ──
+    //
+    // This marked the trunk taken BEFORE crediting the pack, on the reasoning
+    // that a full pack must not be able to retry the same tree for free. That
+    // reasoning was wrong in the way that matters: a full pack then lost the
+    // tree ENTIRELY — eight branches and the trunk both, for nothing. Reported
+    // as "wood stacks cap in a way that silently swallows cuts".
+    //
+    // A tree nobody could carry away is a tree still standing. Retrying it is
+    // not an exploit, it is what you would do.
     const took = p.inventory.add(source.item, amount);
-    if (!took) return false;
+    if (!took) {
+      this.events.push({
+        k: 'nomake', by: p.id, n: p.name, id: source.item,
+        why: `you cannot carry any more ${source.item === 'wood' ? 'branches' : source.item}`,
+      });
+      return false;
+    }
+    this.harvest.take(source.x, source.z, this.totalHours);
 
     this.events.push({
       k: 'cut', by: p.id, n: p.name, tag: source.tag,
@@ -1494,9 +1508,31 @@ export class SimWorld {
       const station = recipe.requires !== 'fire' || this.fires.nearest(p.ctrl.position, SURVIVAL.fireReach);
       const out = Object.keys(recipe.outputs)[0];
       const enough = recipe.maxHeld && p.inventory.countOf(out) >= recipe.maxHeld;
-      if (station && !enough && craft(recipe, p.inventory)) {
+      const made = station && !enough && craft(recipe, p.inventory);
+      if (made) {
         p.lastCraft = recipe.id;
         p.dirty = true;
+        this.events.push({
+          k: 'made', by: p.id, n: p.name, id: out,
+          count: recipe.outputs[out] ?? 1, verb: recipe.verb,
+        });
+      } else {
+        // ── AND WHEN IT DOES NOT HAPPEN, SAY WHY ──
+        //
+        // Tier 1a wired a confirmation for hits, gifts, trades, offers,
+        // refusals and cuts — and missed this one. So when the browser stopped
+        // announcing its own crafts, a REFUSED craft became completely silent,
+        // which is a regression in honesty even though nothing functional
+        // changed. A playtester: "standing at Morag's roaring camp fire,
+        // craftHere silently returns null with no message".
+        //
+        // Three reasons, and they want different answers from a player: go to
+        // a fire, you have enough of those already, or you are short of the
+        // makings.
+        const why = !station ? 'you need to be at a lit fire'
+          : enough ? `you have all the ${out.replace(/_/g, ' ')} you can carry`
+            : 'you do not have the makings';
+        this.events.push({ k: 'nomake', by: p.id, n: p.name, id: recipe.id, why });
       }
     }
 
