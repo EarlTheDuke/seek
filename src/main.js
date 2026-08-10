@@ -340,6 +340,27 @@ function boot() {
   const params = new URLSearchParams(location.search);
   const joinUrl = params.get('join');
 
+  // ── ?watch=1 — A BIRD'S EYE ON A GAME YOU ARE NOT PLAYING ──
+  //
+  // Free-fly (Y) has existed since the sandbox and is useless in multiplayer,
+  // for a reason worth writing down: it moves your BODY, and the server owns
+  // your body. Past `NET.driftSnap` (10 m) of disagreement the client is pulled
+  // back to where the server has you standing, so flying up reads as being
+  // yanked to the ground about a second later. It is a single-player camera toy
+  // and always was.
+  //
+  // A WATCHER IS A DIFFERENT THING. The camera flies; the body does not move,
+  // because nothing is sent and nothing is taken back. The server never
+  // disagrees because the server is never told anything. You are a pair of eyes
+  // over a world that carries on without you — which is exactly what you want
+  // when eight models are doing something interesting a kilometre apart and you
+  // would rather watch than play.
+  //
+  // Deliberately NOT a way to play better: no intents leave, so you cannot
+  // walk, shoot, gather, trade or speak with your hands. It is watching, and
+  // the HUD says so in as many words.
+  const watching = params.get('watch') === '1' || params.get('watch') === 'on';
+
   // ── ?solid=on — the same switch the server takes as SOLID=on ──
   //
   // OFF by default and off is the movement path this game shipped with, to the
@@ -589,7 +610,7 @@ function boot() {
         //
         // OFFLINE IS UNTOUCHED: no server, no snapshots, no correction, so
         // single player stays byte-identical.
-        if (snap.me?.p && !vitals.dead) {
+        if (snap.me?.p && !vitals.dead && !watching) {
           const dx = snap.me.p[0] - ctrl.position.x;
           const dz = snap.me.p[2] - ctrl.position.z;
           const off = Math.hypot(dx, dz);
@@ -2667,7 +2688,7 @@ function boot() {
       // the one whose mnemonic matters least. And the shift guard keeps the
       // chooser from also toggling the camera.
       case 'KeyY':
-        if (!ruleset.allows('allowFly')) {
+        if (!ruleset.allows('allowFly') && !watching) {
           hud.toast('you have only your legs here', 1.6);
           break;
         }
@@ -3315,7 +3336,10 @@ function boot() {
         intent.interact = true;
         pendingCollect = false;
       }
-      net.sendIntent(intent, performance.now());
+      // A watcher sends nothing. That is the whole of why the camera can go
+      // where it likes: the server has no opinion about a body that never asks
+      // for anything.
+      if (!watching) net.sendIntent(intent, performance.now());
       const world = net.interpolated(performance.now());
       avatars.update(dt, world, net.others);
       remoteLoot.update(dt, net.buffer.at(-1)?.snap);
@@ -3462,6 +3486,24 @@ function boot() {
     onRecovered: () => stoppedNotice(null),
   });
 
+  /** The watcher bar. Slate: this is neither a fault nor a warning. */
+  function watchNotice(text) {
+    let el = document.getElementById('watching');
+    if (!text) {
+      el?.remove();
+      return;
+    }
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'watching';
+      el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99997;'
+        + 'background:#1e293b;color:#cbd5e1;font:12px/1.5 monospace;padding:6px 12px;'
+        + 'text-align:center;white-space:pre-wrap;opacity:0.92';
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+  }
+
   /** The disconnect bar. Amber rather than red: this is a state, not a fault. */
   function netNotice(text) {
     let el = document.getElementById('net-dropped');
@@ -3507,6 +3549,22 @@ function boot() {
   function gate(capability, fn, what) {
     return (...args) =>
       ruleset.allows(capability) ? fn(...args) : `${what} is disabled in ${ruleset.current.name}`;
+  }
+
+  // ── A WATCHER ARRIVES ALREADY IN THE AIR ──
+  //
+  // Because the alternative is landing in a world you were told you could fly
+  // over and having to find the key. Said out loud, permanently, so nobody can
+  // mistake this for playing — a watcher whose shots do nothing and who cannot
+  // pick anything up would otherwise read as a broken game rather than a
+  // deliberate one.
+  if (watching) {
+    ctrl.toggleFly();
+    ctrl.position.y += 60;
+    watchNotice(
+      'WATCHING — you are a camera, not a player.  '
+      + 'Y free-fly · Space up · C down · Shift faster. Nothing you do reaches the world.'
+    );
   }
 
   loop.start();
