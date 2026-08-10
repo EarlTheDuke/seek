@@ -23,7 +23,7 @@
 
 import { SimWorld } from '../src/sim/world.js';
 import { GOAL_IDS, sanitiseGoal } from '../src/minds/goals.js';
-import { SOCIAL } from '../src/config.js';
+import { SOCIAL, TIME } from '../src/config.js';
 import { briefToText } from '../src/minds/perception.js';
 
 const results = [];
@@ -294,6 +294,34 @@ function main() {
     check('SENTINEL: a deal taken in time still settles',
       b.inventory.countOf('venison_cooked') === 1 && a.inventory.countOf('wood') === 12,
       `${a.inventory.countOf('wood')} branches to the seller`);
+  }
+
+  // ── AND THE DEADLINE MUST OUTLAST THE SLOWEST MIND ──────────────────────
+  //
+  // The mirror of the spiral, measured within half an hour of curing it. An
+  // offer stood for 33 real seconds; the roster's cadences run 20 to 75, so
+  // Morag (35 s) and both Kimi seats (75 s) were deciding to accept deals that
+  // had already gone stale. The live board, visible only because resolveAccept
+  // had just been taught to say why: {"Morag": {"accept": 26}, "Ailsa":
+  // {"accept": 11}}.
+  //
+  // AN OFFER THAT EXPIRES FASTER THAN A MIND CAN THINK IS ONE THAT MIND CAN
+  // NEVER TAKE. This asserts the relationship rather than the number, so
+  // changing either one has to keep them honest.
+  {
+    const realSecondsPerGameHour = (TIME.dayMinutes * 60) / 24;
+    const standsFor = SOCIAL.offerHours * realSecondsPerGameHour;
+    const slowestCadence = 75;   // the Kimi seats on roster-melee.json
+    check('AN OFFER OUTLASTS THE SLOWEST MIND AT THE TABLE',
+      standsFor > slowestCadence * 2,
+      `stands ${standsFor.toFixed(0)}s against a ${slowestCadence}s cadence — `
+      + 'it has to survive at least two deliberations, or that seat can never take one');
+
+    // ...and is still bounded. Boundedness is what ended the spiral; tightness
+    // was never the point.
+    check('  …and is still bounded, which is what ended the spiral',
+      Number.isFinite(SOCIAL.offerHours) && standsFor < 600,
+      `${standsFor.toFixed(0)}s — a dead offer must still die`);
   }
 
   const failed = results.filter((r) => !r.pass);

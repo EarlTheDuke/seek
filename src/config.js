@@ -1233,10 +1233,25 @@ export const SOCIAL = {
   // is being told about in its brief, and — until this was fixed — what was
   // holding it still. Three faults compounding into a live-lock.
   //
-  // A day is 26 real minutes, so a game hour is about 65 real seconds. Half of
-  // one is long enough to walk a hundred metres and answer, and short enough
-  // that a forgotten offer clears itself before it can rot.
-  offerHours: 0.5,
+  // ── AND IT MUST OUTLAST THE SLOWEST MIND AT THE TABLE ──
+  //
+  // This was 0.5, which is 33 real seconds, and it was measured wrong within
+  // half an hour of shipping. The roster's cadences run 20 to 75 seconds: Morag
+  // decides every 35 s and the two Kimi seats every 75. AN OFFER THAT EXPIRES
+  // FASTER THAN A MIND CAN THINK IS AN OFFER THAT MIND CAN NEVER TAKE.
+  //
+  // The live evidence, and it only became visible because `resolveAccept` had
+  // just been made to say why it refuses: `{"Morag": {"accept": 26}, "Ailsa":
+  // {"accept": 11}}`. Thirty-seven deliberate reaches for a deal that had gone
+  // stale between the deciding and the doing. Curing the spiral had created its
+  // mirror image.
+  //
+  // So: the slowest cadence (75 s) plus a walk. At 65 real seconds to the game
+  // hour, 2.5 of them is about 160 seconds — two full deliberations for the
+  // slowest seat and time to cross a couple of hundred metres. Still bounded,
+  // which is the whole point; it is the boundedness that ended the spiral, not
+  // the tightness.
+  offerHours: 2.5,
 
   // ── HOW LONG A FIGHT STAYS EVERYBODY'S BUSINESS ──
   //
