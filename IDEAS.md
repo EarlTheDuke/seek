@@ -4915,3 +4915,64 @@ restart. It cost me a wrong number in the same session: contaminated birth-food 
 and derive elapsed game time from `at`, not from `hours`. This also retires the 20:35 entry's
 "`eval30.jsonl` holds two worlds and `analyse.mjs` reads them as one" as a *class* of bug rather than
 one file's accident.
+
+### A254 `gather` CANNOT BE GIVEN THE NOUN ITS OWN PROMPT PROMISES **[S]** †††
+
+The system prompt tells every model *"gather takes an optional item — venison walks you to a
+carcass"* (`providers.js:278`). `goals.js:65` declares `gather` with **`params: []`**, and
+`sanitiseGoal` copies only declared params — so `{"kind":"gather","item":"venison"}` arrives at the
+resolver as `{"kind":"gather"}`. `agent.js:2803` reads `g.item`, a field no model reply can set.
+Reproduced in one line.
+
+Cost, measured over eight logs: `"pick up what is lying about"` is the **most-issued goal in the
+project** (281 times). It lands wood 76.9% of the time and food 8.9%, while the reason field says
+*"dead deer south, I'm starving"* and *"I claimed that meat, it's right here and I'm freezing"*. All
+972 gather deeds ever: **wood 866, venison 15**.
+
+**Fix:** `params: ['item']` — but *not* the refusal branch, which would turn a bare gather into
+`wander`; the bare form is legitimate English and must keep working. So: declare the param, keep
+`spec.params.every(k => !out[k])` from firing for this verb, and make `describe` render the noun so
+the board stops showing every gather as the same sentence. **Value:** this is the cheapest possible
+unlock of the food economy — the demand side already works (A252), the hunger has no teeth (A251),
+and this is the third leg: the hands cannot take what the mind asked for.
+
+### A255 A CHECK THAT BUILDS ITS GOAL BY HAND CERTIFIES A PATH NO MIND CAN REACH **[S]** †††
+
+`lootcheck.js:103` is `a.resolve({ kind: 'gather', item: 'venison' })` — it never imports
+`sanitiseGoal`. The check *"GATHER venison WALKS TO THE CARCASS, not to a branch"* has been green
+over a code path that is unreachable from a model reply (A254). This is a **class** of blind spot,
+not one file's accident: every `server/*check.js` that calls `resolve()` or sets `a.goal = {...}`
+directly tests the sim past the door that models must come through.
+
+**Fix:** two lines of policy — any check that exercises a verb end-to-end pipes its goal through
+`sanitiseGoal` first, and a single new check asserts `sanitiseGoal(raw)` preserves every param the
+system prompt advertises for that verb. That second one is a *table-driven* test against
+`GOALS[x].params` and would have caught this the day the prompt line was written. `hailcheck.js:188`
+and `ordercheck2.js:238` (`a.goal = { kind: 'gather', want: 'wood' }` — note `want`, a third spelling
+of the same field) are the next two to audit.
+
+### A256 A PARAMETER DROPPED AT THE DOOR IS SILENT, SO THE LOGS CANNOT ANSWER THE QUESTION **[S]** †††
+
+The *"you sent no parameter, so you wandered instead"* refusal (`goals.js:272`) fires only when
+`spec.params.length` is non-zero. A param sent for a verb that declares none is deleted with no
+entry in `refusals`, no `refusedVerbs` tick, nothing. Consequence, and it bit this file today: eight
+logs contain **zero** item-named gathers, and that is *not evidence the models never sent one* — a
+mind that sent `"item":"venison"` is byte-identical on the board to one that did not.
+
+**Fix:** in `sanitiseGoal`, diff the raw keys against `spec.params` + `{kind, why, say, plan, note}`
+and record the leftovers as a refusal line — *"gather does not take `item`, so it was ignored"*. That
+is the same instrument as A249 (the refusal reason already exists, only the observer loses it) and it
+makes every future "did the model try?" question answerable instead of unfalsifiable.
+
+### A257 WHAT MINDS RE-ISSUE IS PICKING UP, NOT WALKING **[S]** ††
+
+Rebuilding 1,133 decisions from the intention windows and counting decisions that repeat the previous
+goal verbatim: **17.6% overall**, split `gather 24.6% · hunt 23.2% · trade 16.5% · camp 14.1% ·
+move 10.3% · avoid 0%`. The two longest unbroken runs in the project are both **ten consecutive
+`"pick up what is lying about"`** — one `grok-4.20`, one `opus-5` — each moving under 25 m across the
+whole run. Movement is the *least* repeated thing a mind does, which retires the intuition that
+walking is where the call budget goes.
+
+**Value:** this is a cheap per-model quality metric that is not confounded by cadence (A247), and it
+is a direct read-out on the A254 fix — if the noun starts working, the gather re-issue rate should
+fall. Measure it before and after. Script: `churn.mjs` in the scratchpad.

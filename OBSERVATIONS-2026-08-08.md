@@ -7310,3 +7310,106 @@ only rewarded.
   birth-food figure into a meaningless "median 38" before I checked it against `at` and `decisions`.
   `at` distinguishes them cleanly. `analyse.mjs` and `seg.mjs` should both use it.
 - A plateau that straddles midnight reports its length as **−21.2 game hours**. Same root cause.
+
+## 2026-08-09 22:35 PDT — board still dead. **`gather` cannot be given the noun its own prompt promises: `sanitiseGoal` deletes it — and the check that certifies the feature builds its goal by hand and skips the sanitiser**
+
+**The board is refused** (`board.json` → HTTP 000; dead since 20:55, now 100 minutes). Nothing was
+restarted. **No world has run since the 21:05 entry** — fourth consecutive entry with no new
+telemetry. Everything below is a fresh measurement over the eight existing logs plus a direct read
+of the source, and it ends in a bug I could reproduce in one command.
+
+*(The brief is still stale, as three prior entries have said: it names `duo2.jsonl` as the live log
+and `roster-duo.json` as the roster. `duo2.jsonl` was last written at 11:28 and holds the
+**eight-seat melee**, not a duo.)*
+
+### The most-issued goal in the project is a reach for meat that returns firewood
+
+Rebuilding every intention from the rolling windows across all eight logs (1,133 recovered of ~6,152
+total decisions — the window holds five, so this is a sample, not the census):
+
+```
+"pick up what is lying about"   issued 281 times   ← the single most-issued goal in the project
+  followed by ANY gather within 1.5 game h : 222  (79.0%)
+  ...where the thing gathered was WOOD     : 216  (76.9%)
+  ...where the thing gathered was FOOD     :  25  ( 8.9%)
+```
+
+Every `gather` deed in every log this project has, by item:
+
+```
+wood 866 · arrow 35 · stone 33 · hide 22 · venison 13 · venison_cooked 2 · gold 1
+```
+
+**89% of everything ever picked up is a branch. 1.5% is meat.** And the `why` field says, verbatim,
+what the mind was reaching for when it got the branch:
+
+```
+Morag    22.43h "dead deer south, I'm starving"                      -> NOTHING
+Seonaid   5.18h "no food in my pack, meat lies near"                 -> NOTHING
+Fingal    6.79h "I claimed that meat, it's right here and I'm freezing" -> NOTHING
+Tormod    9.74h "claim the dead deer before others"                  -> NOTHING
+Fingal   18.34h "starving, wounded deer nearby, Eachann claims it..." -> NOTHING
+Ailsa    15.97h "deer already down, safer than hunting live game"    -> NOTHING
+```
+
+### Why: the noun is deleted at the door, and I can reproduce it
+
+`providers.js:278` tells every model, in the system prompt:
+
+> `gather takes an optional item — "venison" walks you to a carcass, none walks you to whatever is nearest`
+
+`goals.js:65` declares the verb with **`params: []`**. `sanitiseGoal` copies only keys listed in
+`spec.params` (`goals.js:189`). So:
+
+```
+{"kind":"gather","item":"venison","why":"starving, the carcass is right here"}
+   ->   {"kind":"gather","why":"starving, the carcass is right here"}
+```
+
+The resolver at `agent.js:2803` reads `g.item` — a field **no model reply can ever set**. It is
+reachable only by a caller that builds the goal object by hand. And `lootcheck.js:103` does exactly
+that: `a.resolve({ kind: 'gather', item: 'venison' })`, never importing `sanitiseGoal` at all. The
+check named *"GATHER venison WALKS TO THE CARCASS, not to a branch"* passes, and has been passing
+over a path no mind can reach.
+
+**A third failure sits on top of the first two: the drop is silent.** The "you sent no parameter, so
+you wandered" refusal at `goals.js:272` only fires when `spec.params.length` is non-zero — and here
+it is zero. Nothing is logged, nothing appears in `refusals` or `refusedVerbs`.
+
+**Which means my own 281-vs-0 count is not the finding it looks like.** Zero item-named gathers
+appear in eight logs, but a mind that *did* send `"item":"venison"` is byte-identical on the board to
+one that did not. **The instrument cannot tell those apart, so nobody can say whether the models ever
+tried.** That is the finding.
+
+### Two corrections to this file
+
+- **A246 is wrong as written** — *"the food is lying on the ground and six of eight minds never pick
+  it up."* They reach for it constantly: 281 times, more than any other goal, with the carcass named
+  in the reason. The verb has no way to accept the noun. **Eighth instance of the standing pattern —
+  the model looked worse than the instrument.**
+- **"`gather venison` now works" (the 08-08 fix, restated in this task's own brief) is true, but by
+  a different mechanism than advertised.** All 15 venison pickups this project has are in the
+  post-fix logs — `eval28` ×3, `eval29` ×2, `eval30` ×10 — across `grok-4.20`, `sonnet-5`, `grok-4.5`,
+  `haiku-4.5`, `opus-5`, `kimi-k2.6` *and* the scripted seat. None came from a named noun. They came
+  from the **bare** form's new "nearest of drop-or-branch" tie-break (`agent.js:2803-2816`), which
+  fires only when the carcass happens to be closer than a branch — in a world where deadfall is
+  everywhere. That is why the hit rate is 8.9% and not higher.
+
+### Secondary, and cheap to keep: what the minds actually get stuck on is not walking
+
+Same rebuild, counting a decision that repeats the previous decision's goal verbatim:
+
+```
+verbatim re-issues 199/1133 (17.6%)
+  gather 24.6% · hunt 23.2% · trade 16.5% · camp 14.1% · move 10.3% · avoid 0%
+longest unbroken run: 10 × "pick up what is lying about" (grok-4.20), 254 m -> 250 m of Hollowed Beinn
+                      10 × "pick up what is lying about" (opus-5),    200 m -> 179 m of Heather Scaur
+```
+
+Movement is the *least* repeated thing a mind does. **Picking up is the most.** That is consistent
+with the bug above: the mind reaches, gets a branch it did not want, is told nothing, and reaches
+again.
+
+*(Caveat on the numbers: `refusedVerbs` values on a card are cumulative counters, so they must never
+be summed across samples — a naive sum over these 281 moments reports `hunt:2814`, which is not 2,814
+events. The 17:40 entry's per-window method is the correct one.)*
