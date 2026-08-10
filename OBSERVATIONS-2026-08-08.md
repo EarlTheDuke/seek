@@ -6423,3 +6423,37 @@ Speech is thoroughly alive; the "one sentence in two days" era is over and stays
 `plan` is written by **all seven** model seats (Morag 38 distinct lines, Ailsa 22, Fingal 9).
 **`note` is written by one seat, Morag, three times, in the entire run. Six of seven models never
 touched it.** It is the only field on the card that is still effectively dead.
+
+### 17:45 addendum — eight more minutes: hunting stopped dead, and the funnel breaks at the APPROACH, not at the sight
+
+The sampler ran on to 17:44:32 (`at` 1551). From the end of the burst at `at` 1182 through `at` 1551
+— **370 ticks, eight minutes, ~90 model decisions** as `calls` climbed 235 → 324:
+
+```
+refusedVerbs  43 -> 43   (flat)
+loosed        40 -> 40   (flat)
+kills          2 ->  2   (flat)
+```
+
+Not one arrow, not one refusal. And that combination is more interesting than either number alone,
+because **26 of 384 player-samples in that window still carried a hunt goal.** A hunt goal that
+draws no refusal means the quarry *was* in sight — `hunt` only refuses when it cannot find one. So
+for eight minutes bodies were choosing to hunt, seeing deer, and never loosing.
+
+**That moves the diagnosis.** The burst said the funnel breaks at the sight step; this window says
+that when sight is not the problem, it breaks at the **approach** — the body walks and never closes,
+exactly the failure `huntcheck.js` was built to measure and which A212's "make the refusal change
+the goal" would not touch. Two different faults wearing the same symptom, which is why the fifty
+seconds of refusals should not be read as the whole story.
+
+**And the caveat that governs the whole late run:** `why: null` — the 17:30 entry's marker for a
+harness-ordered goal — is on **201 of those 384 player-samples, 52%.** More than half the late run
+is the ORDERS recogniser, not the models. It is a floor and a ceiling at once, because three seats
+carry model-written whys that are *about* an order — Tormod *"stick close as told"*, Fingal *"told
+to stay close, strange ground here"* — so the `why: null` count misses orders the model reasoned
+about, and counts as ordered some goals a model might have picked anyway. **A210's request for a
+real `ordered` flag is the only thing that fixes this; the heuristic cannot be sharpened further.**
+
+One live counter-example, and it is the good kind: Morag and Eachann finished the window mid-trade —
+`take Eachann offer` / *"food now, wood is cheap to me"* against `take Morag offer` / *"take her
+branch offer"*. Both model-authored, both with reasons, pointed at each other.
