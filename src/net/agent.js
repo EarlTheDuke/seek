@@ -2621,19 +2621,19 @@ export class Agent {
 
     // "follow me", "stay with me", "come with me" — and only at the front.
     if (/^(follow|stay with|come with|stick with)\s+me\b/.test(t)) {
-      this.setOrder({ kind: 'follow', target: from });
+      this.setOrder({ kind: 'follow', target: from }, from);
       return true;
     }
     // "guard me", "cover me", "watch my back"
     if (/^(guard|cover|protect)\s+me\b/.test(t) || /^watch my back\b/.test(t)) {
-      this.setOrder({ kind: 'guard', target: from });
+      this.setOrder({ kind: 'guard', target: from }, from);
       return true;
     }
     // "wait", "hold", "stay here", "stop". Anchored, so "hold on, the troll is
     // north" and "wait for me" are conversation and not a halt for everybody.
     if (/^(wait|hold on|hold|stop)( (here|there|up|position|put))?\s*[.!]?$/.test(t)
       || /^(stay|hold) (here|put|there)\s*[.!]?$/.test(t)) {
-      this.setOrder({ kind: 'hold' });
+      this.setOrder({ kind: 'hold' }, from);
       return true;
     }
     // "kill the troll", "attack that bear", "shoot the deer".
@@ -2643,18 +2643,18 @@ export class Agent {
     // refuse it — quietly, for ever.
     const quarry = /^(kill|attack|shoot|hunt)\s+(?:the\s+|that\s+|a\s+|an\s+)?([a-z]+)\b/.exec(t);
     if (quarry && ORDERABLE_QUARRY.has(quarry[2])) {
-      this.setOrder({ kind: 'hunt', quarry: `a ${quarry[2]}` });
+      this.setOrder({ kind: 'hunt', quarry: `a ${quarry[2]}` }, from);
       return true;
     }
     // "go on", "carry on", "as you were" — hands them back to themselves
     if (/^(carry on|go on|as you were|you are free|do what you like)\b/.test(t)) {
-      this.setOrder({ kind: 'wander' });
+      this.setOrder({ kind: 'wander' }, from);
       return true;
     }
     return false;
   }
 
-  setOrder(goal) {
+  setOrder(goal, from = null) {
     this.goal = goal;
     this.goalCounts[goal.kind] = (this.goalCounts[goal.kind] ?? 0) + 1;
     // ── WHO IS UNDER ORDERS, AND WHOSE ──
@@ -2667,7 +2667,12 @@ export class Agent {
     // you cannot see obeyed is indistinguishable from one nobody heard.
     this.ordered = true;
     this.orderedTo = describeGoal(goal);
-    this.orderedBy = goal.target ?? this.orderedBy ?? null;
+    // WHO SAID IT, not who it is about. Read off `goal.target` first, which is
+    // the speaker for `follow`/`guard` and UNDEFINED for a hunt — so the board
+    // showed "under orders by None" for every hunt order given, which is the
+    // one question the column exists to answer. Seen in the first live run
+    // after shipping it: eight bodies under orders and no way to tell whose.
+    this.orderedBy = from ?? goal.target ?? null;
     this.orderedAt = this.hours;
     // A HUMAN gave this order. Weighted like being shot, because the one thing
     // worse than a companion that ignores you is one that forgets you asked.

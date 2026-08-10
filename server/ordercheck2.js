@@ -185,6 +185,19 @@ function main() {
     check('  …and the board can say who is under orders, and to do what',
       a.orderedTo === 'stay with Jack' && a.orderedBy === 'Jack' && a.ordered === true,
       `${JSON.stringify(a.orderedTo)} by ${JSON.stringify(a.orderedBy)}`);
+
+    // WHO SAID IT, on every kind of order. This read `goal.target`, which is
+    // the speaker for follow/guard and UNDEFINED for a hunt — so the first
+    // live run after shipping the column showed eight bodies "under orders by
+    // None", which is the one question the column exists to answer.
+    const h = ear();
+    delete h.setOrder;
+    h.goalCounts = {};
+    h.send = () => {};
+    h.takeOrder('Jack', 'kill the troll');
+    check('  …and it names the speaker even when the order has no target',
+      h.orderedBy === 'Jack' && h.orderedTo === 'hunt a troll',
+      `${JSON.stringify(h.orderedTo)} by ${JSON.stringify(h.orderedBy)}`);
   }
 
   {
