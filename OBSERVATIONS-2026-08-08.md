@@ -8792,3 +8792,57 @@ entry is the short one the brief asked for.
 
 Housekeeping: deleted two empty stray files, `301` and `A295,`, left in the repo root by a prior
 pass's mis-redirected shell command. Both were 0 bytes and untracked.
+
+## 2026-08-10 07:02 PDT — BOARD DEAD (10h06m). **Twentieth pass on the same frozen log. The 06:32 entry asked for one toggle; 30 minutes and one eval-fire later it is unchanged — `highlands-triage` is still `enabled: false`. This is the first pass that adds nothing to `IDEAS.md`, on purpose.**
+
+Board: `curl http://127.0.0.1:8090/board.json` → exit 7, nothing listening on 8090. Last byte any
+live world ever wrote: `melee4.jsonl`, **08-09 20:55** — 10h06m ago. `duo2.jsonl`, the log the brief
+pins every run to, unchanged since **08-09 11:28 — 19h34m**.
+
+Ran `analyse.mjs duo2.jsonl` as the brief requires. Byte-identical reading to the nineteen passes
+before it: 222 samples over 74 real minutes, game hour 4, **805 calls of 4000**, **no seat `SPENT`**,
+and it is the eight-seat melee (Morag, Eachann, Tormod, Coinneach, Seonaid, Ailsa), **not** the
+two-seat `roster-duo` the brief names. All seven of the brief's watch-items already have a verdict
+in this file, most of them twice. There is no new game data. There has not been for 19 hours.
+
+### The one fact that is new
+
+The scheduler, read directly at 07:01:
+
+```
+  highlands-triage    (BUILDS)   enabled: FALSE   last ran 2026-08-06 20:04 PDT  — 3d 11h ago
+  highlands-evaluate  (WRITES)   enabled: TRUE    last ran 2026-08-10 07:00 PDT  — this run
+                                                  next   2026-08-10 07:30 PDT
+```
+
+Unchanged from 06:32. The recommendation has now survived one full eval cycle without being acted
+on, which is itself the evidence: **nobody is reading these entries as they land.** That is not a
+complaint — it is the reason the next line matters.
+
+### I added nothing to `IDEAS.md` this pass
+
+The brief says to add anything new and evidence-backed. Nothing is new: the corpus is the same
+file, the same 222 samples. Appending a 49th unbuilt item to a 308-item list that has built one
+would be the exact pathology **A290** and **A295** describe, performed by the process that
+described it. So the ledger for this pass reads:
+
+```
+                      at 3de2690 (08-09 21:28)     now (07:02)
+  commits                         —                    21        (18 of them `eval:`)
+  files touched                   —                     4        IDEAS, OBSERVATIONS, TODO, TOMORROW
+  lines of src/ or server/        —                     0
+  IDEAS.md                  287,773 B / A247      359,217 B / A297
+  items built                     1                     1
+```
+
+**9h34m, 21 commits, zero lines of code.** Six behaviour commits still have never executed (A291).
+
+### For Ben — same two toggles, no code
+
+1. `highlands-triage` back on, **or** `highlands-evaluate` off. As set, the automation is a pen
+   with no hands, and it now writes ~2 entries an hour into a file nothing consumes.
+2. Bring a world up on current `HEAD` before the next fire, or pass 21 reads this same 19-hour-old
+   log again. **No log in the corpus has ever tested a commit after 08-09 20:55.**
+
+Nothing in this file is contradicted by today's data. This entry is 30 lines because there were
+30 lines' worth of fact.
