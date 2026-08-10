@@ -202,6 +202,34 @@ console.log(`  ${COUNT} player${COUNT === 1 ? '' : 's'} joining ${URL}`);
 console.log(`  orders: ${ORDERS === 'obeys'
   ? 'obeys — "follow me", "guard me", "kill the troll", "wait", "carry on"'
   : 'decides — they hear you and make up their own minds (ORDERS=obeys to change)'}`);
+// ── AND SAY WHEN THE TABLE IS NOT LEVEL ──
+//
+// Cadence is set by price, which is right for an unattended hour and fatal for
+// a comparison. One measured hour: Eachann took 138 decisions and Coinneach 34,
+// so anything said about grok against kimi from that run is about the CADENCE,
+// not the models. Nobody noticed until the numbers were added up afterwards.
+//
+// Said loudly at the top, before the money is spent, because a confound you
+// discover in the write-up has already cost you the run.
+if (ROSTER) {
+  const cad = ROSTER.players
+    .filter((p) => p.provider && p.provider !== 'scripted')
+    .map((p) => Number(process.env.CADENCE) || Number(p.cadenceSeconds) || AGENTS.cadenceSeconds);
+  if (cad.length > 1) {
+    const lo = Math.min(...cad);
+    const hi = Math.max(...cad);
+    if (hi / lo >= 1.5) {
+      console.log('');
+      console.log(`  ⚠ THE TABLE IS NOT LEVEL — cadences run ${lo}s to ${hi}s, so the fastest`);
+      console.log(`    seat will take about ${(hi / lo).toFixed(1)}x the decisions of the slowest.`);
+      console.log('    Fine for watching. NOT a comparison between models: the difference you');
+      console.log('    measure will mostly be the clock. CADENCE=30 levels it.');
+      console.log('');
+    } else {
+      console.log(`  cadence: level at ${lo}-${hi}s — a fair table`);
+    }
+  }
+}
 if (ROSTER) {
   console.log(`  roster: ${process.env.MINDS_ROSTER}`);
   for (const line of describeRoster(ROSTER, providers)) console.log(line);
@@ -256,10 +284,28 @@ async function main() {
       closeDetour: CLOSE_DETOUR,
       // Per-agent, so a ponderous mind and a twitchy one can share a hillside —
       // and so a model-backed fleet can be slowed without slowing any BODY.
-      // CADENCE=12 npm run agents, or per entry in the roster.
-      cadenceSeconds: Number(entry?.cadenceSeconds ?? process.env.CADENCE) > 0
-        ? Number(entry?.cadenceSeconds ?? process.env.CADENCE)
-        : AGENTS.cadenceSeconds,
+      //
+      // ── CADENCE OVERRIDES THE ROSTER, AND THAT IS THE POINT ──
+      //
+      // It used to be `entry?.cadenceSeconds ?? process.env.CADENCE`, so a
+      // roster line always won and `CADENCE=30` was dead for every real run —
+      // the same shape of bug as ORDERS, where a default silently ate the
+      // switch that was meant to change it.
+      //
+      // It matters because cadence is set by PRICE, which is right for an
+      // unattended hour and fatal for a comparison. Measured over one:
+      //
+      //     Eachann (grok-fast, 20 s)   138 decisions
+      //     Fingal  (haiku, 25 s)       110
+      //     Morag   (opus-5, 35 s)       79
+      //     Coinneach (kimi, 75 s)       34
+      //
+      // Nothing can be concluded about kimi-k2.6 against claude-opus-5 when one
+      // gets four times the turns. `CADENCE=30` now equalises the table, and
+      // the budget is the thing you vary instead.
+      cadenceSeconds: Number(process.env.CADENCE) > 0
+        ? Number(process.env.CADENCE)
+        : (Number(entry?.cadenceSeconds) > 0 ? Number(entry.cadenceSeconds) : AGENTS.cadenceSeconds),
     });
     try {
       await a.connect(URL);

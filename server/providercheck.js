@@ -612,6 +612,44 @@ async function main() {
       `${r.players[1].orders} / ${r.players[2].orders}`);
   }
 
+  // ── AND THE CADENCE, WHICH DECIDES WHETHER A RUN MEANS ANYTHING ──────────
+  //
+  // Cadence is set by PRICE, which is right for an unattended hour and fatal
+  // for a comparison. One measured hour:
+  //
+  //     Eachann (grok-fast, 20 s)   138 decisions
+  //     Fingal  (haiku, 25 s)       110
+  //     Morag   (opus-5, 35 s)       79
+  //     Coinneach (kimi, 75 s)       34
+  //
+  // Nothing can be concluded about kimi-k2.6 against claude-opus-5 at four
+  // times the turns. `CADENCE` is how you level the table — and it could not,
+  // because the roster line always won: `entry?.cadenceSeconds ?? CADENCE`,
+  // the same shape of bug as ORDERS, where a default silently ate the switch
+  // meant to change it.
+  {
+    const file = path.join(tmpdir(), `roster-cadence-${process.pid}.json`);
+    writeFileSync(file, JSON.stringify({
+      players: [{ name: 'Fast', cadenceSeconds: 20 }, { name: 'Slow', cadenceSeconds: 75 }],
+    }));
+    const r = loadRoster(file);
+    unlinkSync(file);
+
+    // How agents.js resolves it, in one line, so the precedence is asserted
+    // rather than described.
+    const resolve = (entry, env) => (Number(env) > 0
+      ? Number(env)
+      : (Number(entry?.cadenceSeconds) > 0 ? Number(entry.cadenceSeconds) : 8));
+
+    check('WITHOUT `CADENCE`, EACH SEAT KEEPS ITS OWN PACE',
+      resolve(r.players[0]) === 20 && resolve(r.players[1]) === 75,
+      'which is right for an unattended hour, and is what makes it cheap');
+
+    check('  …but `CADENCE` OVERRIDES the roster, so a table can be levelled',
+      resolve(r.players[0], '30') === 30 && resolve(r.players[1], '30') === 30,
+      'it used to defer to the roster, so CADENCE was dead for every real run');
+  }
+
   server.close();
   const passed = results.filter((r) => r.pass).length;
   console.log(`\n  ${passed}/${results.length} passed`);
