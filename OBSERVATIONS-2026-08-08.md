@@ -6573,3 +6573,111 @@ Run total: **250 hunt refusals, 2 kills.**
   the packs are fat — Morag 51 wood, Ailsa 47, Fingal 40, against a 10-branch fire. The 106-fire era
   is over; nobody is short of wood. **They are short of meat**, and the whole market was denominated
   in a good that only two kills all run ever produced.
+
+---
+
+## 2026-08-09, 18:35 — the eight-seat melee, game hour 20, 214 samples over 59 real minutes
+
+Roster note first: the task file still describes this as the **duo** (`roster-duo.json`, Eachann +
+Coinneach). It is not. The live board is `roster-melee.json` — **seven model seats plus one scripted
+control** — and the sampler log is `eval30.jsonl`, not `duo2.jsonl`. Anyone reading this file for
+the duo run wants the 08-08 entries.
+
+`776 calls of 4000`. **Nobody is `SPENT`** — highest is Eachann at 186/250. Every behaviour below is
+a model's.
+
+### THE HEADLINE: `give` ships whatever is in the pack, not what the mind asked for
+
+Morag (opus-5) killed a deer, butchered it, cooked it, and sold it. Every step is in her deed log:
+
+```
+sample 199  at 3484   I brought down a deer
+                      I picked up 3 venison
+                      I made 2 cooked venison at the fire
+                      I made a cooked venison at the fire      -> Morag v3 / w52
+```
+
+Her next intention is `give cooked venison to Coinneach`, and she says it out loud:
+*"Hot venison, Coinneach — send the eight branches over and we're square."*
+
+What actually happened, on tick order (not on `h`, see the hazard below):
+
+```
+sample 206  at 3591   Morag v0/w49   Coinneach v3/w13
+                      Morag: I gave wood to Coinneach   x5
+                      Coinneach: I picked up 3 cooked venison
+sample 207  at 3606   Morag v0/w43   Coinneach v3/w19
+                      Morag: I gave wood to Coinneach   x5
+```
+
+Three things, all of them bad:
+
+1. **The buyer did not receive the goods, he scavenged them.** Coinneach's own deed is
+   `gather` — *"I picked up 3 cooked venison"* — off the ground. There is **no `give` deed naming
+   venison anywhere in the run**, and **no `trade` deed at all** (`agent.js:509` emits one; it never
+   fired). All 34 give deeds in 59 minutes name `wood` or `arrow`.
+2. **The seller shipped the wrong commodity ten times.** The deed text is honest —
+   `agent.js:516` prints `e.id`, the item that actually moved. The substitution happens one layer
+   down, in **`giftFrom` (`src/sim/world.js:983`)**: if the named item doesn't resolve or isn't
+   held, it falls through to *any edible*, and then to **the biggest stack in the pack**. Morag's
+   biggest stack was 52 wood. She spent ten consecutive decisions paying a debt in the wrong good
+   and nothing told her.
+3. **Nobody paid.** Coinneach's wood went **up**, 8 → 19, across his own purchase, because Morag was
+   giving him branches. Her `note` still reads *"Coinneach owes me 8 branches for one cooked
+   venison."* Ailsa then gave Morag wood **eleven** times (samples 210–214) against a venison that
+   no longer existed, and said *"I've already given plenty, Morag — my venison?"* Nothing tells her
+   either.
+
+Open question I will not guess at: **what put the venison on the ground.** Morag has no `drop` deed.
+`resolveGive` never drops — it refunds into the giver's pack. The next place to look is
+`resolveAccept` (`world.js:~909`), which is the only trade path with a partial-credit branch.
+
+### Corrections to earlier entries in this file
+
+- **`note` is not dead.** The 18:05 entry says *"`note` is now written by NOBODY. Zero of seven
+  model seats."* That was true of that window and is **false here**: Morag wrote one and held it all
+  run, as an obligation ledger — *"Coinneach owes me 8 branches for one cooked venison. Ailsa badly
+  hurt to the south — feed her if she comes."* Still **1 of 7 seats**, so A214's direction stands;
+  the absolute claim did not.
+- **`follow` and `guard` were both used.** `analyse.mjs` prints *"WHAT NOBODY EVER DID: attack,
+  follow, guard"*. It is wrong on two of three. `goals.js:159` renders `follow` as **"stay with X"**
+  and `goals.js:168` renders `guard` as **"keep X from harm"** — and the intention list holds
+  *"stay with Jack"*, *"stay with Tormod"*, *"keep Jack from harm"*. This is the **third and fourth**
+  instance of exactly the spelling bug that file already documents for `say` and `accept`. Only
+  **`attack`** ("go for X") is genuinely unused, in a run with two goblin sightings.
+
+### `hunt` refuses where `offer` walks — and two seats never loosed an arrow
+
+`refusedVerbs` is still `hunt` and nothing else, on all eight cards (dwell ticks, not attempts — A218
+stands). The reason histogram across the run: **111 "too far"** and **~100 "ground/tree in the way"**.
+
+```
+seat        model                        hunt-dwell  loosed  kills
+Coinneach   kimi-k2.6                          101       0      0
+Ailsa       claude-sonnet-5                     46       0      0
+Seonaid     kimi-k2.6                          109       4      0
+Iseabail    SCRIPTED                            22      36      0
+```
+
+Two seats went the entire run without putting **one arrow in the air**. The brief tells a mind
+*"You do NOT need to approach first: offer and give both walk you to them"* (`providers.js:311`).
+`hunt` does not walk you to the quarry — it refuses, and the mind must separately choose `approach`.
+The two verbs that were fixed close the distance; the one verb everybody reaches for does not.
+
+### What worked
+
+- **`gather venison` works, live, first confirmed time.** Morag's kill → 3 venison → 3 cooked
+  venison is the full butcher chain by a real model. That fix is good.
+- **Speech is at full volume.** 400+ distinct sentences across seven seats; Morag alone 80. Every
+  trade act carried a spoken price. The "one sentence in two days" era is over.
+- **`plan`: 7 of 7 model seats, 0 of 1 scripted** — Morag 57 distinct, Ailsa 19, 1–8 for the rest.
+  Still the cleanest model-vs-script tell on the card.
+- **Nobody died. Health 100 on all eight seats** — with Eachann at food 16 and Fingal at 37. Hunger
+  has no teeth at this setting.
+
+### Analysis hazard, for whoever writes the next entry
+
+**`deeds[].h` is hour-of-day and wraps at 24.** Sorting deeds by `h` across a multi-day run
+interleaves days and produces a plausible, wrong chronology — my first pass had Coinneach picking up
+the venison *before* Morag cooked it. Sort by **sample index** or the board's `at` tick instead.
+Both are monotonic. `analyse.mjs` does not do this anywhere yet, but its next reader will want to.

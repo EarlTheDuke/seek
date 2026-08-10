@@ -4449,3 +4449,77 @@ and used all of it. **The real fix is the opposite:** cap the kimi seats near th
 and force the JSON (a stop sequence, a prefill, or a hard "reply with the object and nothing else"),
 so a seat cannot spend a whole decision thinking out loud. It also halves the cost of the free seat
 in wall-clock, which at cadence 75 is the slowest brain on the board.
+
+### A222 `give` SILENTLY SHIPS THE WRONG GOODS — THE BIGGEST STACK IN THE PACK **[S]**
+
+`giftFrom` (`src/sim/world.js:983`) resolves the named item, and if that name does not resolve or is
+not held it falls through to **any edible**, then to **the biggest stack in the pack**, and returns
+it as if it were what was asked for. In the 18:35 melee Morag (opus-5) intended `give cooked venison
+to Coinneach`, said *"Hot venison, Coinneach — send the eight branches over and we're square"*, and
+shipped **wood on ten consecutive decisions** — her biggest stack was 52 branches. No refusal, no
+event, nothing on the card. She is still owed for a sale she never made.
+
+**Fix:** delete both fallbacks and **refuse by name** — `this.refuse('give', 'you have no cooked
+venison to give')`. A substitution nobody asked for is worse than a refusal in every case: the
+refusal is legible to the mind (it already reads `refusals[]`), the substitution is invisible and
+corrupts the ledger the mind keeps in its own `note`. The fallback exists to make the verb "always
+do something"; what it actually does is make generosity untrustworthy.
+
+### A223 NOTHING EMITS A `trade` DEED, SO A SETTLED TRADE AND A FAILED ONE LOOK IDENTICAL **[S]**
+
+`agent.js:509` emits `I traded X to Y for Z`. Across 214 samples, 8 seats, 776 calls and 59 real
+minutes it fired **zero times** — while `offer` was reached for with 12 distinct targets and
+`accept` ("take X offer") with 5. Confirms A216/A217 at melee scale: `offer`/`accept` settle
+**never**, and the fallback everybody discovers is unilateral `give`.
+
+The new part is the *receiving* side. The only goods that changed hands all run reached the buyer as
+**litter** — Coinneach's deed is `gather`, *"I picked up 3 cooked venison"*, off the ground.
+
+**Fix:** two lines that pay for themselves. (a) Emit a **refusal** on every silent `return` in
+`resolveAccept` — A217 asks for this and it is still the single highest-value change on the board.
+(b) Find what dropped the venison: Morag has no `drop` deed and `resolveGive` refunds rather than
+drops, so `resolveAccept`'s partial-credit branch (`world.js:~909`) is the only candidate. If
+`accept` is dropping goods on the floor on a failed settle, that is a **duplication-adjacent bug**
+in a shared world and outranks everything else in this file.
+
+### A224 `hunt` REFUSES WHERE `offer` WALKS — TWO SEATS NEVER LOOSED AN ARROW **[M]**
+
+Refusal reasons across the 18:35 run: **111 "too far"**, **~100 "ground/tree in the way"**. Coinneach
+(kimi) finished with **101 hunt-dwell ticks and 0 arrows loosed**; Ailsa (sonnet-5) **46 and 0**.
+Neither put a single arrow in the air in 59 minutes.
+
+The brief says *"You do NOT need to approach first: offer and give both walk you to them"*
+(`providers.js:311`). The two social verbs were taught to close the distance. **`hunt` was not** —
+it refuses, and the mind must separately choose `approach`, notice it has arrived, and re-choose
+`hunt` before the deer moves. That funnel is what the 17:45 entry saw break, and this is its
+mechanism.
+
+**Fix:** give `hunt` the same walk-then-act path `give` and `offer` already use — approach the
+quarry to bow range, then loose. Keep "too far" as a refusal only when the quarry is beyond what a
+mind could reach before it flees, and say **that** in the refusal, with the distance. Same for line
+of sight: *"a tree in the way 2 m out"* on a stationary body is not information, it is a body that
+needs to take one step sideways.
+
+### A225 THE ANALYSER'S "NOBODY EVER DID" LIST IS WRONG ON HALF ITS ENTRIES **[S]**
+
+`analyse.mjs` matches verb **names** against goal **text** and prints *"WHAT NOBODY EVER DID: attack,
+follow, guard"*. `goals.js` renders `follow` as **"stay with X"** (`:159`) and `guard` as **"keep X
+from harm"** (`:168`), and both are all over the 18:35 intention list. The file already carries two
+hand-written `SPELLS` entries for exactly this bug (`say`, `accept`) and a comment saying it exists
+to stop somebody making this mistake about a model. It has now made it twice more.
+
+**Fix:** stop hand-maintaining the mapping. Import `GOALS` from `goals.js` and call each verb's own
+`describe()` with placeholder params to build the match patterns, so a verb renamed in one place can
+never again be reported as unused in the other. Same class of fix as A218 — the instrument, not the
+game.
+
+### A226 `deeds[].h` WRAPS AT 24, SO EVERY CHRONOLOGY BUILT ON IT IS WRONG AFTER DAY ONE **[S]**
+
+Deeds carry `h`, the hour of day. Sorting a multi-day run by it interleaves days into a plausible,
+false order — on the first pass at the 18:35 run it put Coinneach picking up venison *before* Morag
+cooked it, which would have inverted the whole finding. The board already exposes a monotonic tick
+(`at`), and samplers already stamp wall-clock `t`.
+
+**Fix:** put the absolute tick on the deed alongside `h` (`server/board.js`), and sort on it
+everywhere. Cheap, and it removes a whole class of confident-wrong reading from a project that has
+been burned by five of them.
