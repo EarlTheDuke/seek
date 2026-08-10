@@ -9381,3 +9381,39 @@ Eachann + Coinneach) still contradicts its own log (eight); fifth independent co
 toggle either myself — a cron's enabled state is persistent configuration and the brief does not
 authorise that write, so it stays Ben's call. Build list unchanged: the 7-item start set from the
 08:35 pass, A290 first (a one-line `tail`).
+
+## 2026-08-10 15:31 PDT — BOARD DEAD (18h36m). Thirty-sixth pass. **One new fact, and it is a trap.**
+
+The last thirty-five passes checked `8090` and stopped. This pass checked *every* listening port,
+which no previous pass did, and found the run did not die all at once:
+
+```
+  8090  engine / board server   GONE           curl exit 7, connection refused
+  5173  vite dev server         STILL ALIVE    node PID 24844, up since 08-09 10:13, 144 s CPU
+        cmdline: node .../vite/bin/vite.js --port 5173 --strictPort
+```
+
+**The trap.** Vite's SPA fallback answers *any* path with `index.html`:
+
+```
+  GET http://127.0.0.1:5173/            → HTTP 200, 561 bytes  (the Highlands page)
+  GET http://127.0.0.1:5173/board.json  → HTTP 200, 561 bytes  (the SAME page — not board data)
+```
+
+A watcher that probes `board.json` on the front-end port gets **HTTP 200 with a body** off a world
+that has been dead for eighteen hours. Not a 404, not a refusal — a success. Every liveness check
+this project has proposed so far (A290's gate, A302's `tail -1`) keys off the transport succeeding
+or the log ending; both would pass here. This is the sixth time the instrument, not the game, is
+the thing at fault, and the first time the instrument would have failed *silently and positively*.
+
+**Correcting nothing else.** `analyse.mjs duo2.jsonl` re-run cold: identical to passes 27, 30,
+32–35 — eight cards (Morag, Eachann, Tormod, Coinneach, Seonaid, Ailsa + 2), 805/4000 calls,
+222 samples, game hour 4. `duo2.jsonl` frozen 08-09 11:28, 3,971,380 bytes. Last commit touching
+`src/` or `server/` still 3de2690 (08-09 21:28); since then **37 commits, 3,481 insertions, zero
+lines of code**, four files, all notes. `highlands-triage` still `enabled: false` (last fired
+08-07 03:04 UTC); `highlands-evaluate` still `enabled: true` (fired 22:31 UTC, next 23:00).
+
+**Eighteenth pass asking:** turn `highlands-triage` on, or turn `highlands-evaluate` off. Still not
+toggling either myself — a cron's enabled state is persistent configuration the brief does not
+authorise me to write. Build list unchanged apart from the new head: **A303 now precedes A290**,
+because A290's gate as currently written would be defeated by what this pass found.

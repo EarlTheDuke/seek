@@ -5917,3 +5917,38 @@ to file mtime. Doing (1) without that gives false confidence on exactly the file
 
 Related: **A290** (the gate), **A292** (outcome lines never reach the board), **A296**/**A297** (the
 backlog is write-only because the builder cron is off).
+
+### A303 [S] ††††† — the front-end port answers `board.json` with HTTP 200 forever; a liveness check aimed at it can never fail
+
+**Observed 2026-08-10 15:31 PDT (36th evaluate pass), by checking every listening port instead of
+just 8090** — something the previous thirty-five passes never did. The 08-09 run did not die as one
+process. The engine on `8090` is gone (`curl` exit 7, connection refused) but the Vite dev server on
+`5173` has been up since 08-09 10:13 and is still serving the Highlands page:
+
+```
+  GET http://127.0.0.1:5173/            → HTTP 200, 561 bytes   the game page
+  GET http://127.0.0.1:5173/board.json  → HTTP 200, 561 bytes   the SAME page, via SPA fallback
+```
+
+**Why it matters.** Vite's history-API fallback returns `index.html` for any unmatched path. So a
+liveness probe pointed at the front-end port gets a **success with a body** from a world that died
+eighteen hours earlier. This defeats both gates already on this list:
+
+- **A290**'s "is the engine running" gate — if it keys off the HTTP request succeeding, it passes.
+- **A302**'s `tail -1` log gate — no log is involved at all; it never fires.
+
+A `JSON.parse` of the body would throw, so the failure is *loud* only if the probe parses. The
+danger is any probe that checks status code, or greps the body, or just checks the port is open.
+
+**Fix [S], three lines.**
+1. The board server serves a `GET /health` returning `{ok:true, tick, mindCount, lastTickMs}` and
+   the probe requires `ok === true` **and** `Date.now() - lastTickMs < 120000`. A stale-but-serving
+   engine then fails the check too, which a bare status code can never catch.
+2. Any probe that must use `board.json` MUST `JSON.parse` the body and require an array of cards —
+   never `%{http_code}`, never `grep`. Treat a 200 that does not parse as **down**, not as up.
+3. Pin the port in one place. The brief hardcodes `8090`; the engine and the front end are separate
+   processes with separate lifetimes, and this pass is the proof that one can outlive the other.
+
+**Ordering.** This should be built *before* **A290**, not after — A290's gate as written would have
+reported this dead world as healthy. Related: **A290** (the gate), **A302** (the log-side signal),
+**A292** (outcomes never reach the board).
