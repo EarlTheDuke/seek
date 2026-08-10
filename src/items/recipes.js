@@ -17,6 +17,30 @@ export const RECIPES = {
   // the list a person would actually need. Nothing about it is a recipe in the
   // sense of a menu: you have been carrying all three for hours without knowing
   // they added up to something.
+// ── A WORD ABOUT `seconds` ──
+//
+// IT DOES NOTHING. Crafting is instant, on the browser and on the server both.
+// The field has never been read by anything: not the fire menu, not the book,
+// not `craft`, not `stepPlayer`.
+//
+// Dead data is not harmless. A careful playtester read these numbers, believed
+// a craft took ten seconds, and reported it as a bug:
+//
+//   > Fletching has a ten-second craft time with no visible progress, so my
+//   > instinct to fire it repeatedly just consumed branches without producing
+//   > arrows. I burned something like forty branches before I worked out the
+//   > pacing.
+//
+// He was wrong about the cause and right that something was wrong: his branches
+// were vanishing into the client/server pack desync, and the presses were
+// silent because a refused craft said nothing. Both are fixed. But he lost that
+// time to a NUMBER IN THIS FILE THAT MEANT NOTHING — the same disease as every
+// lying instrument this week, sitting in the data instead of the code.
+//
+// Kept rather than deleted because a craft that takes time is a real and good
+// idea (see TODO), and these are sensible values for it. Labelled so that until
+// somebody implements it, nobody else loses an evening to it.
+
   make_axe: {
     id: 'make_axe',
     name: 'Knap a Hand Axe',

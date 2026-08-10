@@ -29,6 +29,8 @@
 // reads like a sentence, which is exactly how it would have shipped.
 
 import { SimWorld } from '../src/sim/world.js';
+import { Body } from '../src/player/body.js';
+import { SURVIVAL } from '../src/config.js';
 
 const results = [];
 const check = (name, pass, detail) => {
@@ -331,6 +333,46 @@ function main() {
     check('SENTINEL: a give that lands complains about nothing',
       w.events.some((e) => e.k === 'gift') && !w.events.some((e) => e.k === 'nogive'),
       'so the three refusals above are about failure, not a broken verb');
+  }
+
+  // ── 8. AND HUNGER, WHICH KILLED SOMEBODY WITHOUT EVER SAYING SO ──────────
+  //
+  //   > Hunger killed me once outright and I never saw it coming. I lost about
+  //   > eighty-five health in roughly a minute, dying ten metres from a
+  //   > carcass. The cold warnings are clear; the starvation escalation isn't.
+  //
+  // Cold is a SLOPE: it ramps from `coldDamageC` through a smoothstep and warns
+  // the whole way down. Hunger was a CLIFF — nothing at all at 1, then 33
+  // health a minute at 0, with its one and only warning firing at the same
+  // instant as the first damage. The first you knew was the dying.
+  //
+  // The damage is deliberately untouched. This is about seeing it coming, not
+  // about surviving it more easily.
+  {
+    const ladder = [40, 30, 20, 10, 0].map((h) => {
+      const b = Object.create(Body.prototype);
+      b.hunger = h; b.coreC = 37; b.wetness = 0; b.stamina = 100;
+      return [h, b.conditions.filter((c) => /hung|starv|faint/.test(c.text))];
+    });
+    const at = (h) => ladder.find(([n]) => n === h)[1];
+
+    check('HUNGER NOW ESCALATES INSTEAD OF AMBUSHING YOU',
+      at(40).length === 0 && at(20).length === 1 && at(10).length === 1 && at(0).length === 1,
+      ladder.map(([h, c]) => `${h}:${c.map((x) => x.text).join('/') || '—'}`).join('  '));
+
+    check('  …and the last band before death is marked BAD, like freezing',
+      at(10)[0]?.bad === true && at(20)[0]?.bad === false,
+      'the whole complaint was that hunger looked survivable right up to the moment it was not');
+
+    check('  …with a spoken warning band ABOVE the damage threshold',
+      SURVIVAL.hungerWarnBelow > SURVIVAL.hungerDamageBelow
+        && SURVIVAL.hungerUrgentBelow > SURVIVAL.hungerDamageBelow,
+      `warn at ${SURVIVAL.hungerWarnBelow}, urgent at ${SURVIVAL.hungerUrgentBelow}, `
+      + `damage at ${SURVIVAL.hungerDamageBelow} — it used to warn and kill on the same tick`);
+
+    check('  …and the damage itself is UNCHANGED, because he asked to see it, not to survive it',
+      SURVIVAL.hungerDamageBelow === 0 && SURVIVAL.hungerDamagePerSec === 0.55,
+      'making the game quietly easier is not what a bug report asks for');
   }
 
   const failed = results.filter((r) => !r.pass);

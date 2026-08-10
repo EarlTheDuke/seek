@@ -1722,6 +1722,25 @@ export const SURVIVAL = {
   hungerWeakBelow: 25, // stamina ceiling starts dropping
   hungerDamageBelow: 0, // and then it kills you
   hungerDamagePerSec: 0.55,
+  // ── ...AND THE WARNING THAT WAS NEVER THERE ──
+  //
+  // Starvation is a CLIFF where cold is a slope. The cold ramps from
+  // `coldDamageC` down through a smoothstep, and warns the whole way; hunger
+  // does nothing at all at 1 and then takes 33 health a minute at 0, with its
+  // one warning firing at the same instant as the first damage.
+  //
+  // A playtester died to it without ever seeing it coming:
+  //
+  //   > Hunger killed me once outright and I never saw it coming. I was
+  //   > managing cold and combat, food quietly hit zero, and I lost about
+  //   > eighty-five health in roughly a minute, dying ten metres from a
+  //   > carcass. The cold warnings are clear; the starvation escalation isn't.
+  //
+  // Two lines to say it early and then say it louder. The DAMAGE is untouched
+  // — this is about seeing it, not about surviving it, and quietly making the
+  // game easier is not what he asked for.
+  hungerWarnBelow: 34, // "you are getting weak with hunger"
+  hungerUrgentBelow: 12, // "you must eat NOW"
 
   // ── stamina, 0..100 ──
   staminaStart: 100,

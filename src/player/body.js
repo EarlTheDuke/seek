@@ -105,6 +105,10 @@ export class Body extends Vitals {
     if (this.coreC > SURVIVAL.hotDamageC) out.push({ text: 'heatstroke', bad: true });
     else if (this.coreC > SURVIVAL.hotSweatC) out.push({ text: 'overheating', bad: false });
     if (this.hunger <= 0) out.push({ text: 'starving', bad: true });
+    // `bad` at the urgent band, so the HUD colours it the way it colours
+    // freezing — the whole complaint was that hunger looked survivable right up
+    // to the moment it was not.
+    else if (this.hunger < SURVIVAL.hungerUrgentBelow) out.push({ text: 'faint with hunger', bad: true });
     else if (this.hunger < SURVIVAL.hungerWeakBelow) out.push({ text: 'hungry', bad: false });
     if (this.wetness > 0.65) out.push({ text: 'soaked', bad: false });
     else if (this.wetness > 0.25) out.push({ text: 'wet', bad: false });
@@ -236,7 +240,21 @@ export class Body extends Vitals {
     }
     if (this.hunger <= SURVIVAL.hungerDamageBelow) {
       this.damage(SURVIVAL.hungerDamagePerSec * dt, { kind: 'hunger' });
-      this.warn('you are starving');
+      this.warn('you are starving — this is killing you');
+    } else if (this.hunger < SURVIVAL.hungerUrgentBelow) {
+      // ── SAY IT BEFORE IT IS TOO LATE TO ACT ON ──
+      //
+      // Cold ramps and warns the whole way down. Hunger did nothing at 1 and
+      // took 33 health a minute at 0, and its one warning fired at the same
+      // instant as the first damage — so the first you knew was the dying.
+      // "I lost about eighty-five health in roughly a minute, dying ten metres
+      // from a carcass."
+      //
+      // The damage is untouched. This is about seeing it coming, not about
+      // surviving it more easily.
+      this.warn('you are faint with hunger — eat now');
+    } else if (this.hunger < SURVIVAL.hungerWarnBelow) {
+      this.warn('you are getting weak with hunger');
     }
   }
 

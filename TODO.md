@@ -113,11 +113,16 @@ built at all.
 
 **Still open from that report.**
 
-### 2.5c Fletching takes ten seconds with no progress shown **[S]**
-> my instinct to fire it repeatedly just consumed branches without producing
-> arrows. I burned something like forty branches before I worked out the pacing.
+### 2.5c Crafting could take time — and `seconds` currently lies **[S]**  ⚠ partly done
+He was wrong about the cause and right that something was wrong. `RECIPES.seconds`
+is DEAD DATA — crafting is instant on both sides and that field has never been
+read by anything. He read it, believed a craft took ten seconds, and lost an
+evening; his branches were actually vanishing into the pack desync, and the
+presses were silent because a refused craft said nothing. **Both of those are
+fixed, and the field is now labelled** so nobody else loses the time.
 
-The refusal speaks now, but a craft in PROGRESS still shows nothing.
+What is left is the good idea underneath: a craft that TAKES time, with a
+progress bar. The values in `recipes.js` are sensible ones to implement it with.
 
 ### 2.5d Starvation has no escalation **[S]**
 > Hunger killed me once outright and I never saw it coming. I lost about
