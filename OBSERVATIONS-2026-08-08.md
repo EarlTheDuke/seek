@@ -6784,3 +6784,97 @@ points at a person the watcher's main instrument does not render.
 *(Could not verify the "also out there" feature from this run: `minds.log` records decisions, not
 prompts, so the phrase never appears there either way. Minds do target people at 400 m+, which is
 consistent with it working, but that is not proof.)*
+
+---
+
+## 2026-08-09 19:35 PDT — THE RUN IS OVER. And the reason the market never cleared is not `accept`: **dying is a free meal**
+
+The board stopped answering at **19:06:34** (`fetch failed`, connection refused, still refused at
+19:31). I have not restarted it. The eight-seat melee ran **17:32:26 → 19:06:14 unbroken** — 318
+board samples, `at` climbing 1000 → 5270 with **no world reset** (so, unlike the 17:10 entry's run,
+nothing was wiped underneath this one). Three two-seat worlds flickered afterwards at 19:13, 19:15
+and 19:24, each dead within a sample or two, and **all three reported `model: stub-1` — no minds at
+all**. Evidence: `eval30.jsonl`, 321 good samples of 396 lines.
+
+**Correction to this task's own premise.** The roster named in the evaluation brief — Eachann on
+grok + Coinneach on kimi, two seats, no scripted control — **was not what was running today**. The
+live world was the eight-seat melee, and `duo2.jsonl` (the log the brief names) is an eight-hour-old
+melee snapshot from 11:28, not a duo log at all. Everything below is the melee.
+
+### The headline: hp reaches 0, and the seat is handed back full health *and a full belly*
+
+Six of the eight seats touched **hp = 0 with food = 0**. Not one of them died. Verbatim, Ailsa
+(sonnet-5), one sample per 20 s:
+
+```
+17:58:33  hp=32   food=0   decisions=72
+17:59:13  hp=10   food=0   decisions=74
+17:59:53  hp=100  food=84  decisions=75    <-- same seat; decisions kept counting
+```
+
+Same for Coinneach 17:57:33, Tormod 17:58:53, Fingal and Iseabail 18:15:13, Morag 18:18:53. Starving
+to nothing costs you a few minutes of walking and pays out **~84 food**, which is more than any
+trade on this board has ever moved.
+
+This reframes six weeks of entries. Every previous look — 13:05, 18:05, 19:05 — has gone hunting for
+the bug in `accept` that stops the market. `accept` **is** broken (below), but it is the second
+reason nothing clears. The first is that **no mind is ever obliged to buy anything.** Hunger has no
+teeth, so a market has no customers. Fix `accept` on its own and I predict the trade count barely
+moves.
+
+### What the numbers say
+
+- **0 trades in 94 minutes.** Deduped deed census across 2,544 player-samples: `gather` 320,
+  `place` 80, `give` 65, `craft` 17, `eat` 9, `killed` 6, **`trade` 0**.
+- **…against 424 trade-family decisions — 16.7% of every decision made.** 216 `offer`, 142 `accept`,
+  66 `give`. One in six thoughts in this world was about a deal and none of them closed.
+- **`gold` never moved.** Only Tormod ever held any, a constant `2`, all run. `offer`'s
+  price-defaults-to-gold change has never once been exercised by a real model.
+- **`refusedVerbs` says exactly one word across all 2,544 samples: `hunt`.** 494 refusals, no other
+  verb, ever. So 358 offer/accept decisions produced 0 settlements **and 0 refusals**. That is the
+  silent-return bug, now visible at board level rather than inferred from source.
+
+### The quarry parser is eating stopwords
+
+**85 of 528 hunt-goal samples (16%) named something that cannot be hunted**, on all eight seats:
+
+```
+"hunt a is"  37    "hunt a from" 19    "hunt a it"  9
+"hunt a north" 7   "hunt a southwest" 7    "hunt a to" 6
+```
+
+Against `"hunt deer"` 242 and `"hunt a deer"` 180. The noun parser is grabbing a preposition or a
+compass word as the quarry. Given that `hunt` is also the *only* verb that ever refuses, a good
+share of those 494 refusals are the harness refusing a target the harness itself invented.
+
+### `plan` is the best column on the card. `note` is nearly dead
+
+- **`plan`: 318/318 samples non-empty on all seven model seats; 318/318 EMPTY on scripted Iseabail.**
+  A perfect separator — cleaner than `said`, and free. Real content, e.g. Morag:
+  `["haul venison back, build fire", "cook: Seonaid, Coinneach, Ailsa, Tormod", "Coinneach owes 8 branches"]`.
+- **`note`: one seat out of seven, ever.** Morag, 113 samples, and it is genuinely load-bearing —
+  *"Coinneach owes me 8 branches for one cooked venison. Ailsa badly hurt to the south — feed her if
+  she comes."* The other six model seats wrote `""` for 94 minutes. Six of seven minds do not know
+  the field is there, or see no reason to use it.
+
+### `orders` is on the card and has never held a value
+
+`orders`, `orderedTo`, `orderedBy` are in the board schema and are **`undefined` in all 2,544
+player-samples**. Meanwhile **Jack — the human — is the most-named person in the world**: 322 goal
+samples (12.7%) name him (`stay with Jack` 232, `go toward Jack` 64, `make for Jack` 12), more than
+any agent seat, and he is still absent from `board.json`. A230 stands, and gets bigger: the
+instrument cannot see the most influential actor *or* the mechanism he acts through.
+
+### A red SPENT tag appeared, and it matters for six minutes
+
+**Eachann (grok-4.20-non-reasoning) hit 250/250 calls at 19:00:34** and was the scripted brain from
+then to the end. Anything read out of his last ~6 minutes is not the model. Worth saying plainly:
+his card kept showing `model: grok-4.20-0309-non-reasoning` and kept displaying his last real
+`plan`, stale, with nothing but that one tag to say the mind behind it had gone.
+
+### Unchanged, and still costing a life
+
+Tormod (grok-4.5) finished **hp 4, food 0, gold 2**, having handed Morag 23 items *one at a time*
+(14 branches then 9 arrows, 4 of them in his last five deeds) against a venison share that never
+arrived. `give` still moves 1 unit per model call. He was the best-behaved trader on the board and
+it nearly killed him.

@@ -4598,3 +4598,64 @@ one-branch-per-call gift loop of A228.
 **Fix:** the lever is regrowth/yield, not the sink — or make fires burn down and need feeding, so
 wood is a *rate* a mind must sustain rather than a pile it accumulates. Worth measuring branches
 gathered per hour against branches burnt before touching either number again.
+
+### A232 DEATH IS A FREE MEAL — AND THAT, NOT `accept`, IS WHY THE MARKET NEVER CLEARS **[M]**
+
+Six of eight seats hit **hp 0 with food 0** in the 17:32–19:06 melee and every one of them was
+handed back **hp 100 and ~84 food on the very next 20 s sample**, same seat, `decisions` still
+counting (Ailsa 74 → 75). Starving to death pays out more food than any trade this world has ever
+settled, and costs only the walk. That is the demand side of the economy: **there isn't one.** One
+in six decisions all run was about a deal (424 of 2,544) and zero closed — but no mind was ever
+*obliged* to close one.
+
+**Fix:** make dying cost something a mind can feel and see — drop the pack, lose the day, or a real
+respawn timer — and stop refilling food on revive. Until then every `accept`/`offer` fix will be
+graded against a market with no customers. Do this one **before** A229; I expect A229 alone to move
+the trade count barely at all.
+
+### A233 THE QUARRY PARSER EATS STOPWORDS — 16% OF HUNTS TARGET A PREPOSITION **[S]**
+
+85 of 528 hunt-goal samples named something unhuntable, on all eight seats: `"hunt a is"` (37),
+`"hunt a from"` (19), `"hunt a it"` (9), `"hunt a north"` (7), `"hunt a southwest"` (7), `"hunt a
+to"` (6) — against `"hunt deer"` 242 and `"hunt a deer"` 180. `hunt` is also the **only** verb that
+ever files a refusal (494 of them, no other verb ever), so a real share of the refusal column is the
+harness refusing a target the harness invented.
+
+**Fix:** validate the quarry noun against the actual creature list at parse time and refuse with
+*"there is no such thing as a `from`"* rather than accepting it and failing at range. Then re-read
+the 494 hunt refusals — the A218/A224 shot-distance conclusions are drawn from a column that is
+partly parser noise.
+
+### A234 `note` IS DEAD ON SIX OF SEVEN MINDS, AND `plan` IS THE BEST TELL ON THE CARD **[S]**
+
+`plan` was non-empty in **318/318 samples on all seven model seats** and empty in **318/318 on the
+scripted seat** — a perfect, free model-vs-script separator, better than `said`. `note` was used by
+**exactly one seat ever** (Morag, 113 samples), and there it was real: *"Coinneach owes me 8 branches
+for one cooked venison. Ailsa badly hurt to the south — feed her if she comes."* Six model seats
+wrote `""` for 94 minutes.
+
+**Fix:** the field works, the prompt does not sell it. Show a mind its own note back with a nudge
+(*"your note, which only you can see and which survives when your memory does not: …"*), or seed it
+once. A creditor's ledger kept across hours is exactly the behaviour this world is trying to grow.
+
+### A235 `orders` IS ON THE CARD AND HAS NEVER HELD A VALUE **[S]**
+
+`orders`, `orderedTo`, `orderedBy` are in the board schema and were **`undefined` in all 2,544
+player-samples** of the 94-minute run — while `stay with Jack` was the second most common goal in the
+world (232 samples; 322 naming Jack in total, 12.7% of all decisions, more than any agent seat).
+Orders are plainly happening in the sim and the instrument renders none of them. Pairs with A230:
+the board cannot see the human *or* the mechanism he commands through.
+
+**Fix:** populate the three fields from the same place `minds.log` gets `(ordered)`, and render the
+order text on the card. Cheap, and it turns the single most influential relationship in the world
+from invisible into a column.
+
+### A236 A SPENT SEAT STILL WEARS THE MODEL'S FACE **[S]**
+
+Eachann hit 250/250 calls at 19:00:34 and was scripted for the rest of the run — while his card kept
+showing `model: grok-4.20-0309-non-reasoning` and kept displaying his last real `plan`, frozen, with
+only the `SPENT` tag to say the mind was gone. A previous run was misread for exactly this reason.
+
+**Fix:** when a seat spends its budget, grey the card, blank the stale `plan`/`note` rather than
+freezing them, and stamp the model name (`grok-4.20 (SPENT — scripted)`). Log the wall-clock instant
+of the changeover so an analyser can cut a run at it.
