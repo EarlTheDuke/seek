@@ -5048,3 +5048,39 @@ so every per-verb figure in the observations file was computed off prose.
 count `kind`, keeping the described string for display only. **Value:** it retires a whole class of
 wrong finding — this is the third time a verb was declared unused because nobody could match its
 name.
+
+### A263 A DIAGNOSED INSTRUMENT DEFECT SHIPS FOR A DAY BECAUSE THE FIX NEVER FOLLOWS THE FINDING **[S]** †††
+
+Three defects have been filed against `analyse.mjs`. One (A260, dual schema) was fixed in the script.
+The other two still run: line 143 prints `WHAT NOBODY EVER DID`, refuted with counts on 08-09 23:05
+(attack 2, follow 23, guard 3), and line 110 keys deeds `${d.h}|${d.text}`, refuted on 08-09 21:05
+(`h` is a clock, so day-2 deeds collide onto day-1). **Both were reproduced in the 23:34 run** — the
+report opens every evaluation session, so each future run begins by reading two statements this
+project has already disproved, and a reader who has not memorised the file will believe them.
+
+**Fix:** when an entry disproves an analyser output, patch the analyser *in the same commit* — delete
+the `WHAT NOBODY EVER DID` line until A262 puts `kind` on the card, and key deeds by
+`${sampleIndex}|${d.h}|${d.text}`. Better: have `analyse.mjs` print a one-line
+`KNOWN-BAD: <fields>` header naming its own untrustworthy outputs, so the disclaimer travels with
+the number instead of living 400 KB away. **Value:** this file's recurring failure mode is a
+confident wrong reading off a quiet instrument; this closes the loop between finding it and fixing it.
+
+### A264 SAMPLER LOGS HAVE NO PROVENANCE, SO ONE WORLD IS ANALYSED TWICE UNDER TWO NAMES **[M]** ††
+
+`duo2.jsonl` and `melee.jsonl` are two samplers of a **single** run — same 8 seats, same models, same
+`board.at` window (43→3816 s vs 33→3826 s), same 11:28 mtime, offset ten seconds. No frame is
+byte-identical, so a hash or size check misses it. The 10:35/11:05/11:35 entries analysed it as
+"the melee"; every later entry analysed it as "duo2"; nothing reconciles them, and the scheduled
+evaluation task is still pointed at the duplicate. Filenames are the only provenance a log has, and
+they are hand-typed and wrong.
+
+**Fix:** stamp a `runId` (and the roster path) into every sampler line at start-up, and have
+`analyse.mjs` refuse to merge lines carrying different `runId`s — the same guard A239 needs for
+concatenated runs. Then print `runId`, roster and sampler cadence in the report header.
+
+**The silver lining, worth keeping deliberately:** an accidental duplicate is a free control, and it
+paid immediately. Across the twins, per-seat cumulative counters (kills, loosed, astray) are
+*identical* — they are read off the last card — while deduped deed aggregates drift 1.3% (GATHERS 478
+vs 472) from sampling phase alone. And `FIRES LIT` agreed exactly at 89 in both, **which proves
+nothing**, because both share the broken `h` key from A263. **Running two samplers at different
+cadences on purpose would give every future number an error bar for the cost of one extra process.**

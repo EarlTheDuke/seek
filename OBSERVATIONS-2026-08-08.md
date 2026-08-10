@@ -7516,3 +7516,88 @@ minding a thing, and tending the fire is the job the world actually has.
   done by grep in this file has been reading nothing. Use `grep -a`, or read it in node.
 
 Scripts: `standing.mjs` and `never.mjs` in the scratchpad.
+
+## 2026-08-09 23:34 PDT — board still dead. **`duo2.jsonl` and `melee.jsonl` are two samplers of ONE world**, ten seconds apart — which gives a free control, and the control says twin agreement proves nothing
+
+**The board is refused** (`board.json` → HTTP 000 via both curl and `Invoke-WebRequest`; dead since
+20:55, now ~160 minutes). Nothing was restarted, per the brief. **Sixth consecutive entry with no new
+telemetry.** `duo2.jsonl` has been frozen since **11:28**, twelve hours ago.
+
+### The log this task is pointed at is a duplicate of one already analysed under another name
+
+| | `duo2.jsonl` | `melee.jsonl` |
+|---|---|---|
+| samples | 222 | 223 |
+| window (`board.at`) | 43 s → 3816 s | 33 s → 3826 s |
+| seats | Morag, Eachann, Tormod, Coinneach, Seonaid, Ailsa, Fingal, Iseabail | identical |
+| models | opus-5 / grok-4.20 / grok-4.5 / kimi ×2 / sonnet-5 / haiku-4.5 / scripted | identical |
+| mtime | Aug 9 11:28 | Aug 9 11:28 |
+
+Same eight seats, same models, same 74-minute window, both stopped in the same minute — **two
+samplers on one world, offset by ten seconds.** Zero index-aligned frames are byte-identical, which
+is why a size or hash check would not have caught it. So the run the scheduled brief names by path is
+the same melee already written up in the **10:35, 11:05 and 11:35** entries; those entries and every
+later "duo2" reading describe one hour of world under two names, never reconciled.
+
+### The useful part: a duplicate is a control, and it disqualifies a number this file has quoted
+
+Running `analyse.mjs` over both twins:
+
+```
+                          duo2      melee
+  per-seat kills           2/0/4/0/1/0/0/1   identical
+  arrows loosed / astray   identical across all 8 seats
+  answered / failed        differ by <=1 (the extra frame)
+  GATHERS                478        472      <- 1.3% drift, pure sampling phase
+  FIRES LIT (deduped)     89         89      <- identical
+```
+
+Cumulative counters are robust because they are read off the last card, not accumulated. **Deduped
+deed aggregates are not** — six gathers are visible to one sampler and invisible to the other, from
+nothing but a ten-second phase difference. Every "GATHERS: n" in this file is ±1–2%.
+
+**And the agreement on fires is worth nothing.** The 21:05 entry proved the dedup key
+`${d.h}|${d.text}` collides, because `h` is a clock and not a timestamp, so game-day-2 fires are
+squashed onto day-1. Both samplers share that key, so **both report the same wrong 89.** Two
+independent instruments agreeing is not evidence of correctness when they share a bug — worth saying
+plainly in a file that has been burned nine times by trusting an instrument.
+
+### Two defects this file diagnosed are still shipping, and I reproduced both tonight
+
+Auditing `analyse.mjs` against the three defects filed against it:
+
+- **A260 (dual schema) — FIXED.** Line 10 now normalises `{t,b}` and `{realMs,board}`.
+- **A262 (`WHAT NOBODY EVER DID`) — NOT FIXED.** Line 143 still prints it, matching `describeGoal()`
+  prose. My run at the top of this session printed `WHAT NOBODY EVER DID: attack, follow, guard` —
+  the exact line the 23:05 entry disproved with counts (attack 2, follow 23, guard 3).
+- **The `h` collision — NOT FIXED.** Line 110 still keys deeds `${d.h}|${d.text}`.
+
+So the first thing this scheduled task does, every run, is print a report containing two statements
+the file below it has already refuted. That is now the largest remaining source of wrong readings in
+this project — larger than anything the models are doing.
+
+### Correcting the brief this task runs on
+
+The task file describes the live roster as *"`roster-duo.json` — **Eachann** on `grok-4.20`
+(20 s cadence) and **Coinneach** on `kimi-k2.6` (75 s cadence). Two minds, no scripted control."*
+The log it names has **eight** seats including a scripted control (Iseabail). It also asks *"Across
+two days and six models this world produced ONE sentence. Is anyone talking?"* — a premise this file
+declared dead at line 4350, and which tonight's own run contradicts: Morag alone speaks ~100 distinct
+lines, several of them negotiated prices (*"Ailsa — two cooked venison for three branches"*).
+
+### Loudly, per the brief: four of eight seats were not the model for this window
+
+No `SPENT` tag — the budget was fine (805 calls of 4000). The failure was upstream:
+
+```
+Fingal    claude-haiku-4-5    0 answered / 152 failed   http 400 invalid_request   <- never once the model
+Seonaid   kimi-k2.6          12 answered /  38 failed   "no json in reply"          (24%)
+Coinneach kimi-k2.6          27 answered /  23 failed   "no json in reply"          (54%)
+Iseabail  scripted            0 /   0                                               (control, by design)
+```
+
+Fingal still gathered 40 times, placed 9 and ate to food 85 — **the best-fed seat on the board was
+the one no model ever drove.** Any per-model comparison drawn from this window covers four seats,
+not eight.
+
+Scripts: `worlds.mjs` in the scratchpad.
