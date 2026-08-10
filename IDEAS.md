@@ -5168,3 +5168,45 @@ fallback goals scores high for free. Gate this metric on A267's `driver` field.
 **Fix:** compute follow-through per fresh decision, restricted to model-driven seats, and print it as
 a first-class column. **Value:** it is the cheap-talk axis D4 asked for, it separates the models
 cleanly, and it costs one pass over a log already on disk.
+
+### A269 † COUNT WOOD (AND EVERY RESOURCE) FROM CARRIED LEVELS, NOT FROM DEED ROWS **[S]**
+
+`deeds` rows are coalesced summaries updated in place, so every "how many" in OBSERVATIONS derived
+from them is unreliable — the fire count came out 89 one way and 471 another. **`carrying[].n` is a
+level, and diffing it between samples is an independent instrument that needs no harness change at
+all.** On `duo2.jsonl`: +992 gathered / −871 spent, rises strictly in +1..+8, twelve falls of exactly
+−10. That caps fires at 87 and puts 471 out of reach by a factor of five.
+
+**Fix:** add a `--ledger` pass to `analyse.mjs` that diffs every `carrying` line per seat per sample
+and prints gathered/spent/fall-histogram per item, and stop printing any deed-row count without the
+ledger figure beside it. **Value:** it retires the single largest source of wrong numbers in this
+file, it is one pass over logs already on disk, and it is a floor-and-ceiling rather than a guess.
+
+### A270 †† THE FIRE IS A PUBLIC GOOD THAT PAYS ITS BUILDERS NOTHING — AND EVERY BUILDER STARVED **[M]**
+
+14 deaths across 7 of 8 seats in one 20-game-hour run. **The one seat that never starved (Tormod,
+grok-4.5, 8 real meals) is the one seat that reliably killed deer (4 kills).** The four seats who
+organised the fire economy — 871 branches, most of the run's speech, three successive camps — got
+zero meals out of it. Morag (opus-5) organised it and died twice; Ailsa (sonnet-5) tended it across
+~30 samples and finished at **food 0** while saying `"still tending the fire here"` eight times.
+
+The models reason correctly (a fire is where you cook; Morag priced venison-for-branches repeatedly).
+**The world is what is broken: warmth does not convert to calories, so hauling wood is strictly
+dominated by hunting, and the cooperative play the models keep attempting is punished.**
+
+**Fix (smallest version first):** make a lit fire pay its contributors — a contributor tally on the
+fire, and cooking at it yields a share to whoever supplied the wood; or simpler, have a fire slowly
+*reduce* food drain for anyone within its radius, so warmth is worth calories directly. **Value:**
+every model in the roster independently tries to build this economy; right now the harness makes them
+look foolish for it, which is exactly the class of error this project has hit five times.
+
+### A271 † A FINAL `food` READING MEASURES TIME SINCE DEATH, NOT NUTRITION **[S]**
+
+A267 cited Fingal's 85 food as out-eating the real models. It is the respawn payout, banked two
+samples before the log ends; Fingal died three times, more than anyone. Any end-of-run `food`
+comparison is meaningless without checking for a 0→84/85 step.
+
+**Fix:** have the card carry a `deaths` counter (the 0→85 step is already detectable server-side),
+and have `analyse.mjs` print `food (n deaths)` everywhere it prints food. **Value:** the board
+currently does not tell you when a seat dies at all (17:20 entry) — this is the cheapest possible
+version of that fix and it stops a whole family of confident wrong readings.

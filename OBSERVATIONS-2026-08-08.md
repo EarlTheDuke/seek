@@ -7699,3 +7699,93 @@ The brief says to shout if a red `SPENT` tag appears. **No seat was ever `SPENT`
 Fingal changed its goal 63 times having never once been answered by a model. **A seat can be fully
 scripted and nothing on the card says so** unless you happen to divide `answered` by goal changes.
 `SPENT` is a budget flag; the common failure here is upstream errors, and it is unflagged.
+
+## 2026-08-10 01:20 PDT — BOARD DEAD, RUN OVER. **A ledger built from carried-inventory deltas — not deed rows — finally counts the fires: the bracket `(89, 471)` is wrong at BOTH ends.** And the wood economy that consumed every mind's attention fed nobody: 14 deaths in 7 seats, and the only survivor is the only hunter
+
+`curl http://127.0.0.1:8090/board.json` → exit 7, connection refused. `duo2.jsonl` has not been
+written since **Aug 9 11:28**, ~14 hours. Per the brief I did not restart it. The last successful
+board read in this scratchpad is 00:05. **The run is over.** Everything below is `duo2.jsonl`.
+
+### A second instrument, and it does not go through the deed rows at all
+
+The 2026-08-10 entry established that deed rows are **coalesced summaries updated in place**, so
+counting rows counts neither actions nor summaries — and it closed by declaring the brief's fire
+question *"not answerable with the present instrument"*, leaving the true count somewhere in
+`(89, 471)`.
+
+There is a second instrument, and it was on the card the whole time. **`carrying.wood` is a level,
+not an event.** Diffing it between consecutive samples gives a ledger that never touches `deeds`:
+
+```
+  222 samples × 8 seats
+  wood gathered (sum of POSITIVE carried-wood deltas):  992
+  wood spent    (sum of NEGATIVE carried-wood deltas):  871
+  rise  histogram: +1..+8 only (56, 89, 68, 70, 34, 10, 4, 2) — no jumps, no resets upward
+  fall  histogram: -1..-10 mostly, plus -18, -20 x4, -26, -30 x2, -40 x2
+  falls of EXACTLY -10 (the fire signature): 12, across all 8 seats
+  peak wood ever carried by anyone: 89 (Coinneach @ s81)
+```
+
+**471 fires is arithmetically out of reach.** At `SURVIVAL.woodToLight = 10` they would cost 4,710
+branches — **5.4× every branch that was ever observed leaving a pack**, and 4.7× every branch
+observed entering one. For 471 to hold, ~82% of all wood movement would have to happen and unhappen
+inside a 20-second sampling gap, in both directions, at the same ratio. My recovery count was
+re-appending rows that resurface, exactly as the last entry suspected; this puts a number on how bad
+it was.
+
+**And 89 is above the ceiling too.** 871 branches spent caps fires at **87** — and those same
+branches also paid for arrows (2 each), torches (3), windbreaks (3), stores (4), lean-tos (6). The
+honest reading is *"fires are in the low tens, and the 12 clean −10 commitments are the only ones I
+can point at individually."* Both figures this file has quoted are wrong; the ledger is a floor on
+volume but a hard ceiling on fires, and it is the tighter of the two.
+
+### So: is wood scarce enough to matter? **Yes — and the speech log says so independently**
+
+Morag (opus-5) spends eight consecutive decisions blocked on branch count, verbatim:
+
+> `"Still eight short — bring branches to Rowan Moor, fire tonight for all."` → `"Still cutting —
+> eight short. Bring branches to Rowan Moor, fire at dusk."` → `"Eight short still — keep bringing
+> branches here, fire at dusk."` → `"Still eight short — bring branches to Rowan Moor, fire at dusk."`
+
+Ailsa's (sonnet-5) entire late arc is hauling **one** branch: `"bringing my branch now"` → `"still
+heading in with this branch"` → `"almost there with this branch"` → `"finally here with this
+branch"` → `"here, take the branch — but you have no venison to give?"`. At 1 branch a fire nobody
+would narrate that. The 10-branch price is doing exactly what it was raised to do.
+
+### But the fire is a public good nobody can eat, and the bill came due
+
+Classifying every food jump ≥20 by whether it starts from ~0 (a respawn, which the 22:05 entry
+measured at 85) or from mid-range (an actual meal):
+
+```
+  seat        model              deaths   real meals   kills
+  Tormod      grok-4.5                0            8       4
+  Ailsa       claude-sonnet-5         1            2       0
+  Morag       claude-opus-5           2            1       2
+  Eachann     grok-4.20-non-r         2            1       0
+  Coinneach   kimi-k2.6               2            0       0
+  Seonaid     kimi-k2.6               2            0       1
+  Iseabail    scripted control        2            2       1
+  Fingal      claude-haiku (0 answered, scripted)  3   0    0
+                                     ── 14 deaths across 7 of 8 seats ──
+```
+
+**The only seat that never starved is the only seat that reliably killed deer.** 871 branches, the
+overwhelming majority of all speech in the run, and a fire at Heather Scaur / Broad Loch / Rowan Moor
+in turn — and it converted into zero meals for the four seats who built it. Morag organised the fire
+and died twice. Ailsa tended it for ~30 consecutive samples (`"still tending the fire here"` ×8) and
+ended the run at **food 0**.
+
+This is not the models failing. Their reasoning is right — a fire is where you cook, and Morag's
+trade offers price it correctly. **The world does not pay contributors.** Wood buys warmth; warmth
+does not buy food; the only path to food is a deer, and hauling branches is time not spent hunting.
+Cooperation here is strictly dominated by ignoring the fire, and the leaderboard proves it.
+
+### Correction to A267 (entry of 2026-08-10)
+
+A267 says Fingal *"still out-ate every real model on the board."* **That is wrong and I nearly
+repeated it here.** Fingal's end-of-run 85 food is not husbandry — it is the respawn payout, banked
+at s221, the second-to-last sample. Fingal died **three times**, more than any other seat. Same trap
+for Iseabail's 92. Reading a final `food` figure without checking for a 0→85 step measures how
+recently a seat died, not how well it ate. The point A267 was making — that a fallback-driven seat
+is indistinguishable on the card — stands; the evidence offered for it does not.
