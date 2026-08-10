@@ -886,6 +886,20 @@ export class Creature {
     } else {
       this.sense(dt, player, stealth);
       this.think(dt);
+      // ── AND WHILE IT IS FLINCHING, IT DOES NOT COME ON ──
+      //
+      // After `think`, which is what chooses `targetSpeed`, and before `move`,
+      // which is what spends it. Overriding here rather than inside `think`
+      // keeps every reason a creature might want to move in one place and this
+      // one exception plainly on top of it.
+      //
+      // It still turns, still hears, still wants you. It simply cannot close
+      // the distance for a second and a half. See `stagger` in the registry.
+      this.staggerCool = Math.max(0, (this.staggerCool ?? 0) - dt);
+      if (this.staggered > 0) {
+        this.staggered -= dt;
+        this.targetSpeed = 0;
+      }
       this.move(dt);
     }
     this.animate(dt);
@@ -980,6 +994,19 @@ export class Creature {
       // ODDS, and the only way to do that is to put one of them down.
       this.hurt = true;
     } else if (this.species.behaviour === 'aggressive') {
+      // ── A SOLID HIT MAKES IT FLINCH ──
+      //
+      // Only for a species that has a `stagger`, only for a hit that landed
+      // properly, and only once per cooldown — so a stream of grazing shots
+      // cannot pin it in place, and the answer to a troll is still one good
+      // arrow rather than many bad ones. See the note on `stagger` in the
+      // registry: this is what turns a footrace into a fight, and what makes
+      // three archers meaningfully better than one.
+      const st = this.species.stagger;
+      if (st && dealt >= st.minDamage && (this.staggerCool ?? 0) <= 0) {
+        this.staggered = st.seconds;
+        this.staggerCool = st.cooldown;
+      }
       this.charging = true;
       this.chargeTime = 0; // fresh legs: a wounded bear finds another gear
       this.giveUp = 0;

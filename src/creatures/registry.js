@@ -1003,6 +1003,26 @@ SPECIES.troll = {
     calmRate: 0.05, // it does not forget in a hurry
   },
 
+  // ── A SOLID HIT BUYS YOU GROUND ──
+  //
+  // Before this a troll fight was a footrace you were guaranteed to lose, and a
+  // playtester did the arithmetic: it charges at 7.2 m/s and never tires
+  // (`chargeStamina: 999`), while a sprint is 8.6 m/s for about three seconds.
+  // Its hearing reaches 150 m and its eyes 11, so it finds you and you cannot
+  // see it coming.
+  //
+  //   > Three times I ended a call with the troll at a safe 84-95 m and began
+  //   > the next one already dead.
+  //
+  // So a hit that lands properly makes it FLINCH: a second and a half standing
+  // still, once every four seconds at most. That is roughly twelve metres of
+  // ground back per good shot — enough to open the range and loose another, and
+  // not enough to make it harmless.
+  //
+  // It is also the first thing in this game that rewards shooting TOGETHER. One
+  // archer staggering it every four seconds is holding on; three taking turns
+  // is a plan, and a plan is the whole point of being able to recruit a band.
+  stagger: { seconds: 1.5, cooldown: 4, minDamage: 18 },
   aggression: {
     chargeAt: 0.42,
     aggroRange: 150, // as far as it can hear
