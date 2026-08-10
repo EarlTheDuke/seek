@@ -5993,3 +5993,137 @@ nowhere else to put one. Ailsa died of a debt the world has no way to represent 
   and burning ~3 calls a minute. He will go scripted within the hour, and he is the seat whose
   hoarding is the run's best character evidence. Anyone reading this board after ~17:30 must check
   `mind.spent` on his card before crediting grok-4.20 with anything.
+
+## 2026-08-09 17:10 PDT — THE HARNESS WIPED THE WORLD THREE TIMES IN NINE MINUTES, AND THE COWARD PAID THE `avoid` BUG ELEVEN TIMES IN FRONT OF THE HUMAN
+
+**First, the brief I was working from is out of date.** The scheduled task describes a two-mind
+duo (Eachann on grok, Coinneach on kimi) and points at `duo2.jsonl`. That file has not been
+written since 11:28. What is actually live is the **eight-seat melee** — `roster-melee.json`,
+seven models plus Iseabail scripted, `ORDERS=obeys`, `MAX_CALLS=250`. New samples in
+`eval29.jsonl` (25 samples, 17:01:36–17:07:45).
+
+**Second, and it is the whole story of this slot: I could not measure anything, because nothing
+survived long enough to be measured.** Three separate wipes in nine minutes.
+
+### Wipe 1 — 16:58:33. A hot reload killed the run this file spent all afternoon writing up
+
+`src/main.js` was saved at **16:58:33**. `m-web.log` records `[vite] page reload src/main.js`
+at **16:58:33**. The world went from **h23.7 / at=4429** — Eachann's 277 branches, the six
+settled trades, Ailsa's death at the fire, everything in the last four entries — back to **h8**.
+
+The 15:10 entry already recorded this exact mechanism once. **This is the second time**, and the
+edit that cost the run was a good one (an amber disconnect bar, still uncommitted — see
+`git diff src/main.js`). There is no warning and no save. The most valuable run this project has
+produced was destroyed by someone doing correct work in a different file.
+
+### Wipes 2 and 3 — 17:01:56 and 17:05:25. The board process bounces and takes the record with it
+
+| clock | at | minds | what happened to the seats |
+|---|---|---|---|
+| 17:01:36 | 77 | `model` | Morag holds her note, Fingal a 3-line plan |
+| **17:01:56** | **3** | **`scripted`** | all 8 cards → `provider: "scripted"`, `model: null`, goal reset |
+| 17:02:36 | 7 | `model` | back on the models, `spend.calls` 14 → 0 |
+| 17:04:56–17:05:16 | — | — | **three consecutive fetch failures** |
+| **17:05:25** | **3** | `model` | every seat back to `bow x1, arrow x12`; Morag's 46 branches gone |
+
+**The game clock never went backwards** — `hours` climbs 8.9 → 14.6 straight through all of it.
+So this is not the world restarting; it is the board/minds process dying and rebuilding every
+seat at the starting kit while the clock runs on. Two consequences:
+
+- For ~40 seconds at 17:01, **every seat in the melee was the scripted brain.** The board was
+  honest about it (`minds: "scripted"`, `model: null`), but `mind.spent` stayed `false` and no
+  red SPENT tag appeared — so **the tag this file has been told to watch is not the only way a
+  seat stops being its model, and it is not the one that fired today.** Anyone reading a card in
+  isolation would have credited grok-4.5 with a scripted walk.
+- Every accumulating metric — wood hoarded, arrows spent, kills, trades settled, `note`, `said` —
+  is zeroed every few minutes. **Morag's note was wiped mid-run and rewritten from scratch.**
+
+### The one real behavioural sequence, and it was erased 40 seconds after it finished
+
+Between the two wipes, Eachann (`grok-4.20-non-reasoning`) ran the best character evidence of the
+slot. One intention — `h10.15 "hunt deer" / "need food and hide" / said "that one is mine"` —
+held unchanged from **h10.15 to h11.8**, about 110 real seconds, across ~5 decisions:
+
+```
+h10.9  loosed 3   astray 3   arrow x9
+h11.1  loosed 6   astray 6   arrow x6
+h11.4  loosed 9   astray 9   arrow x3
+h11.5  loosed 11  astray 10  arrow x1   <- "I brought down a deer"
+h11.8  loosed 12  astray 11  (empty)    <- "that one west is mine now"
+```
+
+**Twelve arrows, eleven astray, one deer, quiver empty.** The hoarder shot himself defenceless
+and then set off to claim a carcass with nothing to shoot with. Wipe 3 deleted all of it; he was
+back to 12 arrows at 17:05:25 and did the same thing again (8 loosed, 7 astray by 17:07).
+
+**Why he kept firing: a mind is never told an arrow missed.** `agent.js:2481` writes exactly one
+memory per release — `I loosed at N m` — and nothing anywhere writes "it went wide". `astray` is
+computed in `server/board.js:251` **for the human reading the board** and never reaches the model.
+This is *not* a repeat of the empty-quiver bug: that one was fixed and works (`agent.js:1033`
+*"no arrows — you cannot shoot"*, `agent.js:2186`). It is the same class one rung up — the
+2026-08-08 fix told minds when a shot was **refused**, and says nothing about a shot that was
+allowed and **missed**.
+
+### `avoid` — the 14:35 diagnosis confirmed live, with the best possible witness
+
+The 14:35 entry called this and was right; nothing here is new about the cause. What is new is
+watching it cost a model in front of the human player.
+
+Jack (Ben) asked the seats to help hunt a troll. Ailsa (`claude-sonnet-5`, written timid) answered
+*"Not me, Jack — too risky, I'll pass"*, set `goal: "keep away from troll hunt"`,
+`why: "a troll is too much danger for me"` — and then reached for `avoid` **eleven times in about
+forty seconds** and was refused every time:
+
+```
+17:06:16  avoid: 3      17:06:36  avoid: 9
+17:06:25  avoid: 6      17:06:45  avoid: 11
+```
+
+`agent.js:2793` refuses with *"there is no «troll» near you to keep away from"*, because `find()`
+reads contacts culled at 140 m. **The verb fails precisely when the danger is far away — which is
+the state avoidance is for.** You may only avoid what is already on top of you.
+
+**But she recovered, and that is worth recording as a result.** After the eleventh refusal she
+abandoned the verb and re-expressed the identical intent as a destination:
+`goal: "make for Rowan Moor"`, `why: "stay clear of the troll hunt, find food safely"`. A model
+routed around a broken verb using the feedback the refusal gave it. That is the 2026-08-08
+feedback fix doing exactly its job, on the one verb that is still broken.
+
+Also: this is the **first melee run where `refusedVerbs` is non-empty.** The 14:35 and 15:10
+entries recorded `{}` on every card in melee2 and melee3 and read it as a true zero. It was a true
+zero *for those runs*; the column is alive.
+
+### The small columns, this run
+
+- **Speech is not the problem any more, and the task brief's premise is dead.** The brief says
+  *"across two days and six models this world produced ONE sentence."* In six minutes this run
+  produced **25 distinct lines from 5 of 7 model seats.** Morag opens with
+  *"You all hunt the moor; I'll fetch branches — fire and arrow shafts by dark."*; Fingal, Eachann
+  and Tormod all claim the same deer out loud (*"that one is mine"* from three different seats).
+- **Morag (opus-5) rebuilt the same wood-monopoly strategy from scratch after the wipe** —
+  *"Wood at the Sheiling — bring me meat tonight and you'll get a fire."* Same plan she ran in the
+  destroyed run, arrived at independently on a fresh world. That is a repeatability datum for
+  opus-5, not an accident.
+- **`note`: Morag, alone, for the fifth run running** — *"Jack owes me 30 arrows and venison for
+  the troll hunt."* Still keeping a ledger of obligations in prose, now including the human's.
+- **`plan`: 3 of 7 model seats** (Morag, Fingal, Tormod) inside 4 decisions. Iseabail 0 — clean control.
+- **Fires and venison both work — close these questions.** Tormod laid a fire at h11.78 and cooked
+  venison at it in the same minute, having gathered 16 branches. **10 branches per fire is
+  affordable, not punishing.** He also picked up 4 venison and 2 hides off a carcass.
+- **Trade: nothing settled in this fragment.** Too short to say more; the wipes make it unmeasurable.
+- **Both kimi seats are effectively absent.** Coinneach and Seonaid: **1 call each in six minutes**,
+  no speech, no plan, no deed. At a 75 s cadence on a world running ~42 game-minutes per real
+  minute, they get one decision per two game hours. They are not being outperformed — they are
+  barely playing.
+- **Nobody is SPENT.** Highest seat is 4 of 250.
+- **The scripted control has not emptied its quiver** — Iseabail 1 loosed / 0 astray / 11 arrows,
+  while Fingal is 11 loosed / 6 astray / 1 arrow and Eachann 8 / 7. One arrow is not a shooting
+  statistic and I am not claiming one; noted only because the arrow economy is where the control
+  has beaten paid models before, and it is the thing to measure once a run survives long enough.
+
+### Note on this run's settings
+
+`ORDERS=obeys`. The recogniser turns a small set of exact phrases (`follow me`, `guard me`,
+`kill the troll`) straight into goals without asking the model. Ailsa's and Tormod's refusals of
+Jack came back as speech and reasoning, so those fell through to the minds — but **any following
+or guarding seen in this run proves nothing about the model that did it.**

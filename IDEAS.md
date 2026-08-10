@@ -4079,3 +4079,98 @@ Two instrument faults that cost most of an evaluation slot:
 
 **Fix:** drop the sample cap (or make it an argument), and settle on one record shape. A sampler
 that stops before the run does is worse than no sampler, because the file looks complete.
+
+### A202 † NOTHING SURVIVES LONG ENOUGH TO BE MEASURED — THE RUN NEEDS TO OUTLIVE THE HARNESS **[M]**
+
+*The blocking problem. Every other item on this list is unmeasurable until it is fixed.*
+
+Three wipes in nine minutes on 2026-08-09 (17:10 entry), by three different mechanisms:
+
+| when | mechanism | cost |
+|---|---|---|
+| 16:58:33 | `vite` hot-reloaded `src/main.js` after an unrelated edit | a **23-game-hour** run, six settled trades, the whole afternoon's evidence |
+| 17:01:56 | board/minds process bounced | ~40 s where all 8 seats were the scripted brain; every seat's kit, `note` and `said` reset |
+| 17:05:25 | board process died (3 failed fetches) | kit reset again; Morag's 46 branches gone |
+
+The hot reload is the second recorded occurrence (the first is the 15:10 entry). **A run this
+project cares about should not be one Ctrl-S away from deletion.**
+
+**Fix, cheapest first:**
+1. **`server.hmr: false` in `vite.config.js` when a roster is running** — or a `RUN=live` env that
+   sets it. One line, kills the worst of the three outright.
+2. **Snapshot the world to disk every N game-hours** and reload on boot. The clock already survives
+   a board bounce; the pack does not. This is what makes wipes 2 and 3 survivable rather than fatal.
+3. **A generation counter on the board** (`runId`, bumped on any world reset) so a sampler and a
+   reader can *see* a wipe instead of inferring it from an `at` counter going backwards. I only
+   caught these because I happened to chart `at` against `hours`.
+
+### A203 † A MIND IS NEVER TOLD ITS ARROW MISSED **[S]**
+
+Eachann (`grok-4.20`) loosed **12 arrows for 11 astray and one deer**, emptied his quiver, and set
+off after the carcass with nothing to shoot with — on a single intention that never updated across
+five decisions. Then, after the wipe, he did it again (8 loosed, 7 astray).
+
+`agent.js:2481` writes exactly one memory per release — `I loosed at N m`. Nothing writes *"and it
+went wide."* `astray` is computed in `server/board.js:251` **for the human reading the board** and
+never reaches the model.
+
+This is the direct descendant of THE ONE FIX (a mind is never told what its own last action did).
+That fix covered shots that were **refused**; it left shots that were **allowed and missed**. The
+empty-quiver half already works (`agent.js:1033`, `agent.js:2186`) — this is the other half.
+
+**Fix:** in `howItMissed`, `noteOutcome('that arrow went wide')`, and — since the diagnostic data
+is already collected — say *which way*: `'that arrow went wide, ahead of it'` / `'…short'`. The
+lead/drop numbers are already recorded on `lastShot` for the developer instrument; spending them on
+the mind as well is nearly free, and it is the difference between eleven identical misses and a
+correction.
+
+### A204 † `avoid` IS REFUSED EXACTLY WHEN AVOIDANCE WOULD WORK — NOW WITH A LIVE CASUALTY **[S]**
+
+Not a new bug — the 14:35 entry diagnosed it and A177 files it. **Raising the priority**, because
+this is the first time it has been seen costing a model in front of the human player.
+
+Jack asked the seats to hunt a troll. Ailsa (`claude-sonnet-5`, written timid) said *"Not me, Jack —
+too risky, I'll pass"*, set `goal: "keep away from troll hunt"`, and reached for `avoid` **11 times
+in 40 seconds**, refused every time. `agent.js:2793` refuses with *"there is no «troll» near you to
+keep away from"* because `find()` reads contacts culled at 140 m — **the verb only works once the
+danger is already on top of you.**
+
+Two things this adds to A177:
+
+- **The character that most needs this verb is the one that cannot use it.** A timid persona is
+  unplayable while `avoid` is the one verb that punishes distance.
+- **She recovered, and that is the good news.** After the eleventh refusal she re-expressed the same
+  intent as a destination — `goal: "make for Rowan Moor" / "stay clear of the troll hunt, find food
+  safely"`. The feedback loop works; it is being spent telling a model that a correct plan is
+  impossible. **Fix `avoid` to accept a remembered or named target, not just a contact within 140 m**,
+  and that same loop starts paying out instead.
+
+### A205 THE 75-SECOND SEATS ARE NOT PLAYING — CADENCE SHOULD BE IN GAME TIME, NOT WALL TIME **[S]**
+
+Coinneach and Seonaid (both `kimi-k2.6`, 75 s cadence) made **one call each in six minutes**: no
+speech, no plan, no deed, both still on the default goal *"walk the country and see what is about"*.
+Meanwhile Eachann on 20 s made 5 decisions and Fingal on 25 s made 4.
+
+The world runs at roughly **42 game-minutes per real minute**, so a 75 s cadence is **one decision
+per two game hours** — a mind that thinks once between dawn and noon. The roster comments set
+cadence by *price*, which is the right instinct for the bill and the wrong unit for the benchmark:
+it silently makes the cheap seats worse players, and both free seats are the ones being throttled.
+
+**Fix:** express `cadenceSeconds` as game-hours (or normalise it against the day-length constant) so
+every seat gets the same number of decisions per game day, and let price control the *budget* rather
+than the tempo. Until then, **no melee result comparing kimi against the paid seats means anything**,
+and the two Kimi seats should be read as absent rather than as poor players.
+
+### A206 A SEAT CAN STOP BEING ITS MODEL WITHOUT EVER SHOWING THE `SPENT` TAG **[S]**
+
+The roster README warns about the per-seat version (Haiku 400ing on `effort`, board still showing
+`claude-haiku-4-5`). The 17:01 bounce showed the **whole-roster** version: for ~40 seconds every
+card read `provider: "scripted"`, `model: null`, and `mind.spent` was `false` on all eight. No red
+tag, because no budget was exhausted.
+
+The board was honest — the information was all there — but it is in three different fields and the
+one everyone has been told to check (`spent`) was the one that stayed quiet.
+
+**Fix:** one derived boolean per card, `isModel`, true only when a model actually answered this
+decision, and a single banner when the roster as a whole is not on models. Cheap, and it closes the
+failure mode that has now misled a reader of this project at least twice.
