@@ -151,6 +151,36 @@ export class Inventory {
   add(id, count = 1) {
     const def = getItem(id);
     if (!def || count <= 0) return 0;
+
+    // ── WHAT A PERSON CAN ACTUALLY CARRY ──
+    //
+    // There was no limit at all. `stack` bounded a SLOT and `add` made new
+    // slots for ever, so a body could hold any number of anything — and one
+    // did: Morag finished a measured hour with 205 BRANCHES, twenty fires'
+    // worth, having spent the hour picking up wood nobody needed.
+    //
+    // The cost was not the number, it was what it did to every decision in the
+    // game. Across that hour, `pick up what is lying about` was 32 per cent of
+    // all decisions and `gather` was 334 of 471 deeds. The most-chosen action
+    // in this world was collecting things that had no use, because collecting
+    // was free and there was nowhere for it to stop.
+    //
+    // It is also why the economy read so oddly. What they traded FOR was
+    // arrows, venison and hides; what they paid WITH was wood. Wood was the
+    // currency precisely because it was worthless — everybody had unlimited
+    // amounts. A cap is what gives a branch a price.
+    //
+    // Per item rather than a total weight: a hunter carrying sixty arrows and
+    // no food is a different and legible kind of body from one carrying twelve
+    // of everything, and one number per line in the registry is a knob anybody
+    // can turn without reading this file.
+    const cap = def.carry;
+    if (cap) {
+      const room = cap - this.countOf(id);
+      if (room <= 0) return 0;
+      count = Math.min(count, room);
+    }
+
     let left = count;
 
     for (const s of this.slots) {

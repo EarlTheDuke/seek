@@ -1075,6 +1075,21 @@ export class Agent {
         this.count('wood') <= 0 && 'no firewood — you cannot lay a fire or make arrows',
         !EDIBLE.some((id) => this.count(id) > 0) && 'no food',
       ].filter(Boolean),
+      // ── AND WHAT YOU CANNOT CARRY ANY MORE OF ──
+      //
+      // The mirror of `lacking`, and it exists for the same reason: a mind that
+      // is not told a thing is full will go on choosing to fill it. Across one
+      // measured hour, `pick up what is lying about` was 32 per cent of every
+      // decision made in this world and `gather` was 334 of 471 deeds — with
+      // one body finishing on 205 branches. Capping the pack stops the
+      // hoarding; SAYING SO is what stops the reaching.
+      //
+      // Only what is actually at its limit, and only things worth mentioning.
+      // A brief that lists everything you are not short of is a brief nobody
+      // reads — the same rule `lacking` was written under.
+      full: Object.entries(this.pack ?? {})
+        .filter(([id, n]) => getItem(id)?.carry && n >= getItem(id).carry)
+        .map(([id, n]) => itemWords(id, n === 1 ? 1 : 2)),
       // What the last stretch of acting actually did. Drained by `deliberate`,
       // so each line is seen exactly once by exactly one decision.
       outcome: (this.outcomes ?? []).map((o) => (o.n > 1 ? `${o.text} (${o.n} times)` : o.text)),

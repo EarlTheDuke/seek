@@ -180,6 +180,15 @@ export function briefToText(b) {
   // Stated, not left to be inferred from a gap in the line above. See the
   // `lacking` comment in agent.js — one mind hunted for an hour on an empty bow.
   if (b.lacking?.length) lines.push(`You have ${b.lacking.join('; ')}.`);
+  // The mirror of `lacking`. A mind not told a thing is full goes on choosing
+  // to fill it — 32 per cent of every decision in one measured hour was picking
+  // things up, by bodies already carrying more than they could ever use.
+  if (b.full?.length) {
+    const list = b.full.length > 1
+      ? `${b.full.slice(0, -1).join(', ')} or ${b.full.at(-1)}`
+      : b.full[0];
+    lines.push(`You cannot carry any more ${list} — picking up more is wasted.`);
+  }
   // ── SOMEBODY IS FIGHTING SOMETHING, AND IT IS TOO BIG FOR THEM ──
   //
   // Above everything, because it is the only line in this brief that another

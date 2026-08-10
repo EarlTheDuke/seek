@@ -200,7 +200,7 @@ export const ITEMS = {
     id: 'arrow',
     name: 'Arrow',
     kind: 'ammo',
-    stack: 99,
+    stack: 99, carry: 60,
     geometry: () => (arrowGeo ??= buildArrowGeometry()),
     makeObject: () => new THREE.Mesh(ITEMS.arrow.geometry(), itemMaterial),
   },
@@ -226,7 +226,7 @@ ITEMS.venison = {
   id: 'venison',
   name: 'Venison',
   kind: 'material',
-  stack: 20,
+  stack: 20, carry: 12,
   geometry: () => {
     if (venisonGeo) return venisonGeo;
     const g = new THREE.IcosahedronGeometry(0.11, 1);
@@ -240,7 +240,7 @@ ITEMS.hide = {
   id: 'hide',
   name: 'Hide',
   kind: 'material',
-  stack: 20,
+  stack: 20, carry: 12,
   geometry: () => {
     if (hideGeo) return hideGeo;
     // A rolled pelt: a squashed cylinder on its side.
@@ -276,7 +276,7 @@ ITEMS.gold = {
   id: 'gold',
   name: 'Gold',
   kind: 'material',
-  stack: 99,
+  stack: 99, carry: 200,
   geometry: () => {
     if (goldGeo) return goldGeo;
     // A small flat disc, edge-on to the ground so it catches the light.
@@ -300,7 +300,7 @@ ITEMS.wood = {
   id: 'wood',
   name: 'Branch',
   kind: 'fuel',
-  stack: 20,
+  stack: 20, carry: 40,
   fuel: 1, // one branch of burn time — see SURVIVAL.fireFuelPerWood
   geometry: () => {
     if (woodGeo) return woodGeo;
@@ -334,7 +334,7 @@ ITEMS.torch = {
   id: 'torch',
   name: 'Torch',
   kind: 'light',
-  stack: 5,
+  stack: 5, carry: 3,
   // Seconds of burn once lit. Thirty minutes — Ben's number, and about right:
   // a day here is TIME.dayMinutes, so one torch is most of a night rather than
   // a sprint between two fires.
@@ -363,7 +363,7 @@ ITEMS.stone = {
   id: 'stone',
   name: 'Stone',
   kind: 'material',
-  stack: 10,
+  stack: 10, carry: 20,
   geometry: () => {
     if (stoneGeo) return stoneGeo;
     const parts = [];
@@ -427,7 +427,7 @@ ITEMS.fish = {
   id: 'fish',
   name: 'Trout',
   kind: 'food',
-  stack: 12,
+  stack: 12, carry: 12,
   geometry: () => {
     if (trout) return trout;
     const parts = [];
@@ -453,7 +453,7 @@ ITEMS.fish_cooked = {
   id: 'fish_cooked',
   name: 'Cooked Trout',
   kind: 'food',
-  stack: 12,
+  stack: 12, carry: 12,
   geometry: () => {
     if (troutCooked) return troutCooked;
     const parts = [];
@@ -474,7 +474,7 @@ ITEMS.venison_cooked = {
   id: 'venison_cooked',
   name: 'Cooked Venison',
   kind: 'food',
-  stack: 20,
+  stack: 20, carry: 12,
   geometry: () => {
     if (cookedGeo) return cookedGeo;
     const g = new THREE.IcosahedronGeometry(0.11, 1);
