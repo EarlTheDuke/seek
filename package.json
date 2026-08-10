@@ -75,7 +75,8 @@
     "hailcheck": "node server/hailcheck.js",
     "ordercheck2": "node server/ordercheck2.js",
     "staggercheck": "node server/staggercheck.js",
-    "carrycheck": "node server/carrycheck.js"
+    "carrycheck": "node server/carrycheck.js",
+    "bowcheck": "node server/bowcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

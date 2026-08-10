@@ -26,6 +26,9 @@ const CLOAK_DARK = new THREE.Color(0x2f2b23);
 const SKIN = new THREE.Color(0x9a7b5e);
 const LEATHER = new THREE.Color(0x5d4a33);
 
+// One pixel wide at any range, which is what a bowstring is.
+const stringMaterial = new THREE.LineBasicMaterial({ color: 0xd8d0bb });
+
 const material = new THREE.MeshStandardMaterial({
   vertexColors: true,
   roughness: 0.88,
@@ -46,6 +49,41 @@ function paint(geo, color) {
   }
   g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
   return g;
+}
+
+const BOWWOOD = new THREE.Color(0x6b4a2c);
+let bowShared = null;
+
+/**
+ * A bow small enough to hang off a shoulder, in the same idiom as the figure.
+ *
+ * NOT `buildBow()` from the item registry, and the difference is the point.
+ * That one is the object in YOUR hands, seen from thirty centimetres, and it
+ * carries a real recurve profile, a laminate cross-section and a `Line` string
+ * whose middle vertex moves as you draw. This one is seen at ten to a hundred
+ * metres by somebody trying to work out whether the figure on the ridge is
+ * about to shoot them, and at that distance the only things that survive are
+ * the SILHOUETTE and whether the string is back.
+ *
+ * So: one merged arc, one straight string, two draw calls' worth of nothing.
+ * The whole value is that the shape reads as a bow at a glance and reads as
+ * DRAWN at a glance, and both of those are answered by the outline alone.
+ */
+function bowGeometry() {
+  if (bowShared) return bowShared;
+
+  // The arc, swept as a tube along a shallow recurve so the tips flick back —
+  // a plain semicircle reads as a croquet hoop rather than a weapon.
+  const curve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, -0.46, 0.03),
+    new THREE.Vector3(0, -0.3, -0.035),
+    new THREE.Vector3(0, 0, -0.055),
+    new THREE.Vector3(0, 0.3, -0.035),
+    new THREE.Vector3(0, 0.46, 0.03),
+  ]);
+  const limb = new THREE.TubeGeometry(curve, 14, 0.014, 5, false);
+  bowShared = { limb: paint(limb, BOWWOOD) };
+  return bowShared;
 }
 
 function figureGeometry() {
@@ -166,12 +204,46 @@ class Avatar {
       arms.push(pivot);
     }
 
+    // ── THE BOW, IN TWO PLACES ──
+    //
+    // Every figure in this world has carried a bow since the first day and not
+    // one of them has ever shown it. You could not tell an archer from a
+    // walker, which in a game whose entire threat model is "somebody on a ridge
+    // with a bow" is the one thing the silhouette most needed to say.
+    //
+    // Two poses, blended by the same damped `draw` the arms already use:
+    //
+    //   SLUNG — across the back, diagonal, riding the left shoulder. This is
+    //   the one you see 95% of the time and it exists to say "armed".
+    //
+    //   DRAWN — round into the left hand, upright, held out, with the string
+    //   pulled back. This is the one that has to say "at YOU", now, from a
+    //   distance where nothing else about the figure is legible.
+    //
+    // The string is a `Line` whose middle vertex moves, exactly as the
+    // first-person bow's does. It is the single detail that makes this read as
+    // archery rather than as a man holding a hoop, and it costs three numbers.
+    const B = bowGeometry();
+    const bowPivot = new THREE.Object3D();
+    const bowMesh = new THREE.Mesh(B.limb, material);
+    bowMesh.castShadow = true;
+    bowPivot.add(bowMesh);
+
+    const stringGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0.46, 0.03),
+      new THREE.Vector3(0, 0, 0.03),
+      new THREE.Vector3(0, -0.46, 0.03),
+    ]);
+    const bowString = new THREE.Line(stringGeo, stringMaterial);
+    bowPivot.add(bowString);
+    g.add(bowPivot);
+
     const plate = nameplate(name);
     plate.position.y = 2.05;
     g.add(plate);
 
     this.object = g;
-    this.parts = { body, neckPivot, headPivot, legs, arms, plate };
+    this.parts = { body, neckPivot, headPivot, legs, arms, plate, bowPivot, bowString };
     this.phase = 0;
     this.crouch = 0;
     this.draw = 0;
@@ -228,8 +300,48 @@ class Avatar {
       // Arms counter-swing, unless the bow is up, in which case they come
       // forward together and hold still.
       const walk = Math.sin(this.phase + off + Math.PI) * 0.5 * swing;
-      this.parts.arms[i].rotation.x = lerp(walk, -1.35, this.draw);
+      // ── AN ARCHER'S ARMS ARE NOT SYMMETRICAL ──
+      //
+      // Both used to swing forward to the same angle, which reads as a man
+      // pushing a door. The bow arm goes STRAIGHT out and locks; the string arm
+      // comes back and up toward the ear. That asymmetry is most of what makes
+      // a distant figure legible as drawing rather than reaching.
+      //
+      // `arms[0]` is at x = +0.27 on a body built facing +Z, which is its LEFT
+      // — the bow arm for a right-handed archer, and the side the bow swings
+      // round to below.
+      const aim = i === 0 ? -1.62 : -0.95;
+      this.parts.arms[i].rotation.x = lerp(walk, aim, this.draw);
+      // The string arm also comes across the chest, which is the other half of
+      // the shape. Only the string arm — the bow arm stays out on its side.
+      this.parts.arms[i].rotation.z = lerp(0, i === 0 ? 0 : 0.42, this.draw);
     }
+
+    // ── AND THE BOW GOES ROUND WITH THEM ──
+    //
+    // Slung across the back at rest; round into the left hand and upright when
+    // drawn. Lerped rather than switched, because the half-second of it coming
+    // off the shoulder is the tell that somebody has decided to shoot — and at
+    // range that half-second is the only warning you get.
+    const bp = this.parts.bowPivot;
+    bp.position.set(
+      lerp(-0.12, 0.3, this.draw),
+      lerp(1.28, 1.42, this.draw),
+      lerp(-0.24, 0.34, this.draw)
+    );
+    // Slung: tipped over the shoulder and lying flat against the back.
+    // Drawn: upright and square to the way the body faces.
+    bp.rotation.set(
+      lerp(0.15, 0, this.draw),
+      lerp(0.35, 0, this.draw),
+      lerp(0.95, 0, this.draw)
+    );
+
+    // The nocking point comes back as the string is pulled. Three numbers, and
+    // the whole reason this reads as archery rather than as a man with a hoop.
+    const pos = this.parts.bowString.geometry.attributes.position;
+    pos.setZ(1, 0.03 - this.draw * 0.26);
+    pos.needsUpdate = true;
     this.parts.body.rotation.x = lerp(0, 0.18, this.draw) + Math.sin(this.phase * 2) * 0.03 * swing;
     // Head follows their pitch, so you can tell what someone is looking at.
     this.parts.headPivot.rotation.x = clamp(-(p.t ?? 0), -0.9, 0.9);
