@@ -4234,3 +4234,37 @@ between control and models is currently measuring the script's aim, not the mode
 `loosed`/`astray` from any control-vs-model claim until it has one. Related to A203 — the models are
 never told they missed, and the script is never told either, but only the script keeps firing
 regardless with no goal that changes.
+
+### A210 † AN ORDERED GOAL AND A CHOSEN GOAL ARE INDISTINGUISHABLE ON THE BOARD **[S]**
+
+`23d2a20` fixed `ORDERS=obeys` and verified it with log lines reading `Fingal: stay with Tester
+(ordered)`. **That marker does not reach `board.json`** — zero matches for `(ordered)` across 97
+samples of the live board.
+
+The only discriminator available to a reader is that the recogniser leaves `why` **null**, because
+no model was asked for a reason. That is an accident, not instrumentation, and it is the entire
+basis on which I was able to tell these two apart — same seat, same human, twenty seconds apart:
+
+```
+Fingal  "make for Jack's fire east of Broad Loch"
+        why "Jack said arrows and a stand against the troll. I gave my word."   <- haiku-4.5 CHOSE
+Fingal  "stay with Jack"   why null                                             <- a string match
+```
+
+At 17:13:57 five seats took the identical ordered goal in one sample, and at 17:15:57 three more —
+**including Iseabail, who has no model.** Anyone summarising that board sees eight minds rallying to
+the player.
+
+This is the same disease as the banner that said `obeys` over eight agents set to `decides`: the
+display agrees with the intention and not with the machine. **`PLAY-MELEE.cmd` now states the cost
+out loud — "an obeyed order proves nothing about the mind that took it" — but the board does not
+show you which ones were obeyed.**
+
+**Fix:** carry the `ordered` flag the recogniser already knows about onto the card and render it, so
+a goal reads `stay with Jack (ordered)`. One field. It makes every `ORDERS=obeys` run readable
+instead of uninterpretable, and it retires the `why: null` heuristic before someone relies on it
+after a change makes the recogniser write a `why`.
+
+**Second, smaller:** the run banner should print the mode each agent actually resolved, not the mode
+requested. The lie that cost the playtester two nights was a banner that could not be contradicted
+by the thing it described.

@@ -6229,3 +6229,61 @@ Eachann ends with 66 branches, the largest holding on the board, having stopped 
 after his quiver emptied. `refusedVerbs` is `{}` on every card in the stable window; Ailsa's
 `avoid: 11` was lost in the 17:08 wipe. **`note` is empty on all eight seats** — the first window
 in five runs where even Morag wrote nothing.
+
+## 2026-08-09 17:30 PDT — MY OWN CAVEAT WAS BACKWARDS, AND `why: null` IS THE ONLY THING ON THE BOARD THAT SEPARATES AN ORDER FROM A DECISION
+
+`23d2a20` landed at **17:11:37**, in the middle of the window I was sampling, and its finding
+rewrites both entries above:
+
+> *"loadRoster normalised a line that said NOTHING about orders into one saying 'decides' … So the
+> environment variable could never win, and the startup banner printed 'orders: obeys' over the top
+> of eight agents every one of which was set to decides."*
+
+**`ORDERS=obeys` was silently dead for every run that used a roster.** `melee2.cmd` sets it; the
+banner said it; it was never in force.
+
+### Correction — the 17:10 entry's closing caveat is exactly wrong for the early window
+
+I wrote: *"any following or guarding seen in this run proves nothing about the model that did it."*
+For everything before the fix reached disk, **the opposite is true.** The run was on `decides` no
+matter what the banner claimed, so Ailsa's refusal of the troll hunt, the eleven `avoid` attempts,
+Tormod's *"meat first, then maybe your troll"* and Eachann's *"not my troll"* were **all model
+choices with no recogniser anywhere near them.** Those observations get stronger, not weaker.
+
+`server/roster.js` was saved at **17:06:16** and `providercheck.js` at 17:07:07 — so wipes 4 and 5
+(17:08:36, 17:10:25) were almost certainly the developer restarting to test this fix. **That
+downgrades part of A202**: two of the five wipes were someone iterating on purpose, not an
+unexplained fault. The 16:58 hot reload and the 17:01/17:05 bounces still stand as real.
+
+### And then obeys went live, and you can see the exact tick it did
+
+At **17:13:57**, five seats flip in the same sample to the identical goal:
+
+```
+17:13:57  Morag / Coinneach / Seonaid / Ailsa / Fingal   goal "stay with Jack"   why: null
+17:15:57  Eachann / Tormod / Iseabail                    goal "stay with Jack"   why: null
+```
+
+**`why` is `null` on every one of them.** Every model-authored goal in 97 samples carries a `why`;
+these carry none, because no model was asked. **Iseabail got one too** — the scripted control, which
+has no model at all — which settles that this is the recogniser and not eight minds agreeing.
+
+So the caveat is right for the late window and wrong for the early one, and the boundary is visible
+to the sample: **before ~17:12 everything is the models; from 17:13:57 the mass "stay with Jack" is
+the harness.**
+
+### The instrument point, which is the reusable part
+
+`(ordered)` — the marker `23d2a20`'s own verification quotes — **appears nowhere in `board.json`.**
+Zero matches across 97 samples. The only way I could separate an ordered goal from a chosen one was
+noticing that `why` was null, which is an accident of how the recogniser writes goals, not
+instrumentation. Two seats make the danger concrete in the same minute:
+
+```
+17:14:17  Fingal  "make for Jack's fire east of Broad Loch"
+                  why "Jack said arrows and a stand against the troll. I gave my word."   <- CHOSE
+17:13:57  Fingal  "stay with Jack"                          why null                      <- ORDERED
+```
+
+Same seat, same human, twenty seconds apart, and on the board they look like the same kind of fact.
+One is haiku-4.5 keeping its word; the other is a string match. **A210.**
