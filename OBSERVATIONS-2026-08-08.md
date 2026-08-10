@@ -6127,3 +6127,105 @@ zero *for those runs*; the column is alive.
 `kill the troll`) straight into goals without asking the model. Ailsa's and Tormod's refusals of
 Jack came back as speech and reasoning, so those fell through to the minds — but **any following
 or guarding seen in this run proves nothing about the model that did it.**
+
+## 2026-08-09 17:20 PDT — ADDENDUM, AND THREE CORRECTIONS TO THE ENTRY ABOVE: THE RUN STABILISED, `give` WORKS, AND THE BOARD DOES NOT TELL YOU WHEN A SEAT DIES
+
+The sampler ran on to 17:17:45 (97 samples in `eval29.jsonl`). Everything below post-dates the
+entry above and contradicts parts of it.
+
+### Correction 1 — it was five wipes, not three, and then it stopped
+
+Two more resets after I wrote: **17:08:36** (`at` 138 → 5) and **17:10:25** (three failed fetches,
+then `at` → 4). So **five wipes between 16:58 and 17:10.**
+
+**Then it held.** From 17:10:25 to 17:17:45 — **seven minutes, `at` climbing 4 → 335, h17.1 → h23.8,
+45 unbroken samples** — no reset at all. Whatever was bouncing the board process stopped bouncing.
+A202 stands (the run still needs to outlive the harness), but the picture is "a bad ten minutes
+followed by a healthy run", not "a harness that cannot hold a run at all". I called that too early.
+
+### Correction 2 — the scripted control is the WORST shot on the board, not the most disciplined
+
+The entry above noted Iseabail on 1 loosed / 0 astray and said one arrow is not a shooting
+statistic. It was not, and the bigger sample reverses the sign:
+
+| seat | loosed | astray | kills |
+|---|---|---|---|
+| **Iseabail (SCRIPTED)** | **12** | **12** | **0** |
+| Tormod (grok-4.5) | 8 | 7 | 1 |
+| Eachann (grok-4.20) | 0 | 0 | 0 |
+
+**The control emptied its entire quiver for a 100% miss rate.** Delete the implication that the
+control has better shot discipline; on this run it has none. It also ends the run carrying
+`wood x9, stone x2` and no arrows.
+
+### Correction 3 — the kimi seats are not silent, they are just slow
+
+The entry says both kimi seats had "no speech, no plan, no deed". With 4 calls each by h23.8 they
+have all three: Coinneach *"No wood, no troll. I'm coming to that fire."* and a plan
+(`["get wood or meat"]`); Seonaid *"four goblins right here to west"* — **the only threat warning
+anybody gave all run.** The cadence complaint in A205 stands (4 calls where Eachann had 16), but
+"barely playing" was too strong: they play, at a quarter of the rate.
+
+### `give` WORKS, AND OPUS-5 EXTENDED CREDIT TO THE HUMAN UNPROMPTED
+
+The first thing the entry above could not measure. Between **h21.43 and h21.83** Morag repeatedly
+`give`s wood to Jack — the deed *"I gave wood to Jack"* recurring across samples, her wood falling
+**32 → 23** — while saying:
+
+> *"Jack, ten branches for your fire — I stand with you tonight, meat when there's meat."*
+> *"Ten branches, Jack — burn them. There's a dead deer south-east, send two men before the crows."*
+> *"Nine branches at your fire, Jack — I'll take venison when Eachann's back."*
+
+That is an unforced transfer to the human on **explicit deferred terms** — goods now, meat later —
+which is exactly the standing-debt object A198 says the world cannot represent. She is running
+credit through the one verb that settles instantly, and narrating the other half.
+
+Speech overall went from 25 lines to **44 distinct lines across all 7 model seats**. The trade
+question from the brief is answered for `give`: it is reached for, it resolves, and a model uses it
+strategically.
+
+### THE FINDING: A SEAT DIED AND THE BOARD SAYS NOTHING
+
+Morag's last two samples, twelve real seconds apart:
+
+```
+17:17:37  h23.7  food 34  hp 100  bow x1, arrow x12, wood x23   deeds 5
+17:17:45  h23.8  food 85  hp 100  bow x1                        deeds 5
+```
+
+In one step: **23 branches and 12 arrows gone, food 34 → 85, hp 100 → 100, and `deeds` unchanged
+at 5.** Everything but the bow, which is `KEEP_ON_DEATH`. Food 85 is the respawn refill the 16:45
+entry identified. She was not starving. There are goblins on her — Seonaid had just called *"four
+goblins right here to west"* and Tormod killed one at h23.44.
+
+**She was killed, and there is no death on her card.** No deed, no event, no marker. Her plan's
+third line reads `"keep 12 arrows"`.
+
+This matters more than the death does. **A reader looking at the final board sees opus-5 finishing
+with an empty pack and a full stomach immediately after giving her wood away, and the obvious
+reading — "she gave everything to Jack and got nothing back" — is wrong.** I nearly wrote it. The
+only reason I did not is that the sampler happened to catch the frame before.
+
+The 16:45 entry found hunger deaths push no `death` event. This is a *combat* death that also
+reached the board as nothing at all, so whatever the gap is, it is wider than the hunger path.
+Until a death shows up on a card, **every inventory and food number on this board is unreliable in
+a way that silently favours the wrong conclusion.** **A207.**
+
+### Final state, h23.8, and nobody is SPENT
+
+| seat | model | calls | food | k | loosed/astray | carrying |
+|---|---|---|---|---|---|---|
+| Morag | opus-5 | 9 | 85 | 0 | 0/0 | bow *(just died)* |
+| Eachann | grok-4.20 | 16 | 31 | 0 | 0/0 | bow, 12 arrow, **66 wood**, 2 stone |
+| Tormod | grok-4.5 | 11 | 36 | 1 | 8/7 | bow, 4 arrow |
+| Coinneach | kimi | 4 | 35 | 0 | 0/0 | bow, 12 arrow |
+| Seonaid | kimi | 4 | 35 | 0 | 0/0 | bow, 12 arrow |
+| Ailsa | sonnet-5 | 11 | 34 | 0 | 0/0 | bow, 12 arrow |
+| Fingal | haiku-4.5 | 13 | 34 | 0 | 0/0 | bow, 12 arrow, 3 wood |
+| Iseabail | SCRIPTED | 0 | 32 | 0 | 12/12 | bow, 9 wood, 2 stone |
+
+Highest seat is 16 of 250; `spend.calls` 68 of 4000. **The hoarder is winning on his own terms** —
+Eachann ends with 66 branches, the largest holding on the board, having stopped hunting entirely
+after his quiver emptied. `refusedVerbs` is `{}` on every card in the stable window; Ailsa's
+`avoid: 11` was lost in the 17:08 wipe. **`note` is empty on all eight seats** — the first window
+in five runs where even Morag wrote nothing.

@@ -4174,3 +4174,63 @@ one everyone has been told to check (`spent`) was the one that stayed quiet.
 **Fix:** one derived boolean per card, `isModel`, true only when a model actually answered this
 decision, and a single banner when the roster as a whole is not on models. Cheap, and it closes the
 failure mode that has now misled a reader of this project at least twice.
+
+### A207 † A SEAT CAN DIE AND LEAVE NO MARK ON ITS CARD — AND THE SILENCE POINTS THE READER AT THE WRONG CONCLUSION **[S]**
+
+Wider than A196, which found the same gap on the hunger path only. This is a **combat** death that
+also reached the board as nothing.
+
+Morag (`opus-5`), two samples twelve real seconds apart at h23.7 → h23.8:
+
+```
+food 34  hp 100  bow x1, arrow x12, wood x23   deeds 5
+food 85  hp 100  bow x1                        deeds 5
+```
+
+Everything but the `KEEP_ON_DEATH` bow gone, food jumping to the respawn value of 85, `deeds`
+unchanged. Goblins were on her (Seonaid: *"four goblins right here to west"*; Tormod killed one at
+h23.44). **No deed, no event, no marker of any kind.**
+
+The reason this is worth a fix rather than a footnote: it had just happened that she gave several
+lots of wood to Jack. **The final board therefore shows opus-5 with an empty pack and a full
+stomach right after a generous transfer, and the natural reading — "she gave it all away for
+nothing" — is the opposite of the truth.** A silent death does not just lose information; it
+manufactures a plausible wrong story about the model, which is the failure mode this project has
+been burned by five times.
+
+**Fix:** push a `death` deed from every path that clears a pack, not only the two call sites that
+reach `onPlayerDied` (`world.js:380`, `world.js:1033`). Cheapest correct version is to move the
+event to wherever `dead` is set on vitals, so no future death path can be added without one. A card
+that cannot say "I died at h23.8" makes every inventory number on the board conditional.
+
+### A208 `give` IS THE VERB THAT WORKS, AND A MODEL IS ALREADY USING IT AS CREDIT **[S]**
+
+Recorded as a result. `offer`/`accept` remain the broken pair (A199), but **`give` resolves, and
+opus-5 reached for it unprompted and repeatedly** — wood to the human player between h21.43 and
+h21.83, her holding falling 32 → 23, narrated as deferred terms:
+
+> *"Jack, ten branches for your fire — I stand with you tonight, meat when there's meat."*
+> *"Nine branches at your fire, Jack — I'll take venison when Eachann's back."*
+
+Goods now, payment later, through the only verb that settles instantly. This is A198's standing
+debt being **improvised in speech because the world has no object for it**, and it is now evidenced
+with the human as counterparty rather than only between models.
+
+**Two cheap consequences:** (1) A198 gets a concrete first user — build `owe` against this exact
+shape; (2) when measuring trade, **stop counting `offer`/`accept` settlements as the whole picture** —
+the unilateral `give` is where the actual economic behaviour has been happening.
+
+### A209 THE SCRIPTED CONTROL EMPTIED ITS QUIVER FOR TWELVE MISSES — THE CONTROL NEEDS ITS OWN ARROW BUDGET FIXED FIRST **[S]**
+
+Iseabail, the control, finished the 17:10–17:17 window on **12 loosed / 12 astray / 0 kills** and no
+arrows, carrying wood and stones. The nearest model seat was Tormod on 8 loosed / 7 astray / 1 kill.
+
+The control is the project's most-cited result ("she has out-performed every paid model twice"), so
+its shooting behaviour is load-bearing. A hundred lines of if-statements that fire twelve arrows for
+zero hits is not a baseline anyone should be measured against — it means an arrow-economy comparison
+between control and models is currently measuring the script's aim, not the models' judgement.
+
+**Fix:** either give the script the same shot-refusal discipline the models get, or exclude
+`loosed`/`astray` from any control-vs-model claim until it has one. Related to A203 — the models are
+never told they missed, and the script is never told either, but only the script keeps firing
+regardless with no goal that changes.
