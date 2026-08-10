@@ -7923,3 +7923,142 @@ venison`. Sixteen of 141 spoken lines price a quantity (*"three branches for two
 So the models negotiate in units, `offer` understands units, and the verb they actually reach for to
 *pay* silently rounds every promise down to one. That is not a model failure and not a design
 tradeoff — it is a parameter that exists at both ends and is never passed through the middle.
+
+---
+
+## 2026-08-10 02:06 PDT — BOARD DEAD, RUN OVER, NO NEW DATA. **`refusedVerbs` counts *retargets*, not decisions — every count this file has quoted is inflated about 8×.** And the corrected column points at one thing: Ailsa spent her whole `avoid` budget trying to decline a group plan, which is not a thing the verb can take
+
+`curl http://127.0.0.1:8090/board.json` → **exit 7, connection refused.** Nothing is listening on
+8090 (`Get-NetTCPConnection` → no rows). `duo2.jsonl` unchanged since 2026-08-09 11:28 — same 222
+samples, same 8 seats, 74 real minutes, 805 of 4000 calls. **Per the brief, nothing was restarted.**
+This is a re-read of the same log with one column read properly for the first time.
+
+### The correction, first, because it changes numbers I and others have quoted
+
+`refusedVerbs` is incremented in `agent.js:1874`, inside `refuse()`. `refuse()` is called from
+`resolve(g)` — and `resolve(g)` does **not** run once per decision. It runs on a timer:
+
+```
+  src/net/agent.js:1499   this.retarget -= dt;
+  src/net/agent.js:1500   if (this.retarget <= 0) {
+  src/net/agent.js:1501     this.retarget = AGENTS.retargetSeconds;
+  src/net/agent.js:1502     this.target = this.resolve(g);      ← refuse() lives down here
+  src/config.js:1075      retargetSeconds: 2.5,
+```
+
+**A goal that cannot resolve is re-refused every 2.5 seconds for as long as the mind holds it.** At a
+20-second cadence that is 8 counts per decision; at Coinneach's 75-second cadence it is 30. The
+mind's own outcome line is deduplicated — `noteOutcome` coalesces repeats and renders "(6 times)" —
+but the counter beside it is not. The two numbers on the card disagree by design and nobody noticed.
+
+The sample trace confirms it directly. Between two consecutive 20-second samples, in which each seat
+made at most one decision:
+
+```
+  Ailsa [avoid]   4 → 10 → 16 → 22 → 24     (6, 6, 6, 2 in one sample gap each)
+  Morag [offer]   5 →  9 → 16 → 17          (4, 7, 1)
+```
+
+Six refusals per gap, one decision per gap. **So: Ailsa reached for `avoid` about four times, not
+24. Morag reached for `offer` about three times in the death sequence, not twelve.** The column is
+still doing its stated job — it separates "reached for and refused" from "never wanted", and that
+binary is unaffected — but every magnitude read off it, including in the 2026-08-09 21:05 entry
+("494 refusals") and the A240 line ("`accept` is refused 37 times"), is a tick count wearing a
+decision count's clothes. **Divide by roughly `cadence / 2.5` before quoting it.**
+
+### What the corrected column actually says: Ailsa's whole `avoid` budget went on declining a plan
+
+All four of Ailsa's `avoid` reaches are the same goal, verbatim from the samples at each increment:
+
+```
+  goal: "keep away from troll hunt"   why: "trolls after dark is a good way to die, not worth arrows"
+  goal: "keep away from troll hunt"   why: "not risking my life for arrows"
+```
+
+`troll hunt` is not a body. It is a **proposal other minds were making**, and she wanted out of it.
+The verb she reached for resolves its target against things in sight:
+
+```
+  src/net/agent.js:2979   case 'avoid': {
+  src/net/agent.js:2980     const from = find((label) => namesTheSame(label, g.target));
+  src/net/agent.js:2982     if (!from) { this.refuse('avoid', `there is no "${g.target}" near you…`);
+  src/net/agent.js:2983                  return this.roam(); }
+```
+
+`namesTheSame` was widened (agent.js:3063 records why: "keep away from goblin" used to be a body
+strolling about near a goblin) but it matches a **word against a visible label**. A social event has
+no label, so it can never match — and the fallthrough is `this.roam()`, **a random walk**. The mind
+that says "I am staying away from that" is handed the one behaviour that can walk her into it.
+
+Her speech says the same thing four separate ways, and none of it is wired to anything:
+
+> *"I'll keep the fire going, count me out of the troll hunt"* · *"I'll not fight a troll for four
+> arrows"* · *"I'll stay clear of the troll, thanks"* · *"I'll just gather here, safe from that troll
+> business."*
+
+**Declining is a first-class social act and there is no verb for it.** `avoid` takes a creature;
+`hold` takes nothing and says nothing. Note the shape of this: it is the same defect as A258
+(`follow`/`guard` unexplained) and A273 (`stay still` reads as idling) — the verbs that make a crowd
+into a group are the ones that are missing, mislabelled, or unexplained.
+
+### The death that shows what the market cannot express: Morag starved beside a full larder
+
+Samples 188–194, and this is the clearest single sequence in the log. Morag (claude-opus-5) is at
+food 0 and bleeding out, **carrying `bow×1, arrow×18, wood×24, hide×6` the entire time**:
+
+```
+  s188  Morag hp53 food0   goal: hunt deer            why: "starving, near deer south-west"
+  s190  Morag hp31 food0   goal: go toward deer       why: "must close inside 20 m, starving"
+  s191  Morag hp20 food0   goal: offer 6 hides to Ailsa for venison   why: "badly hurt, starving, no shot"
+  s192  Morag hp 9 food0   goal: offer 6 hides to Ailsa for venison
+  s193  Morag hp 0 food0   goal: offer hide to Ailsa for venison      why: "starving, she is right here"
+  s194  Morag hp100 food84 ← respawn
+```
+
+Ailsa is quoted off the same landmark at the same distance the whole way (327 vs 328 m south-east of
+Rowan Moor) and is walking *toward* her — `goal: go toward Morag` / why: **"she's hurt and asking,
+but I have no meat to spare."** She carries `bow×1, arrow×12, wood×1`. She says it out loud, in the
+last line before Morag hits zero:
+
+> **"here, take the branch — but you have no venison to give?"**
+
+Both minds are correct and both are trying. Morag prices a fair trade — six hides, then *"take two if
+you like"* — for a good Ailsa does not have. **The market has no way to say "I haven't got that."**
+Ailsa said it in `say`, which no mechanic reads; the refusal channel only ever tells the *asker* what
+the harness refused, never that the counterparty declined. So Morag re-issues the offer for three
+decisions and dies mid-bargain.
+
+Two things follow that are worth separating:
+
+- **This is not a model failure and not a trade-plumbing failure.** No count was dropped (A274), no
+  offer lapsed, nobody stood in the wrong place. The offer was simply unfillable, and the protocol
+  is write-only in the direction that mattered.
+- **There is no path from goods to food that does not go through a kill.** Morag held 6 hides, 18
+  arrows and 24 branches — a rich mind by this world's standards — and none of it converts. It
+  corroborates the 2026-08-09 22:05 entry from a fresh angle: she goes food 0 → **84** by dying, so
+  the cheapest calorie in the game is still suicide, and here the alternative was a trade the
+  counterparty physically could not honour.
+
+### One honest limit, and it is a fixable one
+
+**I cannot tell which of Morag's `offer` refusals fired.** There are exactly two sites —
+`agent.js:583` (`there is no such thing as "X" in this country`) and `agent.js:2920` (`there is
+nobody called "X" to make an offer to`) — and the card records the verb and the count and **not the
+reason**. I checked the obvious suspect and it is innocent: `resolveItemId('venison')` → `venison`,
+`resolveItemId('6 hides')` → `hide` (count 6), so the nouns are all legal. Beyond that the board
+cannot answer it.
+
+The gap is worth stating plainly because the card *already solves it for the other half of the
+world*: `refusals` carries `{d, why, slant, dy, leadBy}` for every arrow — *"too far"*, *"a tree in
+the way 5 m out"* — so an archery miss is fully diagnosable and an economic refusal is a bare
+integer. The most informative column on the card is half-built.
+
+### Instrument notes
+
+- The goal shown at a `refusedVerbs` increment is the goal **at sample time**, not necessarily at
+  refusal time. It is tight here (≤1 decision per 20 s gap, and the same goal string spans all four
+  Ailsa increments) but it is an inference, not a record.
+- `plan` is used by **6 of 8 seats** in the final sample, including both kimi seats and both groks —
+  the two blanks are Fingal (0 answered, 152 HTTP-400 failures) and Iseabail (`provider: null`),
+  i.e. **both blanks are seats that were never the model.** `note` is still one line by one seat
+  (Morag), consistent with the 2026-08-10 entry.

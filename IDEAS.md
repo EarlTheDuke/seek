@@ -5280,3 +5280,79 @@ uncoalesced — and a run-total `moved` counter. **Value:** trade is the headlin
 whole eval program and the instrument had no column for it; six sessions were spent inferring from
 speech what one array would have stated. Same class of error as `refusedVerbs` (which was added for
 exactly this reason and is now the most informative column on the card).
+
+### A276 †† `refusedVerbs` COUNTS RETARGETS, NOT DECISIONS — THE BEST COLUMN ON THE CARD IS ~8× OVERSTATED **[S]**
+
+`agent.js:1874` increments the counter inside `refuse()`, and `refuse()` is reached from `resolve(g)`,
+which runs on `AGENTS.retargetSeconds` (`config.js:1075` — **2.5 s**), not once per decision
+(`agent.js:1499–1502`). A goal that will not resolve is re-refused every 2.5 s for as long as the mind
+holds it: 8 counts per decision at a 20 s cadence, 30 at Coinneach's 75 s. Measured in `duo2.jsonl`
+across consecutive 20-second samples in which each seat made at most one decision: Ailsa `avoid`
+4→10→16→22→24 and Morag `offer` 5→9→16→17 — **six refusals per one decision.** So Ailsa reached for
+`avoid` ~4 times, not 24, and every magnitude quoted off this column in OBSERVATIONS (the "494
+refusals" line, A240's "`accept` is refused 37 times") is a tick count read as a decision count. The
+binary the column was built for — "reached for and refused" vs "never wanted" — is unaffected. Note
+that `noteOutcome` right beside it *does* coalesce and renders "(6 times)", so the card ships two
+numbers for one event that disagree by design.
+
+**Fix:** count in `refuse()` only when the (verb, target) pair differs from the last one counted, or
+increment a separate `reachedFor` alongside the tick count and put that on the card. **Value:** an
+hour, and it retires a whole class of confident wrong readings — this file has already produced three.
+
+### A277 †† THERE IS NO VERB FOR DECLINING, AND `avoid` FALLS THROUGH TO A RANDOM WALK **[M]**
+
+Ailsa/claude-sonnet-5's entire `avoid` usage in `duo2.jsonl` is one goal — **`keep away from troll
+hunt`**, why: *"trolls after dark is a good way to die, not worth arrows"* / *"not risking my life for
+arrows"*. A troll hunt is a **proposal other minds were making**, not a body, and `avoid` resolves its
+target against visible labels (`agent.js:2980`, `find(namesTheSame(label, g.target))`). It can never
+match, so it refuses — and the fallthrough is `return this.roam()` (`agent.js:2983`), **a random
+walk**. The mind that says "I am staying away from that" gets the one behaviour that can walk her
+into it. She said it four ways in the `say` channel, none of it wired to anything: *"count me out of
+the troll hunt"*, *"I'll not fight a troll for four arrows"*, *"I'll stay clear of the troll,
+thanks"*, *"I'll just gather here, safe from that troll business."*
+
+**Fix:** two parts, separable. (1) Make `avoid`'s refusal fall through to `hold` rather than `roam` —
+standing still is strictly safer than wandering and is what the mind asked for. (2) Add a `decline
+<person> <reason>` verb (or let `avoid` take a person and a remembered place, which `note` already
+proves minds track: Morag's *"goblins north-east. Do not go that way."*). **Value:** same family as
+A258 (`follow`/`guard` unexplained) and A273 (`stay still` reads as idling) — the verbs that turn a
+crowd into a group are the ones missing or mislabelled. Part (1) is a one-line change and is worth
+doing on its own.
+
+### A278 †† AN OFFER CANNOT BE ANSWERED "I HAVEN'T GOT THAT" — MORAG STARVED TO DEATH MID-BARGAIN **[M]**
+
+`duo2.jsonl` s188–194. Morag/claude-opus-5 at food 0, carrying `bow×1, arrow×18, wood×24, hide×6`,
+goes hp53 → 42 → 31 → 20 → 9 → 0 while holding `offer 6 hides to Ailsa for venison` (why: *"badly
+hurt, starving, no shot"*, then *"starving, she is right here"*, then *"take two if you like"*).
+Ailsa is quoted off the same landmark at the same distance the whole way, walking toward her, and has
+**no venison** — why: *"she's hurt and asking, but I have no meat to spare"* — and says so in the last
+line before Morag hits zero: **"here, take the branch — but you have no venison to give?"** The trade
+plumbing is innocent: no count was dropped (A274), no offer lapsed, both were in range. The offer was
+simply unfillable and **the protocol is write-only in the direction that mattered** — the refusal
+channel tells the *asker* what the harness refused, never that the counterparty declined. Ailsa's
+answer went into `say`, which no mechanic reads.
+
+**Fix:** two cheap pieces. (1) A `decline <person>` verb (shared with A277) that pushes a `nodeal`-
+style outcome into the *asker's* channel — the mind that gets *"Ailsa has no venison"* goes hunting;
+the mind that gets silence re-offers until it dies. (2) When an offer names a `want` the target
+demonstrably does not hold, refuse it at creation with that reason rather than letting it stand.
+**Related, and worth its own line:** Morag held 6 hides, 18 arrows and 24 branches and **none of it
+converts to a calorie without a kill** — while dying paid food 0 → 84 at s194, so this is the
+2026-08-09 22:05 "respawn beats birth" finding from a fresh angle, with the honest trade blocked.
+
+### A279 †† ECONOMIC REFUSALS RECORD A COUNT WITH NO REASON — ARCHERY MISSES RECORD FIVE FIELDS **[S]**
+
+Chasing Morag's 17 `offer` refusals above dead-ended: there are exactly two sites that can produce
+them — `agent.js:583` (`there is no such thing as "X" in this country`) and `agent.js:2920` (`there is
+nobody called "X" to make an offer to`) — and the card carries the verb and the count and **not the
+reason**, so the two are indistinguishable from the board. (The obvious suspect is innocent:
+`resolveItemId('venison')` → `venison` and `resolveItemId('6 hides')` → `hide`/6, so the nouns were
+all legal.) Meanwhile the same card's `refusals` array carries `{d, why, slant, dy, leadBy}` for every
+arrow — *"too far"*, *"a tree in the way 5 m out"* — so a missed shot is fully diagnosable and a
+failed trade is a bare integer.
+
+**Fix:** make `refusedVerbs` an array of `{h, verb, target, why}` capped like `strays`, or add a
+parallel `verbRefusals` beside `refusals` in the same shape. The reason string already exists at every
+call site — `refuse(verb, text)` takes it and throws it at `noteOutcome`; it just never reaches the
+card. **Value:** an hour or two. Pairs with A275 (a settled trade is invisible) and A276 (the count is
+inflated): all three are the same instrument, and the economy is the half of it that was never built.
