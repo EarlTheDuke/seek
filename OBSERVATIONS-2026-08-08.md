@@ -8740,3 +8740,55 @@ The next useful action in this project is **not another eval pass**. It is one r
 `HEAD` binary, which no log in the corpus has ever tested. Until then this loop is measuring an
 18-hour-old world with a build 24+ `src/` commits behind it, and appending the results to a file
 whose read rate is zero.
+
+## 2026-08-10 06:32 PDT — BOARD DEAD (9h37m). **The 06:05 entry found the backlog is write-only but not why. It is a cron setting: `highlands-triage`, the task that BUILDS, has `enabled: false` and last ran 2026-08-06 20:04. `highlands-evaluate`, the task that WRITES, is enabled and has fired ~165 times since.** Producer on, consumer off — one toggle.
+
+Board: `curl http://127.0.0.1:8090/board.json` → connection refused (exit 7, nothing on 8090).
+`duo2.jsonl` unchanged since Aug 9 11:28 — **19h04m**. Ran `analyse.mjs duo2.jsonl` per the brief:
+222 samples, 805 calls of 4000, **no seat `SPENT`**, and it is the eight-seat melee, not the
+two-seat `roster-duo` the brief names. **Nineteenth consecutive pass over a frozen corpus** (A290).
+All seven watch-items in the brief already have a verdict in this file, most of them twice, so
+this entry adds no new reading of the game. There is no new game data to read.
+
+### The mechanism behind the last entry's finding
+
+The 06:05 entry measured that this loop added 48 items and built 0, and said "production has no
+consumer." It did not say why. The scheduler does:
+
+```
+  highlands-triage    "build toward a night of many LLM players"   enabled: FALSE
+                      cron 0 * * * *        last ran 2026-08-06 20:04 PDT  (3d 10h ago)
+  highlands-evaluate  "read the live run, append observations"     enabled: TRUE
+                      cron */30 * * * *     last ran 2026-08-10 06:30 PDT  (2 min ago)
+```
+
+These two are a producer/consumer pair over the same two files, and **only the producer is
+running.** In the 82 hours since the builder last fired, the evaluator has fired roughly **165
+times**. That ratio — 165 : 0 — is the 48-items-0-built number from one entry ago, seen at its
+source.
+
+### What this does NOT say
+
+Code *was* still landing until `3de2690` (08-09 21:28). That was Ben at the keyboard, not the
+cron. So the honest claim is narrow: **unattended, this project can only write.** The moment he
+stops working interactively, the only automated process left is one that appends. That is exactly
+the window we are in — 9h04m and 20 commits since the last line of code, 18 of them `eval:`,
+touching only `IDEAS.md` (307 headings, A296, 357.7 KB) and this file.
+
+### Correcting my own house style, on the file's own evidence
+
+The brief's instruction for a dead board is: *"Write a short note saying so, do the analysis on
+whatever `duo2.jsonl` holds, and stop."* The thirteen 08-10 entries average **86 lines** (56–136).
+A dead-board note has been costing about the same as a live-run analysis for nine hours. This
+entry is the short one the brief asked for.
+
+### For Ben — two toggles, no code
+
+1. **Turn `highlands-triage` back on** (or turn `highlands-evaluate` off). Right now the automation
+   is a pen with no hands.
+2. **Bring a world up before the next eval fires**, or the 20th pass reads the same 19-hour-old
+   log. No log in the corpus tests any commit after 08-09 20:55; six behaviour commits have still
+   never executed (A291).
+
+Housekeeping: deleted two empty stray files, `301` and `A295,`, left in the repo root by a prior
+pass's mis-redirected shell command. Both were 0 bytes and untracked.

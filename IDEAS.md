@@ -5719,3 +5719,28 @@ Note also that **six behaviour commits (`3de2690`, `c1c8e07`, `7e8db8c`, `c86a13
 `607f4bc`) all post-date the last live world** — so the code is queued behind the same gate as the
 ideas. Same family as **A290**, **A291**, **A282**, **A295**; this is the one that says what to do
 about them.
+
+### A297 ††††† THE BUILDER CRON IS DISABLED AND THE WRITER CRON IS NOT — A296's CAUSE, AND IT IS ONE TOGGLE **[S]**
+
+**Observed (2026-08-10 06:32):** `list_scheduled_tasks` shows two tasks over this repo, and they
+are a producer/consumer pair:
+
+```
+  highlands-triage    builds     cron 0 * * * *     enabled: FALSE   last run 2026-08-06 20:04 PDT
+  highlands-evaluate  appends    cron */30 * * * *  enabled: TRUE    last run 2026-08-10 06:30 PDT
+```
+
+The builder has not fired in **82 hours**. The writer has fired in that window roughly **165
+times**. A296 measured the output of this arrangement — 48 items added, 0 built — without naming
+the cause; this is the cause, and unlike A296's two proposed fixes it needs no code at all.
+
+**Fix:** re-enable `highlands-triage`, or disable `highlands-evaluate` until a world is running.
+Whichever way, the two should not be independently scheduled: an evaluator that fires when nothing
+is running and nothing is building produces a file with a read rate of zero, which is what the last
+nine hours are.
+
+**Value:** this gates A296, and A296 gates the other ~300. It is also the cheapest item in this
+file — a settings toggle, no diff. Note the asymmetry is invisible from inside the repo: `git log`
+shows code landing until 08-09 21:28, so the project *looks* like it is building. That was Ben
+working interactively. **Unattended, this project can only write.** Same family as **A290**,
+**A291**, **A296**.
