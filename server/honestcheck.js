@@ -220,6 +220,64 @@ function main() {
       JSON.stringify(w.events.find((e) => e.k === 'nomake')?.why ?? null));
   }
 
+  // ── 6. THE LAST SILENT REFUSAL, UNDER THE VERB THE ECONOMY RUNS THROUGH ──
+  //
+  // `resolveAccept` had six quiet returns, and two measurements on the same day
+  // found the consequence independently. A triage pass over one world: 64 trade
+  // intentions, priced and negotiated out loud, and ZERO trades. A human
+  // playtester at the same time: "handing over does fire — I got 'offering 10
+  // branches to Tormod…' — but nothing was ever accepted."
+  //
+  // The path was never broken. It refused, correctly, for reasons nobody could
+  // see. Every other refusal in this world says why — `nosuch` for a price in
+  // flint, `nomake` for a craft with no fire, `glance` for a shot the ground
+  // ate. This was the last one that did not.
+  {
+    const { w, a, b } = two();
+    a.inventory.add('venison_cooked', 2);
+    b.inventory.add('wood', 3);
+    w.resolveOffer(a, 'Seonaid', 'cooked venison', 'twelve branches');
+    w.resolveAccept(b, 'Mairi');
+    const no = w.events.find((e) => e.k === 'nodeal');
+    check('A DEAL YOU CANNOT COVER SAYS HOW SHORT YOU ARE',
+      !!no && /9 short/.test(no.why ?? ''),
+      no ? JSON.stringify(no.why) : 'silence — 64 trade intentions and zero trades');
+  }
+
+  {
+    const { w, a, b } = two();
+    a.inventory.add('venison_cooked', 2);
+    b.inventory.add('wood', 40);
+    w.resolveOffer(a, 'Seonaid', 'cooked venison', 'branches');
+    b.ctrl.position.z += 50;
+    w.resolveAccept(b, 'Mairi');
+    const no = w.events.find((e) => e.k === 'nodeal');
+    check('  …and a deal you walked away from says how far you went',
+      !!no && /50 m/.test(no.why ?? '') && /3 m/.test(no.why ?? ''),
+      no ? JSON.stringify(no.why) : 'silence');
+  }
+
+  {
+    const { w, b } = two();
+    w.resolveAccept(b, 'Nobody At All');
+    const no = w.events.find((e) => e.k === 'nodeal');
+    check('  …and taking an offer from nobody says nobody is there',
+      !!no && /Nobody At All/.test(no.why ?? ''),
+      no ? JSON.stringify(no.why) : 'silence');
+  }
+
+  {
+    // SENTINEL: a deal that works still says nothing of the sort.
+    const { w, a, b } = two();
+    a.inventory.add('venison_cooked', 2);
+    b.inventory.add('wood', 40);
+    w.resolveOffer(a, 'Seonaid', 'cooked venison', 'twelve branches');
+    w.resolveAccept(b, 'Mairi');
+    check('SENTINEL: a deal that settles produces a trade and no complaint',
+      w.events.some((e) => e.k === 'trade') && !w.events.some((e) => e.k === 'nodeal'),
+      'so the three refusals above are about failure, not about a broken verb');
+  }
+
   const failed = results.filter((r) => !r.pass);
   console.log(`\n  ${results.length - failed.length}/${results.length} passed\n`);
   process.exit(failed.length ? 1 : 0);

@@ -584,6 +584,21 @@ export class Agent {
           this.memory.add(this.hours, `there is no such thing as ${e.word}`, MINDS.weight.refused);
         }
         break;
+      // ── AND THE ONE UNDER THE VERB THE WHOLE ECONOMY RUNS THROUGH ──
+      //
+      // `resolveAccept` had six quiet returns, and two measurements on one day
+      // found the consequence independently: 64 trade intentions and ZERO
+      // trades in one world, and a human getting "offering 10 branches to
+      // Tormod…" with nothing ever accepted. The path was not broken — it
+      // refused, correctly, for reasons nobody could see.
+      //
+      // Through `refuse` rather than straight to memory, so it reaches the
+      // mind's OUTCOME channel at its next decision. A mind told "you are 9
+      // short of the 12 branches it costs" can go and get nine branches. A mind
+      // told nothing reaches for `accept` again from the same place for ever.
+      case 'nodeal':
+        if (mine) this.refuse('accept', e.why);
+        break;
       case 'glance':
         if (mine || atMe) this.memory.add(this.hours, `an arrow was refused — ${e.why}`, MINDS.weight.refused);
         break;

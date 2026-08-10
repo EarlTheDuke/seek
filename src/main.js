@@ -512,6 +512,13 @@ function boot() {
           // The other half of the cut: a craft the server actually did. Without
           // this, suppressing the browser's own claim left crafting silent.
           if (byMe) hud.toast(`${e.verb ?? 'made'} — ${amountText(e.id, e.count)}`, 1.8);
+        } else if (e.k === 'nodeal') {
+          // The last silent refusal in the game, and it sat under the verb the
+          // whole economy runs through. Two measurements on one day found it
+          // independently: 64 trade intentions and zero trades in one world,
+          // and a human who got "offering 10 branches to Tormod…" and nothing
+          // ever accepted.
+          if (byMe) hud.toast(e.why, 2.6);
         } else if (e.k === 'nomake') {
           // ── A REFUSAL IS AN OUTCOME AND IT GETS SAID ──
           //

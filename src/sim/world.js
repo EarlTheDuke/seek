@@ -140,6 +140,19 @@ const round3 = (v) => Math.round(v * 1000) / 1000;
 // A carcass is not thrown anywhere; it falls where the animal stood.
 const ZERO = new THREE.Vector3(0, 0, 0);
 
+/**
+ * "12 branches", "1 hide" — the words a refusal has to use.
+ *
+ * `itemWords` lives in agent.js and is not exported; `amountText` lives in the
+ * UI, which the server has no business importing. Six lines is cheaper than a
+ * dependency in the wrong direction.
+ */
+function saidAs(id, n) {
+  const name = (getItem(id)?.name ?? String(id).replace(/_/g, ' ')).toLowerCase();
+  if (n === 1) return `1 ${name}`;
+  return `${n} ${/(s|sh|ch|x)$/.test(name) ? `${name}es` : `${name}s`}`;
+}
+
 export class SimWorld {
   constructor({ seed = SEED, hours = TIME.startHour, headless = true, solid = false } = {}) {
     this.seed = seed;
@@ -911,22 +924,46 @@ export class SimWorld {
    * printer, and there is no recovering from one of those.
    */
   resolveAccept(taker, fromName) {
+    // ── SIX QUIET RETURNS, AND EVERY ONE OF THEM COST SOMEBODY A SESSION ──
+    //
+    // Measured independently twice on the same day. A triage pass over one
+    // world: 64 trade intentions, priced and negotiated out loud, and ZERO
+    // trades — "resolveAccept has six quiet returns". A human playtester at the
+    // same time: "handing over does fire — I got 'offering 10 branches to
+    // Tormod…' — but nothing was ever accepted".
+    //
+    // The path was not broken. It refused, correctly, for reasons nobody could
+    // see: out of reach, the offer had lapsed, the goods were gone. Every
+    // refusal in this world says why now — `nosuch` did it for a price in
+    // flint, `nomake` for a craft with no fire — and this was the last silent
+    // one, sitting under the verb the whole economy runs through.
+    const no = (why) => {
+      this.events.push({ k: 'nodeal', by: taker.id, n: taker.name, from: fromName, why });
+    };
+
     if (taker.body.dead) return;
     const giver = this.playerNamed(fromName, taker);
-    if (!giver) return;
+    if (!giver) return no(`there is nobody called "${fromName}" here`);
 
     const deal = giver.offer;
-    if (!deal || deal.to !== taker.id) return;
+    if (!deal || deal.to !== taker.id) {
+      return no(`${fromName} has no offer standing for you`);
+    }
 
     const d = Math.hypot(
       taker.ctrl.position.x - giver.ctrl.position.x,
       taker.ctrl.position.z - giver.ctrl.position.z
     );
-    if (d > SOCIAL.giveRange) return;
+    if (d > SOCIAL.giveRange) {
+      return no(`you are ${Math.round(d)} m from ${fromName} — you have to be within `
+        + `${SOCIAL.giveRange} m to take it`);
+    }
 
     // Neither side may hand over the bow, by the same rule `giftFrom` follows:
     // the thing that makes you a hunter is not tradeable.
-    if (KEEP_ON_DEATH.has(deal.item) || KEEP_ON_DEATH.has(deal.want)) return;
+    if (KEEP_ON_DEATH.has(deal.item) || KEEP_ON_DEATH.has(deal.want)) {
+      return no('a bow is not something anybody trades away');
+    }
 
     // ── THE PRICE IS PART OF THE DEAL, AND IT IS ALL OR NOTHING ──
     //
@@ -936,8 +973,13 @@ export class SimWorld {
     // point of this path is that nobody ever loses anything to a failed trade.
     const gives = Math.max(1, deal.gives ?? 1);
     const asks = Math.max(1, deal.asks ?? 1);
-    if (giver.inventory.countOf(deal.item) < gives) return;
-    if (taker.inventory.countOf(deal.want) < asks) return;
+    if (giver.inventory.countOf(deal.item) < gives) {
+      return no(`${fromName} does not have the ${saidAs(deal.item, gives)} any more`);
+    }
+    if (taker.inventory.countOf(deal.want) < asks) {
+      return no(`you are ${asks - taker.inventory.countOf(deal.want)} short of the `
+        + `${saidAs(deal.want, asks)} it costs`);
+    }
 
     if (giver.inventory.remove(deal.item, gives) !== gives) return;
     if (taker.inventory.remove(deal.want, asks) !== asks) {
