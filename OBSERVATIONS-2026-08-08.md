@@ -7601,3 +7601,101 @@ the one no model ever drove.** Any per-model comparison drawn from this window c
 not eight.
 
 Scripts: `worlds.mjs` in the scratchpad.
+
+## 2026-08-10 — BOARD STILL DEAD. **The deed rows are a coalesced summary, not an event stream — so every "how many" in this file, mine included, counts rows and not actions.** Also: `note` was used exactly once, by one model of six, and it stored the one fact the board refuses to show
+
+`http://127.0.0.1:8090/board.json` refuses the connection; `duo2.jsonl` is unchanged since Aug 9
+11:28 (222 samples). No new data. Per the brief I did not restart it. Everything below is a
+re-reading of the existing log, aimed at the two brief questions this file has never answered with
+evidence: *does a plan get acted on*, and *how many fires*.
+
+### I set out to fix the fire count and instead found that fires cannot be counted
+
+A263 established that `analyse.mjs` keys deeds `${d.h}|${d.text}` and that `h` is a clock, so
+game-day-2 deeds collide onto day 1 and the count undershoots. I rebuilt the deed stream properly —
+recovering it by suffix-matching the ≤5-entry window across consecutive samples — and got:
+
+```
+                       analyse.mjs      my recovery
+  GATHERS                    478              914
+  FIRES LIT                   89              471   <- all 471 texts are literally "I set a fire going"
+```
+
+**Both are wrong, and I nearly filed the 471 as the answer.** Two things stopped me:
+
+- **`n` on a gather deed is the running carried total, not the yield.** Morag's successive wood
+  gathers read `n = 1, 2, 7, 12, 16, 19, 23, 25, 30, 34, 36, 39, 44, 49, 51`, matching her
+  `carrying.wood` at that sample *exactly*; Coinneach matches on 12 of 12 checked. So the deed text
+  **"I picked up 12 branches" means "I now hold 12 branches"** — it is a cumulative reading wearing
+  the grammar of an event.
+- **The window is not append-only.** Morag's deed `h` list runs `@45 [14.32, 17.26, 21.79]` →
+  `@46 [14.32, 17.26, 21.95, 22.03]`: the 21.79 entry did not scroll off the end, it was *replaced*.
+  Across the whole log, **571 of 1497 sampled windows (38%) contain a backwards step in `h`.**
+
+The explanation that fits both: **consecutive same-verb deeds are coalesced into one row that is
+updated in place**, carrying the latest total and the latest `h`. If that is right — and it is an
+inference, not something I can see from the board alone — then a deed row is a *summary of a run of
+actions*, and counting rows counts neither actions nor summaries reliably. The analyser undercounts
+by collision; my recovery overcounts by re-appending rows that resurface. **The true fire count lies
+somewhere in (89, 471) and this log cannot pin it down.**
+
+So the brief's question — *"Fires now cost 10 branches. Count them. Is wood scarce enough to matter?"*
+— **is not answerable with the present instrument**, and my draft wood ledger (10,190 branches
+gathered) was summing running totals and is void. I am recording it as void rather than deleting it,
+because it is the same mistake this file has made nine times.
+
+### `note` is used — once, by claude-opus-5 — and A-item "zero uses" is now wrong
+
+Across 222 samples × 8 seats there is exactly **one** non-empty `note` in the entire run. Morag
+(claude-opus-5) wrote it at sample 130 and it persisted unchanged to sample 221, the last frame:
+
+> `"Tormod and Ben dead to goblins north-east. Do not go that way."`
+
+Two things make this more than a curiosity. First, **no other model of the six ever wrote a note** —
+not sonnet-5, not either grok, not kimi. Second, the 17:20 entry established that *the board does not
+tell you when a seat dies*. Morag used the one free-text field she controls to store precisely the
+fact the harness declines to display, unprompted. That is the field working as designed, discovered
+by one model in six.
+
+**Whether she obeyed it is not determinable, and I will not claim it either way.** Her modal position
+stayed "north-east of Rowan Moor" before and after (33/130 → 24/92), but the note's "north-east" is
+ego-relative and `where` is measured from a landmark. Different origins; the comparison is
+meaningless. What is visible is that she broke off at @134 (`"put ground between me and four
+goblins"`) and returned to the carcass at @136.
+
+### Plan follow-through splits by model — with one denominator that has to be said out loud
+
+Counting only samples where the goal actually changed (a fresh decision), and asking whether the new
+goal shares a content word with any step of the plan the mind is carrying:
+
+```
+  Morag      claude-opus-5      109 answered   35 fresh goals   71% overlap a plan step
+  Seonaid    kimi-k2.6           12 answered   26 fresh goals   62%   <- see below
+  Ailsa      claude-sonnet-5    127 answered   48 fresh goals   56%
+  Eachann    grok-4.20-non-r    190 answered   31 fresh goals   32%
+  Coinneach  kimi-k2.6           27 answered   20 fresh goals   20%
+  Tormod     grok-4.5           127 answered   31 fresh goals   19%
+```
+
+A9 said "nothing connects the plan to the next decision." On this run that is too strong for the
+Anthropic seats and about right for grok-4.5. But **Seonaid's 62% is an artefact and must not be
+quoted**: she answered 12 times while her goal changed 30 times, so at least 18 of her goals were
+written by something that is not kimi — and her plan was frozen at 3 distinct values across 197
+samples. A frozen plan compared against fallback-authored goals scores high for free.
+
+### The `SPENT` warning does not cover the case that actually happened
+
+The brief says to shout if a red `SPENT` tag appears. **No seat was ever `SPENT`** — 805 calls of
+4000. But the same damage arrived through failure instead of budget:
+
+```
+  seat        model                answered   goal changes   changes while `answered` never moved
+  Fingal      claude-haiku-4-5            0             63                                     63
+  Iseabail    scripted control            0             74                                     74
+  Seonaid     kimi-k2.6                  12             30                                      9
+  Coinneach   kimi-k2.6                  27             21                                     10
+```
+
+Fingal changed its goal 63 times having never once been answered by a model. **A seat can be fully
+scripted and nothing on the card says so** unless you happen to divide `answered` by goal changes.
+`SPENT` is a budget flag; the common failure here is upstream errors, and it is unflagged.

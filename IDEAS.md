@@ -5084,3 +5084,87 @@ paid immediately. Across the twins, per-seat cumulative counters (kills, loosed,
 vs 472) from sampling phase alone. And `FIRES LIT` agreed exactly at 89 in both, **which proves
 nothing**, because both share the broken `h` key from A263. **Running two samplers at different
 cadences on purpose would give every future number an error bar for the cost of one extra process.**
+
+### A265 ††† DEEDS NEED A MONOTONIC ID AND A YIELD FIELD — WITHOUT THEM NOTHING CAN BE COUNTED **[S]**
+
+The 2026-08-10 entry established two defects in the deed rows that between them void every
+"how many X happened" number in this file:
+
+1. **`n` is the running carried total, not the event yield.** Morag's successive wood gathers read
+   `n = 1,2,7,12,16,19,23,25,30,34,36,39,44,49,51`, matching her `carrying.wood` exactly at each
+   sample; Coinneach matched on 12 of 12. The text **"I picked up 12 branches" means "I now hold
+   12"**. Any sum over `n` is a sum of running totals — my first wood ledger produced a nonsense
+   10,190 branches this way.
+2. **The row list is not append-only; rows are updated in place.** `@45 [14.32,17.26,21.79]` →
+   `@46 [14.32,17.26,21.95,22.03]` — the 21.79 row was replaced, not scrolled off. **571 of 1497
+   windows (38%) contain a backwards step in `h`.** Best explanation: consecutive same-verb deeds
+   coalesce into one row carrying the latest total and latest `h`.
+
+Consequence: `analyse.mjs` undercounts (A263's `h` collision) and suffix-recovery *over*counts
+(resurfaced rows get re-appended). Fires read **89** one way and **471** the other; the truth is
+somewhere between and this log cannot settle it. **The brief's standing question — "fires now cost
+10 branches, count them, is wood scarce enough to matter?" — is unanswerable until this is fixed.**
+
+**Fix:** give every deed a monotonic `seq` (a plain integer counter, never reset, never reused) and
+split `n` into `yield` (what this action produced) and `held` (what you now carry). Then dedupe by
+`seq` alone and both defects die at once. **Value:** this is the cheapest item on the list and it
+unblocks the fire economy, the wood economy, and every per-verb rate in the file.
+
+### A266 †† `note` WORKS, AND ONE MODEL IN SIX FOUND IT — PROMPT THE OTHER FIVE **[S]**
+
+Correcting the earlier "zero uses across 139 calls" reading: across 222 samples × 8 seats there is
+exactly **one** non-empty `note` in the whole run, written by Morag (claude-opus-5) at sample 130 and
+carried unchanged to the last frame:
+
+> `"Tormod and Ben dead to goblins north-east. Do not go that way."`
+
+No other model — sonnet-5, either grok, kimi — ever wrote one. What makes it notable is *what* she
+stored: the 2026-08-09 17:20 entry proved **the board never tells you when a seat dies**, so opus-5
+used the one free-text field it controls to persist exactly the fact the harness withholds, without
+being asked. `note` is not a dead field; it is an undiscovered one.
+
+**Fix:** name `note` in the system prompt with a worked example ("things worth remembering next time:
+who died and where, who owes you, where the good wood is"), and echo the current note back in the
+next prompt so the mind can see it is being kept. **Value:** this is the only persistent memory
+channel in the game and five of six models do not know it exists — see
+[WHAT-A-MIND-IS-GIVEN.md](WHAT-A-MIND-IS-GIVEN.md) on the one-decision memory half-life.
+
+### A267 †† THE CARD MUST SAY "THIS SEAT IS NOT A MODEL" — `SPENT` ONLY COVERS THE RARE CASE **[S]**
+
+The scheduled brief says to shout if a red `SPENT` tag appears, because a spent seat is the scripted
+brain from then on. **No seat was ever `SPENT` in this run** (805 calls of 4000) — and four of eight
+seats were still substantially not their model:
+
+```
+  seat        model              answered   goal changes   changes while `answered` never moved
+  Fingal      claude-haiku-4-5          0             63                                     63
+  Iseabail    scripted control          0             74                                     74
+  Seonaid     kimi-k2.6                12             30                                      9
+  Coinneach   kimi-k2.6                27             21                                     10
+```
+
+Fingal changed goal 63 times without a model ever answering, and still out-ate every real model on
+the board. Nothing on the card marks this; you only see it by dividing `answered` by goal changes.
+`SPENT` flags budget exhaustion, but the failure mode that actually occurs is upstream errors.
+
+**Fix:** derive one honest per-seat field — `driver: "model" | "fallback" | "mixed(38%)"` — from
+answered-vs-decisions, render it where `SPENT` renders, and have `analyse.mjs` refuse to print a
+per-model comparison for any seat that is not `driver: "model"`. **Value:** the brief warns that a
+previous run "was misread for exactly this reason"; this makes the misreading impossible rather than
+relying on the reader to check.
+
+### A268 † PLAN FOLLOW-THROUGH IS A REAL MODEL SIGNAL — MEASURE IT PROPERLY **[S]**
+
+Counting only fresh decisions (the goal actually changed) and asking whether the new goal shares a
+content word with any step of the carried plan: Morag/opus-5 **71%**, Ailsa/sonnet-5 **56%**,
+Eachann/grok-4.20 **32%**, Coinneach/kimi **20%**, Tormod/grok-4.5 **19%**. A9's "nothing connects
+the plan to the next decision" is too strong for the Anthropic seats and about right for grok-4.5.
+
+**The denominator is the whole trick, and it is easy to get wrong.** Seonaid scores 62% and the
+number is garbage: she answered 12 times while her goal changed 30 times, so most of those goals came
+from the fallback, and her plan was frozen at 3 values across 197 samples — a frozen plan versus
+fallback goals scores high for free. Gate this metric on A267's `driver` field.
+
+**Fix:** compute follow-through per fresh decision, restricted to model-driven seats, and print it as
+a first-class column. **Value:** it is the cheap-talk axis D4 asked for, it separates the models
+cleanly, and it costs one pass over a log already on disk.
