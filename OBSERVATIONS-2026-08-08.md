@@ -6878,3 +6878,73 @@ Tormod (grok-4.5) finished **hp 4, food 0, gold 2**, having handed Morag 23 item
 (14 branches then 9 arrows, 4 of them in his last five deeds) against a venison share that never
 arrived. `give` still moves 1 unit per model call. He was the best-behaved trader on the board and
 it nearly killed him.
+
+---
+
+## 2026-08-09 20:05 PDT — the accuracy denominator resets to zero mid-run
+
+**Run:** a *new* eight-seat melee (`roster-melee.json`), started ~19:55, **still live** at `at=371`,
+**74 calls of 4000, nobody SPENT.** Ten minutes old — too young for most of the questions.
+Sampler `melee4.jsonl` (27 samples). The scheduled brief still names the two-seat duo roster and
+`duo2.jsonl`; both are stale by nine hours. The mature evidence remains the 94-minute run in
+`eval30.jsonl` seg1, already written up above.
+
+### `loosed` — the "honest denominator" — is wiped mid-run on 2 of 8 seats
+
+`board.js:193` computes `loosed` by filtering `a.releases`, and its own comment calls it *"the honest
+denominator: 'seven astray' is a very different session from 'seven astray out of eight'."* In the
+94-minute run it is not a denominator at all, because **`astray` outran it on two seats**:
+
+```
+Eachann    loosed=20  astray=31      Iseabail   loosed=36  astray=57
+```
+
+`astray > loosed` is arithmetically impossible if strays are a subset of releases. Tracing both back
+tick by tick gives the mechanism, and it is not a rounding artefact — **`loosed` drops to zero and
+starts again while `astray` keeps counting**:
+
+```
+Iseabail   at=2741:  loosed 24 -> 0   (astray 24, unchanged)
+Eachann    at=3469:  loosed 18 -> 0   (astray 15, unchanged)
+Tormod, Morag, Coinneach, Seonaid, Ailsa, Fingal:  no reset, ever
+```
+
+The gap opened at the reset is carried to the end of the run. It is not the `AGENTS.logSize` trim
+(cap 400, these are at 18 and 24). `a.shots` survives the event; `a.releases` does not.
+
+**I reached for the wrong cause first and the data killed it.** Eachann went SPENT at `at=5014` and
+the obvious story was "the scripted brain doesn't fill `releases`" — but his reset is at `at=3469`,
+**1,545 ticks before** he spent, while he was still grok. And Iseabail is scripted from tick one yet
+logged 24 releases fine before hers. Scripted-ness is not the factor.
+
+**What the two do share is cadence: Eachann 20 s and Iseabail 20 s are the two fastest seats on the
+board; every other seat is 25 s or slower and neither resets.** That is a lead, not a conclusion.
+
+**Why it matters beyond one column:** `analyse.mjs` prints `arrows loosed N astray M` side by side,
+and every entry in this file that has read a hit rate off those two numbers has read it off a
+denominator that may have been silently restarted. Eachann's "20 loosed / 31 astray" is not 155%
+misses; it is an unknown number of shots against a counter that began again partway through. Six
+times now a model has looked incompetent and the instrument was at fault — this is the sixth.
+
+### The fresh run at ten minutes: what is already visible
+
+- **Speech works from cold.** 7 of 8 seats spoke inside ten minutes — Morag 8 lines, Ailsa 8,
+  Eachann 3, Fingal 3, Tormod 2, Coinneach 1, Seonaid 0. Against ONE sentence in two days before the
+  ride-along fix, that is settled: `say` is no longer the bottleneck.
+- **Two different models independently diagnosed the same crowding and both peeled off to logistics.**
+  Morag (opus-5): *"Eight of us on one deer is waste — I'll go build the fire at Rowan Moor."*
+  Coinneach (kimi-k2.6): *"Eight hunters on one deer. I'll fetch wood."* Morag has since held that
+  line for eight consecutive decisions and 45 branches. Unprompted division of labour, twice, from
+  two vendors, in ten minutes.
+- **Carcasses confirmed live again.** `gather venison` → `craft` → `eat` completed for Tormod
+  (*"I picked up 4 venison"* → *"I made 3 cooked venison at the fire"*) and Eachann. The fix holds.
+- **Fires: 4 laid in ten minutes across 8 seats**, and Morag is sitting on 45 branches while saying
+  she wants a fire. The 10-branch cost has stopped the 106-fire flood but it has **not** made wood
+  scarce — it has made wood *hoarded*. Gather rate still outruns the sink.
+
+### Honestly not yet readable, and not a contradiction
+
+`refusedVerbs` is `{}` on **all eight seats** at ten minutes. The entry above reports 494 `hunt`
+refusals over 94 minutes. These do not conflict — that count accrued over an hour and a half, and
+this run has not been going long enough to say anything either way. No trade verb has fired yet:
+`gold` is 0 on all eight and there is no `offer`, `accept` or `give` deed in the log. Also too early.

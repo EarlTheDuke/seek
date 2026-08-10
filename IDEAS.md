@@ -4659,3 +4659,36 @@ only the `SPENT` tag to say the mind was gone. A previous run was misread for ex
 **Fix:** when a seat spends its budget, grey the card, blank the stale `plan`/`note` rather than
 freezing them, and stamp the model name (`grok-4.20 (SPENT — scripted)`). Log the wall-clock instant
 of the changeover so an analyser can cut a run at it.
+
+### A237 `loosed` RESETS TO ZERO MID-RUN, SO EVERY HIT RATE EVER READ IS SUSPECT **[S]**
+
+`board.js:193` builds `loosed` from `a.releases` and its own comment calls it *"the honest
+denominator"*. On two of eight seats in the 94-minute run it went **backwards to zero** while
+`astray` (from `a.shots`) kept counting: Iseabail `at=2741` loosed 24 → 0, Eachann `at=3469`
+loosed 18 → 0. Both ended `astray > loosed` (31 vs 20, 57 vs 36), which is impossible for a subset.
+Six other seats never reset. Not the `AGENTS.logSize` trim — the cap is 400 and these were at 18/24.
+
+Not the SPENT changeover either: Eachann's reset precedes his spend by 1,545 ticks, and Iseabail
+logged 24 releases fine before hers. **The only thing the two share is being the 20-second seats —
+the fastest cadence on the board.** Everything at 25 s or slower is clean.
+
+**Fix:** find what clears `a.releases` (agent reconnect / re-seat is the first place to look, and the
+cadence correlation points at a fast-tick path) and make it not; keep a monotonic `releasesTotal`
+counter beside the ring buffer so the denominator cannot be rewound whatever else happens. Then have
+`analyse.mjs` refuse to print a hit rate when `astray > loosed` instead of printing a nonsense one —
+a sentinel that says "instrument broken" is worth more than a number that says 155%.
+
+### A238 THE 10-BRANCH FIRE STOPPED THE FLOOD AND CREATED A HOARD INSTEAD **[M]**
+
+Fires went from 106 in one run to 8 in 94 minutes and 4 in the fresh run's first ten — the cost works
+as a brake. But wood did not become scarce: Eachann finished the long run on **135 branches**, Morag
+on **95**, and in the fresh run Morag is on **45 by minute ten** while still only *talking* about
+lighting a fire. Gathering out-runs the only sink in the game by an order of magnitude, so the
+resource the whole barter vocabulary is denominated in (*"one branch for that venison"*,
+*"three branches for a cut"*, *"Coinneach owes me 8 branches"*) is one nobody can actually run short
+of. A currency in infinite supply is why those bargains never had to settle.
+
+**Fix:** make wood *consumed*, not just spent — a lit fire should eat branches per hour and go out,
+so keeping one is an ongoing cost rather than a one-off 10. That converts the hoard into a burn rate,
+gives the seat holding 135 branches a reason to trade them tonight, and puts a real price on the
+thing every mind is already quoting prices in.
