@@ -1217,6 +1217,23 @@ export class Agent {
         const changed = action.kind !== this.goal.kind
           || describeGoal(action) !== describeGoal(this.goal);
         this.goal = action;
+        // ── AN ORDER ENDS WHEN THE MIND MAKES ITS OWN CHOICE AGAIN ──
+        //
+        // `ordered` and `orderedTo` were set when the order landed and never
+        // cleared, so the board went on reporting the last order EVER GIVEN as
+        // though it were current. Ben saw all eight seats reading "told to hunt
+        // a deer" while not one of them was hunting anything: they had each
+        // deliberated since and moved on.
+        //
+        // The column is meant to answer "is this body under orders?" and it was
+        // answering "was it ever?" — which is the same disease as every other
+        // instrument this week, in the newest instrument in the game.
+        //
+        // Cleared HERE, at the moment the mind chooses for itself, because that
+        // is exactly when the order stops being what the body is doing.
+        this.ordered = false;
+        this.orderedTo = null;
+        this.orderedBy = null;
         this.decisions++;
         this.tokensIn += this.provider.lastTokensIn ?? 0;
         this.tokensOut += this.provider.lastTokensOut ?? 0;

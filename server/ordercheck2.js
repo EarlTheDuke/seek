@@ -38,6 +38,7 @@
 
 import { Agent } from '../src/net/agent.js';
 import { SPECIES } from '../src/creatures/registry.js';
+import { readFileSync } from 'node:fs';
 
 const results = [];
 const check = (name, pass, detail) => {
@@ -213,6 +214,46 @@ function main() {
     check('AN ACKNOWLEDGEMENT IS NEVER ITSELF AN ORDER',
       loops.length === 0,
       loops.length ? loops.join(' · ') : `${nods.length} nods, none of them a command`);
+  }
+
+  // ── 7. AN ORDER ENDS WHEN THE MIND CHOOSES AGAIN ─────────────────────────
+  //
+  // Ben, watching the live board: "Why do they all say 'told to hunt deer'?"
+  // Not one of the eight was hunting anything. They had each deliberated since
+  // and moved on, and the column went on reporting the last order EVER GIVEN.
+  //
+  // It is meant to answer "is this body under orders?" and it was answering
+  // "was it ever?" — the same disease as every other instrument this week, in
+  // the newest instrument in the game.
+  {
+    const a = ear();
+    delete a.setOrder;
+    a.goalCounts = {};
+    a.send = () => {};
+    a.takeOrder('Jack', 'kill the troll');
+    check('SENTINEL: an order lands and the board says so',
+      a.ordered === true && a.orderedTo === 'hunt a troll');
+
+    // The line `deliberate` runs when the model has answered for itself.
+    a.goal = { kind: 'gather', want: 'wood' };
+    a.ordered = false;
+    a.orderedTo = null;
+    a.orderedBy = null;
+
+    check('  …and it ENDS the moment that mind chooses for itself again',
+      a.ordered === false && a.orderedTo === null,
+      'eight seats read "told to hunt a deer" while none of them was hunting');
+  }
+
+  {
+    // And the source assertion, because the block above can only test the
+    // fields — this is the one that catches the clearing being deleted.
+    const src = readFileSync(new URL('../src/net/agent.js', import.meta.url), 'utf8');
+    const setGoal = src.indexOf('this.goal = action;');
+    const clears = src.indexOf('this.orderedTo = null;', setGoal);
+    check('  …and the clearing sits where the mind sets its own goal',
+      setGoal > 0 && clears > setGoal && clears - setGoal < 1200,
+      clears > setGoal ? 'cleared in `deliberate`' : 'NOT CLEARED — the column will go stale again');
   }
 
   const failed = results.filter((r) => !r.pass);
