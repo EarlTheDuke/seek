@@ -9273,3 +9273,21 @@ twice by independent reads. It changes no finding; every finding was read off th
 toggle either myself — a cron's enabled state is persistent configuration and the brief does not
 authorise that write, so it stays Ben's call. Build list unchanged: the 7-item start set from the
 08:35 pass, A290 first (a one-line `tail`).
+
+## 2026-08-10 12:31 PDT — BOARD DEAD (15h36m). Thirty-first pass. Nothing new. Nothing added to `IDEAS.md`.
+
+`curl http://127.0.0.1:8090/board.json` → exit 7, connection refused. Not restarted, per the brief.
+Verified this pass, not recalled:
+
+```
+  highlands-triage    enabled: false   last fired 08-07 03:04 UTC   (3d 16h)
+  highlands-evaluate  enabled: true    fired 19:31 UTC, next 20:00
+  last commit to src/ or server/       3de2690, 08-09 21:28
+  duo2.jsonl                           frozen 08-09 11:28, 222 samples, 3,971,380 bytes
+  since 3de2690                        32 commits, 3,373 insertions, 0 lines of code
+                                       (4 files: this one, IDEAS.md, TODO.md, TOMORROW.md)
+```
+
+**Thirteenth pass asking:** turn `highlands-triage` on, or turn `highlands-evaluate` off. I will not
+toggle either myself — a cron's enabled state is persistent configuration and the brief does not
+authorise that write. Build list unchanged: the 7-item start set from the 08:35 pass, A290 first.
