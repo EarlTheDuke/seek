@@ -5356,3 +5356,63 @@ parallel `verbRefusals` beside `refusals` in the same shape. The reason string a
 call site — `refuse(verb, text)` takes it and throws it at `noteOutcome`; it just never reaches the
 card. **Value:** an hour or two. Pairs with A275 (a settled trade is invisible) and A276 (the count is
 inflated): all three are the same instrument, and the economy is the half of it that was never built.
+
+## Added 2026-08-10 02:35, from the entry that found `duo2.jsonl` is a pre-fix binary
+
+**A retirement first. A42 and A57 — *"kimi-k2.6 loses half its calls to `no json in reply`, the
+socially strongest model gets a fraction of the decisions"* — are WITHDRAWN, and so is A25's reading
+that the rate was the model degrading.** It was our `maxTokens` default of 256 (`providers.js:226`)
+against a model that reasons before answering: the reply was truncated mid-thought, the regex found
+no JSON, and the board blamed kimi. Commit `4586e1a` raised the melee seats to 8000 and named the
+truncation, and the failure rate went **46–76% → 0–6%** across `melee2/3/4`. Fingal went from
+`0 answered / 152 failed` to `110/110`. Fifteen entries of this file quoted the old number as a
+property of kimi. It never was one.
+
+### A126 — NEW EVIDENCE, AND IT IS NOW THE MOST EXPENSIVE ITEM ON THIS LIST **[S]** ††††
+
+A126 was filed when three fixes were graded against a sixteen-hour-old process. It has now happened a
+second time and cost far more. `duo2.jsonl` ran **10:14:25–11:28:06** on 2026-08-09; `4586e1a` landed
+**10:47:06**, thirty-three minutes in, and `mind.calls` climbs 0→50 with zero resets, so the process
+never reloaded. **55% of that log's samples postdate a fix the log cannot contain** — and because
+nothing in the payload says which build wrote it, every later entry read the pre-fix kimi numbers as
+current and repeated a wrong verdict about a model for a day and a half.
+
+The fix is unchanged and small: `build: { sha, dirty, bootedAt }` in the board payload beside `spend`,
+`sha` from `git rev-parse --short HEAD` read once at boot; sampler records it per line; analyser
+refuses to aggregate across a boundary and prints *"log spans N builds"*. **What the new evidence
+adds** is the standing rule that belongs with it: **a fix is unjudged until a run boots on its SHA**,
+and an entry that grades a fix must quote the SHA it graded. Cost: an hour. It is the item that
+decides whether any other number in this file means anything.
+
+### A280 †† `lastError` IS STICKY AND THERE IS NO ERROR HISTOGRAM, SO THE CARD CANNOT SAY "ONCE" OR "FORTY TIMES" **[S]**
+
+`mind` carries `calls`, `failures`, `failureRate` and **one** `lastError` string. The string persists
+across every later sample, so counting the samples that carry it measures *how long ago the error
+was*, not how often it happened. In `melee4.jsonl` that reads `"This operation was aborted" ×141`
+against a true failure count of **1**. I nearly filed the 141. This is the same shape as A276
+(`refusedVerbs` counting retargets, ~8× over) and A239/A253 (the analyser aggregating what it should
+segment): **three separate times this project has been misled by treating a carried-forward field as
+an event count.**
+
+It also hides the mix. melee4's failures are two different faults — a timeout on Tormod's 30 s ceiling
+and a `reply cut off at 8000 tokens` on Coinneach — and the card can only show whichever landed last,
+so the fix you reach for depends on sampling luck.
+
+**Fix:** replace `lastError` with `errors: { <message>: n }`, capped at ~6 keys with the rest bucketed,
+and have the analyser print the histogram per seat. **Value:** an hour, and it retires a whole class of
+miscount rather than one instance. Pairs with A279 (economic refusals record a count with no reason) —
+both are the same gap: the card counts, and does not say what.
+
+### A281 †† THE RESIDUAL FAILURE IS NOW A TIMEOUT, AND THE CEILINGS ARE SET PER SEAT BY GUESS **[S]**
+
+With the token bug gone, every remaining failure across `melee2/3/4` is one of two things:
+`This operation was aborted` (Tormod ×2 against `timeoutSeconds: 30`, Seonaid ×1 against **150**) or
+`reply cut off at 8000 tokens` (Coinneach, still, occasionally). So kimi sometimes runs past two and a
+half minutes, and grok-4.5 sometimes past thirty seconds, and both ceilings are hand-written constants
+in `roster-melee.json` that nobody has measured against an actual latency distribution.
+
+**Fix, cheap version:** record `lastLatencyMs` and a p50/p95 per seat on the mind block — the numbers
+are already in hand at the call site — and set each `timeoutSeconds` to p95 plus headroom instead of a
+round number. **Value:** a timeout is indistinguishable from a dead seat on the board today, and A25's
+retry (still not in, `providers.js:396`) is the wrong remedy for it; you cannot retry your way out of a
+ceiling that is simply too low.

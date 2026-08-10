@@ -8062,3 +8062,78 @@ integer. The most informative column on the card is half-built.
   the two blanks are Fingal (0 answered, 152 HTTP-400 failures) and Iseabail (`provider: null`),
   i.e. **both blanks are seats that were never the model.** `note` is still one line by one seat
   (Morag), consistent with the 2026-08-10 entry.
+
+## 2026-08-10 02:35 PDT — BOARD DEAD, NO NEW DATA. **`duo2.jsonl` is a pre-fix binary, and the fix it cannot test WORKED: kimi went from 46–76% failure to 0–6%. `no json in reply` was never the model — it was our 256-token budget.**
+
+The board at `127.0.0.1:8090` does not answer (`HTTP 000`). `duo2.jsonl` is frozen at
+**2026-08-09 11:28:06**, byte-identical to what the last four entries read — 222 samples, 805 calls
+of 4000, game hour 4. Nothing has run for 15 hours. No restart attempted, per the task.
+
+So instead of re-describing a log this file has read forty times, I checked a claim it has *asserted*
+about fifteen times. The claim is wrong.
+
+### 1. This log cannot grade the fix that was written about it
+
+The run's own wall-clock, off `realMs`:
+
+```
+  first sample   2026-08-09 10:14:25 PDT
+  last  sample   2026-08-09 11:28:06 PDT   (73.7 min)
+  commit 4586e1a 2026-08-09 10:47:06 PDT   ← 33 min INTO the run
+                 123 of 222 samples fall after it
+```
+
+`4586e1a` is *"fix(minds): a seat is no longer lost for an hour over one optional field"*, and its own
+message says it fixes **the two things this log shows**: Fingal's effort-parameter 400, and both Kimi
+seats' `no json in reply`. The decisive test is whether the process ever restarted to load it.
+It did not: `mind.calls` climbs **0 → 50 monotonically for both kimi seats with zero resets**, and
+`lastError` is pinned at `"no json in reply"` from calls=1 (10:16:05) to the final sample — it never
+once became the new string. **`duo2.jsonl` and its twin `melee.jsonl` are a pre-`4586e1a` binary end
+to end.** Every kimi failure rate and Fingal's `0 answered / 152 failed` quoted from this log describe
+code that no longer exists.
+
+### 2. Four later logs do carry the fix, and it is not a small effect
+
+Final sample of each, failures over calls:
+
+```
+                        duo2 (PRE)      melee2      melee3      melee4
+  Coinneach  kimi-k2.6   23/50  46%      1/35        0/25        2/35   6%
+  Seonaid    kimi-k2.6   38/50  76%      1/36        1/24        1/36   3%
+  Fingal     haiku-4.5  152/152 100%     0/113       0/76        0/110
+  Morag      opus-5        0/109         1/81        0/54        0/79
+  Tormod     grok-4.5      0/127         0/94        0/63        2/92
+```
+
+kimi-k2.6 goes from **losing between half and three-quarters of its calls to losing one or two**.
+Fingal goes from never once being the model to a clean 110/110. The residual kimi error is now the
+honest one the same commit added — `reply cut off at 8000 tokens — raise maxTokens for this seat`.
+
+### 3. The correction: A42 / A57 are retired, and this is the sixth one
+
+This file has carried *"kimi-k2.6 loses half its calls, `no json in reply`, flat all run"* through
+roughly fifteen entries — 1007, 1108, 1402, 2132, 2234, 2361, 2451, 2535, 2705 and on — and A25 read
+the rising rate as the model degrading. **None of it was the model.** kimi reasons before it answers,
+that reasoning billed against a `maxTokens` default of 256 (`providers.js:226`), and the reply was
+cut off mid-thought so the regex found no JSON. Raising the seat to 8000 and naming the truncation
+fixed it outright. The one entry that got closest — 2026-08-09 13:40, *"A160's cadence half stands,
+its token half **may** be fixed"* — hedged; it can now be stated flatly.
+
+That is the **sixth** time a model looked incompetent here and the instrument was at fault, and the
+first time the mistake survived fifteen entries. It survived because nothing in a log says which
+build produced it. That is **A126** (`††††`, still open), and this is its second confirmed instance.
+
+### Instrument notes, one of which nearly caught me
+
+- **`lastError` is sticky — it is the last error, not a counter.** Counting samples that carry a
+  string gives `"aborted" ×141` in melee4 against a true failure count of **1**. I nearly filed that
+  number. Same class of error as A276's 8× `refusedVerbs` inflation; the card has no error histogram.
+- **The new top failure is a timeout**, `This operation was aborted` — Tormod 2 against his 30 s
+  ceiling, Seonaid 1 against 150 s, i.e. kimi still occasionally runs past two and a half minutes.
+- **The kimi seats' low call counts are not slowness**: `roster-melee.json` sets them to a 75 s
+  cadence deliberately, to balance the bill. It still means ~1 decision to Eachann's 3.75 — A247's
+  point, unchanged by any of the above.
+- **A25's one-shot repair retry is still not in** (`providers.js:396` throws straight to the
+  fallback), but its motivating case is gone. The surviving unparseable case is
+  `no legal verb in reply` — Morag, once, in melee2 — which is the *sanitiser* rejecting a reply, not
+  the model failing to produce one.
