@@ -1238,6 +1238,14 @@ export const SOCIAL = {
   // that a forgotten offer clears itself before it can rot.
   offerHours: 0.5,
 
+  // ── HOW LONG A FIGHT STAYS EVERYBODY'S BUSINESS ──
+  //
+  // A claimed target is a call for help, and a call nobody answers has to stop
+  // being asked — the standing offer taught that the hard way, by live-locking
+  // a roster. Long enough to cross the glen at a run, short enough that a fight
+  // somebody walked away from clears itself.
+  claimHours: 0.75,
+
   // ── BEING SPOKEN TO IS A REASON TO STOP WALKING ──
   //
   // The single most-reported thing about playing with these agents, from a

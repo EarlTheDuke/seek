@@ -302,6 +302,39 @@ export class SimWorld {
             hp: Math.max(0, Math.round(creature.hp)),
             at: [round2(creature.position.x), round2(creature.position.y), round2(creature.position.z)],
           });
+
+          // ── AND IF IT IS BIG, THE WHOLE GLEN NOW HAS A QUESTION TO ANSWER ──
+          //
+          // The best idea in the third playtest, and the last missing piece of
+          // the co-operation the whole session was about:
+          //
+          //   > if someone in your group is engaged with a creature, that
+          //   > creature enters everyone's brief as a claimed target with a
+          //   > "help or refuse" decision attached, so the model has to
+          //   > actually take a position rather than drifting back to deer.
+          //
+          // He had it exactly right, and it is the same shape as the standing
+          // offer: a mind cannot decide about something nobody has told it
+          // about. He recruited four models, walked them a kilometre, and they
+          // stood beside him narrating the hunt and choosing `hunt deer` every
+          // tick — because the troll in front of them was in nobody's brief.
+          //
+          // Only big quarry. A deer does not need a war band, and a claim on
+          // every rabbit is a claim nobody reads.
+          if (creature.species.hitPoints >= WILDLIFE.bigQuarry) {
+            const by = this.players.get(byId);
+            this.claim = {
+              i: creature.id,
+              sp: creature.species.id,
+              n: creature.species.name,
+              by: byId,
+              byName: by?.name ?? 'somebody',
+              hp: Math.max(0, Math.round(creature.hp)),
+              full: creature.species.hitPoints,
+              at: [round2(creature.position.x), round2(creature.position.z)],
+              until: this.totalHours + SOCIAL.claimHours,
+            };
+          }
         }
         if (!result?.killed) return;
         const drops = [];
@@ -1161,6 +1194,24 @@ export class SimWorld {
   step(dt) {
     this.tick++;
 
+    // ── A FIGHT NOBODY IS STILL HAVING ──
+    //
+    // Cleared when the quarry dies, when it has been quiet too long, or when
+    // the claimant leaves. A stale claim is worse than none: it is a call for
+    // help that everybody keeps being told about and nobody can answer, which
+    // is exactly how the standing offer live-locked a whole roster.
+    if (this.claim) {
+      const beast = this.wildlife?.creatures?.find?.((c) => c.id === this.claim.i);
+      const gone = !beast || beast.state === 'dead' || beast.hp <= 0;
+      if (gone || this.totalHours >= this.claim.until || !this.players.has(this.claim.by)) {
+        this.claim = null;
+      } else {
+        // Keep it current: what is left in it, and where it is now.
+        this.claim.hp = Math.max(0, Math.round(beast.hp));
+        this.claim.at = [round2(beast.position.x), round2(beast.position.z)];
+      }
+    }
+
     if (this.clock.running) {
       const advance = (dt / 60 / TIME.dayMinutes) * 24;
       this.clock.hours = (this.clock.hours + advance) % 24;
@@ -1802,6 +1853,12 @@ export class SimWorld {
     return {
       t: this.tick,
       c: round3(this.clock.hours),
+      // ── WHAT SOMEBODY IS FIGHTING, FOR EVERYBODY ──
+      //
+      // Top level and not inside `me`, because the whole point is that it is
+      // not private: a troll is a fight nobody can finish alone, so it has to
+      // be a fight everybody can see is happening. See `this.claim`.
+      ...(this.claim ? { cl: this.claim } : {}),
       w: {
         s: this.weather.stateName,
         n: this.weather.nextName,

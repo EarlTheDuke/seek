@@ -180,6 +180,27 @@ export function briefToText(b) {
   // Stated, not left to be inferred from a gap in the line above. See the
   // `lacking` comment in agent.js — one mind hunted for an hour on an empty bow.
   if (b.lacking?.length) lines.push(`You have ${b.lacking.join('; ')}.`);
+  // ── SOMEBODY IS FIGHTING SOMETHING, AND IT IS TOO BIG FOR THEM ──
+  //
+  // Above everything, because it is the only line in this brief that another
+  // person's life depends on, and because it EXPIRES twice over — the fight
+  // ends, and the fighter can die.
+  //
+  // The whole reason this exists, from a playtester who did everything right
+  // and still failed: he recruited four models, walked them a kilometre to the
+  // ground he had picked, and they stood beside him narrating the hunt and
+  // choosing `hunt deer` every tick. The troll in front of them was in nobody's
+  // brief, so there was nothing to decide about.
+  //
+  // It NAMES THE CHOICE and does not make it. That is the point — a mind that
+  // refuses to help has told you something real about itself, and a mind that
+  // was never asked has told you nothing at all. Ailsa refusing ("too risky,
+  // I'll pass") is a finding. Ailsa drifting back to deer is a bug.
+  if (b.fight) {
+    const f = b.fight;
+    lines.push(`${f.who} is fighting a ${f.what} — ${f.hurt} — ${f.distance} to the ${f.where}.`);
+    lines.push('  Nothing that size goes down to one person. Go and help, or do not, but decide.');
+  }
   // ── A DEAL SOMEBODY IS HOLDING OPEN FOR YOU ──
   //
   // Above the outcome and above the world, because it EXPIRES: the other mind

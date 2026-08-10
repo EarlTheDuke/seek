@@ -34,6 +34,7 @@ import { SPECIES } from '../src/creatures/registry.js';
 import { Creature } from '../src/creatures/creature.js';
 import { makeRandom } from '../src/world/noise.js';
 import { PLAYER } from '../src/config.js';
+import { SimWorld } from '../src/sim/world.js';
 
 const results = [];
 const check = (name, pass, detail) => {
@@ -130,6 +131,63 @@ function main() {
     g.applyDamage(40, CHEST, null);
     check('  …and a goblin taking a heavy hit is unmoved',
       !g.staggered, 'the pack does not care');
+  }
+
+  // ── AND A FIGHT IS EVERYBODY'S BUSINESS ─────────────────────────────────
+  //
+  // The best idea in the third playtest, in his own words:
+  //
+  //   > if someone in your group is engaged with a creature, that creature
+  //   > enters everyone's brief as a claimed target with a "help or refuse"
+  //   > decision attached, so the model has to actually take a position rather
+  //   > than drifting back to deer.
+  //
+  // He recruited four models, walked them a kilometre to the ground he had
+  // picked, and they stood beside him narrating the hunt and choosing `hunt
+  // deer` every tick. The troll in front of them was in nobody's brief.
+  //
+  // A mind that REFUSES to help has told you something real about itself. A
+  // mind that was never asked has told you nothing at all.
+  {
+    const w = new SimWorld({ headless: true });
+    const a = w.addPlayer(1, 'Jack');
+    const b = w.addPlayer(2, 'Ailsa');
+
+    // Trolls are rare by design — night, steep ground, high strangeness — so a
+    // fresh headless world usually has none. Put one in beside Jack rather
+    // than waiting for the spawner: this is a test of the CLAIM, not of the
+    // spawn rules, which `dangercheck` already owns.
+    const troll = new Creature(SPECIES.troll, a.ctrl.position.clone(), rand);
+    troll.position.x += 40;
+    w.wildlife.creatures.push(troll);
+
+    // Through the world's own door — `onCreatureHit` belongs to the PROJECTILE
+    // layer, not the wildlife one, which is where an arrow actually arrives.
+    w.projectiles.deps.onCreatureHit(troll, { killed: false, damage: 30, zone: 'chest' }, null, a.id);
+
+    check('A BIG QUARRY UNDER ATTACK BECOMES A CLAIM',
+      !!w.claim && w.claim.by === a.id && w.claim.sp === 'troll',
+      w.claim ? `${w.claim.byName} on a ${w.claim.n}, ${w.claim.hp}/${w.claim.full} left` : 'no claim at all');
+
+    check('  …and it rides on the wire for EVERYBODY, not just the fighter',
+      !!w.snapshot(b.id).cl && !!w.snapshot(a.id).cl,
+      'a troll is a fight nobody can finish alone, so everybody has to see it');
+
+    check('  …carrying what makes it a decision: how far, and what is left in it',
+      w.claim?.hp > 0 && w.claim?.full > 0 && Array.isArray(w.claim?.at),
+      `${w.claim?.hp}/${w.claim?.full} at ${JSON.stringify(w.claim?.at)}`);
+  }
+
+  {
+    // A deer does not need a war band, and a claim on every rabbit is a claim
+    // nobody reads.
+    const w = new SimWorld({ headless: true });
+    const a = w.addPlayer(1, 'Jack');
+    const deer = new Creature(SPECIES.deer, a.ctrl.position.clone(), rand);
+    w.wildlife.creatures.push(deer);
+    w.projectiles.deps.onCreatureHit(deer, { killed: false, damage: 20, zone: 'chest' }, null, a.id);
+    check('SMALL GAME MAKES NO CLAIM ON ANYBODY',
+      !w.claim, w.claim ? JSON.stringify(w.claim.n) : 'a deer is your own business');
   }
 
   const failed = results.filter((r) => !r.pass);

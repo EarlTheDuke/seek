@@ -1089,6 +1089,31 @@ export class Agent {
           short: held >= o.asks ? 0 : o.asks - held,
         };
       })(),
+      // ── A FIGHT SOMEBODY ELSE IS HAVING, RIGHT NOW ──
+      //
+      // The last piece of the co-operation. A playtester recruited four models,
+      // walked them a kilometre to the ground he had picked, and they stood
+      // beside him narrating the hunt and choosing `hunt deer` every tick —
+      // because the troll in front of them was in nobody's brief. He could not
+      // hand them a shared objective, so there was never one to share.
+      //
+      // Stated with the two facts that make it a decision rather than news:
+      // HOW FAR, so a mind can judge whether it can get there, and WHAT IS LEFT
+      // IN IT, so it can judge whether that would matter. Nothing here tells it
+      // what to do — the whole value is that it must now take a position.
+      fight: (() => {
+        const c = this.snapshot?.cl;
+        if (!c || c.by === this.id) return null;
+        const d = Math.hypot(c.at[0] - this._x, c.at[1] - this._z);
+        if (d > AGENTS.noticeRange * 4) return null;   // too far to be your business
+        return {
+          who: c.byName,
+          what: c.n.toLowerCase(),
+          hurt: `${c.hp} of ${c.full} left in it`,
+          where: bearingName(this._x, this._z, c.at[0], c.at[1]),
+          distance: `${Math.round(d)} m`,
+        };
+      })(),
       // Handed back unchanged. The world neither reads nor acts on either of
       // these — they are a mind's own working memory, and the only thing that
       // makes a multi-step intention survive the decision that formed it.
