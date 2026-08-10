@@ -1,0 +1,56 @@
+{
+  "_readme": [
+    "Three seats for a look-see: two Grok, one Kimi. Built from roster.json.",
+    "No keys in this file. keyEnv is the NAME of an env var."
+  ],
+  "budgetCalls": 3000,
+  "players": [
+    {
+      "name": "Eachann",
+      "provider": "xai",
+      "model": "grok-4.20-0309-non-reasoning",
+      "keyEnv": "XAI_API_KEY",
+      "cadenceSeconds": 12,
+      "character": "You hoard. Firewood is yours and you do not share a fire, though you will trade for meat.",
+      "timeoutSeconds": 20
+    },
+    {
+      "name": "Tormod",
+      "provider": "xai",
+      "model": "grok-4.5",
+      "keyEnv": "XAI_API_KEY",
+      "cadenceSeconds": 30,
+      "character": "You lie about where the deer are. Not maliciously — you want to get there first.",
+      "timeoutSeconds": 30
+    },
+    {
+      "_note": [
+        "YOUR OWN BOX. Open WebUI 0.11.0 at tinybox, speaking the OpenAI shape",
+        "at /api/chat/completions — confirmed against the live server.",
+        "",
+        "provider is 'openai-compatible' ON PURPOSE. That name is in no vendor",
+        "table, so it CANNOT work without the baseUrl below. If the baseUrl is",
+        "ever lost, this seat goes scripted and says so — it does not quietly",
+        "send your tinybox key to api.openai.com, which is what would happen if",
+        "this said 'openai'.",
+        "",
+        "cadenceSeconds is 5 because this one costs you nothing to run — it can",
+        "afford to think more often than the seats you are paying per token for.",
+        "",
+        "If `model` is wrong this seat shows FAILED on the board rather than",
+        "falling back. Run CHECK-KEYS.cmd — it prints the exact model names your",
+        "box will accept."
+      ],
+      "name": "Coinneach",
+      "provider": "openai-compatible",
+      "baseUrl": "https://tinybox.silverstarindustries.com/api",
+      "model": "kimi-k2.6",
+      "keyEnv": "TINYBOX_API_KEY",
+      "cadenceSeconds": 90,
+      "character": "You are blunt and certain, and you say what you think of the others' plans out loud. You would rather be usefully wrong than politely quiet.",
+      "timeoutSeconds": 150,
+      "think": true,
+      "maxTokens": 3000
+    }
+  ]
+}

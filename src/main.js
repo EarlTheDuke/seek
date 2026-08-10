@@ -360,6 +360,9 @@ function boot() {
   // walk, shoot, gather, trade or speak with your hands. It is watching, and
   // the HUD says so in as many words.
   const watching = params.get('watch') === '1' || params.get('watch') === 'on';
+  // The last thing the server said about YOUR body. Kept because free-fly
+  // suspends position corrections, so landing needs an answer to snap to.
+  let lastMe = null;
 
   // ── ?solid=on — the same switch the server takes as SOLID=on ──
   //
@@ -616,7 +619,24 @@ function boot() {
         //
         // OFFLINE IS UNTOUCHED: no server, no snapshots, no correction, so
         // single player stays byte-identical.
-        if (snap.me?.p && !vitals.dead && !watching) {
+        // ── AND NOT WHILE FLYING ──
+        //
+        // Free-fly moves your BODY, and the server owns your body — so a
+        // sandbox player who lifts off is dragged back to the ground about a
+        // second later, over and over. Reported as "a weird lag bounce back
+        // thing, limits you to slow movement even when flying", and that is
+        // precisely what it is: every correction resets the position mid-climb,
+        // so the distance covered per second collapses.
+        //
+        // `watch=1` avoids this by sending nothing and taking nothing back, and
+        // it is still the right way to spectate. But Y is offered in the
+        // sandbox ruleset, the HUD names it, and a control that is offered
+        // should not fight the network. While the feet are off the ground the
+        // body is a camera; corrections resume the moment it lands, and
+        // `toggleFly` forces a resync then so nobody lands a mile from where
+        // the server has them standing.
+        if (snap.me?.p) lastMe = snap.me;
+        if (snap.me?.p && !vitals.dead && !watching && !ctrl.flying) {
           const dx = snap.me.p[0] - ctrl.position.x;
           const dz = snap.me.p[2] - ctrl.position.z;
           const off = Math.hypot(dx, dz);
@@ -2698,7 +2718,24 @@ function boot() {
           hud.toast('you have only your legs here', 1.6);
           break;
         }
-        hud.toast(ctrl.toggleFly() ? 'free-fly on — Space / C for up and down' : 'free-fly off');
+        {
+          const nowFlying = ctrl.toggleFly();
+          hud.toast(nowFlying ? 'free-fly on — Space / C for up and down' : 'free-fly off');
+          // ── landing is where the body rejoins the world ──
+          // Corrections are suspended while flying (see the note by the drift
+          // snap), so on the way down this client and the server can be a long
+          // way apart. Take the server's answer at once rather than letting the
+          // easing crawl back over it, or you land, walk off, and get dragged
+          // sideways for the next minute.
+          if (!nowFlying && net?.connected) {
+            const me = lastMe;
+            if (me?.p) {
+              ctrl.teleport(new THREE.Vector3(me.p[0], me.p[1], me.p[2]), ctrl.yaw);
+              terrain.buildImmediate(ctrl.position.x, ctrl.position.z);
+              hud.toast('back in your body', 1.4);
+            }
+          }
+        }
         break;
       case 'KeyO':
         hud.openNotes();
