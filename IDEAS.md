@@ -4523,3 +4523,78 @@ cooked it, which would have inverted the whole finding. The board already expose
 **Fix:** put the absolute tick on the deed alongside `h` (`server/board.js`), and sort on it
 everywhere. Cheap, and it removes a whole class of confident-wrong reading from a project that has
 been burned by five of them.
+
+### A227 `accept` FAILS IN TOTAL SILENCE — THE SINGLE HIGHEST-VALUE FIX IN THIS FILE **[S]** †
+
+19:05 run: **38 `offer` + 25 `accept` intentions, 0 `trade` deeds** across 312 samples. The same
+roster settled 5 real trades in the 11:28 run, so the path works — it just answers nothing when it
+fails. `resolveAccept` (`world.js:~880`) has **six quiet `return`s**: no live offer, offer not
+addressed to you, out of `SOCIAL.giveRange`, item is bow-class, giver short, taker short. The goal
+layer only refuses `accept` when the *person* is missing (`agent.js:2740`). So `refusedVerbs` reads
+`{"hunt": N}` and nothing else on all eight cards while trade quietly fails 63 times.
+
+**Fix:** give every one of those returns a `this.refuse('accept', …)` naming the actual reason —
+*"Eachann has no offer standing for you"*, *"you are 40 m from Eachann, too far to take an offer"*,
+*"you have 0 branches and the price is 8"*. Same for `offer`'s silent no-ops. The mind is already
+handed refusals and already reads them; it just has never been told this one. Cheapest large win
+available — and it makes `refusedVerbs` say something other than `hunt` for the first time.
+
+### A228 `give` MOVES ONE ITEM PER MODEL CALL — A 14-BRANCH PRICE COSTS 14 DECISIONS **[S]** †
+
+`resolveGive` defaults the count to 1 (`Math.max(1, Math.min(99, Math.floor(count) || 1))`) and the
+goal *"give branch to Morag"* carries no number, so it always moves exactly one. Tormod (grok-4.5)
+paid Morag **14 branches then 9 arrows as 23 separate deeds** at ~0.05 h intervals — 23 model calls
+to settle one bargain — and finished the run at **hp 21, food 0**, still goal-set to *"offer branch
+to Morag for cooked venison"*, why: *"starving hurt need meat now"*.
+
+The deed text is the tell: `"I gave wood to Ailsa"` with **no count**, where `gather` says *"I picked
+up 35 branches"*. `offer` already reads a price out of the noun (`resolveItemCount`) — `give` does
+not use the same resolver.
+
+**Fix:** run `give`'s item through `resolveItemCount` exactly as `offer` does, so *"give 8 branches
+to Morag"* moves eight, and put the count in the deed text. One-line class of change; removes the
+main reason a mind burns its call budget on logistics instead of decisions.
+
+### A229 NOBODY CAN SEE AN OFFER, SO BOTH SIDES ACCEPT AND NEITHER OFFERS **[M]** †
+
+The deadlock, verbatim, with Eachann and Morag ~2 m apart:
+
+```
+21.51 Eachann offer cooked venison to Morag for branch  "one branch now, done"
+21.56 Morag   take Eachann offer                        "Done, Eachann — a branch for the venison."
+21.92 Eachann take Morag offer                          "done, branch for venison"
+22.27 Morag   take Eachann offer                        "Taken."
+```
+
+`from.offer` is **one slot per person**, overwritten by the next offer and visible to nobody. A mind
+deciding whether to `accept` is guessing whether an offer exists at all — so both parties say "done"
+into the void, and each one's `accept` clears nothing.
+
+**Fix:** put standing offers in perception, the way contacts already are — *"offers open to you:
+Eachann will give 1 cooked venison for 1 branch"*. Then `accept` is a verb about something the mind
+can actually see. Optionally let an offer live a few in-game minutes rather than until overwritten,
+so a 75 s-cadence seat (kimi) can still take a 20 s-cadence seat's offer.
+
+### A230 THE BOARD CANNOT SEE THE HUMAN THE WHOLE VILLAGE IS ORGANISED AROUND **[S]**
+
+**202 mentions of "Jack"** in `minds.log` — `stay with Jack (ordered)` on four seats, *"make for
+Jack's fire"*, *"keep Jack from harm"*, *"take Jack offer"*, *"owe Jack rather than freeze"*. Jack is
+Ben's browser character. `board.json` lists the eight agent seats and **not him**, so the instrument
+renders a social graph with its most-referenced node missing — and a reader unfamiliar with the run
+would reasonably score "Jack" as a hallucinated person.
+
+**Fix:** include connected human players on the board as a card (position, carrying, health; no
+mind block, or a `HUMAN` tag where the model name goes). Same class as A225/A226 — the instrument,
+not the game.
+
+### A231 THE 10× FIRE PRICE DID NOT MAKE WOOD SCARCE, IT MADE IT HEAVY **[S]**
+
+`SURVIVAL.woodToLight` went 1 → 10 to stop the 106-fire run. This run: **79 fires** (89 in the
+11:28 run) — barely moved. Meanwhile Eachann carries **123 branches** and Morag **73**, and Morag's
+speech is *"Camp here — I've fifty branches, fire holds all night."* Wood is abundant; the price
+change only meant each fire consumed more of an unlimited thing, and it pushed seats into the
+one-branch-per-call gift loop of A228.
+
+**Fix:** the lever is regrowth/yield, not the sink — or make fires burn down and need feeding, so
+wood is a *rate* a mind must sustain rather than a pile it accumulates. Worth measuring branches
+gathered per hour against branches burnt before touching either number again.

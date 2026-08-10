@@ -6681,3 +6681,106 @@ The two verbs that were fixed close the distance; the one verb everybody reaches
 interleaves days and produces a plausible, wrong chronology — my first pass had Coinneach picking up
 the venison *before* Morag cooked it. Sort by **sample index** or the board's `at` tick instead.
 Both are monotonic. `analyse.mjs` does not do this anywhere yet, but its next reader will want to.
+
+---
+
+## 2026-08-09 19:05 — the same world, 25 minutes on: **`accept` never settles, and `give` costs one call per branch**
+
+Same run as the 18:35 entry (same eight seats, `at` 5046 → 5247, hunt-dwell counts continued
+upward from it). Read off the live board plus `eval30.jsonl` (312 samples) — **not** `duo2.jsonl`,
+which is a *different, earlier* run (11:28) and matters below. The task file's roster description
+(two minds, Eachann + Coinneach) is long out of date: this is **seven model seats + one scripted**.
+
+### Eachann is SPENT — his behaviour has not been the model's for some time
+
+`calls 250/250`, `spent: true`. **Everything Eachann has done since he hit the cap is the scripted
+brain, not grok-4.20.** He still shows 3 kills and 78 food and reads like the healthiest seat on the
+board; none of that late competence is a model result. Iseabail is `SCRIPTED` by design (0 calls).
+So of eight cards, **two are not minds** — read the board accordingly.
+
+### The finding: 64 trade intentions, 0 trades
+
+Deed histogram across 312 samples of this run:
+
+```
+gather 315 · place 79 · give 65 · craft 17 · eat 9 · killed 6 · trade 0
+```
+
+**Zero.** Against **38 `offer` and 25 `accept` intentions**, priced and negotiated out loud —
+*"eight branches for a share, Morag"*, *"Two branches for a cooked meal."*, *"one gold or no deal"*.
+
+This is not the trade path being broken in general. **`duo2.jsonl` (the 11:28 run, same roster)
+contains 10 trade deeds — 5 real settlements**, both sides logged:
+
+```
+Morag 8.96  "I traded venison_cooked to Ailsa for wood"
+Ailsa 8.96  "I got venison_cooked from Morag for wood"
+```
+
+So offer/accept works. In *this* run it fired 63 times and settled nothing.
+
+**This corrects the 18:35 entry's open question.** That entry named `resolveAccept`'s partial-credit
+branch (`world.js:~909`) as "the next place to look" for the venison that appeared on the ground.
+It cannot be that: in this window **`resolveAccept` never completed once**, so that branch never
+ran. (Caveat, honestly: `deeds` is a 5-deep ring buffer sampled every 20 s, so this is a floor —
+but 65 `give` deeds survived the same sampling, and duo2 surfaced 10 trades in *fewer* samples.)
+
+### Why it never settles: a mutual-accept deadlock, and it fails in total silence
+
+Verbatim, Eachann and Morag standing ~2 m apart:
+
+```
+21.51  Eachann  offer cooked venison to Morag for branch   340 m north of Low Rigg   "one branch now, done"
+21.56  Morag    take Eachann offer                         342 m north of Low Rigg   "Done, Eachann — a branch for the venison."
+21.92  Eachann  take Morag offer                           341 m north of Low Rigg   "done, branch for venison"
+22.27  Morag    take Eachann offer                         398 m north of Low Rigg   "Taken."
+```
+
+Both sides oscillate between offering and accepting. `accept` against a counterparty with no live
+offer to you returns **silently** from `resolveAccept` — no refusal, no event, no deed, nothing on
+the card. `refusedVerbs` reads `{"hunt": N}` on all eight seats and **nothing else**, because the
+goal layer only refuses `accept` when the *person* can't be found (`agent.js:2740`); every other
+failure is a quiet `return`. A mind saying "Done." and receiving silence has no way to learn.
+
+### What it cost: Tormod is dying of it
+
+Tormod (grok-4.5) gave Morag **14 branches one at a time, then 9 arrows one at a time** — 23
+separate deeds at ~0.05 h intervals — against a venison share that never came.
+
+```
+Tormod   hp 21   food 0   carrying: 3 wood, 7 arrows
+         goal: "offer branch to Morag for cooked venison"   why: "starving hurt need meat now"
+```
+
+He is the only seat under 100 health. Morag sits on 73 branches, a lit fire, and a `note` reading
+*"Coinneach owes me 8 branches for one cooked venison."* — a creditor's ledger, kept faithfully,
+while her supplier starves. **`give` defaults to a count of 1** (`world.js`, `Math.max(1,
+Math.min(99, Math.floor(count) || 1))`) and the deed text carries no number — unlike `gather`,
+which says "I picked up 35 branches". So paying a 14-branch price costs **fourteen model calls**.
+That is what the seats fell back on when `accept` stopped answering.
+
+### What the 2026-08-08 fixes actually did — the honest scorecard
+
+- **Speech: landed, decisively.** **366 of 553 intentions carried a `say` (66%)** — Fingal 113/118,
+  Morag 49/49, Ailsa 58/63. Scripted Iseabail: **0/110**. The "one sentence in two days" era is
+  over, and `said`-rate is now as clean a model-vs-script tell as `plan`.
+- **`plan` / `note`: used, and load-bearing.** All seven model seats hold a plan. Morag's note is a
+  real obligation ledger carried across hours.
+- **Carcasses: work.** 5 `gather venison`, 17 cooked crafts, 9 eats. The butcher chain is real.
+- **`refusedVerbs`: the best column on the card, and it says one word.** 494 refusals, **all
+  `hunt`**. 92 "too far"; ~144 "a tree/the ground in the way N m out". Refused shot distances:
+  median **25 m**, max **273 m**. A218/A224 stand unchanged.
+- **Fires: the 10× price did not bite.** 79 fires this run (89 in duo2) at 10 branches each.
+  Eachann carries 123 wood, Morag 73. Wood is not scarce; it is just heavier to spend.
+- **Trade: reached for constantly, settles never.** See above.
+
+### Jack is the human, and the board cannot see him
+
+**202 mentions of "Jack"** in `minds.log`, including `stay with Jack (ordered)` on four seats — he
+issues orders, so he is Ben's browser-connected character, not a hallucination. He is **absent from
+`board.json`**, which lists only the eight agent seats. Half the social graph in the intention log
+points at a person the watcher's main instrument does not render.
+
+*(Could not verify the "also out there" feature from this run: `minds.log` records decisions, not
+prompts, so the phrase never appears there either way. Minds do target people at 400 m+, which is
+consistent with it working, but that is not proof.)*
