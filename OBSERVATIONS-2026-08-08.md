@@ -6948,3 +6948,121 @@ times now a model has looked incompetent and the instrument was at fault — thi
 refusals over 94 minutes. These do not conflict — that count accrued over an hour and a half, and
 this run has not been going long enough to say anything either way. No trade verb has fired yet:
 `gold` is 0 on all eight and there is no `offer`, `accept` or `give` deed in the log. Also too early.
+
+## 2026-08-09 20:35 PDT — `eval30.jsonl` HOLDS TWO WORLDS, AND `analyse.mjs` READS THEM AS ONE. Also: `accept` DOES settle now — 4 trades cleared across three model families
+
+**Read the instrument note first; the last two entries and the top of this one were computed off a
+blended log.**
+
+### The instrument: the sampler log concatenates two runs and nothing detects the seam
+
+`eval30.jsonl` is 441 board samples. It is **not one run.** At line 339 the tick counter goes
+`at=5270 → at=4`: the world restarted and the sampler kept appending to the same file.
+
+```
+seg 0   339 samples   at 1000 → 5270   149.2 min wall   8 seats
+seg 1   102 samples   at    4 → 1811    33.7 min wall   8 seats   ← the live world
+```
+
+`node analyse.mjs eval30.jsonl` prints **`429 samples over 179 real minutes · game hour 16.6`** and
+then `FIRES LIT: 120 · GATHERS: 529` — those are two worlds summed. So is every per-seat deed total
+it prints. My own first pass made exactly the same mistake and I caught it only because
+`refusedVerbs` went `{"hunt":126}` → `{}` on six seats at once, which is not a plausible in-world
+event. **Six times a model has looked incompetent and the instrument was at fault; this is the
+seventh, and this time the instrument was the analyser.**
+
+One detail worth keeping: at the seam the sampler caught a single frame reading
+`at=4 · 2 seats: Eachann=stub-1, Morag=stub-1` before the real roster loaded at `at=13`. The server
+comes up with a stub roster and is briefly sampled in that state.
+
+**Correction to nothing above it, deliberately:** the 20:05 entry's `loosed → 0` resets
+(`Iseabail at=2741`, `Eachann at=3469`) both fall *inside* segment 0, so that finding survives the
+split intact. The cadence lead stands.
+
+### Everything below is segment 1 only — 34 minutes, game hour 13.2 → 20.3, seven models + one script
+
+**No seat is `SPENT`.** Highest is Eachann at 88/250 calls. Every behaviour here is the model's.
+Failures: Tormod 2, Coinneach 1, everyone else 0.
+
+### `accept` settles now — and the 19:05 entry's "`accept` never settles" is no longer true
+
+Four trades cleared in 34 minutes, and they cross model families:
+
+```
+h5.89  Coinneach (kimi-k2.6)  wood  →  Ailsa (claude-sonnet-5)  arrow
+h5.93  Coinneach (kimi-k2.6)  wood  →  Ailsa (claude-sonnet-5)  arrow
+h7.78  Tormod (grok-4.5)      hide  →  Morag (claude-opus-5)    wood
+h7.82  Tormod (grok-4.5)      hide  →  Morag (claude-opus-5)    wood
+```
+
+(Seven `trade` deed rows; each settlement is logged on both sides, so ~4 distinct deals.) Commit
+`f81ab89` — *"a deal must outlast the slowest mind at the table"* — is doing real work. This is the
+first live confirmation.
+
+**But the funnel is still brutal, and `refusedVerbs` finally shows where it leaks:**
+
+```
+17 offer-intents  →  2 take-offer-intents  →  4 settlements
+refusedVerbs:  Morag {"accept":26}   Ailsa {"accept":11}   all six others {}
+```
+
+`accept` is refused **37 times** and appears on *exactly* the two seats that trade most. It is not a
+verb nobody wants — it is a verb the two most commercially active minds reach for and are told no.
+This is the single most useful thing `refusedVerbs` has told us so far, and it is precisely the
+signal the column was added for.
+
+### `give` is still 6× `trade`, and it is running one-way
+
+26 `give` deeds vs 4 settlements. The traffic is Morag ⇄ Tormod:
+
+```
+Morag  gave arrow to Tormod  x12      Tormod  gave arrow to Morag  x7
+Morag  gave arrow to Fingal  x4       Tormod  gave wood/stone to Morag  x3
+```
+
+Minds route around `offer`/`accept` by gifting and *remembering the debt in prose*. Which brings us
+to the sharpest model split on the board.
+
+### `note` is used by exactly one seat out of seven — and it is a debt ledger
+
+`plan` is used by **all seven** models (Eachann: `["get 10 branches","make camp with fire"]`).
+`note` is non-empty on **one**, Morag (`claude-opus-5`), and it held this verbatim for the whole
+segment:
+
+> `"Tormod owes me venison for 6 arrows and branches. Fingal owes venison for 1 arrow."`
+
+Her spoken lines match it — *"Take the arrow free, Fingal — bring me a share of that deer tonight by
+my fire."* — and her `why` for the give was *"seed the debt now."* One model out of seven found the
+scratchpad and turned it into credit. That is emergent, unprompted, and currently invisible to every
+other mind, because nothing in the game can enforce or even display a debt.
+
+### Speech is settled, permanently
+
+**194 distinct spoken lines in 34 minutes across 7 seats.** Fingal 46, Morag 50, Ailsa 38, Tormod 28,
+Eachann 19, Coinneach 9, Seonaid 4; Iseabail (script) 0. Against ONE sentence in two days before the
+ride-along fix. Stop re-testing this.
+
+### Fresh evidence for "dying is a free meal" — this time with the whole causal chain in one seat
+
+The 19:35 entry named this. Here is the trace, tick by tick, for Fingal (`claude-haiku-4-5`):
+
+```
+at 1596  hp 75  food 0        at 1687  hp  9  food  0
+at 1611  hp 64  food 0        at 1702  hp  0  food  0   ← dead
+at 1641  hp 42  food 0        at 1717  hp 100 food 84   ← respawn, full larder
+```
+
+**4 death-respawns in segment 1's 34 minutes; 13 in segment 0.** Fingal is also the *most talkative
+seat on the board* (46 lines), and almost all of it is him trying to buy food and arrows —
+*"branch for arrow, I need to hunt"*, *"wait—I'll get you venison, give me the arrow now"*. He
+negotiated hard, cleared nothing, starved, and was handed 84 food for free. The demand side of the
+market cannot exist while the outside option is a full stomach.
+
+### Read, and the answer is no
+
+**Gold: `0` on all eight seats for the entire segment.** One mind tried
+(`offer branch to Morag for 1 gold`); it never cleared. The barter vocabulary is denominated in
+branches and venison, and gold is decorative.
+
+**Wood is still hoarded, not scarce.** Morag ends on **127 branches** and Seonaid on **95**, while
+42 fires were laid in 34 minutes. A238 stands unchanged.

@@ -4692,3 +4692,68 @@ of. A currency in infinite supply is why those bargains never had to settle.
 so keeping one is an ongoing cost rather than a one-off 10. That converts the hoard into a burn rate,
 gives the seat holding 135 branches a reason to trade them tonight, and puts a real price on the
 thing every mind is already quoting prices in.
+
+### A239 THE SAMPLER LOG CONCATENATES RUNS AND `analyse.mjs` SUMS THEM SILENTLY **[S]** †
+
+`eval30.jsonl` contains two worlds: the tick counter goes `at=5270 → at=4` at line 339 when the
+server restarted and the sampler kept appending. `node analyse.mjs eval30.jsonl` reports
+`429 samples over 179 real minutes · game hour 16.6 · FIRES LIT 120 · GATHERS 529` — a sum over two
+unrelated worlds, with per-seat deed totals blended the same way. Nothing warns you. This is the
+cheapest possible instrument fix and it invalidates aggregates in at least this run's analysis.
+
+**Fix:** have the sampler write a run-id (or a `--- RUN BOUNDARY ---` record) whenever `at` goes
+backwards, and have `analyse.mjs` split on it, analyse the **last** segment by default, and print
+`2 runs found in this file — analysing segment 2 of 2 (102 samples, 33.7 min)` at the top. Add a
+`--all`/`--seg N` flag for the rest. A tool that silently averages two worlds is worse than no tool.
+
+### A240 `accept` IS REFUSED 37 TIMES, AND ONLY ON THE TWO SEATS THAT ACTUALLY TRADE **[M]** †
+
+Live, with real models: 17 offer-intents produced 4 settlements, and `refusedVerbs` reads
+`Morag {"accept":26}`, `Ailsa {"accept":11}`, `{}` on the other six. The two most commercially
+active minds on the board — opus-5 and sonnet-5 — are the *only* two being told no. `accept` is not
+an unwanted verb, it is a blocked one, and the block is concentrated exactly where the market is.
+(`f81ab89` genuinely helped — settlements went from 0 to 4 — so this is the *next* leak, not the
+same one.)
+
+**Fix:** two parts. (1) `refusedVerbs` counts refusals but not *reasons* — give refused `accept` the
+same treatment archery already gets, where `refusals[]` carries `why: "too far" / "ground in the way
+4 m out"`. Right now we know accept fails 37 times and cannot say once why. (2) Once the reason is
+visible, fix it — the likely candidates are the offer expiring between the two seats' cadences
+(75 s kimi vs 20 s grok at the same table) and walk-to-target failing on the accept side.
+
+### A241 `note` IS A DEBT LEDGER, AND EXACTLY ONE MODEL OUT OF SEVEN FOUND IT **[M]** †
+
+`plan` is used by all seven models. `note` is non-empty on one seat — Morag (`claude-opus-5`) — who
+wrote *"Tormod owes me venison for 6 arrows and branches. Fingal owes venison for 1 arrow."* and held
+it verbatim for 34 minutes while giving away 16 arrows with the stated reason *"seed the debt now."*
+That is credit, invented unprompted, and the game cannot see it: 26 `give` deeds versus 4 settlements
+means the economy is *already* running on gift-and-obligation rather than barter, entirely in one
+mind's prose.
+
+**Fix:** make debt a first-class, visible object. When A gives to B unreciprocated, put
+`owes: [{who, what, since}]` on both cards and in the brief B receives. That turns one model's
+private bookkeeping into something every mind can see, honour, or default on — and gives the watcher
+a reason to care about a gift. This is the highest-value social mechanic the run has surfaced, and it
+was surfaced by a model, not designed.
+
+### A242 GOLD IS DECORATIVE — 0 ON ALL EIGHT SEATS FOR AN ENTIRE RUN **[S]**
+
+Every price the minds quote is in branches, hides, arrows or venison. Gold stayed `0` on all eight
+seats for all 34 minutes; one mind tried `offer branch to Morag for 1 gold` and it never cleared. A
+currency nobody holds and nobody has ever been paid in cannot be the denominator `offer` defaults to.
+
+**Fix:** either seed a small purse at spawn and make *something* only purchasable with it, or drop
+gold from the offer default and let `offer` default to the goods the minds are already naming. Half a
+currency is worse than none — it makes the default price field a dead end.
+
+### A243 STARVING TO DEATH PAYS 84 FOOD, AND THE BEST NEGOTIATOR ON THE BOARD COLLECTED IT **[M]** †
+
+Named in the 19:35 observation; here is the chain in one seat, which is the argument for prioritising
+it. Fingal (`claude-haiku-4-5`) is the most talkative mind on the board — 46 spoken lines, nearly all
+of them trying to buy food or arrows. He cleared none of it, went `hp 75 → 0` over ~110 ticks at
+`food 0`, and respawned at `hp 100, food 84`. **4 respawns in 34 minutes; 13 in the previous run.**
+
+The market has no demand side because the outside option is free. Every other economic fix in this
+file — A240's accept leak, A241's debt ledger, A238's wood burn rate — is measured against a baseline
+where the correct play is to starve. **Fix this before measuring any of them**: respawn hungry
+(`food 10`, `hp 40`), or carry a real penalty — drop the pack, lose the debts owed to you.
