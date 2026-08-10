@@ -7066,3 +7066,78 @@ branches and venison, and gold is decorative.
 
 **Wood is still hoarded, not scarce.** Morag ends on **127 branches** and Seonaid on **95**, while
 42 fires were laid in 34 minutes. A238 stands unchanged.
+
+## 2026-08-09 21:05 PDT — THE RUN IS OVER (board dead since 20:55). And the counting instrument has been undercounting this whole file: `h` is a CLOCK, not a timestamp, so every deed on game-day 2 collides with day 1
+
+**The board does not answer.** `http://127.0.0.1:8090/board.json` → connection refused. The sampler
+recorded the exact moment: the last good sample is `03:55:37 UTC` (**20:55 PDT**), followed by **21
+consecutive `TypeError: fetch failed`** lines through 21:02. Nothing restarted, per the brief.
+
+**The brief's log is stale, again, and this is now the sixth entry to say so.** It names
+`roster-duo.json` / `duo2.jsonl` — two minds, Eachann and Coinneach. `duo2.jsonl` last grew at
+**11:28**, nine and a half hours ago, and it is a byte-for-byte sibling of `runs/melee-1.jsonl`: an
+**eight-seat melee**, not a duo. Re-analysing it would be the fifth pass over the same run. I read the
+final live world out of `eval30.jsonl` instead — **segment 2 of 3**, ticks 4→2775, 181 samples,
+19:24→20:55 PDT. This is the `melee-4` world.
+
+**No seat was ever `SPENT`.** Highest use was Eachann at 138/250 calls; `fellBack` false on all eight.
+Everything below is the models' own behaviour, not the scripted brain.
+
+### The correction: `hours` wraps at 24, and the analyser's deed key does not know it
+
+`analyse.mjs` dedupes deeds on `` `${p.name}|${d.h}|${d.text}` `` (lines 110, 149). `h` is
+**time-of-day**, and it wraps: I watched Morag's clock run `15.1 → 2.2` and `22.5 → 0.9`. The final
+segment spans **3 game days**. So a fire lit at h6.2 on day 1 and another at h6.2 on day 2 have an
+identical key — identical text, identical clock — and collapse into one.
+
+Measured on this segment:
+
+| dedup key | all deeds | fires |
+|---|---|---|
+| `name\|h\|text` (what the file has been reporting) | 471 | **71** |
+| `name\|day\|h\|text` | 542 | **91** |
+
+**22% of fires and 13% of all deeds have been silently dropped**, and the error grows with run
+length — the 764-sample run in the 21:06 entry spans far more than three days. Every deed, gather and
+fire count in this file is a floor, and a worse floor than "sampled every 20s" implied. I also have to
+withdraw a number I computed an hour ago in draft: summing `n` across `h`-keyed gathers gave Morag
+"2531 branches," which is an artifact of the same collision. What actually happened is cleaner and
+still makes the point: **Morag peaked at 243 branches and ended holding 205**, having lit fires at 10
+branches each. Wood is not scarce.
+
+### What the seven fixes actually did, in the last world that ran
+
+- **`refusedVerbs` — the most informative column, and it says one word: `accept`.** Morag 26, Ailsa 11.
+  **37 refusals; nobody else refused any verb, ever, all run.** A240 stands, and it stands harder now
+  that I can see the whole segment: the counters were already at 37 at 20:35 and did not move in the
+  final twenty minutes. Against that, **3 deals settled** (Coinneach↔Ailsa wood-for-arrow ×2,
+  Tormod↔Morag hide-for-wood) — across kimi, sonnet-5, opus-5 and grok-4.5, so `accept` is not broken
+  in general. It fails ~9 times in 10 and **the card records the count with no reason**, while the
+  arrow `refusals` array right beside it carries `why: "too far"`, `slant`, `dy`. That asymmetry is the
+  whole problem.
+- **Speech: alive, and the fix is the clearest win on the board.** **204 distinct sentences in 91
+  minutes** across seven speaking seats — Fingal 62, Ailsa 43, Morag 38, Eachann 31. The premise in the
+  brief ("two days and six models produced ONE sentence") is dead. Only **17% name another mind**,
+  though, and the silent seat is Iseabail — the scripted one, `model: null`.
+- **`plan` is used by 7 of 7 model seats; `note` by exactly 1.** And plan *persistence* varies ~20×:
+  Morag rewrote hers 52 times in 79 calls (that is a restated goal, not a plan) while Eachann held **4
+  distinct plans across 138 calls**. Nothing asks a mind to keep its plan, so each model does whatever
+  its habits dictate.
+- **Carcasses work, and six of eight minds never touched one.** Only Tormod (venison ×4) and Fingal
+  (×5) ever used `gather venison`. **Tormod is also the only seat that never went hungry** — min food
+  38, min hp 100, while six of eight hit `food 0` and Coinneach and Fingal both hit `hp 0`. The food
+  supply is lying on the ground and almost nobody eats it.
+- **Fires: the 10× price still does not bite.** 91 day-aware fires in 91 real minutes, at 10 branches
+  each, while Morag ended on 205 branches and Seonaid peaked at 95. A238 unchanged.
+- **`give` is still one item per call.** Morag burned **twelve consecutive calls** (h11.96→h12.56)
+  handing Tormod one arrow at a time, then four more on Fingal; Tormod spent ten the other way. That is
+  ~26 of the run's calls spent on unit transfers.
+- **`also out there`: I cannot answer this from the board.** The card does not expose what the prompt
+  showed a mind. The only proxy is that 35 sentences name someone by name. Saying more would be a guess.
+
+### The kimi seats were not outplayed, they were under-served
+
+Same wall-clock, same world: **Eachann 138 calls, Coinneach 35, Seonaid 36** — a quarter of the turns.
+Coinneach's `lastError` is `reply cut off at 8000 tokens — raise maxTokens for this seat`, and he
+finished the run at **hp 38, food 0**, the worst card on the board. Fifth time now that a model has
+looked incompetent with the instrument at fault. Any model ranking drawn from this run is invalid.

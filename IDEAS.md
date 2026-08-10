@@ -4757,3 +4757,63 @@ The market has no demand side because the outside option is free. Every other ec
 file — A240's accept leak, A241's debt ledger, A238's wood burn rate — is measured against a baseline
 where the correct play is to starve. **Fix this before measuring any of them**: respawn hungry
 (`food 10`, `hp 40`), or carry a real penalty — drop the pack, lose the debts owed to you.
+
+### A244 THE DEED KEY COLLIDES ACROSS GAME DAYS — 22% OF FIRES NEVER COUNTED **[S]** †††
+
+`analyse.mjs` dedupes deeds on `` `${p.name}|${d.h}|${d.text}` `` (lines 110 and 149). `h` is
+**time-of-day and wraps at 24**; the last live segment spanned 3 game days. A fire at h6.2 on day 1
+and a fire at h6.2 on day 2 are the same key — same clock, same text `"I set a fire going"` — and
+count once. Measured on that segment: **471 deeds / 71 fires by the current key, 542 / 91 when the day
+is included. 13% and 22% lost**, and the error grows with run length.
+
+This is the cheapest fix in the file and it retroactively taints every count above it — fires,
+gathers, trades, `give`s. Repetitive deeds are hit hardest, which is exactly the behaviour we are
+trying to measure.
+
+**Fix:** emit an absolute tick or a `day` field on each deed and put it in the key. Until then, treat
+every deed count in `OBSERVATIONS-2026-08-08.md` as a floor that decays with run length.
+
+### A245 `refusedVerbs` COUNTS WITHOUT A REASON, WHILE `refusals` RIGHT BESIDE IT EXPLAINS ITSELF **[S]** †††
+
+Sharpening A240 with the shape of the fix. The two fields sit on the same card:
+
+```
+refusals:     [{"d":125,"why":"too far","slant":125.1,"dy":-3.1,"leadBy":0}, ...]
+refusedVerbs: {"accept":26}
+```
+
+The arrow path tells you *why* it missed, in metres. The verb path tells you a number. 37 `accept`
+refusals across two seats and not one of them says whether the offer had expired, the partner had
+walked off, the goods were gone, or the price no longer matched.
+
+**Fix:** make `refusedVerbs` the same shape as `refusals` — `[{verb, why, at}]`, capped at the last
+handful. One afternoon, and it converts the single most informative column on the board from "something
+is wrong" into a diagnosis. Do this **before** attempting the A240 fix; right now any fix is a guess.
+
+### A246 THE FOOD IS LYING ON THE GROUND AND SIX OF EIGHT MINDS NEVER PICK IT UP **[M]** ††
+
+`gather venison` works. In the final 91-minute world only **Tormod (×4) and Fingal (×5)** ever used it.
+**Tormod is also the only seat that never went hungry** — min food 38, min hp 100 — while six of eight
+seats hit `food 0` and two hit `hp 0`. Meanwhile the same minds spent the run negotiating for meat in
+speech and clearing almost none of it.
+
+The knowledge gap is the whole story: a carcass is a free meal two metres away, and the minds who found
+that out did fine. Nothing in the brief connects "there is a dead deer" to "you can eat it."
+
+**Fix:** name the carcass in the brief as food, with its distance and what it yields — the same way the
+brief already names a landmark. Pair with A243 (respawn hungry): once dying stops being a meal, the
+carcass on the ground is the *only* meal, and the seats that learn it will separate from the ones that
+do not. That is a benchmark signal, not just a survival fix.
+
+### A247 A SEAT ON A SLOW CADENCE IS NOT A WORSE MODEL, AND THE BOARD LETS YOU CONFUSE THE TWO **[S]** ††
+
+Same world, same 91 minutes: **Eachann 138 calls, Coinneach 35, Seonaid 36.** The kimi seats got a
+quarter of the turns, and Coinneach's `lastError` was `reply cut off at 8000 tokens — raise maxTokens
+for this seat`. He finished worst on the board (hp 38, food 0). That reads as a bad model and is
+mostly a starved one — the fifth time in this file a model has looked incompetent with the instrument
+at fault.
+
+**Fix, two parts.** (1) Raise `maxTokens` on the kimi seats so a reply is not truncated into a failure.
+(2) Put **calls-per-game-hour** on the card next to `calls`, and refuse to print a model ranking when
+seats differ by more than ~1.5×. A ranking across unequal cadences is not a ranking. Cheapest honest
+version: run the comparison seats on one cadence and vary cadence only as its own experiment.
