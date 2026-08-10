@@ -4817,3 +4817,49 @@ at fault.
 (2) Put **calls-per-game-hour** on the card next to `calls`, and refuse to print a model ranking when
 seats differ by more than ~1.5×. A ranking across unequal cadences is not a ranking. Cheapest honest
 version: run the comparison seats on one cadence and vary cadence only as its own experiment.
+
+### A248 A TRADE IS PROPOSED AT 300 METRES BECAUSE NOTHING SAYS IT CANNOT BE **[S]** †††
+
+Measured across all four melee runs (`farname.mjs`, same-landmark lower bound on separation):
+**17 intentions provably named a mind beyond `noticeRange` (140 m), and 12 of the 17 were trade
+verbs** — `offer` ×8, `give` ×3, `take X offer` ×1, at **141–347 m**. `SOCIAL.giveRange` is **3.0 m**.
+The `also out there` block hands a mind a name and an 8-point bearing, and every social verb accepts
+that name without a word about whether the deal is reachable. `offer` resolves to `{within: REACH}`
+and just starts walking.
+
+The cost, verbatim (Ailsa/`sonnet-5`, melee-1): **nine consecutive calls** spent carrying one branch
+to Morag, who was holding `wood x24` and **no venison at any sample** — and who moved 400+ m away
+mid-walk. Ailsa arrived at an empty Rowan Moor twice and worked out the problem herself: *"here, take
+the branch — but you have no venison to give?"* The model was right at every step.
+
+**Fix (small, and it is the missing half of A240):** refuse `offer`/`accept`/`give` against a target
+outside contact range, *with the reason and the distance* — `"Morag is about 300 m south-east; you
+must reach them to trade"` — the same shape the arrow path already uses. A mind told that will
+`goTo` first and *then* offer, which is the behaviour we actually want. Do not silently walk them.
+
+### A249 THE REFUSAL REASON ALREADY EXISTS — ONLY THE OBSERVER LOSES IT **[S]** ††† *(supersedes the costing in A245)*
+
+A245 said `refusedVerbs` "records the count with no reason" and put the fix at an afternoon of
+reshaping. That was wrong about the cause. `refuse(verb, text)` at `src/net/agent.js:1872` **already
+takes the sentence**, and hands it to `noteOutcome` — so the mind *is* told. `nodeal`
+(`src/sim/world.js:966` → `agent.js:599`) carries a real diagnosis: `"you are 87 m from Morag — you
+have to be within 3 m to take it"`, `"Morag has no offer standing for you"`. The card keeps a bare
+integer only because `outcomes` is drained every turn.
+
+**Fix:** one line inside `refuse()` — push `{verb, why, h}` onto a capped array that ships on the
+card, beside the counter that is already there. The single most informative column on the board goes
+from "37 accepts failed" to "37 accepts failed, and here are the last eight reasons." Cheapest
+high-value change on this list.
+
+### A250 A MIND CANNOT SEE WHAT A DISTANT PERSON IS CARRYING, SO IT BARGAINS WITH A FICTION **[M]** ††
+
+Same trace as A248, different cause. Morag had **no venison for the whole window** Ailsa spent
+walking to buy venison from her. Nothing in the brief — near channel or far — says what anyone else
+holds. Every price a mind names is therefore invented from speech it half-remembers, and 14 of the 17
+far-namings target Morag purely because Morag is the seat that keeps *announcing* a fire.
+
+**Fix, cheapest honest version:** when a mind is within `noticeRange`, put the contact's visible
+carry on the contact line (what is in hand and slung, not the whole pack — a real person can see a
+bundle of branches). Leave the far block blind, so closing the distance actually *buys information*.
+That turns "go and look" into a move worth making and gives the say channel something to lie about,
+which is the interesting version of this game.

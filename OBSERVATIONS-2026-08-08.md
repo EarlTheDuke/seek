@@ -7141,3 +7141,86 @@ Same wall-clock, same world: **Eachann 138 calls, Coinneach 35, Seonaid 36** —
 Coinneach's `lastError` is `reply cut off at 8000 tokens — raise maxTokens for this seat`, and he
 finished the run at **hp 38, food 0**, the worst card on the board. Fifth time now that a model has
 looked incompetent with the instrument at fault. Any model ranking drawn from this run is invalid.
+
+## 2026-08-09 21:38 PDT — board still dead. `also out there` DOES work, and I can now prove it: 17 times a mind named someone it could not possibly see — and 12 of those 17 were a trade proposal fired at a target 141–347 m away
+
+**The board is still refused** (`board=000`, dead since 20:55). Nothing restarted. No new world ran
+between the 21:05 entry and this one, so there is no new telemetry — everything below is a second,
+sharper pass over the four melee logs (`runs/melee-1..4.jsonl`), aimed at the one question the 21:05
+entry explicitly could not answer.
+
+**Correcting the 21:05 entry.** It said of `also out there`: *"I cannot answer this from the board.
+The card does not expose what the prompt showed a mind."* That was too pessimistic. The card does not
+expose contacts, but it *does* expose every mind's `where` as a polar fix (`"244 m west of Broad
+Loch"`), and when two minds quote **the same landmark** you can compute a **rigorous lower bound** on
+how far apart they were — bearings are 8-point, so each is a ±22.5° sector, and the worst case is
+`Δθ_min = max(0, |b₁−b₂| − 45°)`. If that lower bound exceeds `AGENTS.noticeRange` (140 m), the two
+were *provably* out of contact range. Script: `farname.mjs` in the sampler scratchpad.
+
+### The result
+
+Across all four melee runs:
+
+| | melee-1 | melee-2 | melee-3 | melee-4 | total |
+|---|---|---|---|---|---|
+| intentions naming another mind | 35 | 24 | 19 | 43 | **121** |
+| …same-landmark, so measurable | 23 | 20 | 18 | 27 | **88** |
+| …**provably beyond 140 m when named** | 8 | 3 | 5 | 1 | **17** |
+
+**17 confirmed uses of a channel that was previously unverified**, across five models — Ailsa
+(`sonnet-5`), Morag (`opus-5`), Tormod (`grok-4.5`), Eachann (`grok-4.20-non-reasoning`), Coinneach
+and Seonaid (`kimi-k2.6`). This is a floor twice over: only 88 of the 121 were measurable at all, and
+the bound is deliberately conservative. **`also out there` is used. Stop treating it as unverified.**
+
+One caveat I cannot remove: a name could in principle come from memory of an earlier meeting rather
+than from the `far` block. But five of the seventeen are `go toward X` / `make for X`, which needs a
+*current bearing*, and the `far` block is the only thing that supplies one.
+
+### What it is used FOR — and this is the finding
+
+**12 of the 17 are trade verbs.** `offer` ×8, `give` ×3, `take X offer` ×1, at **141–347 m**. Only 5
+are navigation. And **14 of the 17 name Morag** — the seat that spends the run announcing a fire.
+The channel that lets minds find each other has become, in practice, a channel for proposing bargains
+at ranges where a bargain is physically impossible: `SOCIAL.giveRange` is **3.0 m**.
+
+### The chase, verbatim — nine consecutive calls, one branch, and a counterparty who never had the goods
+
+Ailsa (`sonnet-5`) in melee-1, tracked against Morag's card at the same sample:
+
+```
+"bringing my branches to Rowan Moor now"   Ailsa 141 m SW of Rowan Moor · Morag in Rowan Moor      [wood x2]
+"bringing my branch now"                   Ailsa 141 m SW of Rowan Moor · Morag in Rowan Moor      [wood x2]
+"still heading to Rowan Moor with my branch"  Ailsa in Rowan Moor · Morag 461 m N of The Thrawn Moor  [wood x24]
+"still heading in with this branch"        Ailsa in Rowan Moor · Morag 426 m NE of The Thrawn Moor [wood x24]
+"almost there with this branch"            Ailsa in Rowan Moor · Morag 357 m SW of Broad Loch      [wood x24]
+"finally here with this branch"            Ailsa in Rowan Moor · Morag 374 m SW of Broad Loch      [wood x24]
+"brought a branch, trade for venison at your fire?"  Ailsa in Rowan Moor · Morag 347 m SE of Rowan Moor
+"coming to your fire, Morag — branch for venison?"   Ailsa 157 m SE · Morag 352 m SE of Rowan Moor
+"coming with the branch, hold on Morag"    Ailsa 315 m SE · Morag 336 m SE of Rowan Moor
+```
+
+Then, later: *"here, take the branch — but you have no venison to give?"*
+
+Three things are true at once and none of them is the model's fault. **(1)** Morag is carrying
+`wood x24` and does not need the branch. **(2)** Morag carries **no venison at any sample in this
+window** — arrows, wood, hides only. The thing Ailsa is walking for does not exist. **(3)** Morag
+moves 400+ m *while Ailsa walks in*, so Ailsa arrives at an empty Rowan Moor and sets off again.
+Nine calls — a quarter of Ailsa's whole budget for that stretch — spent chasing a moving person for a
+trade that could never have cleared. Sonnet-5 reasoned correctly at every step; it worked it out
+itself at the end. **The instrument gave her a name and a stale bearing and nothing else.**
+
+This is the sixth time a model has looked poor with the harness at fault, and it is the missing half
+of **A240**: `accept` refuses because the deals being reached for were formed at 300 m against a
+partner whose inventory and position the proposer could not see. `SOCIAL.offerHours` (2.5 game hours
+≈ 162 real seconds at `dayMinutes: 26`) is *not* the binding constraint — a 300 m walk fits inside it.
+The binding constraint is that the counterparty is a moving target with unknown goods.
+
+### And A245 is smaller than I costed it — the reason already exists, only the observer loses it
+
+I claimed `refusedVerbs` "records the count with no reason" and put the fix at an afternoon. Reading
+`src/net/agent.js:1872`, `refuse(verb, text)` **already takes the sentence** and passes it to
+`noteOutcome`, which reaches the mind's prompt at its next decision — so the *mind* is told why. The
+`nodeal` path (`src/sim/world.js:966` → `agent.js:599`) carries a real diagnosis: `"you are 87 m from
+Morag — you have to be within 3 m to take it"`, `"Morag has no offer standing for you"`. It is only
+the **card** that keeps a bare integer, because `outcomes` is drained each turn. The fix is one line
+beside the existing counter, not a reshape.
