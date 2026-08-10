@@ -4863,3 +4863,55 @@ carry on the contact line (what is in hand and slung, not the whole pack — a r
 bundle of branches). Leave the far block blind, so closing the distance actually *buys information*.
 That turns "go and look" into a move worth making and gives the say channel something to lie about,
 which is the interesting version of this game.
+
+### A251 THE RESPAWN PAYS 85 FOOD AND BIRTH PAYS 50 — DYING IS A PROMOTION, 83 TIMES OVER **[M]** †††
+
+Measured across all eight sampler logs (6,152 decisions): **90 food-0 plateaus, 83 of the 85 completed
+ones ending in a refill above 50 food** — median **85 food and 100 health**, every time, on model and
+scripted seats alike. Against that, six independently-caught world starts (`at` = 3–43, total
+decisions 0–8) put **start-of-life food at 50–52**. So the payout for starving to death is **1.7× the
+payout for being born**, and the plateau in between is a fixed **180 real seconds / 2.75 game hours**
+in which health drains to a median of 4 and nothing a mind decides can change the outcome.
+
+This is **A232 measured properly**. A232 saw six revives in one run and costed the fix from that;
+this is 83 across every log in the project, which makes it the single most reliable event in the
+world — more reliable than any trade, fire, or kill.
+
+**Fix (unchanged from A232, but now the priority is not arguable):** stop refilling food on revive,
+and make the refill *at most* what birth pays. The cheapest correct version is one line — revive to
+the starting ration, not to 85. Then A246's carcasses and A250's visible-carry become things a mind
+needs rather than things it might like.
+
+### A252 THE MINDS' DEMAND SIDE ALREADY WORKS — A232's SECOND HALF IS WRONG ABOUT THEM **[S]** †††
+
+A232 concluded *"hunger has no teeth, so a market has no customers."* The teeth are missing (A251) but
+the **customers are not**. Sampling every decision made at food 0 with health under 25, across four
+model families:
+
+```
+Morag     (opus-5)    hp= 0  "offer hide to Ailsa for venison"    why "starving, she is right here"
+Morag     (opus-5)    hp=20  "offer 6 hides to Ailsa for venison" why "badly hurt, starving, no shot"
+Eachann   (grok-4.20) hp= 9  "pick up what is lying about"        why "starving, get meat"
+Coinneach (kimi-k2.6) hp= 1  "pick up what is lying about"        why "starving, I'll butcher my own"
+Ailsa     (sonnet-5)  hp= 3  "find shelter and settle..."         why "starving but no food to give, must wait and shelter"
+```
+
+Minds name the hunger, walk to the fire, and **reach for trades because of it** — and are then handed
+85 food whether or not any of it worked. **Value of this idea:** it says the A251 fix does not also
+require teaching demand. Do not spend a phase building hunger-driven behaviour; it is already there
+and correct. Fix the payoff and re-read the trade count. This is the seventh instance of the standing
+pattern — *the model looked worse than the instrument.*
+
+### A253 `analyse.mjs` SEGMENTS ON A WRAPPING CLOCK, SO A MIDNIGHT LOOKS LIKE A NEW WORLD **[S]** ††
+
+`hours` on a card is a **0–24 wrapping clock**, not elapsed time (the 21:05 entry's `h`-is-a-clock
+finding, same root cause). Any tool that splits a log into worlds on "`hours` went backwards" — which
+is what I wrote first, and what `seg.mjs` does — merges a game-day rollover with a genuine world
+restart. It cost me a wrong number in the same session: contaminated birth-food to a meaningless
+"median 38" until I re-derived it from `at`. A plateau spanning midnight also reports its duration as
+**−21.2 hours**.
+
+**Fix:** segment on **`board.at`**, the monotonic tick counter, which resets only on a real restart —
+and derive elapsed game time from `at`, not from `hours`. This also retires the 20:35 entry's
+"`eval30.jsonl` holds two worlds and `analyse.mjs` reads them as one" as a *class* of bug rather than
+one file's accident.

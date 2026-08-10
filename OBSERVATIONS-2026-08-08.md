@@ -7224,3 +7224,89 @@ I claimed `refusedVerbs` "records the count with no reason" and put the fix at a
 Morag — you have to be within 3 m to take it"`, `"Morag has no offer standing for you"`. It is only
 the **card** that keeps a bare integer, because `outcomes` is drained each turn. The fix is one line
 beside the existing counter, not a reshape.
+
+## 2026-08-09 22:05 PDT — board still dead, third run running. **Starving to death pays 85 food; being born pays 50.** 83 respawns measured across 8 logs, each a fixed 180-second coma, and the minds reason about hunger *correctly* the whole way down
+
+**The board is refused** (`board.json` → HTTP 000, dead since 20:55, now 70 minutes). Nothing was
+restarted. **No new world has run since the 21:05 entry**, so there is no new telemetry for the third
+consecutive entry. Everything below is a fresh measurement over the eight existing logs
+(`duo2`, `melee`, `melee-2..4`, `eval28`, `eval29`, `eval30` — 6,152 decisions in total).
+
+**A note on this task's own brief, again.** The brief names `duo2.jsonl` as the live sampler log and
+`roster-duo.json` (Eachann + Coinneach, two seats) as the running roster. `duo2.jsonl` was last
+written at **11:28, eleven hours ago**, and it holds the **eight-seat melee**, not a duo. Three
+entries (11:05, 11:35, and 19:35's correction) have already said so. The brief is stale.
+
+### What I set out to test, and got a clean negative
+
+Hypothesis: the scripted seats end better fed than the model seats — the analyser's last window
+shows Fingal (scripted, 0/152 answered) on **food 85** while Ailsa (`sonnet-5`, 127 answered) sits on
+**food 0**. **This is false.** Segmented by world across four melee logs, scripted Iseabail's final
+food ranges **0, 0, 33, 36, 39, 44, 53, 85, 92** — no pattern, and mean final food splits MODEL vs
+NON-MODEL 26.8/42.5, 51.8/4.0, 47.0/30.0, 35.2/88.5, 59.9/0.0. It is noise. Anyone reading a single
+end-of-run snapshot as "the script survives better" is reading the coin-flip below.
+
+### The coin-flip: 83 respawns, and the payout beats birth
+
+Chasing that noise found its cause. Food declines ~1 per 20 s sample, reaches 0, sits **flat at 0**
+while health drains, and then jumps back. Every food-0 plateau in all eight logs:
+
+| | |
+|---|---|
+| food-0 plateaus | **90** (85 completed inside a log) |
+| …that ended in a refill above 50 food | **83 of 85** |
+| food handed back | min 51 · **median 85** · max 85 · mean 84.1 |
+| health handed back | **100 in every single one of the 83** |
+| plateau length | median **10 samples / 180 real seconds / 2.75 game hours** |
+| lowest health reached inside it | median **4**, min 0 |
+| decisions made while already at food 0 | **382 = 6.2% of all 6,152** |
+
+**And the number that matters — what a seat is worth at birth.** I caught six independently-started
+worlds at `at` = 3–43 with **total decisions 0–8**, before any mind had thought:
+
+```
+melee2  at=10  every seat food 51      melee4   at=12  every seat food 51
+melee3  at=10  every seat food 51      melee    at=33  every seat food 50
+eval29  at= 3  every seat food 52      duo2     at=43  every seat food 50
+```
+
+**Start of life is 50–52. Starving to death pays 84–85 and a full 100 health.** Dying is not merely
+free, which is what **A232** established from six seats in one run — it is a **1.7× upgrade on being
+born**, and it is not six events, it is **83 across every log this project has**. It happens to model
+seats and scripted seats alike, so it is the world, not the minds.
+
+*(The one seat that did not get the upgrade: `eval30` Tormod, once, refilled to 48 with health 10.
+So the refill is not quite unconditional — 83 of 85 is the honest figure, not 85 of 85.)*
+
+### The part that reframes A232 — the minds are not the problem, and their demand side already works
+
+A232 reads: *"Hunger has no teeth, so a market has no customers."* The first half is right and the
+second half is **wrong about the minds**. Every seat below is at **food 0 and health under 25** — a
+few samples from a refill — and reasoning about hunger urgently and correctly, verbatim:
+
+```
+Morag     (opus-5)    hp=10  "make for Heather Scaur"          why "fire and food before I drop"
+Morag     (opus-5)    hp= 0  "offer hide to Ailsa for venison" why "starving, she is right here"
+Morag     (opus-5)    hp=20  "offer 6 hides to Ailsa for venison" why "badly hurt, starving, no shot"
+Eachann   (grok-4.20) hp= 2  "make for Heather Scaur"          why "starving, need fire and meat"
+Eachann   (grok-4.20) hp= 9  "pick up what is lying about"     why "starving, get meat"
+Coinneach (kimi-k2.6) hp= 5  "make for Heather Scaur"          why "shivering and starving, need that fire"
+Coinneach (kimi-k2.6) hp= 1  "pick up what is lying about"     why "starving, I'll butcher my own"
+Ailsa     (sonnet-5)  hp= 3  "find shelter and settle..."      why "starving but no food to give, must wait and shelter"
+```
+
+Four model families, all of them naming the hunger, two of them **reaching for a trade because of
+it**. The customers exist. They are walking to the fire, offering hides for venison, and going for
+the carcass — and then the harness hands them 85 food regardless of whether any of it worked.
+**This is the seventh time a model has looked worse than the instrument.** It also predicts the A232
+fix will land harder than A232 itself expects: the demand-side reasoning does not need to be created,
+only rewarded.
+
+### Two instrument notes worth keeping
+
+- **`board.at` is a monotonic tick counter and the right key for segmenting a log.** I split worlds on
+  `hours` going backwards and it is wrong — `hours` is a wrapping 0–24 clock (the 21:05 entry's
+  finding), so a game-day rollover looks identical to a world restart. That contaminated my first
+  birth-food figure into a meaningless "median 38" before I checked it against `at` and `decisions`.
+  `at` distinguishes them cleanly. `analyse.mjs` and `seg.mjs` should both use it.
+- A plateau that straddles midnight reports its length as **−21.2 game hours**. Same root cause.
