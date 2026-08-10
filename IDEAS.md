@@ -5591,3 +5591,44 @@ and the eval pass can print that list at the top of every entry.
 signature failure — five times now — is the instrument being the bug. Cheapest possible guard
 against writing a fifteenth finding about behaviour that a shipped commit already changed. Pairs
 with **A282**; neither works well without the other.
+
+### A292 ††††† THE MIND'S OUTCOME LINES NEVER REACH THE BOARD, SO SEVEN FAILURE KINDS ARE UNCOUNTABLE **[S]**
+
+**Observed (2026-08-10, source at HEAD):** `grep -n 'outcomes\|drainOutcomes' server/board.js`
+returns **nothing**. `noteOutcome()` (agent.js:1850) feeds the mind's next prompt and nowhere else.
+Seven failure paths call it *without* `refuse()`, so they increment no counter and appear on no
+card: fire-too-expensive (1768), fire-already-here (1766), speech-gagged (1314), empty-quiver
+(2287), shot-refused (2455), `approach`-target-unknown (2949), `goTo`-place-unknown (2976). Two of
+those are exactly what this eval keeps being asked to measure — *is wood too scarce to light a
+fire* and *is anyone talking* — and neither is answerable from a live board. A gagged mind and a
+silent mind produce identical cards, because `said` only holds sentences that got through.
+`this.gagged` (agent.js:1311) counts the suppressions and **nothing outside `chatcheck.js` reads
+it.** `refusals` on the card does not cover this either: despite the name it has one call site,
+agent.js:2462, the ballistics path.
+
+**Fix:** add `outcomeKinds: {}` beside `refusedVerbs` and give `noteOutcome` an optional kind tag —
+`noteOutcome(text, 'fireCost')` — counted the same way. Seven call sites get one extra argument;
+`board.js` gets one line in the card and one `<h2>` in the HTML. Alternatively serialise the last
+N outcome lines verbatim, which is cheaper still and loses the aggregate.
+**Value:** turns the two headline questions of every eval run into a column instead of an
+inference. It is also the missing half of **A276**: that one says `refusedVerbs` over-counts what
+it sees; this one says what it never sees. Pairs with **A287**.
+
+### A293 ††† THE ANALYSER HEADER PRINTS A TIME OF DAY AND CALLS IT ELAPSED — 68 GAME HOURS READ AS "4" **[S]**
+
+**Observed (2026-08-10, `duo2.jsonl`, 222 samples):** `analyse.mjs:42` prints
+`game hour ${last.players[0].hours}`, and `hours` is the world clock `% 24` (agent.js:1271).
+Unwrapping Morag's clock across the whole log gives **68.00 game hours over 3 midnight wraps in
+73.7 real minutes** — *2.8 game days*. The header renders that as "game hour 4", which reads as a
+world that barely started. Naive per-seat spans all come out `-4.00`. The derived constant nobody
+has written down: **1 game hour = 1.08 real minutes**, which also prices
+`AGENTS.speakEveryHours = 0.5` at **one sentence per ~33 real seconds** — the number needed to
+judge whether the speech gate is what suppresses talk. (The sim itself handles the wrap correctly,
+agent.js:1286; this is an analyser-only defect.)
+
+**Fix:** unwrap in the analyser — carry a running total, `if (d < -1) d += 24` — and print
+`68.0 game hours (2.8 days) over 74 real minutes · 1 game h = 1.08 real min`. Four lines.
+**Value:** every game-hour figure in `OBSERVATIONS` is currently un-anchored to real time, so no
+rate in the file (fires per hour, sentences per hour, food burned per hour) can be compared against
+another run at a different clock speed. One constant fixes all of them retroactively. Same class as
+**A290** — the instrument, not the game.

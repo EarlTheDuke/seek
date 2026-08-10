@@ -8495,3 +8495,88 @@ the current build — which is a thing only Ben can start.
 
 I am not correcting an earlier entry here. Every one of the thirteen is, as far as I can tell,
 sound about the bytes it read. The problem is that they all read the same bytes.
+
+## 2026-08-10 05:05 PDT — BOARD DEAD, CORPUS STILL FROZEN (8h10m). **Two columns on the card are named for refusal and neither carries the seven failure paths that only reach the mind — including the two this brief asks me to measure.** And the analyser's "game hour 4" is a wrapped clock: the run was 68 game hours, not 4
+
+`curl :8090/board.json` → exit 7, connection refused. Newest byte on disk is still **08-09 20:55
+PDT**; it is 05:05, so the engine has been off **8 h 10 m** and the un-run backlog is unchanged at
+four simulation commits. Nothing restarted, per the brief.
+
+The 04:35 entry argued a fifteenth pass over the same bytes is worth ~zero, and I agree with it. So
+this pass reads **HEAD instead of the corpus** — the one artefact in this project that has actually
+changed. Both findings below are about the current build, not about `duo2.jsonl`.
+
+### 1. The card cannot report the two things this brief puts at the top of its list
+
+There are three places a refusal can land, and they do not overlap the way the names suggest:
+
+```
+  refuse(verb, text)        agent.js:1872   → refusedVerbs[verb]++  AND  noteOutcome(text)
+  this.refusals.push(...)   agent.js:2462   → ONE call site in the file: the shot path
+  noteOutcome(text)         agent.js:1850   → outcomes[], drained into the mind's next prompt
+```
+
+- **`refusedVerbs`** has 13 call sites, every one inside `resolve()`, and every one is the same
+  shape — *the named target is not in sight*. (Over-counted ~8×; A276, unchanged.)
+- **`refusals`**, despite the name, is written from **exactly one place**, `agent.js:2462`, the
+  ballistics path. It is a shot log wearing a general name.
+- **`outcomes` is never serialised.** `grep -n 'outcomes\|drainOutcomes' server/board.js` → **no
+  matches.** It reaches the mind and stops there.
+
+Seven failure paths call `noteOutcome` **without** `refuse`, so they increment nothing and appear
+on no card:
+
+```
+  agent.js:1768  "a fire takes 10 branches and you have N"
+  agent.js:1766  "there is already a fire burning here"
+  agent.js:1314  "you have already spoken recently — \"X\" was not said"
+  agent.js:2287  "your quiver is empty — you cannot shoot until you make arrows"
+  agent.js:2455  "your shot was refused at N m — <why>"
+  agent.js:2949  approach: "there is nobody called \"X\" anywhere you know of"
+  agent.js:2976  goTo:     "you do not know the way to \"X\""
+```
+
+Read that list against the brief. **"Is wood now scarce enough to matter, or too scarce to
+survive?"** is line 1768, and the board cannot count it. **"Is anyone talking?"** is line 1314 —
+`said` only carries sentences that got *through* the gate, so a mind gagged fifty times and a mind
+that never opened its mouth produce an identical card. There is a counter for it, `this.gagged`
+(agent.js:1311), and outside `chatcheck.js` **nothing reads it, ever.** And `goTo` — the verb the
+08-08 fix `0064315` resurrected after it had "never once worked" — still reports its failure to
+nobody but the mind, so the fix's own success rate is unobservable from the board.
+
+Zero of those seven strings appear anywhere in `duo2.jsonl`'s 222 samples. That is *consistent*
+with the gap but is not what proves it — `duo2` is a pre-fix binary. The proof is that `board.js`
+contains no reference to `outcomes` at all.
+
+### 2. The clock: "game hour 4" is a time of day, and the run was 68 game hours long
+
+`analyse.mjs:42` prints `game hour ${last.players[0].hours}`. `hours` is the world clock and it is
+`% 24` (agent.js:1271). Unwrapping it across all 222 samples for Morag:
+
+```
+  68.00 unwrapped game hours   ·   3 midnight wraps   ·   73.7 real minutes
+  → 1 game hour = 1.08 real minutes  ·  ~2.8 game DAYS in a 74-minute run
+```
+
+Every seat's naive span reads `-4.00`. The header says "game hour 4" and reads as *a world that
+barely got started*; it ran nearly three days. This is the standing conversion for every
+game-hour figure in this file: **multiply by 1.08 for real minutes.**
+
+It also prices the speech gate, which is the honest answer to "say costs nothing":
+`AGENTS.speakEveryHours = 0.5` → **one sentence per ~33 real seconds.** Morag decided every ~41 s
+and produced 107 distinct sentences in 107 decisions — she was essentially never gagged. So *at
+this clock rate* the gate is not what suppresses speech, and the "one sentence in two days" era
+had a different cause. Say rides along free in **action** budget; it is still rate-limited in time.
+
+**A negative I went looking for and did not find.** I expected `sinceSpoke = this.hours - this.spoke`
+to go negative across a midnight wrap and hard-gag every mind for hours. It does not:
+`agent.js:1286` is `this.spoke < 0 ? Infinity : (this.hours - this.spoke + 24) % 24`, with a comment
+at 1271 saying exactly why. **The wrap is handled correctly in the sim; it is handled wrongly only
+in the analyser's header line.** Recording that as a negative, since it is the sort of claim this
+file has been burned by before.
+
+### Not correcting anything
+
+I re-read the 02:06 entry on `refusedVerbs` before writing §1 and it is sound — it establishes the
+column *over*-counts what it does see. §1 is the complement it did not cover: what the column never
+sees at all. The two findings stack rather than conflict.
