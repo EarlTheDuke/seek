@@ -574,6 +574,44 @@ async function main() {
   check('...but a model on this machine needs no key',
     localOne.name === 'openai-compatible', localOne.baseUrl);
 
+  // ── AND THE ONE THAT COST A PLAYTESTER TWO NIGHTS ────────────────────────
+  //
+  // `ORDERS=obeys` was silently dead for every run that used a roster.
+  //
+  // `loadRoster` normalised a line that said NOTHING about orders into one
+  // saying 'decides'; agents.js resolves the mode as `entry?.orders ?? ORDERS`;
+  // and `??` only fires on undefined. So the environment variable could never
+  // win, and the banner cheerfully printed "orders: obeys" over the top of
+  // eight agents all set to `decides`.
+  //
+  // A playtester was set the task of recruiting the agents to help kill a
+  // troll, failed for two nights, read the source, correctly identified
+  // `decides` as the cause, and asked us to flip the setting. Flipping it
+  // would not have worked either. THE BANNER AGREED WITH HIM AND THE GAME DID
+  // NOT — which is the same disease as every other bug this week.
+  {
+    const file = path.join(tmpdir(), `roster-orders-${process.pid}.json`);
+    writeFileSync(file, JSON.stringify({
+      players: [
+        { name: 'Quiet' },                      // says nothing about orders
+        { name: 'Loud', orders: 'obeys' },      // asks for it
+        { name: 'Free', orders: 'decides' },    // asks against it
+      ],
+    }));
+    const r = loadRoster(file);
+    unlinkSync(file);
+
+    check('A ROSTER LINE THAT SAYS NOTHING ABOUT ORDERS LEAVES IT UNDECIDED',
+      r.players[0].orders === undefined,
+      `got ${JSON.stringify(r.players[0].orders)} — 'decides' here means ORDERS=obeys can never win`);
+    check('  …so the environment variable is the one that decides',
+      (r.players[0].orders ?? 'obeys') === 'obeys',
+      'entry?.orders ?? ORDERS, with a `??` that can actually fire');
+    check('  …while a line that ASKS for a mode still gets it',
+      r.players[1].orders === 'obeys' && r.players[2].orders === 'decides',
+      `${r.players[1].orders} / ${r.players[2].orders}`);
+  }
+
   server.close();
   const passed = results.filter((r) => r.pass).length;
   console.log(`\n  ${passed}/${results.length} passed`);

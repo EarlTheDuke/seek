@@ -79,6 +79,30 @@ REM  250 is a ceiling nothing should reach - it is there to stop a runaway, not
 REM  to shape the run. The board shows a red SPENT tag if a seat hits it.
 set "MAX_CALLS=250"
 
+REM  ── WILL THEY TAKE AN ORDER? ────────────────────────────────────────────
+REM
+REM  `decides` (the default) — they HEAR you and make up their own minds. Your
+REM  sentence goes into the notes their mind considers at its next deliberation
+REM  and nothing else happens. This is the honest benchmark: whether a model
+REM  chooses to help you is the interesting question.
+REM
+REM  `obeys` — a recogniser turns exact phrases straight into goals, without
+REM  waiting for the model and without asking it. It understands:
+REM
+REM      follow me · guard me · wait · carry on
+REM      kill the troll   (also attack/shoot/hunt, any creature)
+REM
+REM  A playtester spent two whole nights failing to recruit anybody and then
+REM  read the source to find out why: "no amount of clever phrasing or payment
+REM  was ever going to recruit them". He is right, and in `decides` that is
+REM  working as designed rather than broken.
+REM
+REM  WHICH TO USE. If you want to know whether the MODELS will cooperate, leave
+REM  it on `decides` — an obeyed order proves nothing about the mind that took
+REM  it. If you want to PLAY, or to test whether the game can be played
+REM  co-operatively at all, set `obeys`.
+set "ORDERS=obeys"
+
 set "MYNAME=Jack"
 
 echo.

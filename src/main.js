@@ -610,13 +610,37 @@ function boot() {
       onError: (m) => hud.toast(`server: ${m}`, 5),
       onStatus: (s) => {
         hud.toast(`network: ${s}`, 2);
-        // Nobody is keeping your health — or your hour — for you once the
-        // socket is gone.
+        // ── A SILENT DISCONNECT IS THE WORST LIE THIS GAME CAN TELL ──
+        //
+        // A two-second toast was the only signal, and a playtester lost most of
+        // a session to it:
+        //
+        //   > The websocket dropped silently at least twice — the client
+        //   > carried on perfectly, trees still cut, toasts still fired, but
+        //   > nothing reached the server and only the connection flag revealed
+        //   > it. A visible warning would have saved me a lot of confusion.
+        //
+        // And it is worse than merely quiet. Everything below reverts to
+        // single-player on purpose — the browser has to keep your health and
+        // your hour once nobody else is — so the game goes on working
+        // BEAUTIFULLY while nothing you do reaches anybody. You cut trees
+        // nobody sees, pay people who never receive it, and shoot at animals
+        // that are no longer there.
+        //
+        // So it stays on the screen until it is true again. Same bar as the
+        // stopped world, and written straight into the DOM for the same reason.
         if (s !== 'connected') {
+          netNotice(
+            `NOT CONNECTED — ${s}. You are playing on your own now.
+`
+            + 'Nothing you do is reaching the server or the other players. Reload to rejoin.'
+          );
           vitals.takeOverLocally();
           atmosphere.takeOverLocally();
           fires.takeOverLocally();
           weather.takeOverLocally();
+        } else {
+          netNotice(null);
         }
       },
     };
@@ -3418,6 +3442,24 @@ function boot() {
     ),
     onRecovered: () => stoppedNotice(null),
   });
+
+  /** The disconnect bar. Amber rather than red: this is a state, not a fault. */
+  function netNotice(text) {
+    let el = document.getElementById('net-dropped');
+    if (!text) {
+      el?.remove();
+      return;
+    }
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'net-dropped';
+      el.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99998;'
+        + 'background:#7c2d12;color:#fff;font:13px/1.5 monospace;padding:8px 12px;'
+        + 'text-align:center;white-space:pre-wrap';
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+  }
 
   // Said straight into the DOM, because the HUD lives inside the step and may
   // be exactly what threw.

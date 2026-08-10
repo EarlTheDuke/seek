@@ -67,7 +67,24 @@ export function loadRoster(path) {
       keyEnv: p.keyEnv ? String(p.keyEnv) : undefined,
       character: p.character ? String(p.character) : null,
       pet: p.pet ? String(p.pet) : null,
-      orders: p.orders === 'obeys' ? 'obeys' : 'decides',
+      // ── UNDEFINED IS NOT 'decides' ──
+      //
+      // This said `p.orders === 'obeys' ? 'obeys' : 'decides'`, which turned a
+      // roster line that said NOTHING about orders into one that said
+      // 'decides' — and agents.js resolves the mode as `entry?.orders ??
+      // ORDERS`, so the `??` could never fire and the ORDERS ENVIRONMENT
+      // VARIABLE WAS SILENTLY DEAD for every run that used a roster. Which is
+      // every real run.
+      //
+      // The cost of that was two whole nights of a playtester's time. He was
+      // set the task of recruiting the agents to help kill a troll, could not,
+      // read the source to find out why, and correctly identified `decides` as
+      // the reason — then told us "if you flip the orders setting to obey, I'd
+      // like another go". Flipping it would not have worked either.
+      //
+      // A default that overwrites the thing it is defaulting FOR is not a
+      // default. Undefined stays undefined and the caller decides.
+      orders: p.orders === 'obeys' ? 'obeys' : (p.orders === 'decides' ? 'decides' : undefined),
       // ── HOW THIS ONE THINKS, AND HOW OFTEN ──
       //
       // `think` turns adaptive thinking on for this seat alone and raises its
