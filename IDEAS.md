@@ -5780,3 +5780,61 @@ change, no sim change — this is view-layer only.
 **Provenance note.** First backlog item added in three passes, and the first in twenty-two that came
 from reading `src/`/`server/` instead of the frozen corpus. Related: **A290** (no is-the-engine-
 running gate), **A297** (builder cron off).
+
+## Added 2026-08-10 08:24, from the first pass that ran the 60-harness suite instead of re-reading the frozen log
+
+**A299 [S] — `keycheck` blames a file it never opens.**
+
+`server/keycheck.js:157`:
+
+```js
+const key = p.keyEnv ? process.env[p.keyEnv] : undefined;
+if (!key) console.log(`${label}${red('WILL BE SCRIPTED')} — ${p.keyEnv ?? 'no keyEnv'} is empty in keys.cmd`);
+```
+
+It reads **the environment** and reports **the file**. Run from a shell that has not sourced
+`keys.cmd` — which is every agent shell, every cron, and any terminal opened fresh — it prints six
+red `WILL BE SCRIPTED` lines and `6 seats will not think tonight.` about a `keys.cmd` that is very
+likely intact. This pass hit it and had to read the source to avoid filing "Ben's API keys are gone"
+as a finding.
+
+**Why it matters.** This is the third instrument in this project that reports its own missing context
+as the world's fault: **A298** (a dead board keeps its cards painted at full contrast) and the `SPENT`
+tag the eval brief warns caused a previous misread. The brief's own standing rule is "distinguish what
+the models did from what the harness allowed" — and five times now a model has looked incompetent when
+the instrument was at fault. This is a fourth path to that same wrong conclusion, in one line.
+
+**Fix [S].** Either (a) say what is actually true — `XAI_API_KEY is not set in this shell; run keys.cmd
+first` — or (b) make the claim honest by reading `keys.cmd` and distinguishing the three real cases:
+file missing, variable absent from the file, variable present but empty. (a) is one line. Related:
+**A298**, **A290**.
+
+---
+
+**A300 [S] — a failing assertion exits 0, so the suite is invisible to any automated caller.**
+
+`server/huntcheck.js` reports `6/7 passed` on `HEAD` and returns **exit code 0**. The failing line:
+
+```
+  FAIL  AND IT BROUGHT ONE DOWN — not in 150 s
+        1 wound, 0 kills off 3 shots, 28 refusals mostly "ground in the way"
+```
+
+Spot-checked across the suite: the harnesses print a human-readable `n/m passed` and do not set a
+non-zero exit on failure. The only non-zero codes in a full sweep came from a missing server
+(`agentcheck`) and missing env (`keycheck`) — i.e. **from setup problems, never from a failed check.**
+
+**Why it matters.** The observation entry for this pass establishes that these 60 harnesses run green
+with no world and no API keys, which makes them the one regression gate available while the engine is
+down. A gate that returns 0 on failure is not a gate. Any cron, pre-commit hook, or future
+`highlands-triage` build step that shells out and tests `$?` will read a red suite as clean.
+
+**Fix [S].** `process.exitCode = failed > 0 ? 1 : 0` at the end of each harness — or better, a single
+`server/checkall.js` that runs the suite, allows **200 s** per harness (four of them legitimately
+exceed 60 s: `huntcheck`, `survivalcheck`, `rangecheck`, `refillcheck`), skips the two that need
+external setup unless a server/keys are present, and exits non-zero on any `FAIL`.
+
+**Separately, the content of that one failure is worth a look** — the scripted hunt bot cannot bring
+down a deer in 150 s, and its own diagnostic blames shot rate and damage, not aim ("ground in the way"
+× 28). The astray/refusal side of this is already heavily documented here (65 mentions of `astray`);
+what is new is only that the check is red and silent about it.

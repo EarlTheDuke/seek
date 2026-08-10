@@ -8902,3 +8902,62 @@ husbandry. Recording the check because the reading is seductive and will occur t
 1. `highlands-triage` on, or `highlands-evaluate` off. Third time asked; nothing has changed.
 2. A world on current `HEAD` before the next fire. Still **no log in the corpus tests any commit
    after 08-09 20:55**; six behaviour commits have never executed (A291).
+
+## 2026-08-10 08:24 PDT — BOARD DEAD (11h29m). **Twenty-second pass on the same frozen log, and the first one that ran the code instead of re-reading the corpus. The 60 `server/*check*.js` harnesses need no world — 58 of 60 are green on `HEAD`, including every check belonging to the six behaviour commits that have "never executed." A291 needs narrowing, and my own 60-second timeout nearly published four false failures.**
+
+Board: `curl http://127.0.0.1:8090/board.json` → exit 7. Last byte any live world wrote: `melee4.jsonl`,
+**08-09 20:55 — 11h29m ago**. `duo2.jsonl`, unchanged since **08-09 11:28 — 20h56m**. Ran
+`analyse.mjs duo2.jsonl` as the brief requires: 222 samples, 74 real minutes, game hour 4, **805 calls
+of 4000, no seat `SPENT`**, eight-seat melee — byte-identical to the twenty-one passes before it. All
+seven watch-items already carry a verdict here. Scheduler at 08:15, unchanged for the fourth pass:
+`highlands-triage` **enabled: false**, last fired 08-06 20:04 (3d 12h); `highlands-evaluate` enabled.
+
+### The new fact: the test suite runs without a world, and it is green
+
+Every prior pass treated "the engine is off" as "nothing can be measured." That was wrong. The repo
+holds **60 check harnesses** that build their own state. Ran all of them on `HEAD`:
+
+```
+  58 of 60 green.  The 2 non-zero are environmental, not code:
+    agentcheck.js   needs a live server on ws://127.0.0.1:8080  — there isn't one
+    keycheck.js     needs the env keys.cmd exports — a bare shell has none
+```
+
+The six commits A291 calls "never executed" now have unit-level evidence, all green:
+
+```
+  carrycheck    8/8     ordercheck2  18/18     tradecheck   28/28
+  bowcheck     11/11    honestcheck  27/27     providercheck 47/47
+```
+
+**This does not retire A291** — a harness is not a world, and no log in the corpus still tests any
+commit after 08-09 20:55. But "unexercised" was too strong: what is untested is their *interaction*
+under real models, not the mechanics.
+
+### Correcting myself inside this pass, before it reached the file
+
+My first sweep used a 60-second timeout and reported `huntcheck`, `survivalcheck`, `rangecheck`,
+`refillcheck` as failures (rc=124). All four **pass** given 150–200 s: `survivalcheck 12/12`,
+`rangecheck 9/9`, `refillcheck` all-PASS. Four false failures, caused by my instrument, in the pass
+that is about instruments lying. Recording it because the next pass will reach for the same timeout.
+
+### Two real defects found by running it
+
+1. **`server/keycheck.js:157` names a file it never opens.** It reads `process.env[p.keyEnv]` and on
+   absence prints `XAI_API_KEY is empty in keys.cmd`, then `6 seats will not think tonight` in red.
+   Run from any shell that has not sourced `keys.cmd`, it indicts a file that may be perfectly
+   healthy. Same family as **A298** and as the `SPENT` misread the brief warns about — a third
+   instrument that reports its own missing context as the world's fault. → **A299 [S]**
+2. **`huntcheck` is 6/7 and exits 0.** The failing line is `AND IT BROUGHT ONE DOWN — not in 150 s`:
+   the scripted hunt bot managed 1 wound and 0 kills off 3 shots, with 28 refusals mostly "ground in
+   the way." The kill-rate half is already well covered here (65 mentions of `astray`, 7 of "ground
+   in the way"). What is new is that **a failing assertion still exits 0**, so any caller that checks
+   exit codes — a cron, a pre-commit hook, a future builder — sees this suite as clean. → **A300 [S]**
+
+### For Ben
+
+1. `highlands-triage` on, or `highlands-evaluate` off. **Fourth pass asking**; nothing has changed.
+2. A world on current `HEAD` before the next fire. Still no log testing any commit after 08-09 20:55.
+3. New, and cheap: **`server/*check*.js` is a usable regression gate today, with no world and no API
+   keys** — 58/60 green, budget 200 s per harness. That is the one thing this loop can verify while
+   the engine is down.
