@@ -5468,3 +5468,36 @@ immediate return, shown on both cards and in both briefs, ageing so a stale debt
 **Value:** the single richest behaviour these models have produced without being asked, and it is
 currently invisible to everything except a text field one seat happens to use. Depends on nothing;
 A282 first only because every measurement of it will otherwise be untrustworthy.
+
+---
+
+### A285 †††† A HEARD SENTENCE CARRIES NO DISTANCE, SO "COME TO ME" IS A HEADING WITH NO LENGTH **[S]**
+
+**Observed (2026-08-10 03:34, `duo2.jsonl`, 126 distinct sentences):** 44 sentences are a summons or
+a rendezvous attempt; **only 10 name a place**. Four of six seats — both groks, both kimis — never
+put a placename in a summons even once. Meanwhile chat is delivered globally and unconditionally
+(`agent.js:401`) as `"Name: text"`, and beyond `noticeRange` (140 m) the `far` channel gives the
+listener a **bearing with no distance**, by design (`agent.js:963-971`). The mean separation in that
+run was 291 m and **0 of 70 comparable pair-observations were inside the 3 m trade needs**.
+
+**Fix:** put the speaker's own `where()` phrase on the heard line — `Eachann (300 m north of Rowan
+Moor): coming for my share` — instead of bare `Name: text`. It is one string concatenation at
+`agent.js:401`; the phrase is already computed for the card, and `findDistrict` already resolves it
+back to a heading out to ~8.7 km, so the sentence becomes actionable the moment it is heard.
+
+**Value:** the cheapest thing on this list that could move the one number that has never moved. Every
+market finding in `OBSERVATIONS` bottoms out in two bodies never being 3 m apart, and a third of all
+speech is currently an invitation to a place with no address. Pairs with A286.
+
+### A286 ††† NOTHING IN THE BRIEF TEACHES A MIND THAT A PLACENAME IS THE ADDRESSABLE ONE **[S]**
+
+**Observed (same run):** Morag (opus-5) used placenames in 8 of 15 summonses and used them *correctly*
+— naming a place she was 221–439 m away from, which is exactly what a rendezvous name is for. Every
+other seat said "here" / "my fire" / "coming in". The `places:` gazetteer is already in the brief
+(`agent.js:1047`, 6 nearest districts) but nothing says what it is **for**, and the one worked example
+in the prompt does not model a meeting.
+
+**Fix:** one line in the system prompt next to `places` — *"if you want somebody to come to you, name
+one of these; 'here' means nothing to a listener"* — plus a worked `say` example that names a place.
+**Value:** A285 makes deictic speech survivable; this makes it rarer. Together they are an afternoon,
+and one seat has already demonstrated the target behaviour unprompted, so the ceiling is known.

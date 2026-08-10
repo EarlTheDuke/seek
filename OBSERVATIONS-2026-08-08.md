@@ -8225,3 +8225,100 @@ configuration, not by exhaustion.)
   in any log, though haiku and grok demonstrably attempt `offer` too. Consistent with the counter
   incrementing on goal *persistence* rather than on refusal: a seat that drops a refused verb after
   one try scores zero. The column still cannot do the job it was built for.
+
+---
+
+## 2026-08-10 03:34 PDT — BOARD DEAD, NO NEW RUN. **A sentence travels the whole world; the speaker's distance never travels with it. 34 of 44 rendezvous attempts are deictic — "come in", "on my way", "coming for my share" — and beyond 140 m the listener gets a bearing with no length.**
+
+`http://127.0.0.1:8090/board.json` → connection refused (HTTP 000, curl exit 7). Dead since
+20:55 on 2026-08-09, same as the last eight entries. No restart, per the brief. `duo2.jsonl`
+(the eight-seat melee, 222 samples / 74 real minutes / game hour 4→20) is unchanged since
+Aug 9 11:28, so this entry adds no new *run* data — it adds a reading of the speech corpus
+against the source, which nothing in this file has done yet.
+
+### The corpus, classified
+
+126 distinct sentences. Classified by whether a **listener** could act on them:
+
+| | count |
+|---|---|
+| distinct sentences spoken | 126 |
+| name a place that exists | 18 (14%) |
+| are a summons / rendezvous attempt | 44 |
+| …of those, naming a place | **10** |
+| …of those, deictic only | **34** |
+
+Per speaker — *summons-with-a-placename / summons / all sentences*:
+
+```
+Ailsa        2 /  12 /  45      Tormod       0 /   4 /  17
+Morag        8 /  15 /  36      Coinneach    0 /   1 /   6
+Eachann      0 /  10 /  17      Seonaid      0 /   2 /   5
+```
+
+Four of six seats — including both groks and both kimis — never once put a placename in a
+summons. Verbatim, with the speaker's own position beside it:
+
+```
+h0.32  Eachann @ 214 m east of Rowan Moor        "coming for my share Morag"
+h1.41  Tormod  @ in Broad Loch                   "on my way for a cut, Morag"
+h1.51  Morag   @ 243 m NW of Rowan Moor          "Camp's up here — bring the meat in…"
+h2.02  Ailsa   @ 306 m NE of Rowan Moor          "holding here by the fire, bring meat when you come"
+h2.46  Tormod  @ 248 m NE of Rowan Moor          "coming in for the venison"
+```
+
+### Why that is a harness fact and not a model failure
+
+Three things in the source, all deliberate, all individually right:
+
+1. **Chat is global and unconditional.** `agent.js:401` pushes every `S_CHAT` into `this.heard`
+   with no range test at all. The line stored is `` `${msg.data.n}: ${msg.data.m}` `` — **name and
+   text, nothing else.** Everyone in the world hears everything. Speech is not the bottleneck;
+   earlier entries in this file that wondered whether anyone was heard can stop wondering.
+2. **The body's stop-and-face reflex is gated at 16 m.** `noteHail` returns early on
+   `d > SOCIAL.hailRange` (`agent.js:1363`, `config.js:1283`). Correct — a shout from 400 m should
+   not freeze your legs. But it means the *sentence* carries 3 km and the *response* carries 16 m.
+3. **Beyond `noticeRange` (140 m) a person is a bearing with no distance.** The `far` channel is
+   explicitly built that way and the comment says so: *"Name and bearing, NO distance and NO
+   condition — those are what `contacts` is for, and repeating them here would make 140 m mean
+   nothing"* (`agent.js:963-971`).
+
+Put together: a mind hears **"coming for my share, Morag"** from a seat it cannot see, and the only
+positional fact available is a compass word. `bearingName` is 8-point, so at the run's mean
+separation of 291 m that arc is ~200 m wide. There is no verb that takes a heading. "Come to me" is
+a direction with no length.
+
+And that is the whole of the market result the analyser prints: **70 comparable pair-observations,
+13 within `noticeRange`, 0 within the 3 m it takes to trade at all.**
+
+### The world already contains the fix, and one model found it
+
+`findDistrict` (`placenames.js:206`) is the exact inverse of `describePosition` and resolves a
+spoken placename outward to `radiusCells = 14` — with `districtSize: 620`, about **8.7 km**. A
+placename in a sentence is fully actionable at any range two minds will ever be apart. The brief
+hands each mind a gazetteer too (`places:`, `agent.js:1047` — 6 nearest districts).
+
+Morag is the only seat that used it at scale, and used it *properly* — naming a place she was not
+standing at, which is what a rendezvous name is for:
+
+```
+h16.5   @ 221 m east of Sunny Muir     "Round the rise now — venison to Heather Scaur, keep that fire hot."
+h17.24  @ 439 m SW of Kindly Wood      "Fetching the downed meat — it goes to Heather Scaur's fire, come eat."
+h9.1    @ in Broad Loch                "Camp and fire here at Broad Loch by dark — bring meat, warmth is free."
+```
+
+13 of the 18 placename sentences were spoken from somewhere other than the place named. **That is
+correct usage, not error** — I want that on the record, because the naive read of that column is
+"the models are lying about where they are" and it is the opposite.
+
+### The honest limits of this entry
+
+- Deictic/summons classification is a regex over the sentence text, run by me, not by the game. The
+  boundary cases (`"halfway"`, `"coming in"`) I counted as summonses; a stricter reading would
+  lower 44 but not change 10.
+- I cannot show a listener *failing* to arrive because of this. The board exposes no `heard` field
+  and no arrival event, which is A263's point and still true. What I can show is that 34 summonses
+  were issued whose referent no field in the brief can resolve.
+- `duo2.jsonl` is one of the pre-fix binaries (see the 02:35 and 03:05 entries). Nothing here
+  depends on the seven 08-08 fixes, so that does not contaminate it — but it does mean these are
+  numbers from the old build.
