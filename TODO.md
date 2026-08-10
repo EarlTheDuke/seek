@@ -82,37 +82,57 @@ built at all.
 
 ---
 
-# TIER 2.5 — from the third playtest, 2026-08-09 evening
+# TIER 2.5 — from the third playtest  ✅ MOSTLY DONE 2026-08-09 evening
 
-### 2.5a Every agent takes every order **[S]**
-The recogniser reads the sentence and ignores who it names, so "Ailsa, follow
-me" is taken by all eight. Useful for a troll hunt and useless for directing
-one person. It should honour a leading name, and say so when it does.
+**Done.**
 
-### 2.5b An order outlives its usefulness **[S]**
-"wait" is still in force minutes later with nothing to say so. `carry on`
-releases it, but nothing on screen says a body is under orders at all, or whose.
+- **The order parser was reading ordinary talk as commands.** 156 halts against
+  16 troll orders in one session: "hold on, the troll is to the north", "wait
+  for me" and "I will stop it with arrows" all froze the whole band, and "shoot
+  from the ridge" sent eight bodies after a preposition. An order must now OPEN
+  the sentence, may be addressed to one body by name (the name was never read,
+  so "Ailsa, follow me" was obeyed by all eight), and may only name a creature
+  this world has. `ordercheck2`, 13.
+- **An order you can see taken.** The agent answers out loud — "right,
+  following you" — and the board says the mode and the last order. He had to
+  read `agent.js` to guess, and guessed wrong. Asserted free of feedback loops.
+- **The offer spiral**, which was mine: 159 offers, zero trades, everyone frozen
+  offering each other things nobody could accept. Offers now lapse, and the hail
+  fires once per deal rather than once per packet.
+- **`resolveAccept`'s six silent returns** — the last quiet refusal in the game,
+  under the verb the whole economy runs through. Now says how short you are, how
+  far you walked, or that nobody is there.
+- **A refused craft says why**, and a full pack leaves the tree standing. Both
+  mine, from the Tier 1 work.
+- **The claimed target** — the report's best idea, and the last piece of the
+  co-operation. A big quarry under attack enters everybody's brief with the
+  choice named: *"Nothing that size goes down to one person. Go and help, or do
+  not, but decide."*
+- **The troll flinches** on a solid hit, which is what turns a footrace into a
+  fight and makes three archers better than one.
+
+**Still open from that report.**
 
 ### 2.5c Fletching takes ten seconds with no progress shown **[S]**
 > my instinct to fire it repeatedly just consumed branches without producing
 > arrows. I burned something like forty branches before I worked out the pacing.
 
-And crafting returns NOTHING when there is no lit fire in reach, and fires burn
-out quietly — so you can stand there crafting into the void.
+The refusal speaks now, but a craft in PROGRESS still shows nothing.
 
 ### 2.5d Starvation has no escalation **[S]**
 > Hunger killed me once outright and I never saw it coming. I lost about
 > eighty-five health in roughly a minute, dying ten metres from a carcass.
 
-The cold warnings are clear. The hunger ones are not.
-
 ### 2.5e Reloading under the same name desyncs the quiver **[M]**
-Still true after the pack fix: the server believes you have no arrows while the
-client shows twelve. Rejoining under a fresh name is the workaround, which is
-the same nasty discovery as before.
+Still true after the pack fix. Rejoining under a fresh name is the workaround.
 
 ### 2.5f The dev server dumps you to the title screen **[S]**
 Hot reload cost him his position and kit about six times mid-task.
+
+### 2.5g The give still does not land at 1 m **[M]**
+He had Tormod at 1 m and the handover never completed. `resolveGive` needs no
+acceptance and should simply land — unchased, and the most valuable thing left
+on this list now that every refusal says why.
 
 ---
 
