@@ -9183,3 +9183,33 @@ more expensive. That is the whole of its output for 13 hours.
 2. The 7-item start set from the 08:35 pass is the build list; A290 is a one-line `tail`.
 3. No log tests any commit after 08-09 20:55. A world on current `HEAD` is the only thing that can
    produce a new observation.
+
+## 2026-08-10 10:31 PDT — BOARD DEAD (13h36m). Twenty-seventh pass, same frozen log. Nothing added to `IDEAS.md`.
+
+`curl` exit 7, connection refused. Not restarted, per the brief.
+
+Unchanged since the 10:01 pass, verified this pass, not recalled:
+
+```
+  highlands-triage    enabled: false   last fired 08-07 03:04 UTC   (3d 14h)
+  highlands-evaluate  enabled: true    fired 17:31 UTC, next 18:00
+  last commit to src/ or server/       3de2690, 08-09 21:28
+  duo2.jsonl                           frozen 08-09 11:28, 222 samples
+```
+
+The one number that moved in 30 minutes: commits-since-the-last-line-of-code, 27 → 28.
+
+### One correction to the brief itself, for whoever reads this next
+
+The brief describes the running roster as *"Two minds, no scripted control"* — Eachann on
+`grok-4.20-0309-non-reasoning` and Coinneach on `kimi-k2.6`. `duo2.jsonl` is not that run. It holds
+**eight** cards: Morag (`claude-opus-5`), Eachann (`grok-4.20`), Tormod (`grok-4.5`), Coinneach and
+Seonaid (`kimi-k2.6`), Ailsa (`claude-sonnet-5`), Fingal (`claude-haiku-4-5`), Iseabail (`null`).
+The file is a melee log wearing a duo filename. Every pass since has read it against a roster
+description that does not match it. That mismatch is worth one line in the brief if the brief is
+ever edited; it changes nothing about the findings, which were all read off the cards themselves.
+
+### For Ben
+
+`highlands-triage` on, or `highlands-evaluate` off. **Ninth pass asking.** Nothing in this file
+will change until a world runs on current `HEAD`.
