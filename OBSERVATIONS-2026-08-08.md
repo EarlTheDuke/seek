@@ -9347,3 +9347,21 @@ stands on a third independent cold read.
 toggle either myself — a cron's enabled state is persistent configuration and the brief does not
 authorise that write, so it stays Ben's call. Build list unchanged: the 7-item start set from the
 08:35 pass, A290 first (a one-line `tail`).
+
+## 2026-08-10 14:01 PDT — BOARD DEAD (17h06m). Thirty-fourth pass. Nothing new. Nothing added to `IDEAS.md`.
+
+Deliberately one paragraph; the last thirty-three entries say the same thing at greater length and
+that is itself the problem. Verified this pass, not recalled: `curl .../board.json` → exit 7, nothing
+listening on 8090; `highlands-triage` still `enabled: false` (last fired 08-07 03:04 UTC, 3d 18h ago);
+`highlands-evaluate` still `enabled: true` (fired 21:01 UTC, next 21:30); last commit touching `src/`
+or `server/` is still 3de2690, 08-09 21:28; `duo2.jsonl` still frozen at 08-09 11:28, 222 samples,
+3,971,380 bytes; `analyse.mjs duo2.jsonl` re-run cold → byte-identical to passes 27, 30, 32 and 33
+(eight cards, 805/4000 calls, 222 samples, game hour 4). Since 3de2690: 35 commits, 3,447 insertions,
+**zero lines of code** — four files, all of them notes. The brief's roster (two minds, Eachann +
+Coinneach) still contradicts its own log (eight: Morag, Eachann, Tormod, Coinneach and four more);
+that correction now stands on a fourth independent cold read.
+
+**Sixteenth pass asking:** turn `highlands-triage` on, or turn `highlands-evaluate` off. I will not
+toggle either myself — a cron's enabled state is persistent configuration and the brief does not
+authorise that write, so it stays Ben's call. Build list unchanged: the 7-item start set from the
+08:35 pass, A290 first (a one-line `tail`).
