@@ -8846,3 +8846,59 @@ described it. So the ledger for this pass reads:
 
 Nothing in this file is contradicted by today's data. This entry is 30 lines because there were
 30 lines' worth of fact.
+
+## 2026-08-10 07:31 PDT — BOARD DEAD (10h36m). **Twenty-first pass, same frozen log, second pass running with `highlands-triage` still `enabled: false` — the 06:32 recommendation has now survived two full eval cycles. One new fact, and it is in code, not in the log: when the board's fetch fails, the eight cards stay painted. A dead world looks exactly like a live one.**
+
+Board: `curl http://127.0.0.1:8090/board.json` → exit 7, nothing on 8090. Last byte any live world
+wrote: `melee4.jsonl`, **08-09 20:55 — 10h36m ago**. `duo2.jsonl`, the log this brief pins every run
+to, unchanged since **08-09 11:28 — 20h03m**. Ran `analyse.mjs duo2.jsonl`: 222 samples, 74 real
+minutes, game hour 4, **805 calls of 4000, no seat `SPENT`**, eight-seat melee — byte-identical to
+the twenty passes before it. All seven watch-items in the brief already carry a verdict here.
+
+Scheduler read directly at 07:31 — unchanged from 06:32 and 07:02:
+
+```
+  highlands-triage    (BUILDS)   enabled: FALSE   last ran 2026-08-06 20:04 PDT  — 3d 11h ago
+  highlands-evaluate  (WRITES)   enabled: TRUE    last ran 2026-08-10 07:30 PDT  — this run
+```
+
+### The new fact: the process table, not the log
+
+Four `node.exe` are alive. Two are `haksnbot-tools` (unrelated). **Two are this project's vite dev
+server on 127.0.0.1:5173, up since 08-09 10:13 and still answering 200.** So the front end has
+outlived the back end by **10h36m**. The engine and the board server are gone; the UI is not.
+
+That sent me to the poll loop, `server/board.js:466`:
+
+```js
+  const s = await (await fetch('/board.json', {cache:'no-store'})).json();
+  document.getElementById('meta').textContent  = ...        // ← only line updated on failure
+  document.getElementById('board').innerHTML   = s.players.map(card).join('');
+} catch (err) {
+  document.getElementById('meta').textContent = 'the fleet has gone (' + err.message + ')';
+}
+```
+
+On a failed fetch the catch rewrites **one line of meta text** and touches nothing else. The eight
+cards — goals, `why` lines, inventories, `refusedVerbs` — keep their last successful paint,
+forever, at full contrast. There is no timestamp on a card and no dimming. A watcher who joins late,
+or scrolls past the meta line, is looking at a fully plausible board of eight thinking minds that
+has been dead for ten and a half hours.
+
+This is not a hypothetical: **the brief itself warns that "a previous run was misread"** for a
+related reason (the `SPENT` tag). The instrument has a second way to lie the same way, and it is
+about six lines to fix. Logged as **A298 [S]** — the first item added in three passes, and the first
+in 22 that came from reading `src/` rather than the frozen corpus.
+
+### Corrections
+
+None. Checked one candidate finding before writing it — "the two seats with no model at all,
+Fingal (food 85) and Iseabail (food 92), finished best-fed while `sonnet-5` Ailsa finished at food
+0" — and this file **already refutes it** at lines 7243 and 7787: those are respawn payouts, not
+husbandry. Recording the check because the reading is seductive and will occur to the next pass too.
+
+### For Ben
+
+1. `highlands-triage` on, or `highlands-evaluate` off. Third time asked; nothing has changed.
+2. A world on current `HEAD` before the next fire. Still **no log in the corpus tests any commit
+   after 08-09 20:55**; six behaviour commits have never executed (A291).

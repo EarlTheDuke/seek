@@ -5744,3 +5744,39 @@ file — a settings toggle, no diff. Note the asymmetry is invisible from inside
 shows code landing until 08-09 21:28, so the project *looks* like it is building. That was Ben
 working interactively. **Unattended, this project can only write.** Same family as **A290**,
 **A291**, **A296**.
+
+### A298 †††† A DEAD BOARD KEEPS ITS CARDS AT FULL CONTRAST — THE INSTRUMENT'S SECOND WAY TO LIE **[S]**
+
+**Observed 2026-08-10 07:31**, board dead 10h36m. Two `node.exe` vite processes for this project
+were still serving 127.0.0.1:5173 with 200s, ten and a half hours after the engine and the board
+server died. That prompted a read of the poll loop, `server/board.js:466-477`:
+
+```js
+  const s = await (await fetch('/board.json', {cache:'no-store'})).json();
+  document.getElementById('meta').textContent  = ...
+  document.getElementById('board').innerHTML   = s.players.map(card).join('');
+} catch (err) {
+  document.getElementById('meta').textContent = 'the fleet has gone (' + err.message + ')';
+}
+```
+
+The catch rewrites **one line of meta text**. `#board` is never touched, so every card keeps its
+last successful paint indefinitely — goal, `why`, inventory, `refusedVerbs`, all at full contrast,
+with no timestamp anywhere on a card. A watcher who joins late, scrolls, or screenshots the cards
+sees eight minds that look alive and are not.
+
+**Why this one matters more than its size.** The eval brief already warns that a previous run was
+misread because a `SPENT` seat's behaviour was credited to its model. This is the same failure with
+a different mechanism: the board presents stale state as current, and every consumer of it —
+human or scheduled — has no in-card signal to catch that. Five times now a model has looked
+incompetent and the instrument was at fault; this is a sixth path to the same mistake, sitting in
+six lines of client code.
+
+**Fix [S].** In the catch, add a class to `#board` that greys and desaturates the cards, and stamp
+each card with `last seen Ns ago` from the successful `s.at` (already in the payload). Optionally
+stop repainting `meta` alone after N consecutive failures and replace the board outright. No engine
+change, no sim change — this is view-layer only.
+
+**Provenance note.** First backlog item added in three passes, and the first in twenty-two that came
+from reading `src/`/`server/` instead of the frozen corpus. Related: **A290** (no is-the-engine-
+running gate), **A297** (builder cron off).
