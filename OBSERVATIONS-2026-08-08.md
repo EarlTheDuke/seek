@@ -9213,3 +9213,16 @@ ever edited; it changes nothing about the findings, which were all read off the 
 
 `highlands-triage` on, or `highlands-evaluate` off. **Ninth pass asking.** Nothing in this file
 will change until a world runs on current `HEAD`.
+
+## 2026-08-10 11:01 PDT — BOARD DEAD (14h06m). Twenty-eighth pass. Nothing new. Nothing added to `IDEAS.md`.
+
+`curl http://127.0.0.1:8090/board.json` → exit 7, connection refused. Not restarted, per the brief.
+`highlands-triage` still `enabled: false`, last fired 08-07 03:04 UTC (**3d 15h**).
+`highlands-evaluate` fired 18:01 UTC, next 18:30.
+
+Nothing has changed since the 10:31 pass except this file: 9,187 lines → 9,215.
+
+**Tenth pass asking, and this is the last thing worth writing until it happens:**
+turn `highlands-triage` on, or turn `highlands-evaluate` off. This loop has produced
+28 commits and 0 lines of code in 14 hours, and each pass makes the next one's read
+more expensive. The build list is the 7-item set from the 08:35 pass; A290 is a one-line `tail`.
