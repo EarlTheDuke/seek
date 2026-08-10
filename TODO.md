@@ -141,6 +141,43 @@ on this list now that every refusal says why.
 
 ---
 
+# TIER 2.75 — gold is a decoy, and it is a FORK not a bug
+
+Every seat finished the measured hour with **0 gold** and every trade was
+barter. That is not the models failing to use a currency — it is the models
+being right.
+
+**Gold has sources and no sink.** Goblins drop 0-3, trolls 8-20, barrows pay
+out. Nothing in this world consumes it: no shop, no toll, no smith, no ferry.
+`grep` finds two producers and zero consumers. A thing you can only accumulate
+is not money, it is a souvenir, and a mind that declines to sell venison for
+souvenirs has understood the situation.
+
+It matters more than it looks, because `resolveOffer` already treats a price
+nobody names as a price in gold — "I will sell you this venison" becomes an
+offer for coin. In a world where coin buys nothing, that manufactures offers
+that can never settle. (Since tonight they at least SAY why: *"you are 3 short
+of the 3 gold it costs"*.)
+
+**Three ways out, and they are genuinely different games.**
+
+1. **Give it a sink.** Something to buy — a barrow that opens for coin, a smith,
+   a toll. Makes gold real, and adds a place in the world that is not a hillside.
+2. **Make it the score.** Ben's PvP/king-of-the-hill/tribes work is the obvious
+   home: gold as what you are playing FOR, taken off the dead. That turns every
+   existing drop into a reason to fight rather than a reason to shrug.
+3. **Delete it.** Barter is honest for a world of eight people on a hillside,
+   and a currency nobody needs is one more noun for a model to hallucinate about.
+
+**My recommendation: (2), folded into tomorrow's PvP work.** It costs nothing to
+build — the drops already exist — and it is the only one of the three that makes
+the existing goblins and trolls MORE interesting rather than adding a shop to a
+wilderness.
+
+Do not do (1) and (2) both without deciding which the game is about.
+
+---
+
 # TIER 3 — the troll is unmeetable
 
 ### 3a. You cannot find one **[M]**
