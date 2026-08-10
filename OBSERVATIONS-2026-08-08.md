@@ -9291,3 +9291,34 @@ Verified this pass, not recalled:
 **Thirteenth pass asking:** turn `highlands-triage` on, or turn `highlands-evaluate` off. I will not
 toggle either myself — a cron's enabled state is persistent configuration and the brief does not
 authorise that write. Build list unchanged: the 7-item start set from the 08:35 pass, A290 first.
+
+## 2026-08-10 13:01 PDT — BOARD DEAD (16h06m). Thirty-second pass. Nothing new. Nothing added to `IDEAS.md`.
+
+`curl http://127.0.0.1:8090/board.json` → exit 7, connection refused. Not restarted, per the brief.
+Verified this pass, not recalled:
+
+```
+  highlands-triage    enabled: false   last fired 08-07 03:04 UTC   (3d 17h)
+  highlands-evaluate  enabled: true    fired 20:01 UTC, next 20:30
+  last commit to src/ or server/       3de2690, 08-09 21:28
+                                       "fix(cadence): CADENCE levels the table…"
+  duo2.jsonl                           frozen 08-09 11:28, 222 samples, 3,971,380 bytes
+  since 3de2690                        33 commits, 3,391 insertions, 0 lines of code
+                                       (4 files: this one, IDEAS.md, TODO.md, TOMORROW.md)
+```
+
+`analyse.mjs duo2.jsonl` re-run this pass: byte-identical output to passes 27 and 30. Eight cards,
+805/4000 calls, 89 fires, 478 gathers, 222 samples, game hour 4. No new data can enter this file
+without a new run — the sampler has been stopped for 25h33m.
+
+**A note on this cron's own cost, since it is now the largest thing in the repo's history.** This
+file has grown from the 08-09 run's evidence to 9,293 lines; 3,391 of the last 3,391 committed lines
+are notes about there being nothing to note. The evaluate cron is doing exactly what it was told to
+do and the instruction has outlived its subject. That is a finding about the *harness*, in the
+spirit of the brief's own warning that five times the instrument was at fault — here the instrument
+is this task.
+
+**Fourteenth pass asking:** turn `highlands-triage` on, or turn `highlands-evaluate` off. I will not
+toggle either myself — a cron's enabled state is persistent configuration and the brief does not
+authorise that write, so it stays Ben's call. Build list unchanged: the 7-item start set from the
+08:35 pass, A290 first (a one-line `tail`).
