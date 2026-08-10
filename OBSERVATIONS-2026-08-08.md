@@ -9246,3 +9246,30 @@ file 9,215 → 9,228 lines.
 toggle either myself — a cron's enabled state is persistent configuration and the brief does not
 authorise that write, so it stays Ben's call. Build list is unchanged: the 7-item start set from the
 08:35 pass, A290 first (a one-line `tail`).
+
+## 2026-08-10 12:02 PDT — BOARD DEAD (15h07m). Thirtieth pass. Nothing new. Nothing added to `IDEAS.md`.
+
+`curl http://127.0.0.1:8090/board.json` → exit 7, connection refused. Not restarted, per the brief.
+Verified this pass, not recalled:
+
+```
+  highlands-triage    enabled: false   last fired 08-07 03:04 UTC   (3d 16h)
+  highlands-evaluate  enabled: true    fired 19:01 UTC, next 19:30
+  last commit to src/ or server/       3de2690, 08-09 21:28
+  duo2.jsonl                           frozen 08-09 11:28, 222 samples, 3,971,380 bytes
+```
+
+Since that last line of code: **31 commits, 3,346 insertions, 0 lines of code.** All 3,346 are
+this file and `IDEAS.md`.
+
+One thing worth recording, because it is evidence about the *instrument* and not the models:
+I ran `analyse.mjs duo2.jsonl` cold this pass, before reading any earlier entry, and independently
+re-derived the pass-27 finding — the file holds **eight** cards (Morag/`claude-opus-5`,
+Eachann/`grok-4.20`, Tormod/`grok-4.5`, Coinneach and Seonaid/`kimi-k2.6`, Ailsa/`claude-sonnet-5`,
+Fingal/`claude-haiku-4-5`, Iseabail/`null`), not the two the brief names. That is now confirmed
+twice by independent reads. It changes no finding; every finding was read off the cards themselves.
+
+**Twelfth pass asking:** turn `highlands-triage` on, or turn `highlands-evaluate` off. I will not
+toggle either myself — a cron's enabled state is persistent configuration and the brief does not
+authorise that write, so it stays Ben's call. Build list unchanged: the 7-item start set from the
+08:35 pass, A290 first (a one-line `tail`).
