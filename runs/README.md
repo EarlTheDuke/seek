@@ -12,6 +12,7 @@ what gets written up from them. The write-ups stay.
 | [1](melee-1.md) | as launched | **6 of 7** |
 | [2](melee-2.md) | Haiku's `effort` and Kimi's token cap fixed | **7 of 7** |
 | [3](melee-3.md) | trade carries a price, and the offer is visible | **7 of 7** |
+| [4](melee-4.md) | every refusal says why · orders anchored · offers lapse | **7 of 7** |
 
 ---
 
@@ -119,6 +120,57 @@ standing debt of five arrows to him.
 Charming, and a real gap: there is no way for a mind to learn that a person has
 gone. The memory work holds better than expected; the forgetting has not been
 built at all.
+
+---
+
+## 5. An instrument that speaks finds bugs an instrument that stays quiet cannot
+
+Run 4 is the first hour in which every refusal in the game said why. It found
+two things inside thirty minutes, and neither was findable before.
+
+**`{"Morag": {"accept": 26}, "Ailsa": {"accept": 11}}`** — thirty-seven
+deliberate reaches for a deal, all refused. The cause was an offer lifetime of
+33 real seconds against cadences of 20 to 75. AN OFFER THAT EXPIRES FASTER THAN
+A MIND CAN THINK IS ONE THAT MIND CAN NEVER TAKE: Morag decides every 35 s and
+both Kimi seats every 75, so they were deciding to accept deals that had gone
+stale between the deciding and the doing. Curing the offer spiral had built its
+mirror image, and the visible refusal is the only reason it took half an hour
+rather than another three sessions.
+
+**Eight seats reading "told to hunt a deer" while not one was hunting.** The
+board set `orderedTo` when an order landed and never cleared it, so the column
+answered "was this seat ever ordered?" when it was asked "is it under orders
+now?" The newest instrument in the game, four hours old, with the same disease
+as every old one.
+
+## 6. Nothing is scarce, so gathering has eaten the game
+
+The pack has NO LIMIT. Morag finished run 4 carrying **205 branches** — twenty
+fires' worth — and it shows in what the models choose:
+
+| | |
+|---|--:|
+| `pick up what is lying about` | **32% of all decisions** |
+| `gather` deeds | **334 of 471 (71%)** |
+
+The most-chosen action in this game is picking up things nobody needs. And look
+at what they trade FOR: arrows, venison, hides. **Wood is the currency precisely
+because it is worthless.** They have infinite of it.
+
+A carrying limit is the highest-leverage change available — higher than deadfall
+regrow, which makes the glen sustainable where a cap makes gathering a DECISION.
+
+## 7. The cadence that protects the bill destroys the comparison
+
+| Eachann (grok-fast, 20 s) | 138 decisions |
+| Fingal (haiku, 25 s) | 110 |
+| Morag (opus-5, 35 s) | 79 |
+| **Coinneach (kimi, 75 s)** | **34** |
+
+Cadence is set by price, which is right for an unattended run and fatal for a
+benchmark: nothing can be concluded about kimi-k2.6 against opus-5 when one gets
+four times the turns. For any hour meant to be READ as a comparison, equalise
+the cadence and vary the budget instead.
 
 ---
 
