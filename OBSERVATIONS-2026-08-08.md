@@ -8419,3 +8419,79 @@ This is not the model being incompetent. **There is no verb in this world for te
   are higher; every figure above is a floor.
 - `duo2.jsonl` is a pre-fix binary (see 02:35 and 03:05). Nothing here depends on the 08-08
   fixes — the prompt gap and the `roam()` fallback are both still in the source as of this commit.
+
+## 2026-08-10 04:35 PDT — BOARD DEAD. **The engine has been off for 7.6 hours, four behaviour commits have never once executed, and the last 13 commits changed nothing but the two files I am writing in now.** This entry is about the loop, not the game
+
+The board does not answer: no listener on `:8090`, and the only surviving `node` PIDs (21256,
+21704, 24844, 33244) all date from 08-09 10:13. Per the standing instruction I did not restart it.
+
+I went looking for a fifteenth finding in the corpus and instead found something about the way
+this file is being produced. It is worth one entry.
+
+### The corpus stopped 7.6 hours ago
+
+Sampler logs carry UTC. Converted to PDT, the newest data anywhere on disk:
+
+```
+  eval30.jsonl   501 samples   08-09 17:32 -> 20:55 PDT   (largest, newest)
+  melee4.jsonl   180 samples   08-09 19:55 -> 20:55 PDT
+  duo2.jsonl     222 samples   08-09 10:14 -> 11:28 PDT
+```
+
+**Last byte of data in this project: 08-09 20:55 PDT.** It is now 04:35. No `.jsonl` has been
+written in 7 hours 40 minutes. Every entry in this file since the 21:39 one — thirteen of them —
+has analysed the same frozen bytes.
+
+### Four behaviour commits have never run
+
+Commits landing *after* the last sample, and the files they touch:
+
+```
+  d0a353d  21:01  feat(carry)   inventory.js registry.js perception.js agent.js   ← SIM
+  c86a130  21:02  fix(give)     world.js agent.js main.js honestcheck.js          ← SIM
+  7e8db8c  21:18  feat(avatars) net/avatars.js bowcheck.js                        ← render only
+  c1c8e07  21:24  fix(hunger)   config.js recipes.js body.js                      ← SIM
+  3de2690  21:28  fix(cadence)  server/agents.js providercheck.js                 ← SIM
+```
+
+Then, from `40dce01` (21:39) through `b0bac53` (04:08) — **thirteen consecutive commits — the
+changed-file list is exactly `IDEAS.md OBSERVATIONS-2026-08-08.md`, and nothing else.** Not one
+line of code in six and a half hours; not one second of execution in seven and a half.
+
+So the state of the program right now is: **four simulation changes shipped and unverified, and
+289 ideas written against a build that is four commits stale.** `fix(cadence)` is the sharpest of
+them — it touches `server/agents.js`, which sets per-seat call cadence, i.e. the fairness of every
+model-vs-model comparison in this file.
+
+### What I checked before claiming it, and the two things that are NOT true
+
+I expected to find that the un-run fixes had already killed some of the findings below. **They
+have not.** Both checks came back negative and I am recording them as negatives:
+
+- **`fix(give)` does not fix the quantity bug.** `c86a130` converts every silent `give` refusal
+  into a spoken reason (`nogive` → `this.refuse('give', e.why)`, plus six `return no(...)` paths
+  where there were bare `return`s). It never touches `howMany`. **A274 — `give` hands over one
+  item per decision — still stands against `HEAD`.**
+- **`fix(hunger)` does not make dying cheaper.** `c1c8e07` adds two warning bands
+  (`hungerWarnBelow: 34`, `hungerUrgentBelow: 12`) and says so in its own comment: *"The DAMAGE
+  is untouched — this is about seeing it, not about surviving it."* **The 22:05 finding that a
+  respawn pays 85 food and birth pays 50 still stands.**
+
+So the backlog is **unverified, not stale.** That is the honest reading and it is the less
+comfortable one: nothing has been invalidated, and nothing has been confirmed either.
+
+One thing the un-run hunger fix *does* line up with almost exactly. The starvation cases in the
+corpus — Coinneach food 9, Seonaid food 9, Ailsa food 0 — sit inside the `<12` urgent band that
+`c1c8e07` invents. The fix aimed at precisely the deaths this file documented, and **no mind has
+ever been shown one of those warnings.**
+
+### The point
+
+This program's characteristic failure, five times over, is *the instrument was the bug*. Four
+un-run commits are four unfalsifiable claims, and they will stay unfalsifiable no matter how many
+more passes are made over `eval30.jsonl`. **The marginal value of a fourteenth consecutive eval
+entry on a static corpus is close to zero.** The blocking action is not analysis; it is a run on
+the current build — which is a thing only Ben can start.
+
+I am not correcting an earlier entry here. Every one of the thirteen is, as far as I can tell,
+sound about the bytes it read. The problem is that they all read the same bytes.

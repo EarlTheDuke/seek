@@ -5553,3 +5553,41 @@ visibly a *job*, which is what makes a camp a place anybody would walk to.
 **Value:** the fire is the only public good this world has built, seven entries in this file are
 about wood, and **nobody can currently choose to look after one.** Pairs with A285/A286: a fire
 somebody is demonstrably tending is a reason to name a place and walk to it.
+
+## Added 2026-08-10 04:35, from the entry that found the engine has been off for 7.6 hours
+
+### A290 ††††† THE EVAL LOOP HAS NO "IS THE ENGINE RUNNING" GATE — 13 CONSECUTIVE PASSES MINED A FROZEN CORPUS **[S]**
+
+**Observed (same date, git + file mtimes):** the newest sample anywhere on disk is **08-09 20:55
+PDT**; the scheduled evaluation ran at 21:39, 22:07, 22:37, 23:07, 23:35, 00:07, 00:35, 01:08,
+01:36, 02:09, 02:36, 03:07, 03:35 and 04:08 — **fourteen times against bytes that never changed.**
+Every one of those commits touches exactly two files, `IDEAS.md` and `OBSERVATIONS-2026-08-08.md`.
+The findings are real; the schedule simply has no way to notice it is re-reading a still image, so
+it keeps spending a full pass to do it.
+
+**Fix:** at the top of the run, compare the newest `.jsonl` mtime against the previous pass's. If
+no new samples have arrived, write one short "no new data since X, N behaviour commits un-run"
+line and stop — instead of a full excavation. Ten lines in the task file. The *deep* pass is worth
+running once on a dead corpus (it produced thirteen genuine findings); it is not worth running
+fourteen times.
+**Value:** turns a fixed cost into a signal. A pass that says "still nothing, and the un-run
+backlog is now five deep" is the message Ben actually needs at 4am, and it takes ten seconds
+rather than an hour of tokens.
+
+### A291 †††† NOTHING NAMES THE COMMITS THAT HAVE NEVER EXECUTED — THE OTHER HALF OF A282 **[S]**
+
+**Observed (same date):** four simulation commits — `d0a353d` feat(carry), `c86a130` fix(give),
+`c1c8e07` fix(hunger), `3de2690` fix(cadence) — landed after the last sample was taken and **have
+never run in a world that produced data.** Two of them change the economies this file is mostly
+about (carry limits; hunger warning bands at food 34 and 12, aimed squarely at the Coinneach-9 /
+Seonaid-9 / Ailsa-0 deaths already documented). Nothing in the repo says so. I only found it by
+diffing commit timestamps against log mtimes by hand.
+
+**Fix:** A282 asks for the build to be stamped into every *sample* — that is the read side. This
+is the write side, and it is one file: on run start, write `runs/LAST-RUN-BUILD` containing the
+commit SHA. Then `git log <sha>..HEAD -- src/ server/` **names exactly what has never executed**,
+and the eval pass can print that list at the top of every entry.
+**Value:** four unverified simulation changes are four unfalsifiable claims, and this program's
+signature failure — five times now — is the instrument being the bug. Cheapest possible guard
+against writing a fifteenth finding about behaviour that a shipped commit already changed. Pairs
+with **A282**; neither works well without the other.
