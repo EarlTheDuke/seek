@@ -8322,3 +8322,100 @@ correct usage, not error** — I want that on the record, because the naive read
 - `duo2.jsonl` is one of the pre-fix binaries (see the 02:35 and 03:05 entries). Nothing here
   depends on the seven 08-08 fixes, so that does not contaminate it — but it does mean these are
   numbers from the old build.
+
+---
+
+## 2026-08-10 04:20 PDT — BOARD DEAD, NO NEW RUN. **`WHAT NOBODY EVER DID: attack, follow, guard` is a line the analyser prints in every run no matter what happened — the corpus holds 23 `follow`, 2 `guard`, 2 `attack`.** And the one reach that genuinely failed, failed at the one verb the prompt never explains.
+
+`http://127.0.0.1:8090/board.json` → connection refused (HTTP 000, curl exit 7). Dead since
+20:55 on 2026-08-09, same as the last nine entries. No restart, per the brief. `duo2.jsonl`
+unchanged since Aug 9 11:28. No new run data; this is a reading of the goal stream across all
+15 sampler logs against `goals.js`, which nothing in this file has done.
+
+### The correction, first — and it is the third time this exact bug has bitten
+
+`analyse.mjs:138` decides "nobody ever did X" by testing whether the verb NAME appears in the
+goal TEXT: `t.includes(v)`. But `goals.js` renders these three as:
+
+| verb | `describe()` | contains its own name? |
+|---|---|---|
+| `follow` | `stay with <target>` | no |
+| `guard` | `keep <target> from harm` | no |
+| `attack` | `go for <target>` | no |
+
+So **`attack, follow, guard` are printed as never-used in every run this analyser has ever
+processed, regardless of what the models did.** The file already carries this bug twice — the
+`say` special case and the `SPELLS` entry for `accept` — and the comment above `SPELLS` says it
+is *"exactly the mistake this file exists to stop somebody making about a model."* It is now the
+third instance, and it has been in every analyser output quoted in this file.
+
+Scanning goal *text* against the `describe()` templates across all 15 logs (6,092 board samples;
+`eval30.jsonl`/`.clean`/`.an` are one run in three filtered copies, `eval28` likewise, and
+`duo2.jsonl`/`melee.jsonl` are the same 11:28 sampler — collapsed to 10 distinct runs):
+
+```
+  FOLLOW   23 distinct reaches   6 seats, 5 models, 7 of 10 runs
+  GUARD     2 distinct reaches   both Ailsa (claude-sonnet-5)
+  ATTACK    2 distinct reaches   both Eachann (grok-4.20-non-reasoning), target "goblin"
+```
+
+`follow` is not exotic and it is not a fluke. It is reached for with reasons that read like a
+standing order should — *"stick close as promised"*, *"told to stay with him"*, *"he knows this
+strange ground, we stick together"*, *"safer with others, he's tracking deer already"* — and in
+`eval29`/`eval30` it is mostly aimed at the human in the world (`Jack`, `Tester`). **A263 and the
+01:07 entry both treated the standing-order verbs as untouched. They are not.**
+
+### The one reach that really did fail is at the one verb the prompt does not explain
+
+`providers.js:276-317` gives a parameter line to `hunt`, `approach`, `avoid`, `goTo`, `gather`,
+`attack`, `give`, `offer` and `accept`. **`follow` and `guard` get none.** They appear exactly
+once in the whole brief, as bare names inside `Verbs: ${GOAL_IDS.join(', ')}`. Nothing tells a
+model that they take a **person it has seen** — which `goals.js:154-156` requires in a comment
+no model reads.
+
+Ailsa (`claude-sonnet-5`) reached for `guard` with `target: "fire"`:
+
+```
+  goal: "keep fire from harm"   why: "keep it burning while others fetch the venison"
+```
+
+`agent.js:2840` looks for anybody called "fire", finds nobody, and at `:2846` calls
+`this.refuse('guard', ...)` then **`return this.roam()`**. Her decision to mind the fire became a
+random walk.
+
+### What it cost her — eight game hours, and she is the only seat that ends on zero
+
+Her decision stream at Heather Scaur, one line per change of mind:
+
+```
+  h16     food 25   pick up what is lying about       — stay safe near fire, keep useful
+  h17.2   food 20   pick up what is lying about       — keep the fire fed while others bring meat
+  h17.8   food 16   make for Heather Scaur            — stay by fire, wait for meat to arrive
+  h18.5   food 14   keep fire from harm               — keep it burning while others fetch the venison
+  h19.1   food 11   pick up what is lying about       — keep the fire fed while meat is on its way
+  h20.9   food  4   find shelter and settle           — tend fire, wait for Morag's meat
+  h22.2   food  0   find shelter and settle           — stay safe, wait for others with food
+  h23.7   food  0   find shelter and settle           — badly hurt, stay by fire, wait for others
+```
+
+Eight game hours, food 25 → 0, and **every single line is a paraphrase of "I am tending this
+fire."** She reached once for the verb that names it, was silently rerouted into `roam()`, and
+spent the rest of the run spelling her intent into `why` while her body gathered and camped.
+She finishes on **food 0 — the only seat on the board at zero** — waiting on meat that the 03:34
+entry already showed could not find her.
+
+This is not the model being incompetent. **There is no verb in this world for tending a fire.**
+`guard` is the closest thing to it, the model found it, and it takes a person.
+
+### Instrument notes, and one thing I will not claim
+
+- Across all 15 logs, **25,680 player-cards**, `refusedVerbs` has ever named only five verbs:
+  `hunt` (max 134), `accept` (26), `avoid` (24), `offer` (17), `follow` (1). **`guard` never
+  appears anywhere.** I am *not* concluding the column is blind to it — a count of 1 that appears
+  and clears between two 20 s samples is exactly what this sampler drops, and the 02:06 entry
+  established the column counts retargets rather than decisions. The honest statement is: the
+  guard refusal happened in the source path and the column never showed it to me.
+- The `follow` counts are distinct `(seat, goal, why)` tuples, not decisions. Real reach counts
+  are higher; every figure above is a floor.
+- `duo2.jsonl` is a pre-fix binary (see 02:35 and 03:05). Nothing here depends on the 08-08
+  fixes — the prompt gap and the `roam()` fallback are both still in the source as of this commit.

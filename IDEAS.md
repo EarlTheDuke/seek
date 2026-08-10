@@ -5501,3 +5501,55 @@ in the prompt does not model a meeting.
 one of these; 'here' means nothing to a listener"* — plus a worked `say` example that names a place.
 **Value:** A285 makes deictic speech survivable; this makes it rarer. Together they are an afternoon,
 and one seat has already demonstrated the target behaviour unprompted, so the ceiling is known.
+
+### A287 ††††† THE ANALYSER CANNOT EVER REPORT `attack`, `follow` OR `guard` AS USED **[S]**
+
+**Observed (2026-08-10 04:20, all 15 logs):** `analyse.mjs:138` tests `goalText.includes(verbName)`.
+`goals.js` renders `follow` as *"stay with X"*, `guard` as *"keep X from harm"*, `attack` as *"go for
+X"* — none contains its own name, so `WHAT NOBODY EVER DID: attack, follow, guard` prints in **every
+run regardless of what happened.** The corpus actually holds **23 `follow`, 2 `guard`, 2 `attack`**
+distinct reaches across 6 seats and 5 models. This is the third instance of a bug the file already
+patches twice (`say`, then `SPELLS.accept`) — and the comment above `SPELLS` calls it *"exactly the
+mistake this file exists to stop somebody making about a model."*
+
+**Fix:** stop matching names against prose. Put `kind` on the intention the board emits, beside
+`goal`, and key every never-used check off `kind`. Failing that, build `SPELLS` by importing the
+`describe()` templates from `goals.js` so the two can never drift again.
+**Value:** this is not an analysis nicety — it is the instrument that decides which verbs the next
+build gets designed around, and it has been reporting three verbs dead for the whole program.
+Everything else on this list is downstream of trusting it. Depends on nothing.
+
+### A288 ††††† `follow` AND `guard` ARE THE ONLY VERBS THE BRIEF NEVER EXPLAINS, AND THEY ARE THE TWO THAT BUILD A GROUP **[S]**
+
+**Observed (same date):** `providers.js:276-317` gives a parameter line to `hunt`, `approach`,
+`avoid`, `goTo`, `gather`, `attack`, `give`, `offer`, `accept`. `follow` and `guard` appear once, as
+bare names inside `Verbs: ${GOAL_IDS.join(', ')}`. Nothing says they take **a person you have seen**
+— a rule that exists only in a `goals.js:154` comment. Ailsa (`claude-sonnet-5`) reached for
+`guard` with `target: "fire"`, `why: "keep it burning while others fetch the venison"`; `agent.js:2846`
+found nobody of that name, refused, and `return this.roam()` — her decision became a random walk.
+
+**Fix:** two lines in the system prompt — *"follow and guard take target, a person you have actually
+seen; guard also breaks off to fight whatever threatens them"* — plus a worked example. `goals.js`
+already calls these the verbs that *"turn a crowd of individuals into a company"*; the brief never
+mentions them.
+**Value:** the group behaviours this program keeps failing to observe (the troll hunt, the shared
+carcass, the rendezvous of A285) all need two bodies to stay together, and `follow` is the only verb
+that does that. Models reach for it 23 times **without being told it exists in any detail.**
+
+### A289 †††† A MIND CAN DECIDE TO TEND A FIRE AND THE WORLD HAS NO VERB FOR IT **[M]**
+
+**Observed (same date, `duo2.jsonl`, Ailsa / `claude-sonnet-5`):** eight straight game hours at
+Heather Scaur, **food 25 → 0**, and every decision in the stream is a paraphrase of tending the fire
+— *"keep the fire fed while others bring meat"*, *"stay by fire, wait for meat to arrive"*, *"tend
+fire, wait for Morag's meat"*. She reaches for the nearest verb once (`guard` → the fire), gets
+`roam()`, and spends the remaining seven hours spelling the intent into `why` while her body gathers
+and camps. She ends **food 0, the only seat on the board at zero.** The verb closest to "wait here on
+purpose" is `hold`, which the 01:07 entry showed is used 22 of 27 times by seats that were not models.
+
+**Fix (pick one, smallest first):** let `guard` take a placed thing — a fire, a camp — not only a
+person; it already resolves a target and roams on failure, so the change is the lookup plus a keep-fed
+behaviour. Larger version: a first-class `tend` verb that consumes wood to keep a fire alive and is
+visibly a *job*, which is what makes a camp a place anybody would walk to.
+**Value:** the fire is the only public good this world has built, seven entries in this file are
+about wood, and **nobody can currently choose to look after one.** Pairs with A285/A286: a fire
+somebody is demonstrably tending is a reason to name a place and walk to it.
