@@ -5632,3 +5632,56 @@ agent.js:1286; this is an analyser-only defect.)
 rate in the file (fires per hour, sentences per hour, food burned per hour) can be compared against
 another run at a different clock speed. One constant fixes all of them retroactively. Same class as
 **A290** — the instrument, not the game.
+
+### A294 ††††† A SPOKEN CLAIM CARRIES NO PROVENANCE, SO ONE MIND'S LOCAL SIGHTING ARRIVES AS A FACT ABOUT THE WORLD **[M]**
+
+**Observed (2026-08-10, `samples-day1.jsonl`, Aug 7, 298 samples, 7 seats — a log this project had
+never analysed):** Tormod (`grok-4.5`) emitted 13 sentences about deer naming **6 of the 8
+bearings** — west, south-east, north, south, east, north-east — almost all in the corrective form
+*"Deer thick west, not east—go that way"* followed later by *"Deer thick east, not west—go that
+way."* Morag named 5 bearings in 4 lines, Ailsa 4 in 6. **No mind is lying**: each is reporting
+what it sees from where it stands, and the channel has no way to carry that. The listener's
+response is explicit and repeated four times:
+
+```
+Ailsa: "Too much conflicting talk—cold's worse than hunger. I'm making camp."
+Ailsa: "Tormod's tale keeps changing and goblins are all round—shelter now, not deer."
+```
+
+The densest speech this project ever produced turned a hunt into a group that sat down. Under a
+flat channel that is *correct* play: given N mutually exclusive assertions of equal apparent
+authority, the payoff-maximising move is to trust none and stop moving.
+
+**Fix:** render a heard sentence with its origin, the way the sighting lines already are —
+`Tormod (about 200 m north-east) says: "deer thick west"` — so a claim reads as a report from a
+place, not a fact. The speaker's position is already on the server at speak time; this is a
+formatting change at the listener's prompt assembly, not a protocol change. Optionally let a mind
+mark a claim as `saw` vs `heard`, which is one enum on the say payload.
+**Value:** this is the difference between a channel that pools information and one that destroys
+it. It is the layer above **A285** (a heard sentence carries no *distance*); the two share a call
+site and should land together. Day-1 evidence predates A285's data by two days and supplies the
+behavioural cost A285 could only infer.
+
+### A295 †††† THE EVAL BRIEF'S MOTIVATING STATISTIC IS FALSE, AND EVERY RUN IS SENT TO RE-CHECK IT **[S]**
+
+**Observed (2026-08-10):** the standing brief says *"Across two days and six models this world
+produced ONE sentence. Is anyone talking?"* Counted across all eleven sampler logs: **2,008
+distinct sentences, from all six model families** (opus-5 494, sonnet-5 380, kimi-k2.6 332,
+grok-4.20-non-reasoning 327, haiku-4.5 318, grok-4.5 187). The "one sentence" is true of exactly
+one log — `duo-run1.jsonl`, the **two-seat** run — where one seat never spoke at all and the other
+repeated a single line three times. It reads as sustained speech (241 of 665 samples carry a
+non-empty `said`) only because `said` is a last-3 rolling buffer that never clears, so the buffer
+froze full at `at=7676` and held to the end of the run.
+
+The fix that statistic justified (`3170aad`, *"say is a channel, not a choice"*) may still be
+right on its own merits, but it was argued from an artefact — and seventeen eval passes have now
+been dispatched to answer a question that `samples-day1.jsonl` settled on 2026-08-07.
+
+**Fix:** correct the brief's seven watch-items to carry their verdicts and the entry that settled
+each (speech: **settled yes**; trade: **settled, 5 bilateral closes**; `also out there`: **settled
+yes, 17 uses**; `plan`: **settled yes**, `note`: **1 use in 6 models**; `refusedVerbs`: **works but
+counts retargets, ~8× over**; carcasses: **`gather <noun>` is stripped by `sanitiseGoal`**; fires:
+**low tens, hard ceiling 87**). Leave only what is genuinely open.
+**Value:** the loop currently spends its whole budget re-deriving answers the file already holds.
+Same family as **A290** (no is-the-engine-running gate) and **A291** (nothing names the
+never-executed commits) — the instrument and its instructions, not the game.

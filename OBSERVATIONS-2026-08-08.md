@@ -8580,3 +8580,92 @@ file has been burned by before.
 I re-read the 02:06 entry on `refusedVerbs` before writing §1 and it is sound — it establishes the
 column *over*-counts what it does see. §1 is the complement it did not cover: what the column never
 sees at all. The two findings stack rather than conflict.
+
+## 2026-08-10 05:36 PDT — BOARD DEAD (9h). **The brief's own premise is false. This world did not produce "ONE sentence across two days and six models" — it produced 2,008, from all six families. The day-1 log holds 43 of them, has never once been cited in this file, and it is a real argument that failed.**
+
+`curl http://127.0.0.1:8090/board.json` → **exit 7**, connection refused; nothing is listening on
+8090. `duo2.jsonl` unchanged since **Aug 9 11:28 — 18 hours**. Nothing was restarted. Ran
+`analyse.mjs duo2.jsonl` per the brief: 222 samples, **805 calls of 4000, no seat `SPENT`**, and —
+as six prior entries have said — it is the **eight-seat melee**, not the `roster-duo` the brief
+names. This is the seventeenth consecutive pass over a frozen corpus (see **A290**).
+
+### The count, across every log this project has
+
+```
+samples-day1.jsonl   43   ← Aug 7, seven seats
+duo-run1.jsonl        1   ← Aug 8 14:01, TWO seats
+duo2-run2.jsonl     325     melee.jsonl    273     melee3.jsonl   218
+duo2.jsonl          271     melee2.jsonl   268     melee4.jsonl   274
+eval28.jsonl         98     eval29.jsonl    87     eval30.jsonl   782
+                                   (distinct seat+sentence pairs)
+
+GRAND distinct sentences, whole corpus: 2,008
+  claude-opus-5 494 · claude-sonnet-5 380 · kimi-k2.6 332
+  grok-4.20-non-reasoning 327 · claude-haiku-4.5 318 · grok-4.5 187
+```
+
+**Every one of the six families talks, including Haiku**, which three entries wrote off as mute
+(it was the `effort` 400, fixed).
+
+### Where "ONE sentence" comes from — one log, and it is the two-seat one
+
+`duo-run1.jsonl` is the only log that matches the claim, and it holds literally one line:
+
+```
+Coinneach [kimi-k2.6]: "Eachann, that deer is mine. I loosed at twenty-three."
+```
+
+Eachann (`grok-4.20-non-reasoning`) **never spoke once in 665 samples**. Coinneach emitted that
+one sentence three times and nothing else. It looks like far more than that on the board: 241 of
+665 samples carry a non-empty `said`, in one unbroken block from sample 424 to the end, because
+`said` is a **last-3 rolling buffer that never clears** (established at line 3181). At `at=7676`
+the buffer filled with three copies of that sentence and stayed frozen for the final ~2,400
+`at`-units of the run. *A run that ended in silence reads as a run that never stopped talking.*
+
+### The log nobody has read: speech worked on day 1, and it made things worse
+
+`samples-day1.jsonl` (Aug 7, 298 samples, seven seats) is cited **zero times** in this file.
+It holds 43 distinct sentences from four families — and unlike the melee's logistics chatter, it
+is genuine multi-party argument, with minds citing each other by name. It is also, verbatim,
+disinformation:
+
+```
+Tormod [grok-4.5]  13 deer lines, naming 6 of the 8 bearings: west, south-east,
+                   north, south, east, north-east
+  "Deer are west, not south-east. Wind's wrong that way."
+  "Deer ain't west - saw them south. Go north instead."
+  "Deer thick west, not east—go that way."
+  "Deer thick east, not west—go that way."
+Morag  4 deer lines / 5 bearings · Ailsa 6 / 4 · Coinneach 1 / 2
+```
+
+Nobody is lying. Each mind is reporting *what it can see from where it stands* — and the channel
+gives it no way to say so, so a local sighting arrives as a flat global assertion, in the
+corrective form "X, **not** Y". The listener's response is measurable and rational:
+
+```
+@31  Ailsa: "Cold and mist about—I'd rather find shelter than chase free meat blind."
+@38  Ailsa: "Too much conflicting talk—cold's worse than hunger. I'm making camp."
+@44  Ailsa: "Too much confusion—I'm settling for the night, not chasing deer in the dark."
+     Ailsa: "Tormod's tale keeps changing and goblins are all round—shelter now, not deer."
+```
+
+**She names the contradiction as her reason for not moving, four times.** The first dense speech
+this project ever produced converted a hunt into a group that sat down.
+
+### This corrects the brief, not the 03:34 entry
+
+The 03:34 entry found that a sentence carries no *distance* (**A285**). This is the same wound one
+layer up — a sentence carries no *provenance*: nothing marks a claim as one mind's local view
+rather than a fact about the world. Day 1 is two days older than that entry's data and supplies
+what it lacked: the behavioural cost, in the listener's own words.
+
+What this does overturn is the brief's motivating statistic. The `say`-rides-along fix
+(`3170aad`, 08-08 14:48) was justified by "ONE sentence in two days" — a number that is an
+artefact of reading a single two-seat log through a buffer that never clears. **Speech was never
+the missing thing.** It was working on 2026-08-07, at seven seats and four families, and the real
+defect was that it made the listener worse off. Every run since has been told to go and check
+whether anyone is talking; the answer has been yes for three days.
+
+**Staleness, for the record:** `duo2.jsonl` — the log this brief pins every run to — is **24
+commits to `src/`+`server/`** behind `HEAD` (75 commits of all kinds). See **A282**, **A291**.
