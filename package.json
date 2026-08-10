@@ -72,7 +72,8 @@
     "loopcheck": "node server/loopcheck.js",
     "packcheck": "node server/packcheck.js",
     "honestcheck": "node server/honestcheck.js",
-    "hailcheck": "node server/hailcheck.js"
+    "hailcheck": "node server/hailcheck.js",
+    "ordercheck2": "node server/ordercheck2.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

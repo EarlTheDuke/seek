@@ -848,7 +848,15 @@ export class SimWorld {
     const gives = Math.max(1, Math.min(resolveItemCount(itemId) ?? 1, from.inventory.countOf(item)));
     const asks = Math.max(1, resolveItemCount(wantId) ?? 1);
 
-    from.offer = { to: to.id, item, want, gives, asks };
+    // ── AND IT DOES NOT STAND FOR EVER ──
+    //
+    // See `SOCIAL.offerHours`. An offer used to be cleared only by a completed
+    // trade, so every offer that was never taken stayed on the table for the
+    // rest of the session — and since the recipient is TOLD about it in its
+    // brief, and was HELD STILL by it, the three of those together live-locked
+    // a whole roster: 159 offers, zero trades, everyone standing still
+    // offering each other things nobody could ever accept.
+    from.offer = { to: to.id, item, want, gives, asks, until: this.totalHours + SOCIAL.offerHours };
     this.events.push({
       k: 'offer', by: from.id, from: from.name, to: to.id, n: to.name,
       item, want, gives, asks,
@@ -1400,6 +1408,17 @@ export class SimWorld {
     // pick anything up at all. Invisible in single player, which is the only
     // place it was ever exercised, and fatal to a fleet of agents all foraging
     // at once. `collectFor` asks the question per person.
+    // ── A DEAL THAT NOBODY TOOK ──
+    //
+    // Cleared here rather than on a timer, because this runs for every player
+    // every tick anyway and an expiry that needs its own scheduler is an expiry
+    // that will one day not run. Silent on purpose: an offer lapsing is not an
+    // event, it is the absence of one.
+    if (p.offer && this.totalHours >= (p.offer.until ?? Infinity)) {
+      p.offer = null;
+      p.dirty = true;
+    }
+
     if (intent.interact) {
       const got = this.pickups.collectFor(p.ctrl.position, p.inventory);
       if (got) p.dirty = true;

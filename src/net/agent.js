@@ -66,6 +66,19 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 // standing belongs to the server and dead reckoning is only ever nearly right.
 const REACH = PICKUP.radius * 0.7;
 
+/**
+ * What an order may name as a quarry.
+ *
+ * Built from the world's own species list rather than written out, so a
+ * creature added tomorrow is orderable tomorrow. The point is the REFUSAL: a
+ * playtest produced 36 orders to hunt creatures called `is`, `from` and `to`,
+ * because the parser took any word after the verb. Eight bodies walked after a
+ * preposition and the reflex layer could only refuse it, silently, for ever.
+ */
+const ORDERABLE_QUARRY = new Set(
+  Object.entries(SPECIES).flatMap(([id, def]) => [id, String(def.name).toLowerCase()])
+);
+
 export class Agent {
   /**
    * @param {object} opts
@@ -344,7 +357,21 @@ export class Agent {
               // Only the RECIPIENT is held — `me.of` is set for nobody else —
               // so the offerer keeps closing and there is no deadlock of two
               // bodies politely waiting for each other.
-              if (msg.data.me.of?.n) this.noteHail(msg.data.me.of.n);
+              // ── ONCE PER OFFER, NOT TWENTY TIMES A SECOND ──
+              //
+              // This called `noteHail` on EVERY snapshot for as long as an
+              // offer stood — and an offer used to stand for ever — so the
+              // recipient was pinned in place permanently and could never walk
+              // anywhere to settle anything. Together with the offer that never
+              // lapsed, that live-locked a whole roster: 159 offers made, zero
+              // trades settled, three of eight agents choosing `offer` every
+              // tick to the end of the session.
+              //
+              // A new deal is news. The same deal, still there, is not.
+              const deal = msg.data.me.of;
+              const tag = deal ? `${deal.n}:${deal.item}:${deal.want}:${deal.gives}:${deal.asks}` : null;
+              if (tag && tag !== this._dealSeen) this.noteHail(deal.n);
+              this._dealSeen = tag;
             }
             // ── remember what HAPPENED, not only what you noticed while thinking ──
             //
@@ -2502,30 +2529,84 @@ export class Agent {
    * @returns {boolean} whether it took the order
    */
   takeOrder(from, text) {
-    const t = String(text).toLowerCase();
-    // "follow me", "stay with me", "with me"
-    if (/\b(follow|stay with|come with|with) me\b/.test(t)) {
+    // ── AN ORDER HAS TO LOOK LIKE AN ORDER ──
+    //
+    // This used to test the whole sentence for a keyword anywhere in it, and a
+    // 199-step playtest showed what that costs. The tally from that session:
+    //
+    //     stay still and watch   156
+    //     stay with Jack         120
+    //     hunt a troll            16
+    //     hunt a is/from/to       36
+    //
+    // He froze his own war band TEN TIMES more often than he pointed it at the
+    // troll, using ordinary tactical chatter — "hold on, the troll is to the
+    // north", "wait for me", "I will stop it with arrows" all matched the halt
+    // rule. "shoot from the ridge" sent eight agents hunting a creature called
+    // `from`. He then spent the session concluding, reasonably, that the order
+    // path was switched off.
+    //
+    // So: an order must OPEN the sentence, optionally after somebody's name.
+    // Anything else is talk, and talk goes to the mind as it always did — the
+    // `decides` behaviour, so nothing is ever swallowed.
+    const raw = String(text).trim();
+
+    // ── WHO IT IS FOR ──
+    //
+    // "Ailsa, follow me" used to be taken by all eight, because the name was
+    // never read. A leading name addresses ONE body; without one it is said to
+    // the whole band, which is what you want for "kill the troll".
+    const addressed = /^\s*([a-z][a-z'’-]{1,17})\s*[,:]\s*(.+)$/i.exec(raw);
+    let body = raw;
+    if (addressed) {
+      const who = addressed[1];
+      const forMe = who.toLowerCase() === this.name.toLowerCase();
+      const known = forMe
+        || [...(this.others?.values() ?? [])].some((n) => String(n).toLowerCase() === who.toLowerCase());
+      if (known) {
+        // Addressed to somebody in this world. If that is not me, it is not my
+        // order — which is the whole point: "Ailsa, follow me" used to be taken
+        // by all eight bodies at once.
+        if (!forMe) return false;
+        body = addressed[2];
+      } else {
+        // Not a name anybody answers to, so it is a filler — "Right, follow
+        // me", "Ok, wait", "Listen, kill the troll". Drop it and read the rest
+        // as the order it plainly is.
+        body = addressed[2];
+      }
+    }
+
+    const t = body.toLowerCase().trim();
+
+    // "follow me", "stay with me", "come with me" — and only at the front.
+    if (/^(follow|stay with|come with|stick with)\s+me\b/.test(t)) {
       this.setOrder({ kind: 'follow', target: from });
       return true;
     }
     // "guard me", "cover me", "watch my back"
-    if (/\b(guard|cover|protect) me\b|\bwatch my back\b/.test(t)) {
+    if (/^(guard|cover|protect)\s+me\b/.test(t) || /^watch my back\b/.test(t)) {
       this.setOrder({ kind: 'guard', target: from });
       return true;
     }
-    // "wait", "hold", "stay here", "stop"
-    if (/\b(wait|hold|stay here|stop|hold position)\b/.test(t)) {
+    // "wait", "hold", "stay here", "stop". Anchored, so "hold on, the troll is
+    // north" and "wait for me" are conversation and not a halt for everybody.
+    if (/^(wait|hold on|hold|stay here|stop|hold position)\s*[.!]?$/.test(t)) {
       this.setOrder({ kind: 'hold' });
       return true;
     }
-    // "kill the troll", "attack the bear", "shoot the deer"
-    const quarry = /\b(kill|attack|shoot|hunt)\s+(?:the\s+|that\s+|a\s+)?(\w+)/.exec(t);
-    if (quarry) {
+    // "kill the troll", "attack that bear", "shoot the deer".
+    //
+    // The quarry must be a creature this world actually has. `hunt a from` was
+    // eight bodies walking after a preposition, and the reflex layer can only
+    // refuse it — quietly, for ever.
+    const quarry = /^(kill|attack|shoot|hunt)\s+(?:the\s+|that\s+|a\s+|an\s+)?([a-z]+)\b/.exec(t);
+    if (quarry && ORDERABLE_QUARRY.has(quarry[2])) {
       this.setOrder({ kind: 'hunt', quarry: `a ${quarry[2]}` });
       return true;
     }
     // "go on", "carry on", "as you were" — hands them back to themselves
-    if (/\b(carry on|go on|as you were|free|do what you like)\b/.test(t)) {
+    if (/^(carry on|go on|as you were|you are free|do what you like)\b/.test(t)) {
       this.setOrder({ kind: 'wander' });
       return true;
     }

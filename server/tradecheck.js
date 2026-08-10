@@ -234,6 +234,68 @@ function main() {
       'silence costs nothing, which is almost always the case');
   }
 
+  // ── AND A DEAL THAT NOBODY TAKES HAS TO DIE ─────────────────────────────
+  //
+  // The live-lock, found by Ben inside ninety minutes of the standing offer
+  // shipping: "the agents seem to be going crazy on making offers, they have
+  // spiraled down". The log agreed — 159 offers made, ZERO trades settled, and
+  // three or four of eight agents choosing `offer` on every tick to the end.
+  //
+  // THREE FAULTS COMPOUNDING, all mine, all from the same day's work:
+  //
+  //   1. `resolveOffer` set `from.offer` and only a completed trade ever
+  //      cleared it, so every offer nobody took stood for the whole session.
+  //   2. The recipient is TOLD about a standing offer in its brief, every
+  //      decision — so a dead offer crowded out everything else it might think.
+  //   3. The recipient was HAILED on every snapshot the offer stood, twenty
+  //      times a second, so it was pinned in place and could never walk
+  //      anywhere to settle anything.
+  //
+  // Any one of those is survivable. Together they are a roster of bodies
+  // standing still, offering each other things nobody can ever accept.
+  {
+    const w = new SimWorld({ headless: true });
+    const a = w.addPlayer(1, 'Mairi');
+    const b = w.addPlayer(2, 'Seonaid');
+    b.ctrl.position.copy(a.ctrl.position);
+    a.inventory.add('venison_cooked', 2);
+    b.inventory.add('wood', 20);
+
+    w.resolveOffer(a, 'Seonaid', 'cooked venison', 'branches');
+    check('AN OFFER CARRIES ITS OWN DEADLINE',
+      Number.isFinite(a.offer?.until) && a.offer.until > w.totalHours,
+      a.offer ? `stands until hour ${a.offer.until.toFixed(2)}` : 'no offer at all');
+
+    // Nobody takes it. Walk the world past the deadline.
+    const deadline = a.offer.until;
+    let guard = 0;
+    while (a.offer && w.totalHours < deadline + 0.2 && guard++ < 200000) w.step(1 / 60);
+
+    check('  …and lapses when nobody takes it',
+      a.offer === null,
+      `cleared at hour ${w.totalHours.toFixed(2)} — a dead offer used to stand for the whole session`);
+
+    check('  …and nothing changed hands on the way out',
+      b.inventory.countOf('venison_cooked') === 0 && a.inventory.countOf('wood') === 0,
+      'lapsing is not a trade');
+  }
+
+  {
+    // The sentinel: a deal taken IN TIME still settles exactly as before.
+    const w = new SimWorld({ headless: true });
+    const a = w.addPlayer(1, 'Mairi');
+    const b = w.addPlayer(2, 'Seonaid');
+    b.ctrl.position.copy(a.ctrl.position);
+    a.inventory.add('venison_cooked', 2);
+    b.inventory.add('wood', 20);
+    w.resolveOffer(a, 'Seonaid', 'cooked venison', 'twelve branches');
+    w.step(1 / 60);
+    w.resolveAccept(b, 'Mairi');
+    check('SENTINEL: a deal taken in time still settles',
+      b.inventory.countOf('venison_cooked') === 1 && a.inventory.countOf('wood') === 12,
+      `${a.inventory.countOf('wood')} branches to the seller`);
+  }
+
   const failed = results.filter((r) => !r.pass);
   console.log(`\n  ${results.length - failed.length}/${results.length} passed\n`);
   process.exit(failed.length ? 1 : 0);

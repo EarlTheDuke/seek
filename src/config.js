@@ -1220,6 +1220,24 @@ export const SOCIAL = {
   // each other the moment collision was switched on would be a fine bug.
   giveRange: 3.0,
 
+  // ── HOW LONG A DEAL STAYS ON THE TABLE ──
+  //
+  // It used to stay for ever: `resolveOffer` set it and only a completed trade
+  // ever cleared it. Nothing else in this world works that way, and a live
+  // 90-minute run showed what it costs — 159 offers made, ZERO trades settled,
+  // and three or four of eight agents choosing `offer` on every single tick
+  // until the end of the session. Ben's words: "the agents seem to be going
+  // crazy on making offers, they have spiraled down".
+  //
+  // A dead offer is worse than no offer, because it is also what the other body
+  // is being told about in its brief, and — until this was fixed — what was
+  // holding it still. Three faults compounding into a live-lock.
+  //
+  // A day is 26 real minutes, so a game hour is about 65 real seconds. Half of
+  // one is long enough to walk a hundred metres and answer, and short enough
+  // that a forgotten offer clears itself before it can rot.
+  offerHours: 0.5,
+
   // ── BEING SPOKEN TO IS A REASON TO STOP WALKING ──
   //
   // The single most-reported thing about playing with these agents, from a
