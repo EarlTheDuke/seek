@@ -5879,3 +5879,41 @@ are early (A0–A60 era), from before the marker convention settled.
 they were assigned without any cross-item comparison — item A290's four daggers were never weighed
 against A121's five. This ranking is therefore a *starting order*, not a verdict, and its main value
 is replacing "no order at all." Related: **A296**, **A297**, **A282**.
+
+### A302 [S] ††††† — the logs already record the engine's death; `analyse.mjs` cannot see it
+
+**Observation (2026-08-10 09:05).** `eval30.jsonl` is 677 lines: **501** board samples `{t, b}` and
+**176** failure lines `{t, err}`, every one of them `TypeError: fetch failed`. The tail is a death
+certificate timestamped to the second — last good sample **08-09 20:55:37**, first failure
+**20:55:57**, last line **21:05:57**, ten minutes of logged failure before the sampler was killed.
+`grep -n "err" analyse.mjs` returns **nothing**: the analyser never reads those lines, prints
+`501 samples over 203 real minutes`, and cannot distinguish a run that finished from one that died
+mid-flight.
+
+**Why it matters.** This is the missing input for **A290** ("the eval loop has no *is the engine
+running* gate"). A290 reads as though the gate must be built; it does not. Twenty-four evaluate
+passes have now been written against a dead world, and the fact that it was dead was sitting in
+plain text at the bottom of the newest log the whole time.
+
+**Fix [S], two lines and one caveat.**
+1. In `analyse.mjs`: count `err` lines, and if the **last** line of the log is an `err`, print a
+   loud first line — `RUN ENDED IN FAILURE: N × <err> from <first-failure time>` — instead of a
+   sample count that implies a clean finish. The analyser already streams every line; it just
+   discards these.
+2. In the eval task: `tail -1 <log>` → parses to an object with `err` ⇒ the run is over. That is the
+   whole gate.
+
+**Caveat — the brief points at the blind sampler.** Two schemas exist and only one records failure:
+
+```
+  {t, b}           eval30.jsonl                 logs errors (176)
+  {realMs, board}  duo2.jsonl, melee4.jsonl     0 err lines, ever — it just stops
+```
+
+`duo2.jsonl`, the file the evaluate brief names, is written by the blind one and ends at a
+normal-looking board sample. So fix (2) alone will **not** catch a `duo2`-style run dying; that
+sampler needs the error-logging branch the `{t, b}` sampler already has, or the gate must fall back
+to file mtime. Doing (1) without that gives false confidence on exactly the file the loop reads most.
+
+Related: **A290** (the gate), **A292** (outcome lines never reach the board), **A296**/**A297** (the
+backlog is write-only because the builder cron is off).

@@ -9021,3 +9021,71 @@ instruments that lie.
    been carrying all along.
 3. A world on current `HEAD` before the next fire. Still no log in the corpus tests any commit after
    08-09 20:55.
+
+## 2026-08-10 09:05 PDT — BOARD DEAD (12h10m). **Twenty-fourth pass on the same frozen log. New fact: `eval30.jsonl` records the engine's death to the second — 176 consecutive `TypeError: fetch failed` lines after the last good sample — and `analyse.mjs` contains the string `err` ZERO times. The "is the engine running" gate A290 asks for already has its input sitting in the log.**
+
+Board: `curl http://127.0.0.1:8090/board.json` → **exit 7**, connection refused. Ran
+`analyse.mjs duo2.jsonl` as the brief requires: 222 samples, 805 calls of 4000, **no seat `SPENT`**,
+eight-seat melee — byte-identical to the twenty-three passes before it. `duo2.jsonl` unchanged since
+**08-09 11:28 (21h37m)**. All seven watch-items in the brief already carry a verdict in this file; I
+did not re-derive them. Scheduler at 09:04, unchanged for the **sixth** pass: `highlands-triage`
+**enabled: false**, last fired 08-06 20:04 (**3d 13h**); `highlands-evaluate` enabled, fired 09:00.
+
+### The new fact: the logs already know when the world died, and nothing reads it
+
+`eval30.jsonl` is 677 lines, not the 501 the analyser reports. Parsed by shape:
+
+```
+  501 lines  {t, b}    board samples
+  176 lines  {t, err}  "TypeError: fetch failed"  — 100% of them, one error kind
+```
+
+The tail is a **death certificate, timestamped to the second**:
+
+```
+  last good board sample   08-09 20:55:37 PDT
+  first fetch failure      08-09 20:55:57 PDT   (one 20 s sampler beat later)
+  last line in the file    08-09 21:05:57 PDT
+  => 10 minutes / 176 beats of logged failure before the sampler itself was killed
+```
+
+`grep -n "err" analyse.mjs` returns **nothing**. The analyser never looks at those lines. It prints
+`501 samples over 203 real minutes` and is, by construction, unable to tell a run that *finished*
+from a run that *died mid-flight* — which is the exact confusion this loop has been living inside
+for twenty-four passes.
+
+**This is the missing half of A290.** A290 asked for an "is the engine running" gate and implied one
+had to be built from scratch. It does not: the input already exists in the log, and the check is
+`tail -1 file.jsonl` → if it parses to an object with `err`, the run is over. One line.
+
+### The two samplers disagree, and the brief points at the blind one
+
+There are two sampler schemas in the corpus, and they are not interchangeable:
+
+```
+  {t, b}          eval30.jsonl    logs errors — 176 of them
+  {realMs, board} duo2.jsonl, melee4.jsonl    0 err lines, ever — it just stops
+```
+
+`duo2.jsonl` — **the file this task's brief pins the loop to** — is written by the blind sampler. It
+has no death certificate at all; it simply ends at 11:28 with a normal-looking board sample. That is
+why twenty-four passes could open it and see nothing wrong. The freshest log in the corpus can say
+"the world died at 20:55:37"; the one the brief names cannot say anything.
+
+### Correcting myself inside this pass, before it reached the file
+
+I opened this pass by noticing `eval30.jsonl` has an mtime of **21:05**, ten minutes later than the
+"last byte any live world wrote: melee4, 20:55" recorded by the previous pass, and I was about to
+publish that the previous pass had the boundary wrong. **It does not.** The 21:05 mtime is the
+sampler's last *failure* line, not a world's byte. The previous pass's 20:55 boundary is correct, and
+the last code commit (`3de2690`, 08-09 21:28) remains untested by any log. Third pass running in
+which my first reading was an artefact of the instrument rather than the data — which is, again, the
+subject of the pass.
+
+### For Ben
+
+1. `highlands-triage` on, or `highlands-evaluate` off. **Sixth pass asking**; nothing has changed.
+   3½ days of builder downtime against ~172 writer fires.
+2. **The cheapest item on the whole list just got cheaper: A290 is a one-line `tail`,** not a build.
+   It is one of the 7-item start set from the previous pass.
+3. A world on current `HEAD` before the next fire. Still no log tests any commit after 08-09 20:55.
