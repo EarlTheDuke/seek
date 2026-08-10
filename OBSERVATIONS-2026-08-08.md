@@ -8137,3 +8137,91 @@ build produced it. That is **A126** (`††††`, still open), and this is it
   fallback), but its motivating case is gone. The surviving unparseable case is
   `no legal verb in reply` — Morag, once, in melee2 — which is the *sanitiser* rejecting a reply, not
   the model failing to produce one.
+
+## 2026-08-10 03:05 PDT — BOARD DEAD AGAIN. **`melee4` is a pre-fix binary too — and the "thirty-seven deliberate reaches" now written into `config.js` as the reason for `offerHours: 2.5` is TWO reaches.** Also: kimi carried a debt nine game hours and paid it.
+
+Board at `127.0.0.1:8090` refuses the connection. `duo2.jsonl` is still frozen at
+**2026-08-09 11:28:06**, byte-identical, 222 samples. Nothing has run in ~15.5 hours. No restart
+attempted, per the task. So this entry works the newest post-fix log, `melee4.jsonl`
+(180 samples, 60 min, game hour 7.7 → 14.8, 582/4000 calls).
+
+### 1. The correction, and it is now in the source
+
+`f81ab89` *"a deal must outlast the slowest mind at the table"* raised `offerHours` 0.5 → 2.5. Its
+justification is written into `src/config.js:1244` and quotes this log verbatim:
+
+> `{"Morag": {"accept": 26}, "Ailsa": {"accept": 11}}` — *"Thirty-seven deliberate reaches for a
+> deal that had gone stale between the deciding and the doing."*
+
+It was not thirty-seven reaches. It was **two**. The growth is a burst, not a spread:
+
+```
+  Morag  accept 0 → 4 → 11 → 17 → 23 → 26   03:22:15 → 03:23:36   =  81 seconds, then never again
+  Ailsa  accept 0 → 5 → 11                  03:20:15 → 03:20:35   =  20 seconds, then never again
+```
+
+Morag's 26 is **one** standing `take <X> offer` goal re-entering `resolve()` every tick for 81 s.
+Ailsa's 11 is one `take Coinneach offer`, and by the very next sample she had already replanned —
+`goal: "offer hide to Coinneach for branch"`, `why: "no arrow to trade, offer hide instead"`. She
+recovered in a single decision. This is **A276** (`refusedVerbs` counts retargets, ~8× high) landing
+again, and this time the inflated number was promoted into a source comment as settled fact.
+
+The fix is probably still right for its *other* reason — a 33 s offer against a 75 s cadence is
+unusable regardless. But the headline evidence is ~18× overstated, and the minds were never spiralling
+on the accept side; the one seat we can watch adapt, adapted immediately.
+
+### 2. And melee4 cannot grade that fix either
+
+Same trap as the last entry found for `duo2`. melee4 ran **02:55:55 → 03:55:36 UTC** (19:55–20:55 PDT);
+`f81ab89` was committed **20:30 PDT — 35 minutes into the run**. `mind.calls` climbs monotonically for
+all eight seats with **zero resets**, so the process never restarted to load it. `melee4.jsonl` is
+pre-`f81ab89` end to end. That is the **third** log in two days whose own numbers motivated a fix it
+is incapable of testing, and the second consecutive entry to discover it the same way. **A126** — a
+log records nothing about the build that produced it — is now the most expensive open item in this
+file. (`hailRange`, `e0b129b` at 14:32, *is* in melee4.)
+
+### 3. `plan` survives and gets acted on — the first hard instance, from the seat we wrote off
+
+Coinneach (`kimi-k2.6`), 33 answered calls, the fewest of any live seat:
+
+```
+  h11.11  takes a carcass someone else shot   said: "Owe the shooter. I'm taking it."
+  h16.90  plan: ["strip that carcass", "take Eachann his owed hide"]
+  h18.80  plan: ["take Eachann his owed hide"]          ← narrowed as the other item completed
+  h20.03  give hide to Eachann · why "paying my debt" · said: "Owed you this."
+```
+
+A debt **incurred voluntarily and unprompted**, held in `plan` across at least 3.1 game hours, the
+plan pruning itself as items closed, and settled nine game hours after it was taken on. That answers
+the standing question — *does a plan survive and get acted on?* — **yes**, with a receipt.
+
+It matters most because of **who**. Every behavioural claim this file has made about kimi came from
+`duo2`, where Coinneach failed 46% and Seonaid 76% of calls — i.e. most of what those seats "did" was
+the scripted fallback. Post-`4586e1a` they answer at 6% and 3%, and the first thing kimi does with a
+working channel is run a credit relationship. Morag (opus-5) is doing the same on the other side:
+hers is the **only** `note` written by anyone all run, and it is a ledger that grew across three
+revisions — *"Tormod owes me venison for 6 arrows and branches. Fingal owes venison for 1 arrow."*
+Her `why` at h6.15 is the one-line verdict on the trade economy: **"no one will trade meat; get my own."**
+
+### 4. No `SPENT` tag anywhere
+
+582 calls of 4000; the heaviest seat is Eachann at **138/250**, `spend.exhausted: false`, and
+`mind.spent` is false for all eight seats in every one of the 180 samples. Nothing in melee4 is
+misreadable as a scripted brain on budget grounds. (Iseabail is `provider: null` — never a model by
+configuration, not by exhaustion.)
+
+### Instrument notes
+
+- **"N distinct intentions seen" is goal×why pairs, not goals.** `analyse.mjs:103` keys on
+  `goal + ' | ' + why`, so Morag reads **35** where she has **13** distinct goals. Every such figure
+  quoted in this file is ~2–3× the behavioural variety it looks like.
+- **I nearly filed a worse version of that.** My first pass stringified whole intention objects
+  (which carry `h`, `where`, `said`), making every sample unique and scoring the *scripted* seat
+  Iseabail at 63 — above every model. Keyed on `goal`, Iseabail sits at 6, near the bottom in all
+  three logs. There was no finding there; there was a bug in my script. Fourth instance of this
+  shape in two days, and the first where I was the instrument.
+- `refusedVerbs` is empty for **every seat in melee3**, and in duo2 the refused verbs were `offer`
+  (Morag) and `avoid` (Ailsa) — never `accept`. Only Morag and Ailsa have *ever* registered a refusal
+  in any log, though haiku and grok demonstrably attempt `offer` too. Consistent with the counter
+  incrementing on goal *persistence* rather than on refusal: a seat that drops a refused verb after
+  one try scores zero. The column still cannot do the job it was built for.

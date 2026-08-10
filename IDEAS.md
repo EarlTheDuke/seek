@@ -5416,3 +5416,55 @@ are already in hand at the call site — and set each `timeoutSeconds` to p95 pl
 round number. **Value:** a timeout is indistinguishable from a dead seat on the board today, and A25's
 retry (still not in, `providers.js:396`) is the wrong remedy for it; you cannot retry your way out of a
 ceiling that is simply too low.
+
+### A282 †††† STAMP THE BUILD INTO EVERY SAMPLE — THREE LOGS NOW MOTIVATED FIXES THEY CANNOT TEST **[S]**
+
+This is A126 restated with a third confirmed instance and a real price. `duo2.jsonl` is pre-`4586e1a`
+(the maxTokens fix) end to end; `melee4.jsonl` is pre-`f81ab89` (the `offerHours` fix) end to end —
+committed **35 minutes into its own run**, with `mind.calls` monotonic and zero resets proving the
+process never reloaded. In both cases the log's numbers were quoted as the *reason* for a fix and
+then re-quoted afterwards as though they showed its effect. Detecting it costs a bespoke
+monotonicity argument every single time.
+
+**Fix:** put `git rev-parse --short HEAD` and the server process start time into the board header at
+boot, and have the analyser print `build <sha> · started <t>` and refuse to compare two logs with
+different shas without saying so. **Value:** one afternoon; it retires the single most expensive
+recurring error in this project. Nothing else on this list is worth doing first.
+
+### A283 ††† `refusedVerbs` COUNTS GOAL PERSISTENCE, NOT REFUSALS — AND THE INFLATED NUMBER IS NOW IN THE SOURCE **[M]**
+
+`refuse()` (`src/net/agent.js:1873`) is called from `resolve(g)`, the **per-tick** goal resolver. A
+single standing goal that cannot resolve therefore increments once per tick until the mind next
+decides. Measured: Morag `accept` 0→26 in **81 seconds**, Ailsa 0→11 in **20 seconds**, both single
+reaches, both then silent for the rest of the run. Two events, thirty-seven counts.
+
+The cost is no longer hypothetical: `src/config.js:1244` now cites *"thirty-seven deliberate reaches"*
+as the evidence for `offerHours: 2.5`. The inverse error is just as bad — a seat that abandons a
+refused verb after one try scores **zero**, which is why `refusedVerbs` is empty for every seat in
+melee3 and why only the two Claude seats have ever registered anything, despite haiku and grok
+demonstrably attempting `offer`.
+
+**Fix:** increment once per *decision*, not per tick — dedupe on `(verb, target, decisionId)` — and
+record `{verb, why, n}` so an economic refusal carries a reason the way an archery miss already does
+(pairs with A279/A280). **Value:** the column becomes the thing its own comment says it is. Until
+then every number read off it needs a burst-shape check before it can be quoted.
+
+### A284 †† CREDIT IS ALREADY EMERGING AND NOTHING IN THE WORLD REPRESENTS IT **[M]**
+
+Unprompted, in one 60-minute run, three seats independently invented debt. Coinneach (kimi-k2.6) took
+a carcass he had not shot — *"Owe the shooter. I'm taking it."* — carried `"take Eachann his owed hide"`
+in `plan` for over three game hours, and settled it at h20.03 with *"Owed you this."* Morag (opus-5)
+kept the only `note` anyone wrote all run, and it is a ledger: *"Tormod owes me venison for 6 arrows
+and branches. Fingal owes venison for 1 arrow."* Tormod repeatedly promised *"venison when I hunt"*
+against goods taken now.
+
+The world has no notion of any of this. A debt lives only in one mind's free-text `note`/`plan`; the
+counterparty cannot see it, nothing reminds either party, and nothing records default. Morag's own
+verdict on the spot economy — `why: "no one will trade meat; get my own"` — is exactly the condition
+credit exists to solve, and the minds reached for it on their own.
+
+**Fix:** a first-class `owes` record — `{from, to, item, n, sinceHour}` — created by `give` with no
+immediate return, shown on both cards and in both briefs, ageing so a stale debt reads as such.
+**Value:** the single richest behaviour these models have produced without being asked, and it is
+currently invisible to everything except a text field one seat happens to use. Depends on nothing;
+A282 first only because every measurement of it will otherwise be untrustworthy.
