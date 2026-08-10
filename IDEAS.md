@@ -5243,3 +5243,40 @@ moving"), and say plainly in the verb table that `offer`, `accept` and `give` al
 you to be within reach. Pair with A258 (`follow`/`guard` are never explained either). **Value:** one
 prompt paragraph; it is the cheapest half of A272 and testable on its own — the metric is whether any
 model-driven seat ever holds still on purpose.
+
+### A274 †† `give` DROPS THE QUANTITY THAT `offer` ALREADY PARSES — ONE ITEM PER DECISION **[S]**
+
+`src/sim/world.js:776` — `resolveGive(from, toName, itemId, count = 1)` — takes a count, and the only
+caller that ever supplies one is the human keyboard (`src/main.js:3021`). The LLM path never does:
+`goals.js` declares `give: { params: ['target','item'] }` with no count, `agent.js:2900` sends
+`actAlso: { giveItem: g.item ?? '' }`, and `world.js:1516` fills the gap with `|| 1`. Meanwhile
+`world.js:919` — thirty lines of the same class away — runs `resolveItemCount` on `offer`'s free-string
+noun and gets it right: `resolveItemCount("twelve branches")` is 12. Evidence it matters: in
+`duo2.jsonl` Tormod/grok-4.5 said *"twelve branches for a share of venison"* and *"take them all"*,
+then spent **19 consecutive decisions (h10.30–11.23)** handing over 10 branches and 9 arrows one at a
+time — confirmed by nine matching `"I gave arrow to Morag"` deed rows and a 9-unit arrow transfer in
+the carried-inventory ledger. Total cross-seat movement for the whole 8-seat, 74-minute run: **25
+units, against 992 branches gathered.**
+
+**Fix:** add `count` to `give`'s params, run the existing `resolveItemCount` on `giveItem` in
+`resolveGive` exactly as `resolveOffer` does, clamp to what is held, and say "give 12 branches to X"
+in the verb table. Watch the edge-detection at `world.js:1516` — `give` fires only when the target
+name *changes*, so a repeat gift to the same person needs the intent to drop and re-arm; a count
+makes that moot for the common case. **Value:** one parameter, plumbed through a path that is already
+built at both ends. It is the difference between a promise being payable and a promise costing twelve
+turns to keep — and every model in the roster prices in units already.
+
+### A275 †† A SETTLED TRADE IS INVISIBLE ON THE CARD — THE ONE MECHANIC THAT WORKED WAS THE HARDEST TO SEE **[S]**
+
+Five bilateral trades closed in `duo2.jsonl` (Morag↔Ailsa h8.96/h9.48/h10.40, Morag↔Tormod
+h16.36/h16.41) and every earlier reading of this run — including the standing brief and A272 — recorded
+them as never happening. They are only findable by deduping `deeds` rows across 222 samples and
+matching the two sides by game-hour, because deed rows coalesce in place and the board exposes no
+transfer feed. **Correcting A272 in writing: "the market has now failed to clear in every log on disk"
+is wrong; the kimi abandonments it measured are not.**
+
+**Fix:** put a `trades` array on the card beside `strays` — `{h, with, gave, got, n}`, both sides,
+uncoalesced — and a run-total `moved` counter. **Value:** trade is the headline open question of this
+whole eval program and the instrument had no column for it; six sessions were spent inferring from
+speech what one array would have stated. Same class of error as `refusedVerbs` (which was added for
+exactly this reason and is now the most informative column on the card).

@@ -7846,3 +7846,80 @@ That is not the models being restless. `stay still and watch` reads like idling,
 every goal that makes progress, and nothing tells a mind that holding position is how a bargain
 closes.
 
+
+## 2026-08-10 01:35 PDT — BOARD STILL DEAD. **Trade is not missing. It happened five times, both sides logged, and it is tiny for a reason I can point at in three files: `give` hands over ONE item per decision — while `offer`, thirty lines away in the same class, parses "twelve branches" correctly.**
+
+**No new data.** `board.json` refuses the connection (curl exit 7); `duo2.jsonl` unchanged since
+2026-08-09 11:28. Re-read of the same 222-sample, 8-seat log. Nothing restarted.
+
+### Correction to the standing brief, and to A272
+
+The brief says: *"`offer`, `accept`, `give` have never once been used by a real model."* **That is
+wrong.** Filtering every distinct `deeds` row of `what: 'trade'|'give'` gives 40 rows across four
+seats, and the trades reconcile across both parties at the same game-hour:
+
+```
+  h8.96   Morag(opus-5)  "I traded venison_cooked to Ailsa for wood"
+  h8.96   Ailsa(sonnet-5) "I got venison_cooked from Morag for wood"     ← same hour, both sides
+  h9.48   the same pair again
+  h10.40  Ailsa "I traded wood to Morag for venison_cooked"  ↔ Morag "I got wood from Ailsa..."
+  h16.36  Morag "I traded venison_cooked to Tormod for wood" ↔ Tormod "I got venison_cooked..."
+  h16.41  the same pair again
+```
+
+Five closed bilateral trades between three different models. A272 says *"the market has now failed
+to clear in every log on disk"* — **too strong, and I wrote it.** The kimi abandonments it measured
+(Coinneach s101–104, Seonaid s128–132) still stand exactly as recorded; the generalisation does not.
+
+### It is corroborated by the ledger, to the unit
+
+The carried-inventory diff — the instrument that settled the fire count — finds cross-seat transfers
+where exactly two seats move one item in opposite directions in the same sample:
+
+```
+   9 x  Tormod -> Morag     arrow      ← 9 "I gave arrow to Morag" deed rows, h10.92–11.23
+   5 x  Tormod -> Coinneach wood
+   5 x  Ailsa  -> Morag     wood       ← 5 "I gave wood to Morag" rows
+   3 x  Morag  -> Ailsa     venison_cooked
+   2 x  Ailsa  -> Tormod    wood       ← 2 "I gave wood to Tormod" rows
+   1 x  Coinneach -> Morag  arrow
+   ── 25 units moved between minds, all run ──
+```
+
+Three exact deed-row/ledger agreements (9, 5, 2). Two instruments that share no code path. **This is
+the first time anything in this project has been confirmed twice.**
+
+**25 units, against 992 branches gathered.** The entire inter-mind economy of a 74-minute, 8-seat,
+805-call run is 2.5% of one seat's worth of foraging. (Both figures are floors: deed rows coalesce,
+and the strict detector drops any sample where a third seat also moved that item — Tormod's 6 branches
+to Morag at s106–110 are visible in the raw deltas and filtered out of the table above.)
+
+### Why it is 25 and not 250 — the wire is cut in one place
+
+```
+  src/minds/goals.js     give: { params: ['target', 'item'] }          ← no count in the grammar
+  src/net/agent.js:2900  actAlso: { giveItem: g.item ?? '' }           ← no count on the wire
+  src/sim/world.js:1516  resolveGive(..., intent.giveCount || 1)       ← defaults to 1
+  src/sim/world.js:776   resolveGive(from, toName, itemId, count = 1)  ← the world TAKES a count
+  src/main.js:3021       intent.giveCount = n;                         ← only the human keyboard
+```
+
+`give` is one item per decision, and it is edge-detected on the target name, so a second branch to the
+same person needs the intent to drop and re-arm. **Tormod (grok-4.5) spent 19 decisions across h10.30–
+11.23 settling a single bill** — 10 branches one at a time, then 9 arrows one at a time — after saying
+*"twelve branches for a share of venison"* and *"take them all."* Ailsa's goal, verbatim:
+`give branch to Morag` / why: `settle the branches-for-venison deal` / said: *"Here's branches as
+promised, Morag."* Singular branch, plural promise.
+
+**And `offer` already does the thing `give` doesn't.** `world.js:919` runs `resolveItemCount` on the
+free-string noun, and its own comment says why: *a model writes the number into the noun, because that
+is how a person names a price.* It works — `resolveItemCount("twelve branches")` returns 12,
+`resolveItemId("2 cooked venison")` returns `venison_cooked`. The models found it unprompted: of 21
+distinct give/offer/accept goals in this log, three carry a number — `offer 3 branches to Morag for 2
+cooked venison`, `offer cooked venison to Tormod for twelve branches`, `offer 6 hides to Ailsa for
+venison`. Sixteen of 141 spoken lines price a quantity (*"three branches for two cooked, aye?"*,
+*"ten branches for cooked venison, Morag"*).
+
+So the models negotiate in units, `offer` understands units, and the verb they actually reach for to
+*pay* silently rounds every promise down to one. That is not a model failure and not a design
+tradeoff — it is a parameter that exists at both ends and is never passed through the middle.
