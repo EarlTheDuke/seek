@@ -8961,3 +8961,63 @@ that is about instruments lying. Recording it because the next pass will reach f
 3. New, and cheap: **`server/*check*.js` is a usable regression gate today, with no world and no API
    keys** — 58/60 green, budget 200 s per harness. That is the one thing this loop can verify while
    the engine is down.
+
+## 2026-08-10 08:35 PDT — BOARD DEAD (11h40m). **Twenty-third pass on the same frozen log. The new fact is about the backlog, not the world: 215 of its 326 items already carry a value-per-cost rating, nothing has ever sorted by it, and the "highest value, smallest cost" set is exactly SEVEN items. A 326-item write-only list is a wall; a 7-item list is a morning.**
+
+Board: `curl http://127.0.0.1:8090/board.json` → **exit 7** (connection refused; last pass still got a
+200 from the vite UI, so the front end has now gone too). Last byte any live world wrote: `melee4.jsonl`,
+**08-09 20:55 — 11h40m ago**. `duo2.jsonl` unchanged since **08-09 11:28 — 21h07m**. Ran
+`analyse.mjs duo2.jsonl` as the brief requires: 222 samples, 805 calls of 4000, **no seat `SPENT`**,
+eight-seat melee — byte-identical to the twenty-two passes before it. All seven watch-items in the
+brief already carry a verdict in this file; I did not re-derive them. Scheduler at 08:33, unchanged
+for the **fifth** pass: `highlands-triage` **enabled: false**, last fired 08-06 20:04 (**3d 12h31m**);
+`highlands-evaluate` enabled, fired 08:30.
+
+### The new fact: the backlog was always rankable and has never been ranked
+
+`IDEAS.md` is 5,840 lines and 326 items. Its own legend (line 12) defines **`†` — "I think this is
+high value relative to its cost"**, and passes have been applying 1–5 daggers for weeks. Nothing has
+ever read them back. Parsed every heading:
+
+```
+  by dagger rating:  ††††† 9   †††† 21   ††† 59   †† 86   † 40   (unrated) 111
+  by size:           [S] 215   [M] 82   [—] 9   (unmarked) 20
+```
+
+Intersecting the top rating with the smallest size gives a **7-item start list** — max value, min cost:
+
+```
+  A121  trade moves ONE object, and every price they name is a number
+  A287  the analyser can never report `attack`, `follow` or `guard` as used
+  A288  `follow` and `guard` are the only verbs the brief never explains — the two that build a group
+  A290  the eval loop has no "is the engine running" gate
+  A292  the mind's outcome lines never reach the board — 7 failure kinds uncountable
+  A296  the backlog is write-only
+  A297  the builder cron is disabled and the writer cron is not
+```
+
+Three of those seven (A290, A296, A297) are about **this loop**, not the game — which is its own
+finding. The other four are the game's, and A287/A288 are a matched pair: the analyser cannot report
+the three verbs nobody uses, and two of those three are the only verbs the brief never explains.
+
+**111 items are unrated and 20 have no size marker** — a third of the list is not triageable at all,
+which is worth knowing before anyone sits down to triage it. → **A301 [S]**
+
+### Correcting myself inside this pass, before it reached the file
+
+My first ranking pass used `grep -E '†{5}'` and returned **0 items**. `†` is 3 bytes in UTF-8, so
+`{5}` repeated the final byte, not the character — the regex asked for something that cannot exist.
+I would have published "no item is rated 5 daggers" off an instrument that could not have found one.
+Recording it for the same reason as last pass's four false timeouts: this is now **twice running**
+that the tool, not the data, produced the first answer — and both times in a pass whose subject is
+instruments that lie.
+
+### For Ben
+
+1. `highlands-triage` on, or `highlands-evaluate` off. **Fifth pass asking**; nothing has changed.
+   The gap is now 3½ days of builder downtime against ~170 writer fires.
+2. **If you do one thing: the 7 items above.** All `[S]`, all already evidenced in this file. That is
+   the whole answer to "326 items, where do I start" — and it took one parse of a marker the list has
+   been carrying all along.
+3. A world on current `HEAD` before the next fire. Still no log in the corpus tests any commit after
+   08-09 20:55.
