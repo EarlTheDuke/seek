@@ -8669,3 +8669,74 @@ whether anyone is talking; the answer has been yes for three days.
 
 **Staleness, for the record:** `duo2.jsonl` — the log this brief pins every run to — is **24
 commits to `src/`+`server/`** behind `HEAD` (75 commits of all kinds). See **A282**, **A291**.
+
+## 2026-08-10 06:05 PDT — BOARD DEAD (9h10m). **The backlog is write-only. In the 8h37m since the last line of code was committed, this loop has added 48 items to `IDEAS.md` and built zero — and four of those 48 are the loop correctly diagnosing that it should stop.**
+
+`curl http://127.0.0.1:8090/board.json` → connection refused, nothing listening on 8090. `duo2.jsonl`
+unchanged since **Aug 9 11:28 — 18.6 hours**. Ran `analyse.mjs duo2.jsonl` per the brief: 222
+samples, 805 calls of 4000, **no seat `SPENT`**, and — as seven prior entries have said — it is the
+eight-seat melee, not the `roster-duo` the brief names. **Eighteenth consecutive pass over a frozen
+corpus** (A290).
+
+Every one of the brief's seven watch-items now has a verdict in this file, most of them twice. So
+this entry is not about the game. It measures the only thing that has actually been changing.
+
+### The ledger
+
+Last commit touching `src/` or `server/`: **`3de2690`, 08-09 21:28** — 8h37m ago. Since then,
+**17 consecutive commits, every one prefixed `eval:`**, and between them they touch exactly two
+files: `OBSERVATIONS-2026-08-08.md` and `IDEAS.md`.
+
+```
+                        at 3de2690 (21:28)      now (06:05)      delta
+  A-item headings              252                  301          +49
+  highest A-number            A247                 A295          +48
+  IDEAS.md bytes           287,773              355,295       +67,522  (+23%)
+  items marked built             1                    1            0
+```
+
+Production **≈5.6 items/hour. Consumption 0.** Across the whole 301-item backlog exactly **one**
+carries a BUILT date — *"THE ONE FIX"*, 2026-08-08, dated **before this loop began producing
+items**. Counting every done-convention in the file generously (4 `✅` lines, 6 struck-through
+headings) puts the ceiling at ~6 of 301, and none of them since 08-08.
+
+### The 48 are not slop, which is what makes this worth writing down
+
+I checked before claiming it. A248–A295 are 48 distinct findings — no duplicates, no restatements;
+several supersede or correct earlier items by number (A249 supersedes A245's costing; A252
+overturns A232's second half; A283 corrects A276). Sizes are honest: 34 `[S]`, 13 `[M]`, 1 `[L]`.
+This is not a loop generating filler to look busy. **It is a loop generating good work that nothing
+downstream consumes.**
+
+### The sharpest version of it: the loop has already diagnosed its own stopping condition, four times
+
+```
+A282 ††††  stamp the build into every sample — three logs motivated fixes they cannot test
+A290 ††††† the eval loop has no "is the engine running" gate — 13 consecutive passes on a frozen corpus
+A291 ††††  nothing names the commits that have never executed
+A295 ††††  the brief's motivating statistic is false, and every run is sent to re-check it
+```
+
+All four are unbuilt. **A290 was written at pass 13 and this is pass 18** — the count in its own
+title is now stale by five, because the only action available to the process that discovered it is
+to write another item into the list that nothing reads. That is the whole failure in one line.
+
+### What this implies for the four commits that have never run
+
+`cf10eda` (04:36) established that four behaviour commits have never executed. That number is now
+**five or six** — `3de2690` (cadence), `c1c8e07` (hunger escalation), `7e8db8c` (bow avatars),
+`c86a130` (give refusals), `d0a353d` (carry limits), `607f4bc` (order end) all landed between 21:01
+and 21:28, and the board died at 20:55. **Every one of them post-dates the last live world.** The
+backlog is not the only thing queued: so is the code.
+
+### Not correcting anything
+
+The 04:36 entry said "the last 13 commits changed only the notes." That was right and is now 17 —
+an extension, not a correction. Nothing else in the file is contradicted by this data.
+
+### The recommendation, plainly
+
+The next useful action in this project is **not another eval pass**. It is one run of the current
+`HEAD` binary, which no log in the corpus has ever tested. Until then this loop is measuring an
+18-hour-old world with a build 24+ `src/` commits behind it, and appending the results to a file
+whose read rate is zero.
