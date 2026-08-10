@@ -150,6 +150,16 @@ function main() {
       '156 halts against 16 troll orders is what the old rule produced');
     check('  …and "hold" halts while "hold on, ..." is conversation',
       say('hold')?.kind === 'hold' && say('hold on, there is a troll') === null);
+
+    // A place word is still an order — "wait here" is unambiguous where "wait
+    // for me" is a request TO the speaker. The first anchoring was too tight
+    // and broke this; the older `ordercheck` caught it, which is exactly what
+    // an older check is for.
+    const placed = ['wait here', 'hold here', 'stay here', 'stay put', 'stop there', 'hold position'];
+    const missed = placed.filter((t) => say(t)?.kind !== 'hold');
+    check('  …and "wait HERE" is an order, where "wait FOR ME" is a request',
+      missed.length === 0 && say('stay here and I will draw it off') === null,
+      missed.length ? missed.join(', ') : `${placed.length} phrasings, all halts`);
   }
 
   // ── 6. AN ORDER TAKEN IS AN ORDER YOU CAN SEE TAKEN ──────────────────────

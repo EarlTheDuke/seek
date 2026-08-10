@@ -2631,7 +2631,8 @@ export class Agent {
     }
     // "wait", "hold", "stay here", "stop". Anchored, so "hold on, the troll is
     // north" and "wait for me" are conversation and not a halt for everybody.
-    if (/^(wait|hold on|hold|stay here|stop|hold position)\s*[.!]?$/.test(t)) {
+    if (/^(wait|hold on|hold|stop)( (here|there|up|position|put))?\s*[.!]?$/.test(t)
+      || /^(stay|hold) (here|put|there)\s*[.!]?$/.test(t)) {
       this.setOrder({ kind: 'hold' });
       return true;
     }
