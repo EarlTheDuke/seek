@@ -82,6 +82,40 @@ built at all.
 
 ---
 
+# TIER 2.5 — from the third playtest, 2026-08-09 evening
+
+### 2.5a Every agent takes every order **[S]**
+The recogniser reads the sentence and ignores who it names, so "Ailsa, follow
+me" is taken by all eight. Useful for a troll hunt and useless for directing
+one person. It should honour a leading name, and say so when it does.
+
+### 2.5b An order outlives its usefulness **[S]**
+"wait" is still in force minutes later with nothing to say so. `carry on`
+releases it, but nothing on screen says a body is under orders at all, or whose.
+
+### 2.5c Fletching takes ten seconds with no progress shown **[S]**
+> my instinct to fire it repeatedly just consumed branches without producing
+> arrows. I burned something like forty branches before I worked out the pacing.
+
+And crafting returns NOTHING when there is no lit fire in reach, and fires burn
+out quietly — so you can stand there crafting into the void.
+
+### 2.5d Starvation has no escalation **[S]**
+> Hunger killed me once outright and I never saw it coming. I lost about
+> eighty-five health in roughly a minute, dying ten metres from a carcass.
+
+The cold warnings are clear. The hunger ones are not.
+
+### 2.5e Reloading under the same name desyncs the quiver **[M]**
+Still true after the pack fix: the server believes you have no arrows while the
+client shows twelve. Rejoining under a fresh name is the workaround, which is
+the same nasty discovery as before.
+
+### 2.5f The dev server dumps you to the title screen **[S]**
+Hot reload cost him his position and kit about six times mid-task.
+
+---
+
 # TIER 3 — the troll is unmeetable
 
 ### 3a. You cannot find one **[M]**
@@ -92,6 +126,16 @@ chatter, tracks, distant noise, something.
 
 ### 3b. `maxAlive: 26` fills with goblins **[S]**
 So there is no room for anything bigger. Two of three nights had nothing.
+
+### 3c-i. A troll charges at 7.2 m/s, which is faster than a sprint **[M]**
+With 150 m of aggro against 11 m of eyesight — it hunts you by ear. So the
+fight is a footrace you are guaranteed to lose:
+
+> Three times I ended a call with the troll at a safe 84-95 m and began the next
+> one already dead.
+
+Give it a wind-up, or a slower charge, or both. A bow fight against something
+strictly faster than you is not a fight.
 
 ### 3c. 420 hp against a 26-damage arrow **[M]**
 Five clean head shots inside one night with twelve arrows. Give it a reason to
