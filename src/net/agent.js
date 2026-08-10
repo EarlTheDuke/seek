@@ -2616,11 +2616,40 @@ export class Agent {
   setOrder(goal) {
     this.goal = goal;
     this.goalCounts[goal.kind] = (this.goalCounts[goal.kind] ?? 0) + 1;
+    // ── WHO IS UNDER ORDERS, AND WHOSE ──
+    //
+    // A playtester spent a whole session unable to tell whether the order path
+    // was live, concluded from the SOURCE that it was off, and reported that —
+    // while the log recorded 428 orders taken. Nothing on any screen said a
+    // body was under orders, or what the order was, or who gave it. So the
+    // board says it now, and it is worth more than the order itself: an order
+    // you cannot see obeyed is indistinguishable from one nobody heard.
     this.ordered = true;
+    this.orderedTo = describeGoal(goal);
+    this.orderedBy = goal.target ?? this.orderedBy ?? null;
+    this.orderedAt = this.hours;
     // A HUMAN gave this order. Weighted like being shot, because the one thing
     // worse than a companion that ignores you is one that forgets you asked.
     this.memory.add(this.hours, `I was told to ${describeGoal(goal)}`, MINDS.weight.shot);
     this.onLog?.(`${this.name}: ${describeGoal(goal)} (ordered)`);
+
+    // ── AND SAY SO, IN THE WORLD, WHERE THE PERSON WHO ASKED CAN HEAR IT ──
+    //
+    // The board knowing is not enough. A playtester ran a whole session unable
+    // to tell whether anything he said was landing, and concluded from the
+    // source that the order path was off — while 428 orders were being taken
+    // around him. An order acknowledged out loud would have settled it in one
+    // sentence, in the first minute.
+    //
+    // Safe against a feedback loop by construction: `takeOrder` only matches an
+    // order at the START of a sentence, and none of these acknowledgements
+    // begins with one. "right, following you" is not "follow me".
+    const nod = goal.kind === 'follow' ? 'right, following you'
+      : goal.kind === 'guard' ? 'right, watching your back'
+        : goal.kind === 'hold' ? 'right, holding here'
+          : goal.kind === 'hunt' ? `right, going for ${goal.quarry ?? 'it'}`
+            : 'right, back to my own business';
+    this.send(C_CHAT, { m: nod });
   }
 
   resolve(g) {

@@ -285,6 +285,15 @@ export function boardState(agents, meta = {}) {
         // Those are completely different findings about a model and only one of
         // them is the model's fault. This is the column that separates them.
         refusedVerbs: a.refusedVerbs ?? {},
+        // ── UNDER ORDERS, AND WHOSE ──
+        //
+        // A playtester read `agent.js`, saw the `obeys` gate, and reported the
+        // order path switched off — while 428 orders were being taken. Neither
+        // the game nor this board said a word about it. `orders` is the mode
+        // this seat is in; the rest is what it was last told and by whom.
+        orders: a.orders ?? 'decides',
+        orderedTo: a.orderedTo ?? null,
+        orderedBy: a.orderedBy ?? null,
       };
     }),
   };
@@ -436,6 +445,16 @@ function card(p) {
           + p.plan.map((l) => '<li>' + esc(l) + '</li>').join('') + '</ol>'
         : '')
     + (p.note ? '<h2>its notes</h2><p class="note">' + esc(p.note) + '</p>' : '')
+    // Stated whether or not it is under orders, because "this seat cannot be
+    // ordered" is exactly as important as "it can, and here is the last one".
+    + '<h2>orders</h2><p class="orders">'
+      + (p.orders === 'obeys'
+          ? (p.orderedTo
+              ? 'told to <b>' + esc(p.orderedTo) + '</b>'
+                + (p.orderedBy ? ' by ' + esc(p.orderedBy) : '')
+              : 'takes orders — none given yet')
+          : 'makes up its own mind (ORDERS=obeys to change)')
+      + '</p>'
     + (p.refusedVerbs && Object.keys(p.refusedVerbs).length
         ? '<h2>verbs refused</h2><ul>' + Object.entries(p.refusedVerbs)
             .sort((a, b) => b[1] - a[1])

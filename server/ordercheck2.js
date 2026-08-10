@@ -152,6 +152,46 @@ function main() {
       say('hold')?.kind === 'hold' && say('hold on, there is a troll') === null);
   }
 
+  // ── 6. AN ORDER TAKEN IS AN ORDER YOU CAN SEE TAKEN ──────────────────────
+  //
+  // He could not tell. That is the whole reason the session was lost: 428
+  // orders were being taken around him and nothing on any screen said so, so
+  // he read the source and reported the feature switched off.
+  {
+    // The REAL `setOrder` this time — `ear` stubs it out so the earlier
+    // sections can read the goal, and stubbing it would hide the very thing
+    // this section is about.
+    const a = ear();
+    delete a.setOrder;
+    a.goalCounts = {};
+    const spoken = [];
+    a.send = (type, data) => spoken.push(data?.m);
+    a.takeOrder('Jack', 'follow me');
+
+    check('AN AGENT SAYS SO WHEN IT TAKES AN ORDER',
+      spoken.length === 1 && /following/i.test(spoken[0] ?? ''),
+      spoken[0] ? `"${spoken[0]}"` : 'silence — which is what cost him the session');
+
+    check('  …and the board can say who is under orders, and to do what',
+      a.orderedTo === 'stay with Jack' && a.orderedBy === 'Jack' && a.ordered === true,
+      `${JSON.stringify(a.orderedTo)} by ${JSON.stringify(a.orderedBy)}`);
+  }
+
+  {
+    // AND NO FEEDBACK LOOP. Every agent hears every other agent, so an
+    // acknowledgement that is itself an order would set eight bodies ringing
+    // off each other for ever. None of them starts with an order verb, and
+    // this is the assertion that keeps it that way when the wording changes.
+    const nods = [
+      'right, following you', 'right, watching your back', 'right, holding here',
+      'right, going for a troll', 'right, back to my own business',
+    ];
+    const loops = nods.filter((n) => say(n));
+    check('AN ACKNOWLEDGEMENT IS NEVER ITSELF AN ORDER',
+      loops.length === 0,
+      loops.length ? loops.join(' · ') : `${nods.length} nods, none of them a command`);
+  }
+
   const failed = results.filter((r) => !r.pass);
   console.log(`\n  ${results.length - failed.length}/${results.length} passed\n`);
   process.exit(failed.length ? 1 : 0);
