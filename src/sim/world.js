@@ -774,9 +774,27 @@ export class SimWorld {
   }
 
   resolveGive(from, toName, itemId, count = 1) {
+    // ── SIX MORE QUIET RETURNS, AND THIS IS THE LAST SET IN THE GAME ──
+    //
+    // `resolveAccept` had six and they cost two sessions. This has the same
+    // six, and one of them is the most-reported unexplained failure left:
+    //
+    //   > Handing over does fire — I got "offering 10 branches to Tormod…" —
+    //   > but nothing was ever accepted.
+    //
+    // He had Tormod at ONE METRE. A give needs no acceptance; it should simply
+    // land. So one of these refused and said nothing, and three playtests could
+    // not tell which — the likeliest being the range, because the CLIENT
+    // measures from its own position and the SERVER from its own, and those are
+    // not the same number. Guessing is what the last three sessions did. This
+    // says which.
+    const no = (why) => {
+      this.events.push({ k: 'nogive', by: from.id, n: from.name, to: String(toName ?? ''), why });
+    };
+
     if (from.body.dead) return;
     const want = String(toName).trim().toLowerCase();
-    if (!want) return;
+    if (!want) return no('you did not say who to give it to');
 
     let to = null;
     for (const q of this.playersInOrder()) {
@@ -785,16 +803,19 @@ export class SimWorld {
       to = q;
       break;
     }
-    if (!to) return;
+    if (!to) return no(`there is nobody called "${toName}" here`);
 
     const d = Math.hypot(
       to.ctrl.position.x - from.ctrl.position.x,
       to.ctrl.position.z - from.ctrl.position.z
     );
-    if (d > SOCIAL.giveRange) return;
+    if (d > SOCIAL.giveRange) {
+      return no(`you are ${Math.round(d)} m from ${to.name} — you have to be within `
+        + `${SOCIAL.giveRange} m to hand anything over`);
+    }
 
     const id = this.giftFrom(from, itemId);
-    if (!id) return;
+    if (!id) return no('you have nothing to give that is not your bow');
     // ── HOW MANY, CLAMPED TO WHAT IS ACTUALLY THERE ──
     //
     // Defaults to one, so every mind that has ever called this is unchanged. A
@@ -807,14 +828,14 @@ export class SimWorld {
     // `howMany`, not `want` — `want` is already the recipient's name in this
     // function, thirty lines up.
     const howMany = Math.min(asked, held);
-    if (howMany < 1) return;
+    if (howMany < 1) return no(`you have no ${saidAs(id, 1).replace(/^1 /, '')} to give`);
 
     // `remove` returns HOW MANY it actually took, not a boolean. Checking it
     // against what was asked is the whole safety here: if the stack changed
     // between the look-up and the removal, this takes fewer than expected and
     // only that many are credited. Nothing is ever created.
     const moved = from.inventory.remove(id, howMany);
-    if (moved < 1) return;
+    if (moved < 1) return no(`the ${saidAs(id, 1).replace(/^1 /, '')} was gone before it left your hands`);
     // Only credit the receiver once the giver has ACTUALLY lost it. Doing this
     // the other way round would mint an item on any inventory that refused the
     // removal, and money you can print is the one bug a shared world cannot
@@ -825,7 +846,11 @@ export class SimWorld {
     // back, so the total across both packs is the same before and after.
     const taken = to.inventory.add(id, moved);
     if (taken < moved) from.inventory.add(id, moved - taken);
-    if (taken < 1) return;
+    // A recipient who cannot carry any more is a REAL answer, and a new one:
+    // before the carry cap `add` never refused anything. Said out loud, because
+    // "they are full" and "it did not work" want completely different responses
+    // from the person holding the branches.
+    if (taken < 1) return no(`${to.name} cannot carry any more ${saidAs(id, 2).replace(/^2 /, '')}`);
 
     from.dirty = true;
     to.dirty = true;

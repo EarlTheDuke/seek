@@ -533,6 +533,12 @@ function boot() {
           // The other half of the cut: a craft the server actually did. Without
           // this, suppressing the browser's own claim left crafting silent.
           if (byMe) hud.toast(`${e.verb ?? 'made'} — ${amountText(e.id, e.count)}`, 1.8);
+        } else if (e.k === 'nogive') {
+          // The most-reported unexplained failure in three playtests: "handing
+          // over does fire but nothing was ever accepted", with the recipient
+          // at one metre. A give needs no acceptance and should simply land, so
+          // one of six silent returns was refusing it. Now it says which.
+          if (byMe) hud.toast(e.why, 2.6);
         } else if (e.k === 'nodeal') {
           // The last silent refusal in the game, and it sat under the verb the
           // whole economy runs through. Two measurements on one day found it

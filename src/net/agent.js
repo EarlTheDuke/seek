@@ -599,6 +599,9 @@ export class Agent {
       case 'nodeal':
         if (mine) this.refuse('accept', e.why);
         break;
+      case 'nogive':
+        if (mine) this.refuse('give', e.why);
+        break;
       case 'glance':
         if (mine || atMe) this.memory.add(this.hours, `an arrow was refused — ${e.why}`, MINDS.weight.refused);
         break;

@@ -278,6 +278,61 @@ function main() {
       'so the three refusals above are about failure, not about a broken verb');
   }
 
+  // ── 7. AND THE GIVE, WHICH IS THE LAST SET OF QUIET RETURNS IN THE GAME ──
+  //
+  // The most-reported unexplained failure across three playtests:
+  //
+  //   > Handing over does fire — I got "offering 10 branches to Tormod…" — but
+  //   > nothing was ever accepted.
+  //
+  // He had Tormod at ONE METRE. A give needs no acceptance; it should simply
+  // land. So one of six silent returns refused it, and three sessions could not
+  // tell which — the likeliest being range, because the CLIENT measures from
+  // its own position and the SERVER from its own, and those are not the same
+  // number. Guessing is what the last three sessions did.
+  {
+    const { w, a } = two();
+    a.inventory.add('wood', 20);
+    w.resolveGive(a, 'Nobody At All', 'branches', 5);
+    const no = w.events.find((e) => e.k === 'nogive');
+    check('A GIVE TO NOBODY SAYS NOBODY IS THERE',
+      !!no && /Nobody At All/.test(no.why ?? ''),
+      no ? JSON.stringify(no.why) : 'silence — three sessions of it');
+  }
+
+  {
+    const { w, a, b } = two();
+    a.inventory.add('wood', 20);
+    b.ctrl.position.z += 40;
+    w.resolveGive(a, 'Seonaid', 'branches', 5);
+    const no = w.events.find((e) => e.k === 'nogive');
+    check('  …and one out of reach says HOW FAR, which is the answer he needed',
+      !!no && /40 m/.test(no.why ?? '') && /3 m/.test(no.why ?? ''),
+      no ? JSON.stringify(no.why) : 'silence');
+  }
+
+  {
+    // New since the carry cap: a recipient who is full. Before it, `add` never
+    // refused anything, so this refusal could not happen at all.
+    const { w, a, b } = two();
+    a.inventory.add('wood', 40);
+    b.inventory.add('wood', 999);
+    w.resolveGive(a, 'Seonaid', 'branches', 5);
+    const no = w.events.find((e) => e.k === 'nogive');
+    check('  …and a recipient with full hands says SO, rather than nothing',
+      !!no && /cannot carry/.test(no.why ?? ''),
+      no ? JSON.stringify(no.why) : 'silence — and this refusal is brand new');
+  }
+
+  {
+    const { w, a } = two();
+    a.inventory.add('wood', 9);
+    w.resolveGive(a, 'Seonaid', 'branches', 4);
+    check('SENTINEL: a give that lands complains about nothing',
+      w.events.some((e) => e.k === 'gift') && !w.events.some((e) => e.k === 'nogive'),
+      'so the three refusals above are about failure, not a broken verb');
+  }
+
   const failed = results.filter((r) => !r.pass);
   console.log(`\n  ${results.length - failed.length}/${results.length} passed\n`);
   process.exit(failed.length ? 1 : 0);
