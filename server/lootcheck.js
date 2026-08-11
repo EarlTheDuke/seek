@@ -23,6 +23,7 @@ import { ScriptedProvider } from '../src/minds/providers.js';
 import { briefToText } from '../src/minds/perception.js';
 import { makeRandom } from '../src/world/noise.js';
 import { PICKUP } from '../src/config.js';
+import { sanitiseGoal } from '../src/minds/goals.js';
 
 const PORT = 8137;
 const URL = `ws://127.0.0.1:${PORT}`;
@@ -100,7 +101,23 @@ async function main() {
       /venison[s]?, seen, right here to the .*, on the ground/.test(briefToText(b)),
       briefToText(b).split('\n').find((l) => /venison/.test(l))?.trim() ?? 'absent');
 
-    const to = a.resolve({ kind: 'gather', item: 'venison' });
+    // ── THROUGH THE REAL DOOR, NOT PAST IT ──
+    //
+    // This built the goal by hand and never imported `sanitiseGoal` — so it
+    // certified a feature over a path NO MIND COULD REACH. `gather` was
+    // declared with `params: []`, the sanitiser deleted `item` from every model
+    // reply, and this check went on passing for the life of the bug while
+    // starving minds were handed branches.
+    //
+    // A goal that has not been through the sanitiser is not a goal any mind can
+    // issue. Every check that resolves one must pipe it through this function.
+    const asked = { kind: 'gather', item: 'venison', why: 'I need meat' };
+    const clean = sanitiseGoal(asked);
+    check('THE SANITISER KEEPS THE NOUN A MIND ASKED FOR',
+      clean?.item === 'venison',
+      clean?.item ? `gather item="${clean.item}"` : 'item was DELETED at the door — the mind cannot ask for meat');
+
+    const to = a.resolve(clean);
     check('GATHER venison WALKS TO THE CARCASS, not to a branch',
       to && Math.hypot(to.x - at.x, to.z - at.z) < 3 && to.act === 'interact',
       to ? `${Math.round(to.x)},${Math.round(to.z)} vs carcass at ${Math.round(at.x)},${Math.round(at.z)}`
