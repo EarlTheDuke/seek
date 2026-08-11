@@ -3589,7 +3589,13 @@ function boot() {
     // A watcher is a camera and has no business having a heading. No other
     // guard is needed: this is only ever called from the frame loop, which
     // does not run until the world does.
-    if (watching) return;
+    // H hides the interface — for a screenshot, or to just look at the
+    // country. A readout that survives that is not part of the interface, it
+    // is a smudge on the lens.
+    if (watching || hud.hidden) {
+      if (bearingEl) { bearingEl.remove(); bearingEl = null; bearingWas = ''; }
+      return;
+    }
     // A point one metre ahead. Facing is (-sin, -cos) — the convention the
     // controller, the agents and `yawTo` all share.
     const ax = ctrl.position.x - Math.sin(ctrl.yaw);
