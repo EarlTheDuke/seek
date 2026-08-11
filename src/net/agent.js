@@ -265,6 +265,8 @@ export class Agent {
     this._held = 0;      // real seconds the trigger has been down
     this._looseWhy = null; // set by whoever meant it
     this.spoke = -999;
+    // Which DECISION it last spoke on. -1 means never; see the gate in act().
+    this.spokeAt = -1;
     this.tokensIn = 0;
     this.tokensOut = 0;
   }
@@ -1291,8 +1293,30 @@ export class Agent {
         // exclusive: a mind that spoke could not also be recorded as having
         // decided anything, and its plan was replaced by its sentence. Now a
         // decision can do both, which is what a person does.
-        if (said && sinceSpoke > AGENTS.speakEveryHours) {
+        // ── COUNTED IN DECISIONS, NOT IN GAME HOURS ──
+        //
+        // The gate was `speakEveryHours: 0.5`. A day here is 26 real minutes,
+        // so half a game hour is ~32 real seconds — and a fleet run at
+        // CADENCE=30 deliberates every 30. THE GATE WAS EIGHT PER CENT LONGER
+        // THAN THE CADENCE, so a mind that wanted to speak on consecutive
+        // decisions was refused essentially every time, missing by a hair.
+        // Measured live: "too soon, 0.47h of 0.5h", over and over.
+        //
+        // Two clocks that should never have been compared. Speech was limited
+        // in WORLD time while thinking is scheduled in REAL time, so how
+        // talkative a fleet is depended on day length and cadence rather than
+        // on anything anybody chose — and WHICH lines survived was a beat
+        // frequency, not a property of the mind. Half the conversation was
+        // discarded arbitrarily, and conversation is the most watchable thing
+        // three models produce.
+        //
+        // Spam is a function of how often a mind DECIDES. That is the honest
+        // unit, and it is immune to cadence, day length, and anyone's future
+        // config change.
+        const sinceDecisions = this.spokeAt < 0 ? Infinity : this.decisions - this.spokeAt;
+        if (said && sinceDecisions >= AGENTS.speakEveryDecisions) {
           this.spoke = this.hours;
+          this.spokeAt = this.decisions;
           this.send(C_CHAT, { m: said });
           // Kept because it is the only unprompted sentence anybody in this
           // world produces — the closest thing to a player telling you
@@ -1312,7 +1336,7 @@ export class Agent {
           // A mind said the same sentence three times over nine minutes because
           // the gate was silent to it. Now it is not.
           this.noteOutcome(`you have already spoken recently — "${said}" was not said`);
-          this.onLog?.(`${this.name}: (wanted to say "${said}" — too soon, ${sinceSpoke.toFixed(2)}h of ${AGENTS.speakEveryHours}h)`);
+          this.onLog?.(`${this.name}: (wanted to say "${said}" — too soon, ${sinceDecisions} of ${AGENTS.speakEveryDecisions} decisions)`);
         }
 
         if (changed) {

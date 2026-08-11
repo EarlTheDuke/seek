@@ -944,7 +944,17 @@ export const AGENTS = {
   roamDistance: 60,
   stalkWithin: 45,
   turnRate: 1.7,
+  // Kept for the narrator only. The SPEECH gate is counted in decisions
+  // now — see the long note in agent.js. Comparing a world-clock gap against
+  // a real-time cadence silenced half of everything anybody said.
   speakEveryHours: 0.5,
+  // At most one line every N deliberations. 2 lets a mind answer a question
+  // and still get a word in later; 1 would let it talk every single time.
+  speakEveryDecisions: 2,
+
+  // The failure rate at which a seat is called unwell and named loudly.
+  // Was 0.2 and a real run sat at 0.11 for 83 minutes without a word.
+  unwellAbove: 0.08,
 
   // ── staying alive, which is not a decision ──
   //

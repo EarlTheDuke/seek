@@ -374,7 +374,21 @@ async function main() {
           Object.entries(doing).map(([k, n]) => `${n} ${k}`).join(', ') +
           (anyModel
             ? ` · ${spent.calls}/${spent.of} calls, ${spent.tokensIn + spent.tokensOut} tokens` +
-              (failed ? `, ${failed} FAILED` : '')
+              // ── NAMED, NOT JUST COUNTED ──
+              // `52 FAILED` is a number nobody can act on. The loud warning
+              // below only fires past 20%, so a steady 11% — one decision in
+              // nine silently answered by the scripted brain — printed this
+              // aggregate and nothing else for 83 minutes. A rate that low
+              // does not deserve a klaxon, but it must not be anonymous:
+              // an unattributed failure rate quietly contaminates every
+              // comparison between models made from the same run.
+              (failed
+                ? `, ${failed} FAILED (` +
+                  health
+                    .map((h, i) => (h.failures ? `${agents[i].name} ${h.failures}` : null))
+                    .filter(Boolean)
+                    .join(', ') + ')'
+                : '')
             : '')
       );
 
@@ -386,7 +400,11 @@ async function main() {
       for (let i = 0; i < agents.length; i++) {
         const h = health[i];
         if (!h || h.provider === 'scripted') continue;
-        const bad = h.fellBack || (h.calls >= 5 && h.failureRate > 0.2);
+        // 0.2 was too high to catch the thing it exists to catch. A run
+        // sat at 11% for 83 minutes — well under the alarm, and well over
+        // "fine". Below about 8% you are arguing with ordinary API flakiness;
+        // above it you are measuring the scripted brain and calling it a model.
+        const bad = h.fellBack || (h.calls >= 5 && h.failureRate > AGENTS.unwellAbove);
         if (!bad || agents[i]._warnedUnwell) continue;
         agents[i]._warnedUnwell = true;
         console.log(
