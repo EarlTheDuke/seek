@@ -1788,6 +1788,35 @@ export class SimWorld {
         for (const s of p.inventory.slots) iv[s.item] = (iv[s.item] ?? 0) + s.count;
         me = { p: [round2(p.ctrl.position.x), round2(p.ctrl.position.y), round2(p.ctrl.position.z)],
                y: round3(p.ctrl.yaw), t: round3(p.ctrl.pitch),
+               // ── WHAT YOU ARE ACTUALLY CARRYING ──
+               //
+               // `main.js` has read `snap.me.iv` into `Inventory.applyRemote`
+               // for as long as the server has owned the pack — against a field
+               // this snapshot has never once sent. The reader was built and
+               // the writer never was, so the browser kept its own copy of a
+               // number the server owned.
+               //
+               // Reported as "it does look like i am dropping stuff but it is
+               // not subtracting from my inventory number", and that is exactly
+               // the shape: `resolveDrop` takes the item out of the pack up
+               // here and lays it on the ground, so the drop is real and
+               // visible — and the count on screen never hears about it.
+               // Anything the server changes without the client asking has the
+               // same problem: eating, crafting, a gift, a full pack refusing
+               // a pickup.
+               //
+               // Sent as a flat {item: count} map rather than slots, because
+               // `applyRemote` compares an order-independent signature and only
+               // touches the HUD when the goods actually change — slot order is
+               // the client's business.
+               iv: (() => {
+                 const out = {};
+                 for (const sl of p.inventory.slots) {
+                   if (!sl?.item || !sl.count) continue;
+                   out[sl.item] = (out[sl.item] ?? 0) + sl.count;
+                 }
+                 return out;
+               })(),
                h: Math.round(p.body.health), f: Math.round(p.body.hunger), c: round2(p.body.coreC),
                // How high off the ground your eye is RIGHT NOW. Crouching drops
                // it from 1.72 to 1.05 over a tenth of a second, and an arrow
