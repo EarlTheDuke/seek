@@ -34,6 +34,73 @@ import {
 } from './protocol.js';
 import { NET } from '../config.js';
 
+// ── THE PULSE FIELDS ────────────────────────────────────────────────────────
+//
+// Every intent field that a keypress sets for ONE frame and `PlayerInput.poll`
+// then clears. Split by how you merge two of them, because the answer differs:
+//
+//   BOOL — "it happened". Two presses between packets collapse into one, and
+//          that is a real loss, but the server edge-detects these anyway so a
+//          second press inside a 33 ms window was never going to be two acts.
+//   LAST — "this one, not that one". A player who presses 3 then 4 meant 4.
+//          Empty string / -1 / 0 mean "not set", which is why they are grouped
+//          by their sentinel rather than by their type.
+//
+// THIS LIST IS AN ALLOW-LIST TOO, and it has the same trap as INTENT_KEYS: a
+// pulse field added to the protocol and forgotten here is silently back in the
+// hole, losing two presses in three, and everything in-process still passes.
+// The pairing is asserted from the source in `pulsecheck`.
+const PULSE_BOOL = ['interact', 'drop', 'dropHalf', 'place', 'eat', 'letdown'];
+const PULSE_TEXT = ['craft', 'give', 'giveItem', 'offer', 'offerItem', 'offerWant', 'accept'];
+const PULSE_NUM = ['giveCount', 'dropBurn']; // 0 means "not set"
+const PULSE_SLOT = 'selectSlot'; // -1 means "no change"
+
+/** A fresh, empty set of held pulses. */
+export function noPulses() {
+  const p = {};
+  for (const k of PULSE_BOOL) p[k] = false;
+  for (const k of PULSE_TEXT) p[k] = '';
+  for (const k of PULSE_NUM) p[k] = 0;
+  p[PULSE_SLOT] = -1;
+  return p;
+}
+
+/** Remember what this frame asked for, because its packet is not going out. */
+export function latchPulses(held, intent) {
+  for (const k of PULSE_BOOL) if (intent[k]) held[k] = true;
+  for (const k of PULSE_TEXT) if (intent[k]) held[k] = intent[k];
+  for (const k of PULSE_NUM) if (intent[k]) held[k] = intent[k];
+  if (intent[PULSE_SLOT] >= 0) held[PULSE_SLOT] = intent[PULSE_SLOT];
+  return held;
+}
+
+/**
+ * Fold everything held since the last packet into the one going out now, and
+ * forget it. Mutates `intent`, which is the frame-local `PlayerInput` reuses
+ * and clears at the top of the next poll — so there is nothing to preserve.
+ *
+ * The frame's OWN value wins where both are set: it is the more recent press.
+ */
+export function spendPulses(held, intent) {
+  for (const k of PULSE_BOOL) {
+    if (held[k]) { intent[k] = true; held[k] = false; }
+  }
+  for (const k of PULSE_TEXT) {
+    if (held[k]) { if (!intent[k]) intent[k] = held[k]; held[k] = ''; }
+  }
+  for (const k of PULSE_NUM) {
+    if (held[k]) { if (!intent[k]) intent[k] = held[k]; held[k] = 0; }
+  }
+  if (held[PULSE_SLOT] >= 0) {
+    if (!(intent[PULSE_SLOT] >= 0)) intent[PULSE_SLOT] = held[PULSE_SLOT];
+    held[PULSE_SLOT] = -1;
+  }
+  return intent;
+}
+
+/** For `pulsecheck`, so the list above can be audited against the protocol. */
+export const PULSE_FIELDS = [...PULSE_BOOL, ...PULSE_TEXT, ...PULSE_NUM, PULSE_SLOT];
+
 export class NetClient {
   constructor({ onWelcome, onChat, onError, onStatus, onEvent, onSnapshot } = {}) {
     this.ws = null;
@@ -44,6 +111,9 @@ export class NetClient {
     this.buffer = []; // recent snapshots, oldest first
     this.ping = 0;
     this.lastSent = 0;
+    // What a keypress asked for while the rate limiter was between packets.
+    // See the long note on `sendIntent`.
+    this.pulses = noPulses();
     this.onWelcome = onWelcome;
     this.onChat = onChat;
     this.onEvent = onEvent;
@@ -183,12 +253,45 @@ export class NetClient {
    * packets a second to describe 60 ticks of simulation, most of them
    * identical. The server holds the last intent it was given, so sending less
    * often costs nothing except a little input latency.
+   *
+   * ── AND THAT LAST SENTENCE WAS ONLY HALF TRUE, WHICH IS WHY THIS LATCHES ──
+   *
+   * It holds for a LEVEL field. `forward` is a fact about right now, and a
+   * dropped packet costs nothing because the next one carries the truth again.
+   *
+   * It is false for a PULSE — a field a keypress sets for exactly one frame,
+   * which `PlayerInput.poll` then clears whether or not anybody sent it. The
+   * frame loop runs on rAF and this gate is `NET.intentHz`, so most frames are
+   * thrown away, and a pulse thrown away is a keypress that never happened.
+   * Measured against the real gate with the real intent: at 60 fps **one
+   * press in three reaches the server**, and at 120 fps one in five.
+   *
+   * This is not a new discovery so much as one nobody generalised. The note on
+   * `aimYaw` in protocol.js already says the server "receives at most half" of
+   * the look deltas, and `lightFire` has its own packet with a comment
+   * explaining that `intent.place` "is edge-triggered for a single frame while
+   * `sendIntent` is rate-limited, so the pulse is dropped whenever it falls
+   * between two sends". Two fields were rescued one at a time; the other twelve
+   * were left in the hole.
+   *
+   * WHAT IT COST. You press 3 for the branch, and the browser selects it
+   * locally — so your hand holds a branch and the hotbar agrees. The server
+   * never heard, so ITS idea of what you are holding is still slot two. Press
+   * Q and the server drops what IT thinks you have: an arrow. That is Ben's
+   * *"when i drop a branch it looks like an arrow"* — it looks like an arrow
+   * because it IS one, and both ends were behaving exactly as written.
+   *
+   * So a pulse now waits for a packet instead of a frame. Nothing else changes:
+   * level fields are still last-writer-wins and still allowed to be dropped.
    */
   sendIntent(intent, nowMs) {
     if (!this.connected || this.id === null) return;
-    if (nowMs - this.lastSent < 1000 / NET.intentHz) return;
+    if (nowMs - this.lastSent < 1000 / NET.intentHz) {
+      latchPulses(this.pulses, intent);
+      return;
+    }
     this.lastSent = nowMs;
-    this.send(C_INTENT, { i: intent });
+    this.send(C_INTENT, { i: spendPulses(this.pulses, intent) });
   }
 
   /**

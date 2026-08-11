@@ -68,6 +68,8 @@
     "lockcheck": "node server/lockcheck.js",
     "importcheck": "node server/importcheck.js",
     "dropcheck": "node server/dropcheck.js",
+    "inventorycheck": "node server/inventorycheck.js",
+    "pulsecheck": "node server/pulsecheck.js",
     "nouncheck": "node server/nouncheck.js",
     "loopcheck": "node server/loopcheck.js",
     "packcheck": "node server/packcheck.js",
