@@ -16,6 +16,13 @@ somebody a wrong diagnosis. **Skim it before you debug anything, not after.**
 > worse than none, because it is believed.** Everything cut is in
 > `STATE-ARCHIVE-2026-08-10.md`. Cut the closed sections; do not let this grow back.
 
+## WHERE IT IS ALL GOING
+
+**[TRAJECTORY.md](TRAJECTORY.md)** is the programme-level plan — the six arcs,
+their order, and the decisions that are not up for re-litigation. VISION.md says
+what the world IS; TRAJECTORY says what the WORK is. Read it at any point where
+you are choosing what to build rather than how.
+
 ## WHERE THE GAME IS
 
 The fleet runs. Six models have played against a human for two hours
