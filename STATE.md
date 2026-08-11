@@ -1,7 +1,26 @@
 # State of play — read this first, it is short on purpose
 
-**Last updated: 2026-08-10**, by a session that came back cold, misread this file,
-and rewrote it because of that.
+**Last updated: 2026-08-11**, by a session that found the diagnosis it was handed
+was stale, and found another session writing into the same tree while it worked.
+
+## READ THIS BEFORE ANYTHING ELSE, 2026-08-11
+
+**TWO SESSIONS RAN IN THIS TREE AT ONCE AND IT COST MORE THAN ANY BUG THIS WEEK.**
+STATE.md has said "one writer at a time" since the 10th. Here is the bill:
+
+- The other run committed my uncommitted working files as its own (`client.js`,
+  `inventorycheck.js`, `package.json` in 07f02da).
+- It ran `inventorycheck` while a **deliberate counterfactual probe** of mine was
+  sitting in `world.js`, read 7/12, believed it, and wrote a long confident commit
+  message concluding *"the write path between `intent.drop` and a visible item is
+  still broken"*. It is not broken. On a clean tree that file is 29/29.
+- It added a second `lo` reader to `main.js` (de788a8) not knowing `remoteloot.js`
+  had been drawing ground loot since the 9th — every dropped branch would have had
+  two meshes. Removed in b311101.
+
+**If you are a cron and a human is playing, or another cron is up: stop.** Check
+`git log --format="%ci %s" -5` for a commit newer than your session start before
+you trust ANYTHING in the tree, including your own measurements.
 
 **HOW TO READ IT.** Everything down to "Things that will waste your time" is the
 current state and the next thing to do. Below that is a standing TRAP LIST rather
@@ -43,15 +62,59 @@ fixed. The minds talk, coordinate, lie and reason about ambushes — and they
 cannot feed themselves. Everything else on the list is a feature; this is the
 game not working.
 
+## GROUND LOOT AND THE PACK, 2026-08-11 — CLOSED
+
+The job was "ground loot is invisible, and inventory must be trustworthy". **The
+handed-down diagnosis was wrong in its main claim and right about the symptom.**
+
+- **`lo` WAS ALREADY BEING DRAWN.** `src/net/remoteloot.js`, since d0dafda on the
+  9th, constructed at the top of `boot` and ticked at `main.js:3425`. The briefing's
+  `grep "restoreDrop\|snap.lo" src/main.js` found nothing because RemoteLoot spells
+  it `snapshot?.lo` **in another file**, and `pickups.dropped` is the LOCAL list,
+  which is correctly empty while connected. **Grep for the field, not a spelling.**
+- **THE REAL BUG WAS THE CLIENT'S SEND GATE, AND IT IS FIXED.** `sendIntent` is
+  limited to `NET.intentHz` (30) while the frame loop is rAF (60-144), and
+  `PlayerInput.poll` clears every one-shot field each frame whether or not anybody
+  sent it. So a PULSE — `selectSlot`, `drop`, `interact`, `eat`, `craft`, `give`,
+  `place` — that landed on a skipped frame was a keypress that never happened.
+  **Measured against the real gate: 33% of presses arrived at 60 fps, 21% at 120.**
+  That is Ben's *"when i drop a branch it looks like an arrow"*: you press 3, the
+  browser selects the branch locally so your hand and hotbar both show one, the
+  server never hears, and Q drops what IT thinks you hold — the arrow. `NetClient`
+  now latches pulses until a packet actually goes out.
+  - The project already knew half of this: `protocol.js` says the server "receives
+    at most half" the look deltas, and `lightFire` has its own packet with a
+    comment describing the identical trap. Two fields were rescued one at a time
+    and the other twelve were left in the hole.
+- **Two new checks.** `inventorycheck` 29/29 — wood, arrow, venison, hide and stone
+  each go pack → ground → pack over a real socket, asserting the RIGHT id lands,
+  the right count leaves `me.iv`, a SECOND client sees the same entry 0.000 m away,
+  the pack is restored, the bow refusal speaks, and nothing is minted. `pulsecheck`
+  14/14 — drives the REAL `NetClient` at 60/75/120/144 fps, because every other
+  socket check builds a raw socket and HOLDS an intent for six frames, so **not one
+  of them has ever touched the client's send gate**. Both were watched going red
+  under a counterfactual before their green was believed.
+- **The honesty pass is done**: `nodrop` refusals speak to player and mind, the
+  hotbar shows `38/40` at three-quarters of the carry cap and toasts
+  `perception.js`'s own sentence at the cap, and speech that SUCCEEDS is logged
+  with a `N said / M gagged` count on the tick line (`gagged` had been counted
+  since the gate was written and read by nothing).
+
 ## THE SUITE: 61 checks, 60 green
 
 Full sweep 2026-08-10. `huntcheck` **6/7** is the only real partial — an agent
 still does not reliably kill a deer.
 
+**Correction, 2026-08-11: `netcheck` is 23/24, not 24/24, and has been for a
+while.** `snapshot budget is small` fails at ~167 KB/s against a 120 limit.
+Checked against a worktree at 85ea414, before any of the 11th's work: it fails
+there too, at 182.6. Nobody's regression; an open item nobody had noticed.
+
 Four checks reported nothing in the batch and **all four are fine**:
 
-- `netcheck` 24/24 and `agentcheck` 17/17 **pass when run alone.** They collided
-  in the batch. This is the last entry in the trap list, hit again.
+- `netcheck` and `agentcheck` 17/17 **pass when run alone** (netcheck at its 23/24,
+  above). They collided in the batch. This is the last entry in the trap list,
+  hit again.
 - `refillcheck` passes; it prints no `N/M` summary line, so a grep for one misses it.
 - `keycheck` is **not a test, it is a pre-flight.** It currently says *"6 seats
   will not think tonight"* — the keys are not in `keys.cmd`. The game still runs;
@@ -103,12 +166,18 @@ looking worse than the instrument. Fix items are A254-A257 in `IDEAS.md`.
 
 ## NEXT, RANKED
 
-1. **Fix `gather`'s noun** (above). Small, and it unblocks the one number.
+1. **PROVE ARC 1 IN A LIVE RUN.** `gather`'s noun was fixed on the 9th and the
+   pulse gate on the 11th, and **both fixes are unproven against a real fleet**.
+   Between them they are most of "the models cannot feed themselves": the verb
+   could not take its noun, and then two acts in three were being thrown away by
+   the send gate. Run six seats and read the one number. Nothing below matters
+   until this is measured.
 2. **Make `lootcheck` pipe through `sanitiseGoal`** — and audit the other checks
    for the same shape. A green check over an unreachable path is a lie.
 3. **`huntcheck` 6/7** — instrument predicted-versus-actual impact rather than
    tuning constants. Three tuning passes moved the failure around without fixing it.
-4. Re-enable `highlands-triage` once a human is not playing.
+4. **`netcheck`'s bandwidth**, 167 KB/s against a 120 budget. Pre-existing, and
+   nobody has looked at what grew.
 
 ## The trap this project falls into
 
@@ -118,6 +187,37 @@ nothing**: one run's build was green while `gather` had never once put a branch
 in a pack. Verify by driving the game, and make the check assert an OUTCOME.
 
 ## Things that will waste your time if you do not know them
+
+- **A ONE-FRAME FIELD AND A RATE LIMIT ARE A SILENT DATA LOSS, AND THIS PROJECT
+  DISCOVERED IT THREE TIMES WITHOUT GENERALISING IT ONCE.** `sendIntent` gates on
+  `NET.intentHz`; `PlayerInput.poll` clears every `pressed*`/`pending*` field
+  every frame regardless. So two presses in three vanished — and the browser's
+  own HUD showed them succeeding, because the LOCAL half of every act ran. It
+  was patched for `aimYaw` (protocol.js says so), patched again for `lightFire`
+  (whose comment describes the exact mechanism), and left in place for the other
+  twelve fields. **When you fix a bug in one field, ask what else has that
+  shape.** `pulsecheck` guards it now, including an allow-list audit that goes
+  red on a new wire field nobody has classified.
+- **EVERY SOCKET CHECK IN THIS REPO IS BLIND TO CLIENT-SIDE LOSS, BY
+  CONSTRUCTION.** They build a raw `Body`, set `intent.drop = true`, and send it
+  themselves for six frames at 30 Hz. That exercises the server beautifully and
+  never touches `NetClient`, which is where the send gate lives. dropcheck was
+  8/8 throughout a bug that ate two acts in three. **If the bug could be in the
+  browser's half, the check has to drive the browser's half** — node has a
+  global `WebSocket`, so the real client runs headless unmodified.
+- **A `grep` THAT MISSES IS INDISTINGUISHABLE FROM A FEATURE THAT IS ABSENT.**
+  `grep "restoreDrop\|snap.lo" src/main.js` returned nothing and was read as
+  proof that nobody drew ground loot. `remoteloot.js` had been drawing it for two
+  days, spelled `snapshot?.lo`, in another file. A whole session's diagnosis, and
+  then a duplicate implementation, came out of one over-specific pattern. **Grep
+  for the FIELD (`\.lo\b`), across `src/`, and only then conclude "nobody reads
+  it".**
+- **COMMIT BEFORE YOU MUTATE — AND ASSUME SOMEBODY ELSE MAY RUN WHILE YOU DO.**
+  The counterfactual discipline in this file says to mutate the real code to
+  prove a check can fail. That is right, and on the 11th another session ran
+  `inventorycheck` during a four-second window when the probe was in, and
+  published its reading as a finding. **Probe, run, revert, in one unbroken
+  stretch** — and if the tree has more than one writer, do not probe at all.
 
 - **A CHECK'S PRECONDITION CAN BE THE BUG, AND IT LOOKS EXACTLY LIKE A PRODUCT
   DEFECT.** solidcheck's first run reported a push-out failure on 2 of 24 trees
