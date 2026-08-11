@@ -3484,6 +3484,7 @@ function boot() {
     pickups.update(dt, ctrl.position);
     interaction = resolveInteraction();
     hud.setPrompt(interaction ? interaction.label : null);
+    showBearing();
 
     const weaponState = weapons.getState();
     hud.setCrosshair(vitals.dead ? null : weaponState, weapons.spreadHint);
@@ -3567,6 +3568,49 @@ function boot() {
   });
 
   /** The watcher bar. Slate: this is neither a fault nor a warning. */
+  // ── WHICH WAY AM I FACING ──
+  //
+  // There is no compass in this game and that is deliberate: the country is
+  // meant to be READ, not indexed — you take your bearings at a stone circle
+  // and you learn the names of places. But an infinite procedural hillside is
+  // mostly featureless, and between two landmarks a player could genuinely lose
+  // all sense of heading with nothing on screen to recover it. Reported as
+  // "how do i tell what direction i am going?", which is a fair question to
+  // have no answer to.
+  //
+  // So: the smallest thing that answers it without becoming a minimap. One
+  // word for the way you face, and the place you are near — the same sentence
+  // `whereAmI` has always been able to produce and which no player could see.
+  // No arrow, no rose, no coordinates. Coordinates would be a different game;
+  // a mind is not allowed them either.
+  let bearingEl = null;
+  let bearingWas = '';
+  function showBearing() {
+    // A watcher is a camera and has no business having a heading. No other
+    // guard is needed: this is only ever called from the frame loop, which
+    // does not run until the world does.
+    if (watching) return;
+    // A point one metre ahead. Facing is (-sin, -cos) — the convention the
+    // controller, the agents and `yawTo` all share.
+    const ax = ctrl.position.x - Math.sin(ctrl.yaw);
+    const az = ctrl.position.z - Math.cos(ctrl.yaw);
+    const facing = bearingName(ctrl.position.x, ctrl.position.z, ax, az);
+    const here = describePosition(ctrl.position.x, ctrl.position.z);
+    const text = `facing ${facing}  ·  ${here.phrase}`;
+    if (text === bearingWas) return;   // the DOM is not touched sixty times a second
+    bearingWas = text;
+    if (!bearingEl) {
+      bearingEl = document.createElement('div');
+      bearingEl.id = 'hl-bearing';
+      bearingEl.style.cssText = 'position:fixed;left:14px;bottom:12px;z-index:40;'
+        + 'font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.04em;'
+        + 'color:rgba(232,228,216,.62);text-shadow:0 1px 3px rgba(0,0,0,.8);'
+        + 'pointer-events:none;user-select:none';
+      document.body.appendChild(bearingEl);
+    }
+    bearingEl.textContent = text;
+  }
+
   function watchNotice(text) {
     let el = document.getElementById('watching');
     if (!text) {
