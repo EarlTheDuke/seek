@@ -124,7 +124,23 @@ let booted = false;
  * Which animal the player chose. Set by the start screen before boot runs, so
  * the companion exists from the first frame rather than being swapped in.
  */
-let chosenCompanion = 'otter';
+// ── NO ANIMAL, UNLESS YOU ASK FOR ONE ──
+//
+// Was `'otter'`, so everybody who ever pressed Begin got a companion whether
+// they wanted one or not. Pets are a fun option, not part of the core loop —
+// and a pet that finds food, fights for you and warms you is a confounder in
+// exactly the measurement this project exists to take: an agent has never had
+// one, so a human with a pet and a model without were never playing the same
+// game. Opt in with the picker or `?pet=otter`. See TRAJECTORY.md.
+let chosenCompanion = 'none';
+
+// `?pet=otter` — opt in without touching the menu, for a launcher or a link.
+// Anything unrecognised leaves you on your own rather than guessing at an
+// animal you did not ask for.
+{
+  const asked = new URLSearchParams(location.search).get('pet');
+  if (asked && COMPANION_IDS.includes(asked)) chosenCompanion = asked;
+}
 
 /** Never fail silently — a black screen with nothing in the console is the worst
  *  possible outcome, so surface a genuine startup failure on the page itself. */
@@ -292,7 +308,9 @@ function boot() {
   // Which animal you chose on the start screen. Defaults to the otter so a
   // reload straight into the world still has a companion.
   const pet = new Companion(chosenCompanion, new THREE.Vector3(0, 0, 0), makeRandom('pet'));
-  scene.add(pet.object);
+  // An absent animal is never drawn. Everything else about it still exists,
+  // which is why the 140 reads below need no guard.
+  if (!pet.absent) scene.add(pet.object);
   const fish = new Fish(scene);
   let petTrick = 0; // which command Z has selected
   // The kangaroo's pouch and the hippo's back: both are state that belongs to
@@ -787,7 +805,11 @@ function boot() {
   if (joinUrl) {
     net = new NetClient(netHandlers());
     // Whichever animal is at your heel walks onto the server with you.
-    net.connect(joinUrl, params.get('name') ?? 'wanderer', chosenCompanion);
+    // Nothing walks on with you when you brought nothing. The server has
+    // always been ready for this — `Player.companion` defaults to null and
+    // `if (pet) giveCompanion(...)` is the only way one appears.
+    net.connect(joinUrl, params.get('name') ?? 'wanderer',
+      chosenCompanion === 'none' ? null : chosenCompanion);
   }
 
   // How much of the world is hunting you. Read from `?danger=` or from what you
@@ -1428,13 +1450,23 @@ function boot() {
    * innards change.
    */
   function swapCompanion(id) {
-    if (id === pet.species.id) return;
+    // AGAINST THE CHOSEN IDENTITY, not the species. An absent animal keeps the
+    // otter's shape so every field downstream still reads — so comparing
+    // `pet.species.id` would make "none -> otter" a silent no-op, which is the
+    // one swap a player is most likely to make.
+    const now = pet.absent ? 'none' : pet.species.id;
+    if (id === now) return;
     scene.remove(pet.object);
     const fresh = new Companion(id, pet.position.clone(), makeRandom(`pet:${id}`));
     Object.assign(pet, fresh);
-    scene.add(pet.object);
+    // Remembered for the join packet: the picker runs before Begin, and the
+    // server is told what you chose at connect time.
+    chosenCompanion = id;
+    if (!pet.absent) {
+      scene.add(pet.object);
+      placeOtter();
+    }
     petTrick = 0;
-    placeOtter();
   }
   const petNear = () =>
     Math.hypot(pet.position.x - ctrl.position.x, pet.position.z - ctrl.position.z) < 8;
@@ -2643,11 +2675,16 @@ function boot() {
       input.requestLock();
     },
     () => input.requestLock(),
-    COMPANION_IDS.map((id) => ({
-      id,
-      name: COMPANIONS[id].name,
-      helps: COMPANIONS[id].helps,
-    })),
+    // ── "None" IS FIRST, AND IT IS THE DEFAULT ──
+    // Offered as a choice rather than hidden behind a URL, because a default
+    // nobody can see is a default nobody understands. The animals are all
+    // still here; you just have to want one.
+    [{ id: 'none', name: 'No animal', helps: 'travel alone — the default' },
+      ...COMPANION_IDS.map((id) => ({
+        id,
+        name: COMPANIONS[id].name,
+        helps: COMPANIONS[id].helps,
+      }))],
     (id) => swapCompanion(id),
     Object.values(DANGER_LEVELS).map((d) => ({ id: d.id, name: d.name, tagline: d.tagline })),
     dangerLevel,

@@ -32,7 +32,23 @@ export const SWIM = 'swim';
 
 export class Companion {
   constructor(speciesId, position, rand = makeRandom('companion')) {
-    this.species = getCompanion(speciesId);
+    // ── THE ABSENT ANIMAL ──
+    //
+    // `'none'` builds a Companion that is not there. It is a real object with
+    // every field the rest of the game reads, and it never becomes tame, never
+    // enters the scene, and does nothing on update.
+    //
+    // WHY AN OBJECT RATHER THAN `null`. main.js holds `pet` as a const and
+    // reads it in about 140 places with essentially one guard. Turning it null
+    // would mean auditing every one of them, and "a name used and never
+    // defined — invisible to build, only found by running the line" is the
+    // single most repeated bug in this repo. An absent animal costs none of
+    // that: the reads keep working and the EFFECTS were already gated behind
+    // `pet.tame && petNear()`, so they go quiet on their own.
+    //
+    // With an animal chosen, nothing below this line behaves differently.
+    this.absent = speciesId === 'none';
+    this.species = this.absent ? getCompanion('otter') : getCompanion(speciesId);
     // THIS animal's temperament, not the otter's. Six species used to share
     // one block, so a hippo trailed you at four and a half metres and bit like
     // an otter — six animals with one nature and a different coat.
@@ -88,6 +104,10 @@ export class Companion {
     return this.object.position;
   }
   get tame() {
+    // An animal that is not there is never tame, which is what silently
+    // switches off foraging, the fishing bonus, guarding and the E prompt —
+    // every one of those already asks this question first.
+    if (this.absent) return false;
     return this.trust >= this.care_.tameAt;
   }
   get care() {
@@ -366,6 +386,8 @@ export class Companion {
   // ── the tick ──────────────────────────────────────────────────────────────
 
   update(dt, owner, world, ctx) {
+    // Nothing to think about, nowhere to be.
+    if (this.absent) { this.says = null; return; }
     this.stateTime += dt;
     this.commandTime = Math.max(0, this.commandTime - dt);
     this.says = null;
