@@ -381,8 +381,6 @@ function boot() {
   // The last thing the server said about YOUR body. Kept because free-fly
   // suspends position corrections, so landing needs an answer to snap to.
   let lastMe = null;
-  // Server drop id -> the local entry drawing it. See the snapshot handler.
-  const groundById = new Map();
 
   // ── ?solid=on — the same switch the server takes as SOLID=on ──
   //
@@ -615,47 +613,27 @@ function boot() {
         // keeps what is in your hand, by id.
         if (snap.me?.iv) inventory.applyRemote(snap.me.iv);
 
-        // ── WHAT IS LYING ON THE GROUND, FOR EVERYBODY ──
+        // ── WHAT IS LYING ON THE GROUND IS DRAWN BY `RemoteLoot`, NOT HERE ──
         //
-        // The server has published dropped items in `lo` for as long as it has
-        // owned the pack, and NOTHING HERE HAS EVER READ IT. The client
-        // correctly refuses to drop locally while connected — doing both is how
-        // a shared world gets a duplicator — so the item left the pack, landed
-        // on the server's ground, and was drawn by no one. Your drops, other
-        // players' drops and every carcass an agent left were all invisible.
-        // Measured: connected, wood equipped, drop pressed, `pickups.dropped`
-        // stayed empty.
+        // A reader for `lo` was added at this spot on 2026-08-11 and REMOVED
+        // the same day, because `src/net/remoteloot.js` had already been doing
+        // the job since the 9th — it is constructed at the top of `boot` and
+        // ticked in `stepWorld`. Two readers is not twice as good: every branch
+        // gets two meshes at the same coordinates, which reads as z-fighting or
+        // as a mysteriously darker branch, and nobody suspects the draw.
         //
-        // Reconciled BY THE SERVER'S `d` ID, which is exactly why that id is on
-        // the wire: it lets this tell "the same branch, moved" from "a
-        // different branch", instead of clearing and rebuilding every packet
-        // and flickering at 20 Hz.
-        {
-          const seen = new Set();
-          for (const d of snap.lo ?? []) {
-            seen.add(d.d);
-            let entry = groundById.get(d.d);
-            if (!entry) {
-              // `restoreDrop` builds the mesh from the item registry, so the
-              // thing on the ground is the thing that was dropped.
-              entry = pickups.restoreDrop(d.i, d.n, d.p);
-              if (!entry) continue;   // an id this build does not know
-              groundById.set(d.d, entry);
-            } else {
-              entry.obj.position.set(d.p[0], d.p[1], d.p[2]);
-              entry.count = d.n;
-            }
-          }
-          // Anything the server has stopped mentioning is gone — somebody
-          // picked it up, here or a kilometre away.
-          for (const [id, entry] of groundById) {
-            if (seen.has(id)) continue;
-            scene.remove(entry.obj);
-            const at = pickups.dropped.indexOf(entry);
-            if (at >= 0) pickups.dropped.splice(at, 1);
-            groundById.delete(id);
-          }
-        }
+        // WHY IT WAS ADDED ANYWAY, because the next person will nearly make the
+        // same move: `grep "restoreDrop\|snap.lo"` over this file finds
+        // nothing, and that looks exactly like proof that nobody reads `lo`.
+        // RemoteLoot spells it `snapshot?.lo` and lives in another file. GREP
+        // FOR THE FIELD, NOT FOR A SPELLING OF IT — `grep -rn "\.lo\b" src/`
+        // finds it in one line.
+        //
+        // And it must not come back HERE in particular even if RemoteLoot goes:
+        // this version called `pickups.restoreDrop`, which pushes onto
+        // `pickups.dropped` — the LOCAL simulation's list of droppables, which
+        // `findNearest` and `collect` act on. That is the view layer writing to
+        // the sim, which is the one thing the render side may never do.
         // ── AND WHERE THE SERVER THINKS YOU ARE STANDING ──
         //
         // The server integrates YOUR intents through ITS OWN physics —

@@ -58,7 +58,7 @@ export function decode(raw) {
  * allowed to exist at all. Both matter: the first stops a client claiming to
  * move at 400 m/s, the second stops it setting properties nobody validates.
  */
-const INTENT_KEYS = [
+export const INTENT_KEYS = [
   'forward',
   'strafe',
   'jump',
