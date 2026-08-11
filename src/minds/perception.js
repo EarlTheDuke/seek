@@ -165,6 +165,28 @@ function bearingFromAngle(radians) {
  * would have silently never called the model, and it would have looked like
  * the model being stupid rather than a missing field.
  */
+/**
+ * "You cannot carry any more branches or arrows — picking up more is wasted."
+ *
+ * ── THE ONE COPY OF THIS SENTENCE, AND IT HAS TO STAY THAT WAY ──
+ *
+ * It was written for a MIND: a body not told a thing was full went on choosing
+ * to fill it, and `pick up what is lying about` was 32 per cent of every
+ * decision in a measured hour. It turns out the human had it worse — the minds
+ * were told and the player was told NOTHING, so a person could press E at a
+ * branch for a minute with a full pack and get no answer at all.
+ *
+ * Exported rather than re-typed in the HUD, because two copies of a sentence
+ * drift, and then the mind and the person are playing to different rules while
+ * the code looks fine. `full` is a list of already-worded item names.
+ */
+export function cannotCarryMore(full) {
+  const list = full.length > 1
+    ? `${full.slice(0, -1).join(', ')} or ${full.at(-1)}`
+    : full[0];
+  return `You cannot carry any more ${list} — picking up more is wasted.`;
+}
+
 export function briefToText(b) {
   const lines = [];
   const where = [b.place, b.ground].filter(Boolean).join(', ');
@@ -183,12 +205,7 @@ export function briefToText(b) {
   // The mirror of `lacking`. A mind not told a thing is full goes on choosing
   // to fill it — 32 per cent of every decision in one measured hour was picking
   // things up, by bodies already carrying more than they could ever use.
-  if (b.full?.length) {
-    const list = b.full.length > 1
-      ? `${b.full.slice(0, -1).join(', ')} or ${b.full.at(-1)}`
-      : b.full[0];
-    lines.push(`You cannot carry any more ${list} — picking up more is wasted.`);
-  }
+  if (b.full?.length) lines.push(cannotCarryMore(b.full));
   // ── SOMEBODY IS FIGHTING SOMETHING, AND IT IS TOO BIG FOR THEM ──
   //
   // Above everything, because it is the only line in this brief that another

@@ -56,7 +56,7 @@ import { bearingName, describePosition, findDistrict, nearbyDistricts } from '..
 // callers, one table, which is the only way "cook" means the same thing in all
 // three places.
 import { RECIPES, canCraft } from '../items/recipes.js';
-import { EDIBLE, getItem } from '../items/registry.js';
+import { EDIBLE, getItem, itemWords } from '../items/registry.js';
 import { AGENTS, BOW, PLAYER, NET, SURVIVAL, PICKUP, MINDS, SOCIAL } from '../config.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -603,6 +603,12 @@ export class Agent {
         break;
       case 'nogive':
         if (mine) this.refuse('give', e.why);
+        break;
+      case 'nodrop':
+        // A mind that puts things down to pay for things needs to hear the
+        // refusal for the same reason `nogive` does — and the commonest of
+        // them fires on the DEFAULT press, because the bow is slot one.
+        if (mine) this.refuse('drop', e.why);
         break;
       case 'glance':
         if (mine || atMe) this.memory.add(this.hours, `an arrow was refused — ${e.why}`, MINDS.weight.refused);
@@ -1327,6 +1333,15 @@ export class Agent {
           // voice repeats itself, which is exactly what was observed.
           this.memory.add(this.hours, `I said "${said}"`, MINDS.weight.spoke);
           this.noteOutcome(`you said "${said}" out loud`);
+          // ── AND IT GOES IN THE LOG, WHICH IT DID NOT ──
+          //
+          // Only the REFUSAL branch below called `onLog`, so the console
+          // recorded every sentence a mind was stopped from saying and not one
+          // it managed to say. A fleet of six talking to each other read as
+          // mute, and the only visible speech in the whole log was failure —
+          // which is the same distortion as an instrument that can only see
+          // the treatment when the treatment fails.
+          this.onLog?.(`${this.name} says: "${said}"`);
         } else if (said) {
           // GATED, AND SAID SO. This branch used to fall through to nothing:
           // the mind chose to speak, the gate refused, and the choice vanished
@@ -3115,14 +3130,9 @@ const COOKED = Object.entries(SURVIVAL.food)
   .filter(([, f]) => !f.spoils)
   .map(([id]) => id);
 
-/**
- * "2 branches", "1 cooked venison". The item table's own words, lower-cased,
- * because this ends up in the middle of a sentence in a prompt.
- */
-function itemWords(id, n) {
-  const name = (getItem(id)?.name ?? id.replace(/_/g, ' ')).toLowerCase();
-  return n > 1 ? `${name}${/(s|x|ch)$/.test(name) ? 'es' : 's'}` : name;
-}
+// `itemWords` now lives in the item registry — the HUD needed to say the same
+// thing to a human that the brief says to a mind, and two copies of a phrase
+// drift. Imported at the top of this file.
 
 function howFar(d) {
   if (d < 6) return 'right here';

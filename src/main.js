@@ -560,6 +560,12 @@ function boot() {
           // at one metre. A give needs no acceptance and should simply land, so
           // one of six silent returns was refusing it. Now it says which.
           if (byMe) hud.toast(e.why, 2.6);
+        } else if (e.k === 'nodrop') {
+          // "I pressed Q and nothing happened." Two silent returns in
+          // `resolveDrop`, and the bow one fires on the DEFAULT press because
+          // the bow is slot one — so the commonest first experience of the drop
+          // key was nothing at all.
+          if (byMe) hud.toast(e.why, 2.4);
         } else if (e.k === 'nodeal') {
           // The last silent refusal in the game, and it sat under the verb the
           // whole economy runs through. Two measurements on one day found it

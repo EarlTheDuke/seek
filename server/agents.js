@@ -369,9 +369,25 @@ async function main() {
       // is the number a watcher actually wants.
       const health = anyModel ? agents.map((a) => mindHealth(a.provider)) : [];
       const failed = health.reduce((n, h) => n + h.failures, 0);
+      // ── HOW MUCH OF THE TALKING ACTUALLY HAPPENED ──
+      //
+      // `gagged` has been counted in `agent.js` since the speech gate was
+      // written and READ BY NOTHING — a private number in an object nobody
+      // printed. Meanwhile the only speech reaching the console was the
+      // refusals, because the success branch never called `onLog`. So the
+      // liveliest thing six models produce was invisible except when it failed,
+      // and the ratio that says whether the gate is set right was uncollected.
+      //
+      // Both, together, on the line a watcher already reads. `said` is the
+      // count of sentences that reached the wire; `gagged` is the count the
+      // gate refused, and a gagged number climbing past the said one means
+      // `AGENTS.speakEveryDecisions` is throttling a conversation, not spam.
+      const said = agents.reduce((n, a) => n + (a.said?.length ?? 0), 0);
+      const gagged = agents.reduce((n, a) => n + (a.gagged ?? 0), 0);
       console.log(
         `  ${Math.round(elapsed)}s · ${agents.length} alive · ${decisions} decisions · ` +
           Object.entries(doing).map(([k, n]) => `${n} ${k}`).join(', ') +
+          (said || gagged ? ` · ${said} said / ${gagged} gagged` : '') +
           (anyModel
             ? ` · ${spent.calls}/${spent.of} calls, ${spent.tokensIn + spent.tokensOut} tokens` +
               // ── NAMED, NOT JUST COUNTED ──

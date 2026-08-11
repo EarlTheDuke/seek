@@ -740,6 +740,19 @@ export class SimWorld {
    */
   resolveDrop(p, want = 1, burn = 0) {
     if (p.body.dead) return;
+    // ── AND THE REFUSALS SPEAK ──
+    //
+    // These were two silent returns, and between them they are the whole of
+    // "I pressed Q and nothing happened". A session hunting the drop bug fell
+    // into the first one itself while testing, and wrote up a working server as
+    // broken because of it — a refusal that says nothing does not just fail the
+    // player, it manufactures evidence for bugs that are not there.
+    //
+    // Same shape as `nogive`, `nodeal` and `nomake`: the server names the
+    // reason, the browser toasts it, and a mind reads it as feedback.
+    const no = (why) => {
+      this.events.push({ k: 'nodrop', by: p.id, n: p.name, why });
+    };
     // ── NOT THE BOW ──
     //
     // `giftFrom` already refuses it — "the thing that makes you a hunter is not
@@ -749,9 +762,13 @@ export class SimWorld {
     // otherwise, so the very first press of the drop key would throw away the
     // only thing you cannot make again.
     const holding = p.inventory.equippedSlot?.item;
-    if (!holding || KEEP_ON_DEATH.has(holding)) return;
+    if (!holding) return no('there is nothing in that hand');
+    if (KEEP_ON_DEATH.has(holding)) {
+      return no(`you keep the ${getItem(holding)?.name?.toLowerCase() ?? holding}`
+        + ' — it is the one thing you cannot make again');
+    }
     const taken = p.inventory.takeEquipped(want);
-    if (!taken) return;
+    if (!taken) return no(`you have no ${getItem(holding)?.name?.toLowerCase() ?? holding} left to put down`);
     // A metre or so in front, so it lands where you are looking rather than
     // inside your own feet. `yawTo`'s convention, the same one `place` uses.
     const at = new THREE.Vector3(
@@ -761,9 +778,10 @@ export class SimWorld {
     );
     const entry = this.pickups.drop(taken.item, taken.count, at, ZERO);
     if (!entry) {
-      // Nothing landed, so nothing may be lost. Put it back.
+      // Nothing landed, so nothing may be lost. Put it back — and say so, or
+      // the pack flickers down and up again for no reason anybody can see.
       p.inventory.add(taken.item, taken.count);
-      return;
+      return no('it would not lie there');
     }
     // A torch that was alight goes on burning where it lies. Clamped to what
     // the item is actually worth, because this number came off a socket.

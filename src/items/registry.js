@@ -575,6 +575,20 @@ export const getItem = (id) => ITEMS[id] ?? null;
  * else returns null, and the caller says so out loud rather than doing nothing
  * — which is what a mind needs in order to stop asking.
  */
+/**
+ * "2 branches", "1 cooked venison". The item table's own words, lower-cased,
+ * because this ends up in the middle of a sentence.
+ *
+ * Lived in `agent.js` as a private function until the HUD needed to say the
+ * same thing to a human that the brief says to a mind. It belongs here: it is
+ * the item table reading its own names out, and nothing about it is agent
+ * business.
+ */
+export function itemWords(id, n) {
+  const name = (getItem(id)?.name ?? id.replace(/_/g, ' ')).toLowerCase();
+  return n > 1 ? `${name}${/(s|x|ch)$/.test(name) ? 'es' : 's'}` : name;
+}
+
 const SPOKEN = new Map();
 function learnWord(word, id) {
   const k = String(word).trim().toLowerCase();

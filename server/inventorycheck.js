@@ -77,6 +77,7 @@ class Body {
     this.id = null;
     this.me = null;
     this.lo = [];
+    this.events = [];
     this.intent = {
       forward: 0, strafe: 0, lookYaw: 0, lookPitch: 0, aimYaw: null, aimPitch: null,
       drop: false, dropHalf: false, dropBurn: 0, interact: false, selectSlot: -1,
@@ -95,6 +96,7 @@ class Body {
         else if (msg.type === S_SNAPSHOT) {
           this.me = msg.data.me ?? this.me;
           this.lo = msg.data.lo ?? [];
+          for (const e of msg.data.ev ?? []) this.events.push(e);
         }
       };
     });
@@ -234,6 +236,35 @@ async function main() {
         `${heldAfter} -> ${heldBack} (started at ${heldBefore})`
         + `${stillThere ? ', BUT IT IS STILL ON THE GROUND' : ', and it is off the ground'}`
         + `${FREE_IN_THE_WORLD.has(id) ? ' — >= because the valley has free ones lying about' : ''}`);
+    }
+
+    // ── AND A REFUSAL SAYS SOMETHING ─────────────────────────────────────────
+    //
+    // Both early returns in `resolveDrop` were silent, and the bow one fires on
+    // the DEFAULT press because the bow is slot one — so the commonest possible
+    // first experience of the drop key was nothing whatsoever. It cost this
+    // very session an hour: a run hunting the drop bug fell into it, watched
+    // `me.iv` not move, and wrote up a working server as broken. A refusal that
+    // says nothing does not just fail the player, it manufactures evidence.
+    console.log('\n  ── and pressing Q on the bow says so ──');
+    {
+      const bowSlot = actor.slotOf('bow');
+      const packBefore = JSON.stringify(actor.pack());
+      actor.events.length = 0;
+      await pulse([actor, witness], actor, 'selectSlot', bowSlot);
+      await pulse([actor, witness], actor, 'drop');
+      await spin([actor, witness], 10);
+      await sleep(300);
+
+      const refusals = actor.events.filter((e) => e.k === 'nodrop' && e.by === actor.id);
+      check('the bow refusal SPEAKS instead of returning in silence',
+        refusals.length > 0 && /bow/i.test(refusals[0]?.why ?? ''),
+        refusals.length
+          ? `"${refusals[0].why}"`
+          : 'nothing was said — this is the silence that cost a session an hour');
+      check('  …and it really did keep the bow',
+        JSON.stringify(actor.pack()) === packBefore,
+        `${packBefore} -> ${JSON.stringify(actor.pack())}`);
     }
 
     // ── AND NOTHING WAS MINTED, over all five round trips ──

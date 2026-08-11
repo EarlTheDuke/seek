@@ -4,6 +4,8 @@
 // minimap, no meters. You are here to look at the place, not at an interface.
 
 import { SHOW_FPS, SURVIVAL } from '../config.js';
+import { getItem, itemWords } from '../items/registry.js';
+import { cannotCarryMore } from '../minds/perception.js';
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -154,6 +156,9 @@ const CSS = `
 #hl-hot .n { display: block; font-size: 10px; letter-spacing: .1em;
   text-transform: uppercase; opacity: .65; }
 #hl-hot .c { display: block; font-size: 15px; color: #ffd9a0; }
+/* At the carry cap. Warm amber rather than an alarm red: a full pack is a
+   good problem, and the point is only that picking up more is wasted. */
+#hl-hot .s.full .c { color: #ffb257; }
 #hl-hot .k { position: absolute; margin: -4px 0 0 -6px; font-size: 9px; opacity: .4; }
 
 #hl-prompt { position: absolute; left: 50%; top: 57%; transform: translateX(-50%);
@@ -501,6 +506,10 @@ export class Hud {
     this.crossTicks = [...this.cross.querySelectorAll('i')];
     this.prompt = this.root.querySelector('#hl-prompt');
     this.hotbar = this.root.querySelector('#hl-hot');
+    // Which items were at their carry cap last redraw, so "you cannot carry
+    // any more branches" is said when it BECOMES true and not on every frame
+    // the hotbar happens to rebuild.
+    this.lastFull = '';
     this.hurt = this.root.querySelector('#hl-hurt');
     this.healthBar = this.root.querySelector('#hl-health');
     this.healthFill = this.healthBar.querySelector('i');
@@ -1281,20 +1290,52 @@ export class Hud {
     if (text) this.prompt.innerHTML = text;
   }
 
-  /** Rebuild the hotbar. Called only when the inventory actually changes. */
+  /**
+   * Rebuild the hotbar. Called only when the inventory actually changes.
+   *
+   * ── HOW HEAVY THE PACK IS, WHICH THE PLAYER WAS NEVER TOLD ──
+   *
+   * The pack has been capped per item since the hoarding fix — `def.carry`, 40
+   * branches, 60 arrows — and A MIND IS TOLD WHEN IT IS FULL while a person is
+   * told nothing at all. So a player could press E at a branch for a minute
+   * with forty already on their back and get no answer: no pickup, no refusal,
+   * no number. The most confusing kind of nothing, and the exact shape of every
+   * other bug in this session.
+   *
+   * NOT `pack 3/8`, which was the sketch: this game has no total slot limit and
+   * printing one would be inventing a rule it does not have. The real rule is
+   * per item, so the number goes on the slot it belongs to — `38/40`.
+   *
+   * And only when it is worth reading. `1/40` on every slot is noise that
+   * teaches nothing; three quarters of the way up is where "am I about to waste
+   * a walk" becomes a real question. Below that it reads as it always has.
+   */
   setHotbar(inventory, itemName) {
+    const full = [];
     this.hotbar.innerHTML = inventory.slots
       .map((s, i) => {
         const name = itemName(s.item);
-        const count = s.count > 1 ? s.count : '';
+        const cap = getItem(s.item)?.carry ?? 0;
+        const atCap = cap > 0 && s.count >= cap;
+        if (atCap && !full.includes(itemWords(s.item, 2))) full.push(itemWords(s.item, 2));
+        const count = cap > 0 && s.count >= cap * 0.75
+          ? `${s.count}/${cap}`
+          : (s.count > 1 ? s.count : '');
         return (
-          `<div class="s${i === inventory.equipped ? ' on' : ''}">` +
+          `<div class="s${i === inventory.equipped ? ' on' : ''}${atCap ? ' full' : ''}">` +
           `<span class="k">${i + 1}</span>` +
           `<span class="n">${name}</span>` +
           `<span class="c">${count || '&nbsp;'}</span></div>`
         );
       })
       .join('');
+
+    // THE SAME SENTENCE THE MINDS GET, imported rather than retyped — see
+    // `cannotCarryMore`. Said once when it becomes true, not every time the
+    // hotbar redraws, or a full pack would shout at every arrow fired.
+    const key = full.join(',');
+    if (key && key !== this.lastFull) this.toast(cannotCarryMore(full), 3);
+    this.lastFull = key;
   }
 
   /**
