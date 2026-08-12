@@ -46,9 +46,19 @@ groups, hold grudges, and change their minds for reasons you can read.
   decisions refused), a bare gather turning into a wander, no verb for eating at
   all, and the server honouring one `eat` pulse twice. `npm run foodcheck` holds
   all four, 20/20, over a real socket with a control arm.
+  **PROVEN IN A LIVE RUN, 2026-08-11 (late)** —
+  [runs/FOODTEST-2026-08-11.md](runs/FOODTEST-2026-08-11.md). The chain
+  completed: kill → gather → fire → cook → eat, three of four model seats, two
+  vendors, 0 failed calls. **And the scripted control came last but one** — she
+  out-foraged every model and starved anyway, because she cannot hunt. With
+  gather fixed, THE BINDING CONSTRAINT MOVED UPSTREAM TO HUNTING.
 - **Done looks like.** A model-driven seat survives a night unaided, and two
-  seats reach an outcome neither could reach alone. **Neither has happened.**
+  seats reach an outcome neither could reach alone. **Neither has happened yet** —
+  the proof run was 17 minutes, not a night, and nothing was achieved jointly.
   A green check is not this milestone and must never be reported as it.
+- **Also still open:** no mind has CHOSEN the `eat` verb — every meal in the
+  proof run was the reflex. The verb is for eating early, above the threshold
+  the reflex waits for, and it wants `SCARCE=on` to have a reason to exist.
 
 ### 2. A world a human can read  ← THE MULTIPLIER
 
@@ -64,13 +74,13 @@ and it is not worth the tokens it cost.
 - **Standing debt — silent failure is the enemy here, and all five of these are
   open.** Verified against the tree on 2026-08-11, with the mechanism named so
   nobody has to re-diagnose them:
-  1. **Refusals never reach the report.** `refuse()` increments
-     `agent.refusedVerbs` (`agent.js:1912`) and *nothing reads it* — not
-     `agents.js`, not `playreport.js`. So ~98 refusals in the hour run produced
-     0 printed lines: the most important fact about that run was absent from the
-     run's own log, and `playreport` still cannot tell a verb REACHED FOR AND
-     REFUSED from a verb nobody wanted. The counter already exists; it needs a
-     reader. Cheapest win on this list.
+  1. ✅ **CLOSED 2026-08-11 (late). Refusals now reach the report.**
+     `playreport` splits *"never reached for"* from *"reached for and refused"* —
+     opposite conclusions that looked identical for the life of the project, and
+     the shape that hid "the models cannot feed themselves" through four fixes.
+     The tally is also now **once per decision** rather than once per retarget:
+     it read `gather: 73` against 50 decisions, from a mind holding 16 branches
+     it had picked up, which reads as a broken verb when the verb was working.
   2. **The fleet clock counts ticks, not time.** `agents.js` does
      `elapsed += STEP` inside a `setInterval` — nominal 30 Hz. Under real load
      the interval slips, so `elapsed` drifts behind the wall: 110 minutes

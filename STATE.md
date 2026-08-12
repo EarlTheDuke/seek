@@ -1,13 +1,62 @@
 # State of play — read this first, it is short on purpose
 
-**Last updated: 2026-08-11**, by a session that fixed the two named breaks, found
-two more of the same family underneath them, and put a check over all four.
+**Last updated: 2026-08-11 (late)**, by a session that fixed four breaks in the
+food chain, watched the chain complete live for the first time, and then fixed
+the three instrument bugs that run exposed.
 
-## START HERE — the food chain is fixed and covered. Next is a LIVE run.
+## START HERE — THE CHAIN WORKS LIVE. The verb does not, yet.
+
+**[runs/FOODTEST-2026-08-11.md](runs/FOODTEST-2026-08-11.md) — the full chain
+executed in a live run for the first time in this project:** kill → gather
+firewood → light a fire → cook → eat. Two Grok, two Kimi, one scripted control,
+Ben in the world. Against the hour run's *635 decisions, 0 items, 0 meals*, three
+of four model seats fed themselves, on two vendors, with 0 failed calls.
+
+**AND THE CONTROL CAME LAST BUT ONE.** Iseabail foraged more than any model — 22
+branches — and went to food 9 because she never killed anything. Coinneach hit
+food 1 the same way. **With gather fixed, the binding constraint moved upstream
+to HUNTING.** That is the next arc-1 question.
+
+**WHAT IT DOES NOT PROVE, and do not cite it as if it does: every meal was the
+REFLEX.** `upkeep()` has always eaten below `eatBelow` (45). **No mind chose the
+`eat` verb once, in 268 decisions.** Fixing `gather` unblocked the chain and the
+reflex did the rest — which is exactly what the correction below predicted. The
+verb's value is still unproven and is about CHOICE: eating early, before a hunt
+or ahead of the cold, above where the reflex would act.
+
+**THE NEXT RUN** wants `SCARCE=on` and a longer window — enough pressure to give
+a mind a reason to eat before the reflex would, and long enough to answer arc 1's
+real bar: *a seat surviving a night unaided, and two seats reaching an outcome
+neither could reach alone.* Launch it with **`PLAY-FOODTEST.cmd`**
+(roster: `roster-foodtest.json`), and **`STOP.cmd`** when done — that is what
+stops the money.
+
+### Fixed after that run — three instrument bugs, one disease
+
+All three were *counting the press instead of the outcome*, the cure for which
+this repo already had written down for crafting. Covered by `foodcheck` (29/29).
+
+1. **A chosen `eat` wrote no deed** — invisible on the board and uncountable in
+   the report. Introduced the same afternoon by the commit that fixed arc 1.
+2. **The reflex wrote its deed at the PRESS** — and `World.update` drops an eat
+   in silence on an empty pack or a full belly, so a body pressing at nothing
+   read as a body eating. `noteMake` fixed this identical bug for crafting three
+   months earlier, one method away.
+3. **Refusals counted per retarget, not per decision** — Eachann finished on
+   `gather: 73` against 50 decisions *while holding 16 branches he had picked
+   up*. A number bigger than the decisions it describes reads as a broken verb.
+
+The eat deed now follows **the belly rising on the server's own snapshot**
+(`noteMeal`) — `body.eat()` is the only line in the codebase that raises hunger,
+so a rise cannot be faked by wanting it — and it records **who asked**, so reflex
+and choice can finally be told apart. `playreport` now splits *"never reached
+for"* from *"reached for and refused"*, which closes arc-2 debt item 1.
+
+## The four food-chain fixes underneath all of that
 
 **The two fixes the last session named are done, and two more that were hiding
 behind them.** All four are proven by a new socket-level check —
-`npm run foodcheck`, **20/20** — that stages real bodies on a real server and
+`npm run foodcheck`, **29/29** — that stages real bodies on a real server and
 asserts outcomes: did the pack gain wood, did the meat leave the pack, did the
 belly fill.
 
@@ -42,11 +91,12 @@ before the cold came on. `foodcheck` stages every body at hunger 60, above both
 thresholds, with a control arm that is never given the goal, precisely so the
 reflex cannot be mistaken for the verb.
 
-**NEXT, and it is a measurement and not a fix:** re-run the trio as a FAIR
-comparison. Nothing here has been seen by a live model — all four fixes are
-proven by harness, not by a run. Coinneach's 116 failures were a 3000-token
-ceiling truncating kimi mid-thought (fixed, now 12000), so the hour run was never
-a three-model test and nothing about Grok-vs-Kimi may be read from it.
+**~~NEXT~~ — DONE, the same night.** All four were taken into a live run and the
+chain completed; see START HERE. The token-ceiling fix also held: both Kimi seats
+answered with **0 failed calls**, against Coinneach's 116 failures in the hour run
+when 3000 tokens truncated it mid-thought. That hour run was never a three-model
+test and nothing about Grok-vs-Kimi may still be read from it — but tonight's
+was, and can.
 
 **AND ONE WRITER AT A TIME.** Pause `highlands-triage` before working here, and
 before Ben plays. The bill for ignoring it is immediately below. *(All three

@@ -92,6 +92,36 @@ export function buildReport(agents, meta = {}) {
   // Roughly enough decisions for every verb in the vocabulary to have had a
   // fair few chances, and long enough for hunger and dark to start pushing.
   const never = GOAL_IDS.filter((id) => !tally[id]);
+
+  // ── AND THE HALF THAT WAS WRITTEN DOWN AND NEVER READ ──
+  //
+  // `refuse()` has counted refusals per verb on every agent since the day the
+  // refusal existed, and until now NOTHING ANYWHERE READ IT — not this file, not
+  // the console line, not the board. So ~98 refusals in the 2026-08-11 hour run
+  // produced zero printed lines, and the most important fact about that run was
+  // absent from the run's own report.
+  //
+  // It matters precisely here, at the "nobody ever did" finding, because those
+  // two cases look identical in `tally` and are opposite conclusions:
+  //
+  //   NEVER REACHED FOR   — the game gave nobody a reason to want it. A design
+  //                         question: is it discoverable, is it useful.
+  //   REACHED FOR, REFUSED — minds wanted it and the world would not let them.
+  //                         A BUG, and the single most expensive kind this
+  //                         project has: `gather` spent a day in this state
+  //                         while every check over it stayed green.
+  //
+  // Reporting the first when it is the second is how "the models cannot feed
+  // themselves" survived four fixes.
+  const refusedAll = {};
+  for (const a of live) {
+    for (const [verb, n] of Object.entries(a.refusedVerbs ?? {})) {
+      refusedAll[verb] = (refusedAll[verb] ?? 0) + n;
+    }
+  }
+  const blocked = never.filter((id) => refusedAll[id]);
+  const unwanted = never.filter((id) => !refusedAll[id]);
+
   const enough = totalDecisions >= GOAL_IDS.length * 5 && (meta.seconds ?? 0) >= 180;
   if (!enough) {
     out.push(`\n_Too short to conclude anything from what is missing — ` +
@@ -99,11 +129,36 @@ export function buildReport(agents, meta = {}) {
       `Needs ${GOAL_IDS.length * 5}+ decisions and 3+ minutes before an absence means much._`);
   } else if (never.length) {
     out.push('\n**What nobody ever did**\n');
-    for (const id of never) out.push(`- \`${id}\` — not once, by anybody`);
-    out.push('\nA verb no independent mind ever reached for is a verb the game ' +
-      'never gave anyone a reason to want. Worth asking whether it is discoverable, ' +
-      'whether it is useful, or whether it should exist.');
-    findings.push(`never used: ${never.join(', ')}`);
+    for (const id of unwanted) out.push(`- \`${id}\` — not once, by anybody`);
+    if (unwanted.length) {
+      out.push('\nA verb no independent mind ever reached for is a verb the game ' +
+        'never gave anyone a reason to want. Worth asking whether it is discoverable, ' +
+        'whether it is useful, or whether it should exist.');
+    }
+    if (blocked.length) {
+      out.push('\n**REACHED FOR AND REFUSED — read this before the list above**\n');
+      for (const id of blocked) {
+        out.push(`- \`${id}\` — wanted ${refusedAll[id]} time${refusedAll[id] === 1 ? '' : 's'}, granted never`);
+      }
+      out.push('\nThese are NOT verbs nobody wanted. Minds reached for them and the ' +
+        'world refused, every time. That is a bug until proven otherwise, and it is ' +
+        'the shape that hid "the models cannot feed themselves" through four fixes.');
+      findings.push(`reached for and always refused: ${blocked.join(', ')}`);
+    }
+    if (unwanted.length) findings.push(`never used: ${unwanted.join(', ')}`);
+  }
+
+  // Refusals on verbs that DID sometimes work are worth a line of their own —
+  // a verb granted nine times in ten is fine, one granted once in ten is a
+  // gather-shaped bug that happens to have a survivor.
+  const partly = Object.entries(refusedAll)
+    .filter(([verb]) => tally[verb])
+    .sort((x, y) => y[1] - x[1]);
+  if (partly.length) {
+    out.push('\n**Refused, but not always** — per decision that reached for it\n');
+    for (const [verb, n] of partly) {
+      out.push(`- \`${verb}\` — refused ${n} of ${tally[verb]} (${Math.round((n / tally[verb]) * 100)}%)`);
+    }
   }
 
   // ── what they MEANT, in their own words ──

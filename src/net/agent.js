@@ -336,6 +336,12 @@ export class Agent {
               // differently walks confidently in the wrong direction.
               if (msg.data.me.y !== undefined) this.yaw = msg.data.me.y;
               this.health = msg.data.me.h;
+              // Kept before it is overwritten: a BELLY THAT ROSE is the only
+              // honest proof a meal happened, and `notePack` is where it gets
+              // turned into a deed. `body.eat()` is the one line in the whole
+              // codebase that raises hunger — everything else lowers it — so a
+              // rise cannot be anything but food. See `noteMeal`.
+              const foodBefore = this.food;
               this.food = msg.data.me.f;
               this.coreC = msg.data.me.c;
               // ── what the server thinks is in our pack ──
@@ -343,7 +349,7 @@ export class Agent {
               // its own — the server's copy is the one that eats, cooks and
               // burns wood, so it is the only honest answer to "am I carrying
               // meat", and until it was sent nobody could ask.
-              if (msg.data.me.iv) this.notePack(msg.data.me.iv);
+              if (msg.data.me.iv) this.notePack(msg.data.me.iv, foodBefore);
               // Where the string actually is. Crouching drops it 0.67 m and the
               // solver has to know — see `aimAt`.
               this.eye = msg.data.me.e ?? PLAYER.eyeHeight;
@@ -1724,7 +1730,15 @@ export class Agent {
     if (hungry && COOKED.some((id) => this.count(id) > 0)) {
       i.eat = true;
       this.eatCooling = AGENTS.swallowSeconds;
-      this.did('eat', 'I ate a cooked meal');
+      // NOT a deed. `did('eat', …)` used to be written right here, and it was a
+      // keypress wearing an outcome's clothes — the same mistake the craft deed
+      // made one method down, corrected for the same reasons. The server drops
+      // an eat in silence when the pack is empty or the belly is already full,
+      // so a body pressing at nothing read as a body eating. The deed is now
+      // written when the BELLY RISES on the server's own snapshot; this only
+      // records who asked, so the confirmed meal can be attributed. See
+      // `noteMeal`.
+      this._mealAskedBy = 'reflex';
       return true;
     }
 
@@ -1831,7 +1845,8 @@ export class Agent {
     if (!EDIBLE.some((id) => this.count(id) > 0)) return false;
     i.eat = true;
     this.eatCooling = AGENTS.swallowSeconds;
-    this.did('eat', 'I ate what I had, raw');
+    // Who asked, not what happened — see the note in `upkeep` and `noteMeal`.
+    this._mealAskedBy = 'reflex-raw';
     return true;
   }
 
@@ -1910,7 +1925,29 @@ export class Agent {
    */
   refuse(verb, text) {
     this.refusedVerbs ??= {};
-    this.refusedVerbs[verb] = (this.refusedVerbs[verb] ?? 0) + 1;
+    // ── ONCE PER DECISION, NOT ONCE PER RETARGET ──
+    //
+    // A goal STANDS until the mind replaces it, and `act()` re-resolves it every
+    // `AGENTS.retargetSeconds`. So one decision to gather, in a spot with no
+    // deadfall left, refused itself over and over — and the counter that exists
+    // to say "this verb was reached for and refused" instead said something with
+    // no unit at all.
+    //
+    // Measured in the first live run of the food fix: Eachann finished on
+    // `gather: 73` against 50 decisions, HAVING SUCCESSFULLY PICKED UP 16
+    // BRANCHES. A number larger than the decisions it describes, sitting beside
+    // the outcome it contradicts, is worse than no number — it reads as a broken
+    // verb, and `gather` was working.
+    //
+    // Keyed on the decision counter, so the tally becomes a rate you can divide
+    // by `decisions` and believe. The SENTENCE is unaffected: `noteOutcome`
+    // already coalesces repeats into "(13 times)", which is the right behaviour
+    // for a brief — the mind should hear that it is still stuck.
+    this._refusedAt ??= {};
+    if (this._refusedAt[verb] !== this.decisions) {
+      this._refusedAt[verb] = this.decisions;
+      this.refusedVerbs[verb] = (this.refusedVerbs[verb] ?? 0) + 1;
+    }
     this.noteOutcome(text);
   }
 
@@ -1980,11 +2017,29 @@ export class Agent {
    * starting kit — twelve arrows, a bow — arrives as one enormous delta. The
    * first pack is adopted in silence.
    */
-  notePack(iv) {
+  notePack(iv, foodBefore) {
     const before = this.carrying;
     this.carrying = iv;
     // The starting kit is not a foraging triumph.
     if (!this._hadPack) { this._hadPack = true; return; }
+
+    // ── A MEAL IS CONFIRMED BEFORE ANYTHING ELSE IS DECIDED ──
+    //
+    // Deliberately ABOVE the make-suppression window below. Cooking and then
+    // eating is not an edge case, it is the common case — the first live run to
+    // ever complete the chain had a mind cook and eat inside the same second —
+    // and a meal that lands in the window a craft owns would be swallowed
+    // whole. Eating is not a pack RISE, so it cannot be confused with a pickup
+    // and does not need the window's protection.
+    //
+    // Optional-called for the reason `noteOutcome` is lazily initialised:
+    // several checks drive this against a DELIBERATE PARTIAL STUB — survivalcheck
+    // feeds `{hours, deeds, acted, memory}` and nothing else, because a live
+    // forage cannot prove the coalescing rule. The doc comment above promises
+    // this "runs perfectly well against a body made of four fields", and that
+    // promise is load-bearing. `survivalcheck` caught this within a minute of
+    // the method being added, exactly as it caught `did` reporting outcomes.
+    this.noteMeal?.(before, iv, foodBefore);
     // A cook or a craft owns every change for `AGENTS.makeOwnsPackFor`, whatever
     // shape it takes. Conservative on purpose: the cost is a pickup that goes
     // unrecorded while standing at a fire, and the alternative is a cooked
@@ -2053,6 +2108,75 @@ export class Agent {
    * whatever else the same snapshot brought, or the steak's own arrival could
    * be reported twice, once as a make and once as a find.
    */
+  /**
+   * A MEAL CONFIRMED — the belly rising on the server's own snapshot.
+   *
+   * ── why this is not written where the fork goes in ──
+   *
+   * `notePack` refuses to call a pickup a pickup unless the number went UP, and
+   * `noteMake` refuses to call a press a craft unless the recipe's output
+   * arrived. Eating had neither rule, and it went wrong in both directions at
+   * once:
+   *
+   * THE REFLEX LIED UPWARDS. `upkeep` wrote `did('eat', …)` the instant it set
+   * `i.eat`. `World.update` drops an eat in silence when the pack holds nothing
+   * edible or the belly is already at 100 — so a body pressing at nothing read,
+   * in the report and on the board, as a body eating.
+   *
+   * THE CHOSEN MEAL WAS INVISIBLE. The `eat` VERB wrote no deed at all, so on
+   * the night it shipped the only way to answer "has any mind chosen to eat?"
+   * was to read the raw goal history by hand. A verb nobody can see used is
+   * indistinguishable, in a run report, from a verb nobody wanted.
+   *
+   * ── why hunger, and not the pack ──
+   *
+   * `body.eat()` at `player/body.js` is the ONE line in this codebase that
+   * raises hunger; everything else lowers it. So a rise cannot be anything but
+   * food, and it cannot be faked by wanting it. The pack falling is not enough
+   * on its own — dropping, giving and trading all take venison out of a pack
+   * without anybody eating a thing.
+   *
+   * The pack is still read, but only to NAME what went down. If the rise cannot
+   * be attributed to a specific edible the meal is still reported, because the
+   * belly is the fact and the label is a convenience.
+   */
+  noteMeal(before, iv, foodBefore) {
+    if (foodBefore === undefined || this.food === undefined) return;
+    const filled = this.food - foodBefore;
+    if (filled <= 0) return;
+
+    // Which edible left the pack. Only EDIBLE ids are considered, so a branch
+    // burnt on the fire in the same snapshot cannot be served up as dinner.
+    let ate = null;
+    for (const id of EDIBLE) {
+      if ((before?.[id] ?? 0) - (iv[id] ?? 0) > 0) { ate = id; break; }
+    }
+    const noun = ate ? (getItem(ate)?.name ?? ate).toLowerCase() : 'something';
+
+    // WHO ASKED. The reflex and the verb are the whole reason this distinction
+    // is worth keeping: bodies have always eaten on instinct below `eatBelow`,
+    // and a mind DECIDING to eat — above that threshold, before a hunt or ahead
+    // of the cold — is a different and newer thing. A report that cannot tell
+    // them apart cannot tell you whether the verb is earning its place.
+    const asked = this._mealAskedBy;
+    this._mealAskedBy = null;
+    // "a venison" or plain "something" — never "a something", which is what the
+    // first cut printed whenever the rise could not be pinned to an item.
+    const what = ate ? `a ${noun}` : 'something';
+    const text = asked === 'choice'
+      ? `I chose to eat ${what}`
+      : asked === 'reflex-raw'
+        ? 'I ate what I had, raw'
+        : `I ate ${what}`;
+
+    // `filled` rides along so a report can show a meal that was mostly wasted —
+    // eating at 90 fills 10 of a 34-point steak, and that is a real mistake a
+    // mind can make and currently nobody can see.
+    this.did('eat', text);
+    const last = this.deeds[this.deeds.length - 1];
+    if (last && last.what === 'eat') { last.id = ate; last.filled = Math.round(filled); last.by = asked ?? 'unknown'; }
+  }
+
   noteMake(before, iv) {
     const r = RECIPES[this._making ?? ''];
     if (!r) return;
@@ -2935,6 +3059,18 @@ export class Agent {
         // standing: distance zero arrives on this same tick, so there is no gap
         // between resolving and swallowing for the timer to miss.
         this.eatCooling = AGENTS.swallowSeconds;
+        // ── THE HALF THAT MADE THIS VERB INVISIBLE ──
+        //
+        // A chosen meal wrote no deed at all, so the board could not show it and
+        // a run report could not count it — and on the night the verb first
+        // shipped, the only way to answer "has any mind chosen to eat?" was to
+        // read the raw goal history by hand. That is the arc-2 disease exactly,
+        // introduced by the commit that was fixing arc 1.
+        //
+        // Marked rather than written, for the same reason the reflex no longer
+        // writes one here: wanting a meal is not having one. `noteMeal` turns
+        // this into a deed if and only if the belly actually rises.
+        this._mealAskedBy = 'choice';
         return { x: this._x, z: this._z, act: 'eat', within: REACH };
       }
       // Camp is a place with fuel in reach, so this is gather with a reason.

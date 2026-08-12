@@ -1,0 +1,91 @@
+{
+  "_readme": [
+    "THE FOOD-CHAIN PROOF RUN, 2026-08-11. Two Grok, two Kimi, one scripted",
+    "control, and Ben in the world with them.",
+    "",
+    "WHAT THIS RUN IS FOR. On 2026-08-11 four breaks in the food chain were fixed",
+    "and covered by `npm run foodcheck` (20/20): `gather` deaf to the singular",
+    "\"branch\", a bare gather turning into a wander, no verb for eating at all,",
+    "and the server honouring one `eat` pulse twice. ALL FOUR ARE PROVEN BY",
+    "HARNESS AND NONE BY A LIVE MODEL. TRAJECTORY.md gates arcs 3-6 on exactly",
+    "that distinction. This roster exists to close it.",
+    "",
+    "WHAT TO WATCH FOR, in order of what would settle the question:",
+    "  1. Does the pack ever GAIN wood? 82 of 98 gather decisions were refused",
+    "     in the hour run and nothing was ever picked up.",
+    "  2. Does anybody EAT? Bodies have always eaten by reflex below 45; the new",
+    "     thing is a mind CHOOSING to, which the board shows as the verb `eat`.",
+    "  3. Does anybody survive the night without help?",
+    "",
+    "ONE GPU, TWO KIMI SEATS — THE STAGGER IS LOAD-BEARING. Both Kimi minds",
+    "share one tinybox. Asking them at the same instant makes each wait on the",
+    "other: alone a decision is 8-20s, and four at once has already timed two of",
+    "them out. 70s and 100s share no small common multiple, so they collide about",
+    "once every twelve minutes instead of constantly. Do not round these to 60",
+    "and 90.",
+    "",
+    "maxTokens 12000, NOT 3000. Measured on 2026-08-11: 116 of ~600 calls came",
+    "back \"reply cut off at 3000 tokens\" — one in five, every one silently",
+    "answered by the scripted brain, and it made a three-model run into a",
+    "two-model run wearing a three-model label. kimi-k2.6 spends its budget",
+    "thinking before it emits JSON, so the ceiling has to clear the THINKING as",
+    "well as the answer. This box costs nothing per token; a paid seat would want",
+    "a tighter one.",
+    "",
+    "ISEABAIL STAYS. She is scripted — no model, no key, no network. When a model",
+    "does something startling she is how you tell whether that was the model or",
+    "just the world, and for THIS run she is the reference for whether a mind can",
+    "feed itself at all. She has out-performed every model twice.",
+    "",
+    "No keys in this file. keyEnv is the NAME of an env var."
+  ],
+  "budgetCalls": 3000,
+  "players": [
+    {
+      "name": "Eachann",
+      "provider": "xai",
+      "model": "grok-4.20-0309-non-reasoning",
+      "keyEnv": "XAI_API_KEY",
+      "cadenceSeconds": 12,
+      "character": "You hoard. Firewood is yours and you do not share a fire, though you will trade for meat.",
+      "timeoutSeconds": 20
+    },
+    {
+      "name": "Tormod",
+      "provider": "xai",
+      "model": "grok-4.5",
+      "keyEnv": "XAI_API_KEY",
+      "cadenceSeconds": 30,
+      "character": "You lie about where the deer are. Not maliciously — you want to get there first.",
+      "timeoutSeconds": 30
+    },
+    {
+      "name": "Coinneach",
+      "provider": "openai-compatible",
+      "baseUrl": "https://tinybox.silverstarindustries.com/api",
+      "model": "kimi-k2.6",
+      "keyEnv": "TINYBOX_API_KEY",
+      "cadenceSeconds": 70,
+      "character": "You are blunt and certain, and you say what you think of the others' plans out loud. You would rather be usefully wrong than politely quiet.",
+      "timeoutSeconds": 150,
+      "think": true,
+      "maxTokens": 12000
+    },
+    {
+      "name": "Seònaid",
+      "provider": "openai-compatible",
+      "baseUrl": "https://tinybox.silverstarindustries.com/api",
+      "model": "kimi-k2.6",
+      "keyEnv": "TINYBOX_API_KEY",
+      "cadenceSeconds": 100,
+      "character": "You are generous and slow to notice you are being used. You share food unprompted and you believe what people tell you about where the deer are.",
+      "timeoutSeconds": 150,
+      "think": true,
+      "maxTokens": 12000
+    },
+    {
+      "name": "Iseabail",
+      "character": "The control — no model, no key, no network. Do not remove her: when a model does something startling, she is the reference for whether that was the model or the world."
+    }
+  ]
+}

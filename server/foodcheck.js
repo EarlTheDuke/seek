@@ -231,6 +231,26 @@ try {
     eater.count('venison') === beforeMeat - 1,
     `venison ${beforeMeat} -> ${eater.count('venison')} · swallow ${AGENTS.swallowSeconds}s`);
 
+  // ── 3b. AND THE MEAL IS VISIBLE, WHICH IS A SEPARATE QUESTION ─────────────
+  //
+  // On the night the verb shipped it worked and left NO TRACE: a chosen meal
+  // wrote no deed, so the board could not show it and the report could not
+  // count it, and the only way to answer "has any mind chosen to eat?" was to
+  // read the raw goal history by hand. A verb nobody can see used is
+  // indistinguishable from a verb nobody wanted — which is the exact confusion
+  // `playreport` exists to prevent.
+  const meals = eater.deeds.filter((d) => d.what === 'eat');
+  check('THE CHOSEN MEAL IS ON THE RECORD — one deed, not zero and not two',
+    meals.length === 1, `${meals.length} eat deeds: ${meals.map((m) => m.text).join(' | ')}`);
+
+  check('  …and it says a MIND chose it, not that a reflex fired',
+    meals[0]?.by === 'choice' && /^I chose to eat/.test(meals[0]?.text ?? ''),
+    `by=${meals[0]?.by} text="${meals[0]?.text}"`);
+
+  check('  …and it names what went down and how much it filled',
+    meals[0]?.id === 'venison' && meals[0]?.filled > 0,
+    `id=${meals[0]?.id} filled=${meals[0]?.filled}`);
+
   // ── 4. THE CONTROL ARM ────────────────────────────────────────────────────
   // Same stock, same hunger, same server, never given the goal. If this body
   // ate too then the reflex did it and everything above is worthless.
@@ -262,6 +282,82 @@ try {
     /nothing in your pack/.test(said), said || '(SILENCE — nothing was said)');
   check('  …and the refusal is counted, so a run report can tell "refused" from "never wanted"',
     (control.refusedVerbs?.eat ?? 0) > 0, JSON.stringify(control.refusedVerbs ?? {}));
+
+  // ── 5b. THE SENTINEL: A PRESS THE WORLD IGNORED IS NOT A MEAL ─────────────
+  //
+  // The reason the deed moved to `noteMeal` at all. `World.update` drops an eat
+  // in SILENCE when the pack holds nothing edible or the belly is already at
+  // 100, and the old code wrote the deed where the button was pressed — so a
+  // body pressing at nothing read, in the report and on the board, as a body
+  // eating. Exactly the bug `noteMake` was written to fix for crafting, one
+  // method away, three months earlier.
+  //
+  // Driven straight at `notePack` because that is the seam the lie crossed: a
+  // pack that did not change and a belly that did not rise must produce no deed
+  // no matter how loudly the body asked.
+  const before = control.deeds.length;
+  control._mealAskedBy = 'choice';                  // it asked, as loudly as it can
+  control.notePack({ ...control.carrying }, control.food); // ...and nothing happened
+  check('SENTINEL: an eat the world ignored writes NO deed — a press is not a meal',
+    control.deeds.length === before,
+    `${control.deeds.length - before} deed(s) appeared from a snapshot where nothing changed`);
+
+  // And the other half of honest: a belly that DID rise is reported even when
+  // the asking is unattributable, because the belly is the fact.
+  const before2 = control.deeds.length;
+  control._mealAskedBy = null;
+  control.notePack({ ...control.carrying }, control.food - 14);
+  const orphan = control.deeds[control.deeds.length - 1];
+  check('  …but a belly that rose IS reported, even with nobody owning the ask',
+    control.deeds.length === before2 + 1 && orphan?.what === 'eat',
+    `${orphan?.text ?? 'no deed'} (filled ${orphan?.filled})`);
+
+  // ── 5c. COOK THEN EAT, WHICH IS THE COMMON CASE AND NEARLY GOT SWALLOWED ──
+  //
+  // `notePack` gives a craft a suppression window: for `makeOwnsPackFor` after
+  // a cook, every change to the pack belongs to the make, so a cooked steak is
+  // not announced as something found lying about. Sound rule — and a meal
+  // landing inside that window would have vanished into it.
+  //
+  // Not hypothetical. In the first live run to ever complete the chain, Eachann
+  // cooked and ate inside the same recorded second. So `noteMeal` runs ABOVE
+  // the window, and this holds it there.
+  const before3 = control.deeds.length;
+  control._made = 1;                      // a craft owns the pack right now
+  control._mealAskedBy = 'reflex';
+  control.notePack({ ...control.carrying }, control.food - 9);
+  const inWindow = control.deeds[control.deeds.length - 1];
+  check('A MEAL INSIDE THE CRAFT WINDOW IS STILL REPORTED — cook-then-eat is the common case',
+    control.deeds.length === before3 + 1 && inWindow?.what === 'eat',
+    inWindow?.text ?? 'the make window swallowed the meal');
+  control._made = 0;
+
+  // ── 5d. A REFUSAL IS ONE PER DECISION, NOT ONE PER RETARGET ───────────────
+  //
+  // A goal STANDS and `act()` re-resolves it every `retargetSeconds`, so one
+  // decision refused itself over and over. Measured live: Eachann finished on
+  // gather=73 against 50 decisions WHILE HOLDING 16 BRANCHES HE HAD PICKED UP.
+  // A count larger than the decisions it describes, contradicting the outcome
+  // beside it, reads as a broken verb — and `gather` was working.
+  control.refusedVerbs = {};
+  control._refusedAt = {};
+  control.decisions = 100;
+  for (let i = 0; i < 12; i++) control.refuse('gather', 'there is no flint lying about that you can see');
+  const oneDecision = control.refusedVerbs.gather;
+  control.decisions = 101;
+  control.refuse('gather', 'there is no flint lying about that you can see');
+  check('TWELVE RETARGETS OF ONE STANDING GOAL COUNT ONCE — the tally is per decision',
+    oneDecision === 1, `12 refusals inside one decision counted as ${oneDecision}`);
+  check('  …and the NEXT decision counts again, so a stuck mind is still visible',
+    control.refusedVerbs.gather === 2, `after a second decision: ${control.refusedVerbs.gather}`);
+  // Drained ONCE into a variable. The first cut called `drainOutcomes()` in the
+  // assertion and again in the detail — and the second call returns empty,
+  // because draining is what the method is for. It passed, with an evidence
+  // line reading "the brief said nothing". A green check whose own evidence
+  // contradicts it is worse than a red one: CHECK YOUR INSTRUMENT.
+  const heard = control.drainOutcomes().join(' | ');
+  check('  …while the mind itself still hears it every time, coalesced',
+    /1[23] times/.test(heard), heard || 'the brief said nothing');
 
   // ── 6. THE WORD THE MODELS ACTUALLY TYPED ─────────────────────────────────
   // 82 of 98 gather decisions in the hour run said "branch". Every spelling a
