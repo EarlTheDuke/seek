@@ -19,8 +19,9 @@ interesting, or their behaviour more legible, is not on the path.
 **A solid foundation first, then additions.** The temptation in a project like
 this is always another feature, and this repo has a long record of features that
 were built on something quietly broken — a bow no agent could draw, a verb that
-deleted its own noun, a check green over a path no caller could reach. When the
-foundation and a feature compete, the foundation wins. Every time.
+deleted its own noun, a noun that made itself compulsory, a survival world whose
+minds had no word for eating, a check green over a path no caller could reach.
+When the foundation and a feature compete, the foundation wins. Every time.
 
 Corollary: **nothing counts until an outcome test says so over a real socket.**
 Not "did it deliberate" — did it eat.
@@ -38,10 +39,16 @@ Models that behave like people with intentions: they hunt, trade, lie, form
 groups, hold grudges, and change their minds for reasons you can read.
 
 - **Where we are.** The minds already talk, coordinate, negotiate, and deceive.
-  A liar written as a liar suppressed five cooperative agents in one run. What
-  they cannot reliably do is FEED THEMSELVES — the blocker since 2026-08-07.
+  A liar written as a liar suppressed five cooperative agents in one run.
+  FEEDING THEMSELVES — the blocker since 2026-08-07 — is **fixed in the harness
+  and unproven in a run**, and those are not the same claim. Four breaks, all
+  found on 2026-08-11: `gather` deaf to the singular "branch" (82 of 98
+  decisions refused), a bare gather turning into a wander, no verb for eating at
+  all, and the server honouring one `eat` pulse twice. `npm run foodcheck` holds
+  all four, 20/20, over a real socket with a control arm.
 - **Done looks like.** A model-driven seat survives a night unaided, and two
-  seats reach an outcome neither could reach alone.
+  seats reach an outcome neither could reach alone. **Neither has happened.**
+  A green check is not this milestone and must never be reported as it.
 
 ### 2. A world a human can read  ← THE MULTIPLIER
 
@@ -49,14 +56,38 @@ Watching must be as good as playing. If a run is not legible, it teaches nothing
 and it is not worth the tokens it cost.
 
 - **Where we are.** The board exists (one card per mind: what it means, does,
-  shoots, refuses). Miss events, refusal reasons and dropped goal fields are all
-  surfaced rather than silent.
+  shoots, refuses), and a mind's own brief now tells it when it was refused.
+  **The OPERATOR's view is the half that is still broken** — see the debt below.
 - **Done looks like.** A person who has never seen the code can watch a run and
   say why each mind did what it did — and an instrument that is broken says so
   rather than reading zero.
-- **Standing debt.** Silent failure is the enemy here. An 11% call-failure rate
-  hid below a 20% alarm; half of all speech was dropped by a gag whose units did
-  not match the cadence. Both are instrument bugs, and both are arc-2 work.
+- **Standing debt — silent failure is the enemy here, and all five of these are
+  open.** Verified against the tree on 2026-08-11, with the mechanism named so
+  nobody has to re-diagnose them:
+  1. **Refusals never reach the report.** `refuse()` increments
+     `agent.refusedVerbs` (`agent.js:1912`) and *nothing reads it* — not
+     `agents.js`, not `playreport.js`. So ~98 refusals in the hour run produced
+     0 printed lines: the most important fact about that run was absent from the
+     run's own log, and `playreport` still cannot tell a verb REACHED FOR AND
+     REFUSED from a verb nobody wanted. The counter already exists; it needs a
+     reader. Cheapest win on this list.
+  2. **The fleet clock counts ticks, not time.** `agents.js` does
+     `elapsed += STEP` inside a `setInterval` — nominal 30 Hz. Under real load
+     the interval slips, so `elapsed` drifts behind the wall: 110 minutes
+     reported against 150 actual, 26% slow. It is also the clock `shutdown()`
+     reads, which is why an hour run did not stop at the hour. *Fix it with the
+     wall clock, and note this is the RUNNER, not the sim — determinism forbids
+     wall-clock inside the simulation, not in the thing measuring how long a
+     session took.*
+  3. **The unwell alarm fires once per agent, ever.** `_warnedUnwell` is set and
+     never cleared, so a seat that degrades, recovers and degrades again is
+     reported once. Paired with (4) below, a failing model can look quiet.
+  4. **A rate below the threshold is invisible.** An 11% call-failure rate sat
+     under a 20% alarm for 83 minutes. A threshold with no trend behind it only
+     catches disasters.
+  5. **Speech is dropped by a gag whose units do not match the cadence** — 65
+     sentences gagged, 0 logged as spoken, in a run whose whole point was
+     model-to-model talk.
 
 ### 3. The recorder — a camera that flies itself
 
