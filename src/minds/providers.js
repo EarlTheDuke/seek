@@ -277,6 +277,14 @@ export class ModelProvider {
       'hunt takes quarry. approach and avoid take target. goTo takes place.',
       'gather takes an optional item — "venison" walks you to a carcass, none walks',
       'you to whatever is nearest, branch or kill.',
+      // ── SAYING THE VERB EXISTS IS HALF OF ADDING IT ──
+      //
+      // `eat` is new, and a verb a model is not told about is a verb it will
+      // not use — the whole list above is the only thing standing between a
+      // mind and a vocabulary it has to guess at. Said in one line, with the
+      // "no parameters" made explicit so nobody sends an item and gets a
+      // `dropped` field back for their trouble.
+      'eat takes nothing — you eat the best food in your own pack, where you stand.',
       // ── SPEAKING IS FREE, AND THE PROMPT HAS TO SAY SO ──
       //
       // `say` used to be a VERB, so speaking meant not hunting — a real cost,

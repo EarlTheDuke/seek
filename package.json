@@ -79,7 +79,8 @@
     "staggercheck": "node server/staggercheck.js",
     "carrycheck": "node server/carrycheck.js",
     "bowcheck": "node server/bowcheck.js",
-    "nopetcheck": "node server/nopetcheck.js"
+    "nopetcheck": "node server/nopetcheck.js",
+    "foodcheck": "node server/foodcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

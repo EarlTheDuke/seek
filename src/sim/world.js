@@ -1596,7 +1596,22 @@ export class SimWorld {
     // day. No amount of intelligence upstream can survive a body that cannot
     // eat or make fire, so every model-driven player was playing a game it was
     // not possible to win.
-    if (intent.eat) {
+    // ── AND IT IS EDGE-DETECTED, for the reason `give` and `accept` are ──
+    //
+    // The intent PERSISTS between packets and packets arrive slower than the
+    // tick: the sim runs at 60 Hz, an agent sends at 30 and a browser at its
+    // frame rate. So a single one-tick `eat` pulse sat in `p.intent` across two
+    // sim ticks and was honoured BOTH times — one decision, two meals.
+    //
+    // Found the moment minds got a verb for eating: a mind asked to eat once
+    // and its pack went venison 2 -> 0 in the same breath. It was never
+    // agent-only, though — a human's eat key has always been able to swallow
+    // twice; single player just never noticed a second steak going down.
+    //
+    // `drop`, `give`, `offer` and `accept` all learned this already and say so
+    // three screens up. `eat` is the fifth, and the same two lines.
+    const wantsEat = !!intent.eat;
+    if (wantsEat && !p.eatWasHeld) {
       // Best meal first, from the shared table — the same order the browser
       // uses, out of the same list, so nobody has to keep two in step.
       const found = EDIBLE.find((id) => p.inventory.countOf(id) > 0);
@@ -1605,6 +1620,7 @@ export class SimWorld {
         p.dirty = true;
       }
     }
+    p.eatWasHeld = wantsEat;
 
     // A fire costs `SURVIVAL.woodToLight` branches to LAY and one to feed. See
     // the note on the constant: at one apiece, `place` was the cheapest action

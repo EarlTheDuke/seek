@@ -64,6 +64,18 @@ const BASELINE = [
   // take it.
   'gather takes an optional item — "venison" walks you to a carcass, none walks',
   'you to whatever is nearest, branch or kill.',
+  // ── A TENTH TIME, when minds were given a word for eating. Same commit. ──
+  //
+  // Until then no mind in this survival world could say it wanted to eat: the
+  // server has honoured `intent.eat` since agents got hands and the only setter
+  // was a keypress. Adding the verb is not on its own a change to the control —
+  // the verb list above is interpolated for exactly that reason — but this
+  // SENTENCE is, and it has to be here or "personas off" quietly means two
+  // different briefs depending on which file you read.
+  //
+  // Shared-floor mechanics like every line around it: it says what the verb
+  // takes and where the food comes from, and nothing about when to be hungry.
+  'eat takes nothing — you eat the best food in your own pack, where you stand.',
   // ── A SEVENTH TIME, when speech stopped being a verb. Same commit. ──
   //
   // `say` WAS a verb, so speaking meant not hunting — a cost built into the

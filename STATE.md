@@ -1,32 +1,57 @@
 # State of play — read this first, it is short on purpose
 
-**Last updated: 2026-08-11**, by a session that found the diagnosis it was handed
-was stale, and found another session writing into the same tree while it worked.
+**Last updated: 2026-08-11**, by a session that fixed the two named breaks, found
+two more of the same family underneath them, and put a check over all four.
 
-## START HERE — the next two fixes, both small, both proven
+## START HERE — the food chain is fixed and covered. Next is a LIVE run.
 
-From the hour run (`runs/HOUR-2026-08-11.md` — 635 decisions, 0 meals). Do these
-before spending another token on models: neither is a guess, both are quoted from
-a real run, and together they are most of arc 1.
+**The two fixes the last session named are done, and two more that were hiding
+behind them.** All four are proven by a new socket-level check —
+`npm run foodcheck`, **20/20** — that stages real bodies on a real server and
+asserts outcomes: did the pack gain wood, did the meat leave the pack, did the
+belly fill.
 
-1. **`branch` singular cannot reach the firewood.** 82 of 98 gather decisions
-   named `branch`; every one was refused. `src/net/agent.js:2845` accepts only
-   `wood` and `branches`. One line. This is the 08-10 gather fix creating a NEW
-   way to fail — giving a verb a parameter creates new ways to answer it badly,
-   and nothing was checking which words actually land.
+1. ✅ **`branch` reaches the firewood.** `resolveItemId` had always mapped
+   branch/branches/a branch → `wood`; `gather` was the one caller that never
+   asked it, and `namesTheSame('branches','branch')` is false because "branches"
+   is not a word inside "branch". Fixed in the gate AND in `nearestDrop`, which
+   had the identical bug and would have walked a mind past a dropped branch at
+   its feet. All six spellings now land.
+2. ✅ **Minds have a word for eating.** `eat` is in the goal table, in the
+   prompt, and wired to the `intent.eat` the server has honoured all along.
+3. ✅ **NEW — a bare `{"kind":"gather"}` was silently becoming `wander`.**
+   Declaring `item` made the noun *compulsory*: `sanitiseGoal` turns a goal whose
+   every declared param is missing into a walk. So the plainest way to say "pick
+   something up" — and what every mind sent for the whole life of the project
+   before the noun existed — was refused. Specs can now say `optional: true`.
+4. ✅ **NEW — the server ate twice per decision.** The sim runs at 60 Hz and an
+   agent sends at 30, and `p.intent` persists between packets, so one `eat` pulse
+   was honoured on two consecutive ticks: venison 2 → 0 in one breath. Now
+   edge-detected like `give`, `offer`, `accept` and `drop` already were. **This
+   was never agent-only — a human's eat key could always swallow twice.**
 
-2. **No mind has a word for eating.** There is no `eat` verb in the goal
-   vocabulary at all, so a model holding food has no way to say it wants to eat
-   it. Not a bug — a MISSING VERB, and it is why "the models cannot feed
-   themselves" survived every fix aimed at the FOOD end of the chain.
+**A CORRECTION TO THE LAST HANDOVER, and it matters for reading the hour run.**
+"No mind in this world can eat" was true of the *vocabulary* and not of the
+*body*: `upkeep()` has always eaten by REFLEX — a cooked meal below `eatBelow`
+(45), raw below `eatRawBelow` (18). So the missing verb is **not** what produced
+0 meals. **The gather break is upstream of everything**: 0 items picked up means
+there was never any food for the reflex to eat. What the verb actually adds is
+*choice* — the reflex is deliberately conservative and will not spend raw meat
+above 18, so until now a mind could not decide to eat early, before a hunt or
+before the cold came on. `foodcheck` stages every body at hunger 60, above both
+thresholds, with a control arm that is never given the goal, precisely so the
+reflex cannot be mistaken for the verb.
 
-Then re-run the trio as a FAIR comparison. Coinneach's 116 failures were a
-3000-token ceiling truncating kimi mid-thought (fixed, now 12000), so the hour
-run was never a three-model test and nothing about Grok-vs-Kimi may be read from
-it.
+**NEXT, and it is a measurement and not a fix:** re-run the trio as a FAIR
+comparison. Nothing here has been seen by a live model — all four fixes are
+proven by harness, not by a run. Coinneach's 116 failures were a 3000-token
+ceiling truncating kimi mid-thought (fixed, now 12000), so the hour run was never
+a three-model test and nothing about Grok-vs-Kimi may be read from it.
 
 **AND ONE WRITER AT A TIME.** Pause `highlands-triage` before working here, and
-before Ben plays. The bill for ignoring it is immediately below.
+before Ben plays. The bill for ignoring it is immediately below. *(All three
+scheduled tasks were already disabled when this session started, and it left them
+that way.)*
 
 ## READ THIS BEFORE ANYTHING ELSE, 2026-08-11
 
@@ -74,7 +99,11 @@ sentences gagged, 0 logged as spoken · 0 kills · 0 items picked up · 0 meals.
 | Tormod | grok-4.5 | 115 | 113 | 2 |
 | Coinneach | kimi-k2.6 | 101 | **34** | **116** |
 
-**NEWLY RED — two proven breaks in the food chain, neither of them the model's fault:**
+**~~NEWLY RED~~ — FIXED 2026-08-11, later the same day. Both of these, plus two
+more of the same family found underneath them, are green and covered by
+`npm run foodcheck` (20/20). See START HERE at the top — including the
+correction that the missing verb was NOT what caused the 0 meals. Kept below
+because the diagnosis is still the clearest statement of what was wrong:**
 
 1. **`gather` cannot hear the word "branch".** 82 of 98 gather decisions named
    `branch`; every one was refused. `agent.js:2845` gates deadfall behind
@@ -267,6 +296,31 @@ in a pack. Verify by driving the game, and make the check assert an OUTCOME.
 
 ## Things that will waste your time if you do not know them
 
+- **GIVING A VERB A PARAMETER CREATES NEW WAYS TO ANSWER IT BADLY, AND THEY WILL
+  BE FOUND ONE AT A TIME, LATE.** `gather` learned the noun `item` on 2026-08-10.
+  That one word produced FOUR separate failures, each found in a different
+  session: the word `none` searched for an item called none; the singular
+  `branch` missed a word-boundary match and refused 82 of 98 decisions; the field
+  left out entirely turned a bare gather into a `wander`; and `nearestDrop` had
+  the same boundary bug as the gate, so the fix worked for standing deadfall and
+  not for a dropped branch. **When you add a parameter, enumerate every way a
+  model can answer it — the right word, a synonym, a plural, "none", and NOTHING
+  — and put a check over all five in the same commit.** `foodcheck` does.
+- **AN AGENT DOES NOT TICK ITSELF, AND A CHECK THAT FORGETS IT READS A FLAT
+  ZERO.** `connect()` opens the socket and starts nothing; `update(dt)` is driven
+  from outside by the `setInterval` in `agents.js`. Every other agent check gets
+  away with not knowing this because none of them need a body to ACT — they read
+  memory, or events, or call `resolve()` directly. The first cut of `foodcheck`
+  reported no meals, no refusals, nothing, and it looked exactly like "the new
+  verb does not work". What gave it away was counting calls to `upkeep` and
+  `resolve` and finding both at zero — **instrument the instrument.**
+- **THE INTENT PERSISTS BETWEEN PACKETS AND THE SIM RUNS FASTER THAN THE SENDER,
+  SO ANY ONE-SHOT INTENT FIRES TWICE UNLESS IT IS EDGE-DETECTED.** 60 Hz sim, 30
+  Hz agent, browser at its frame rate. `drop`, `give`, `offer` and `accept` each
+  learned this separately; `eat` was the fifth and cost a whole extra meal per
+  decision. `place` has an agent-side cooldown instead. **If you add a field to
+  `INTENT_KEYS` that DOES something once, edge-detect it in `world.js` the same
+  day** — and note that this is a human bug too, not an agent one.
 - **A ONE-FRAME FIELD AND A RATE LIMIT ARE A SILENT DATA LOSS, AND THIS PROJECT
   DISCOVERED IT THREE TIMES WITHOUT GENERALISING IT ONCE.** `sendIntent` gates on
   `NET.intentHz`; `PlayerInput.poll` clears every `pressed*`/`pending*` field

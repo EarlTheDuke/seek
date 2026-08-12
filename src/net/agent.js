@@ -56,7 +56,7 @@ import { bearingName, describePosition, findDistrict, nearbyDistricts } from '..
 // callers, one table, which is the only way "cook" means the same thing in all
 // three places.
 import { RECIPES, canCraft } from '../items/recipes.js';
-import { EDIBLE, getItem, itemWords } from '../items/registry.js';
+import { EDIBLE, getItem, itemWords, resolveItemId } from '../items/registry.js';
 import { AGENTS, BOW, PLAYER, NET, SURVIVAL, PICKUP, MINDS, SOCIAL } from '../config.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -2859,7 +2859,32 @@ export class Agent {
         const asked = typeof g.item === 'string' ? g.item.trim().toLowerCase() : '';
         const want = NO_PREFERENCE.includes(asked) ? '' : (typeof g.item === 'string' ? g.item : '');
         const drop = this.nearestDrop(want);
-        const wood = want && !namesTheSame('wood', want) && !namesTheSame('branches', want)
+        // ── THE GATE THAT COULD NOT HEAR THE WORD MODELS ACTUALLY SAY ──
+        //
+        // This read `!namesTheSame('wood', want) && !namesTheSame('branches', want)`.
+        // `namesTheSame` matches on a WORD BOUNDARY, so the label has to appear
+        // whole inside what was said — and "branches" is not inside "branch".
+        // Singular went null, deadfall was never looked up, and the mind was
+        // told there is no branch lying about while standing in a wood.
+        //
+        // Measured in the 110-minute run of 2026-08-11: **82 of 98 gather
+        // decisions named `branch`, and every single one was refused.** It was
+        // a REGRESSION from the noun fix the day before — before that, `want`
+        // was always `''` and `''` opens the gate, so teaching `gather` a noun
+        // invented a new way to answer it badly and nothing was watching which
+        // words landed.
+        //
+        // `resolveItemId` has always got this right — it is the registry's own
+        // spoken-word lookup and it maps branch/branches/a branch/some branches
+        // all to `wood`. `nouncheck` was green over it the whole time. The bug
+        // was that `gather`, the one caller that needed it, never called it.
+        // *A check green over a path no caller could reach.*
+        //
+        // Kept as an OR with the old test so this can only ever WIDEN what
+        // matches: any word that landed before still lands.
+        const meansWood = resolveItemId(want) === 'wood'
+          || namesTheSame('wood', want) || namesTheSame('branches', want);
+        const wood = want && !meansWood
           ? null
           : nearestDeadfall(this._x, this._z, undefined, this.taken);
         if (want && !drop && !wood) {
@@ -2871,6 +2896,46 @@ export class Agent {
         if (drop && dDrop <= dWood) return { x: drop.x, z: drop.z, act: 'interact', within: REACH };
         if (wood) return { x: wood.x, z: wood.z, key: wood.key, act: 'interact', within: REACH };
         return this.roam();
+      }
+      // ── THE ONLY GOAL IN THIS TABLE THAT IS NOT A PLACE ──
+      //
+      // Every other verb resolves to somewhere to walk. Eating happens where
+      // you are standing, out of the pack you are already carrying, so the
+      // target is our OWN position — distance zero, which arrives instantly and
+      // pulses `i.eat` for exactly one tick through the same machinery that
+      // pulses `interact`. No new code path, and no held key collecting a meal
+      // every frame.
+      //
+      // The refusal matters as much as the meal. `world.js` resolves `eat`
+      // against the pack and does nothing at all when the pack is empty —
+      // silently, which is the disease this whole file has been treated for.
+      // We know what we are carrying (`this.carrying`, off the server), so a
+      // mind that reaches for food it does not have gets told so in words and
+      // can go and do something about it.
+      // A SWALLOW TAKES A MOMENT, and the reflex learned that the expensive
+      // way: `me.f` arrives at 20 Hz against a body running at 30, so for a
+      // tick or two after eating you still believe you are hungry — and it ate
+      // the second steak a third of a second after the first, at 78 fed,
+      // throwing away most of a deer.
+      //
+      // A CHOSEN meal has the same throat. Without this the goal re-resolves
+      // every `retargetSeconds` and pulses again, so one decision to eat empties
+      // the whole pack before the next thought — measured here at venison 2 -> 0
+      // in two and a half seconds. Deliberately `this.eatCooling`, the reflex's
+      // own field and not a second timer: a body has one throat, and a mind that
+      // chooses to eat should also hold off the reflex meal that follows.
+      case 'eat': {
+        if ((this.eatCooling ?? 0) > 0) return null;
+        const meal = EDIBLE.find((id) => this.count(id) > 0);
+        if (!meal) {
+          this.refuse('eat', 'you have nothing in your pack you could eat');
+          return null;
+        }
+        // Set here rather than on arrival because the target IS where we are
+        // standing: distance zero arrives on this same tick, so there is no gap
+        // between resolving and swallowing for the timer to miss.
+        this.eatCooling = AGENTS.swallowSeconds;
+        return { x: this._x, z: this._z, act: 'eat', within: REACH };
       }
       // Camp is a place with fuel in reach, so this is gather with a reason.
       // It used to fall through to `roam()` — which meant an agent that decided
@@ -3060,8 +3125,16 @@ export class Agent {
   nearestDrop(want = '') {
     let best = null;
     let nearest = Infinity;
+    // The same word-boundary trap the `gather` gate had, and it has to be fixed
+    // in BOTH places or "pick up a branch" finds standing deadfall and walks
+    // straight past a branch somebody dropped at its feet. `itemWords('wood',2)`
+    // is "branches", and "branches" is not inside "branch". Resolve the spoken
+    // word to an id ONCE, then match on the id; the two `namesTheSame` tests
+    // stay as a fallback so nothing that matched before stops matching.
+    const wantId = want ? resolveItemId(want) : null;
     for (const l of this.snapshot?.lo ?? []) {
-      if (want && !namesTheSame(itemWords(l.i, l.n), want) && !namesTheSame(l.i, want)) continue;
+      if (want && !(wantId && l.i === wantId)
+        && !namesTheSame(itemWords(l.i, l.n), want) && !namesTheSame(l.i, want)) continue;
       const d = Math.hypot(l.p[0] - this._x, l.p[2] - this._z);
       if (d < nearest) { nearest = d; best = { x: l.p[0], z: l.p[2], item: l.i, count: l.n }; }
     }

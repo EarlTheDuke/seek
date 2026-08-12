@@ -86,6 +86,55 @@ export const GOALS = {
     // instrument, and the most expensive one: it is most of "the models cannot
     // feed themselves".
     params: ['item'],
+    // ── AND THE NOUN IS OPTIONAL, WHICH HAD TO BE SAID OUT LOUD ──
+    //
+    // Declaring `item` did not only teach `gather` a noun; it made the noun
+    // COMPULSORY, because the rule at the bottom of `sanitiseGoal` turns any
+    // goal whose every declared param is missing into `wander`. So a bare
+    // {"kind":"gather"} — the plainest way to say "pick something up", and what
+    // every mind in this project sent for its entire life before the noun
+    // existed — became a walk with a refusal attached.
+    //
+    // Third face of one bug now. Giving a verb a parameter created a new way to
+    // answer it badly, and each way was found separately and late: the word
+    // "none" (fixed 2026-08-11), the singular "branch" (fixed with it), and
+    // this one, the field simply left out.
+    //
+    // A bare gather is not an incomplete goal. It MEANS "whatever is nearest",
+    // `describe` has always said so, and `resolve` has always handled `want`
+    // being empty. The vocabulary just had no way to distinguish "this verb
+    // takes a parameter" from "this verb requires one".
+    optional: true,
+  },
+
+  // ── THE VERB THAT WAS MISSING, AND IT IS THE ONE THE WORLD IS ABOUT ──
+  //
+  // This is a survival world and until now **no mind in it had a word for
+  // eating.** Not a bug in a code path — an absence from the vocabulary, which
+  // is a far quieter thing to have wrong. `world.js` honours `intent.eat` and
+  // has since the day agents got hands; the only setter in the whole codebase
+  // was a KEYPRESS. A human could eat. A model could not say it wanted to.
+  //
+  // That absence is most of "the models cannot feed themselves", and it is why
+  // every fix aimed at the FOOD end of the chain — the carcass, the noun, the
+  // pickup radius, the inventory field — kept not being the answer. The chain
+  // was: see the deer, kill the deer, gather the venison, and then nothing. The
+  // 110-minute run of 2026-08-11 ended 635 decisions, 0 meals; fixing `gather`
+  // alone would have produced minds that starve holding meat.
+  //
+  // Ninth instance of WHEN A MODEL LOOKS INCAPABLE, SUSPECT THE HARNESS FIRST,
+  // and the purest one yet: there was no channel at all.
+  //
+  // NO PARAMETERS, deliberately. The world's handler takes none — it eats the
+  // best thing in the pack off the shared `EDIBLE` order — and a parameter the
+  // world ignores is a promise to the mind that gets quietly broken. It would
+  // also be actively harmful here: `sanitiseGoal` turns a goal whose every
+  // param is missing into `wander`, so an optional `item` would mean a bare
+  // {"kind":"eat"} from a starving mind became a walk.
+  eat: {
+    id: 'eat',
+    describe: () => 'eat the best thing in your pack',
+    params: [],
   },
 
   makeCamp: {
@@ -312,7 +361,12 @@ export function sanitiseGoal(raw) {
   // by the caller. It also matters for reading a run: a verb being REACHED FOR
   // AND REFUSED looks identical to a verb nobody wants, and six of fifteen verbs
   // have gone unused with no way to tell those two apart.
-  if (spec.params.length && spec.params.every((k) => !out[k])) {
+  //
+  // ...and a verb whose parameters are genuinely OPTIONAL is exempt, or this
+  // rule eats the verb it was meant to protect. `gather` is the case: the noun
+  // narrows the errand and its absence is a perfectly good instruction. See the
+  // note on the spec — a bare gather spent a day silently becoming a wander.
+  if (!spec.optional && spec.params.length && spec.params.every((k) => !out[k])) {
     if (spec.params.includes('text')) return null;
     return {
       kind: 'wander',
