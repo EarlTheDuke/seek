@@ -35,6 +35,53 @@ somebody a wrong diagnosis. **Skim it before you debug anything, not after.**
 > worse than none, because it is believed.** Everything cut is in
 > `STATE-ARCHIVE-2026-08-10.md`. Cut the closed sections; do not let this grow back.
 
+## THE HOUR RUN, 2026-08-11 — THE ANSWER IS NO, AND WE KNOW WHY
+
+Three models, personas OFF, 110 minutes: **[runs/HOUR-2026-08-11.md](runs/HOUR-2026-08-11.md)**
+is the full transcript and analysis. Headline:
+
+**635 decisions · 636/3000 calls · 952,805 tokens · 118 failed calls · 65
+sentences gagged, 0 logged as spoken · 0 kills · 0 items picked up · 0 meals.**
+
+| seat | model | printed decisions | from the MODEL | failed calls |
+|---|---|---|---|---|
+| Eachann | grok-4.20-0309-non-reasoning | 101 | 98 | 0 |
+| Tormod | grok-4.5 | 115 | 113 | 2 |
+| Coinneach | kimi-k2.6 | 101 | **34** | **116** |
+
+**NEWLY RED — two proven breaks in the food chain, neither of them the model's fault:**
+
+1. **`gather` cannot hear the word "branch".** 82 of 98 gather decisions named
+   `branch`; every one was refused. `agent.js:2845` gates deadfall behind
+   `namesTheSame('wood'|'branches', want)`, and "branches" is not a word inside
+   "branch", so `wood` goes null — and deadfall is not in `snapshot.lo`, so the
+   drop lookup misses too. **This is a REGRESSION from yesterday's noun fix**:
+   before it, `want` was always `''`, and `''` opens the gate. `resolveItemId`
+   gets it right and `nouncheck` is green over it; `gather` does not call it.
+   *A check green over a path no caller could reach* — again.
+2. **No mind in this world can eat.** `world.js:1599` honours `intent.eat`; the
+   only setter in the codebase is a keypress (`input.js:341`). `goals.js` gives
+   a mind fifteen verbs and `eat` is not among them. Fixing (1) alone produces
+   minds that gather firewood and starve holding meat.
+
+**Also red, and cheaper:** `refuse()` never reaches the operator log (~98
+refusals, 0 printed — the most important fact about the run is absent from the
+run's own log); the kimi alarm fires once and never repeats; the fleet's elapsed
+clock ran 26% slow (110m reported against 150m wall) and nothing stopped at the
+hour that was asked for.
+
+**METHOD WARNING, and it is the "one writer at a time" rule again:** three
+commits landed *while the fleet was running* (b311101 16:01, 46fbf67 16:10,
+4f0b534 16:12; fleet started 15:55:47). Node does not hot-reload, so the run
+executed pre-fix `agent.js` — **953k tokens measured a tree that no longer
+exists**, and every speech claim from it is about superseded code. Check
+harnesses also joined the live world ten times mid-run, Alice **with a wolf cub**
+three times, in a pets-off control arm.
+
+**GREEN, and the brief that said otherwise was stale:** `inventorycheck` is
+**29/29** on the current tree, not 7/12. The drop path is not broken. Also
+green this session: `build`, `nouncheck` 18/18, `timbercheck` 17/17.
+
 ## WHERE IT IS ALL GOING
 
 **[TRAJECTORY.md](TRAJECTORY.md)** is the programme-level plan — the six arcs,
@@ -61,6 +108,13 @@ all was fed and comfortable.** Written 2026-08-07. Nothing since has shown it
 fixed. The minds talk, coordinate, lie and reason about ambushes — and they
 cannot feed themselves. Everything else on the list is a feature; this is the
 game not working.
+
+**2026-08-11 — it still has not moved, but it is no longer a mystery.** A third
+run, 635 decisions: zero kills, zero pickups, zero meals. The two reasons are
+named above and both are in OUR code, not the models': a noun the gather path
+cannot hear, and a verb for eating that does not exist. The minds asked for the
+right things in the right order for 110 minutes. **Stop reading this number as
+"the models cannot survive". They were never given hands or a mouth.**
 
 ## GROUND LOOT AND THE PACK, 2026-08-11 — CLOSED
 
