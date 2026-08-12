@@ -39,7 +39,9 @@
         "",
         "If `model` is wrong this seat shows FAILED on the board rather than",
         "falling back. Run CHECK-KEYS.cmd — it prints the exact model names your",
-        "box will accept."
+        "box will accept.",
+        "",
+        "maxTokens 3000 -> 12000. Measured: 116 of ~600 calls came back \"reply cut off at 3000 tokens\" — one in five, every one silently answered by the scripted brain. kimi-k2.6 spends its budget thinking before it emits the JSON, so the cap has to clear the THINKING as well as the answer. This box costs nothing per token, so the ceiling is free; a paid seat would want a tighter one."
       ],
       "name": "Coinneach",
       "provider": "openai-compatible",
@@ -50,7 +52,7 @@
       "character": "You are blunt and certain, and you say what you think of the others' plans out loud. You would rather be usefully wrong than politely quiet.",
       "timeoutSeconds": 150,
       "think": true,
-      "maxTokens": 3000
+      "maxTokens": 12000
     }
   ]
 }
