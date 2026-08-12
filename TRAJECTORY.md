@@ -116,14 +116,35 @@ scenarios worth benchmarking.
 - **Personas ship with an off switch, and off is byte-identical.** The control
   arm is what makes any personality result mean anything.
 
-## WHERE WE ACTUALLY ARE, 2026-08-10
+## WHERE WE ACTUALLY ARE, 2026-08-11
 
-Arc 1 is the live front. `gather` could not take its noun until tonight, which
-is most of "the models cannot feed themselves" — three starving minds spent 83
-minutes asking for meat and being handed branches. Fixed; **unproven in a live
-run**, and that is the next measurement.
+Arc 1 is still the live front, and the food chain is the whole of it.
+
+**Read the previous entry as a warning, not as history.** On the 10th this file
+said `gather` had learned its noun and the blocker was "Fixed; unproven in a
+live run". The run came, and it was not fixed: **635 decisions, 0 items, 0
+meals.** The noun fix had itself broken `gather` three new ways — the word
+`none`, the singular `branch` (82 of 98 decisions, every one refused), and the
+field left out entirely, which turned a bare gather into a wander. A fourth bug
+sat under those: the server honoured one `eat` pulse on two consecutive ticks.
+**"Fixed" written before an outcome test is a guess with a tick beside it**,
+and this file believed one for a day.
+
+All four are now fixed and covered by `npm run foodcheck` (20/20) — real bodies,
+real socket, staged above both reflex thresholds with a control arm, asserting
+the meat left the pack and the belly filled. Minds also have a word for eating
+for the first time; note that bodies always ate by REFLEX, so the missing verb
+was never what caused the 0 meals. The gather break was upstream of all of it.
+
+**Still unproven in a live run, and arc 1's "done looks like" is not met:** no
+model-driven seat has yet survived a night unaided, and no two seats have
+reached an outcome neither could reach alone. The next thing is the FAIR trio
+re-run — kimi's 3000-token ceiling made the hour run a two-model test wearing a
+three-model label.
 
 Arc 2 is second, and cheap: per-seat failure attribution, and a speech limit
 counted in decisions rather than game hours.
 
-Arcs 3-6 are open. Nothing in them should start while arc 1 is unproven.
+Arcs 3-6 are open. Nothing in them should start while arc 1 is unproven — and
+"unproven" now means *no live run has shown a mind feed itself*, not *no check
+is green*.
