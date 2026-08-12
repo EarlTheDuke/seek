@@ -2840,7 +2840,24 @@ export class Agent {
       // `makeCamp` is deliberately left alone below: it means "a place with fuel
       // in reach" and must not start walking to carcasses.
       case 'gather': {
-        const want = typeof g.item === 'string' ? g.item : '';
+        // ── A WORD THAT MEANS "NOTHING IN PARTICULAR" IS NOT A SHOPPING LIST ──
+        //
+        // `gather` learned to take a noun today, and a model promptly answered
+        // `{"kind":"gather","item":"none"}` — seen in a 110-minute run as
+        // "Tormod: pick up none — need branches for fire and arrows". Read
+        // literally that is a search for an item called `none`, which fails,
+        // refuses, and costs the mind a whole deliberation to say nothing.
+        //
+        // It is also not the model being stupid: it was asked for an optional
+        // parameter and answered the honest thing when it had no preference.
+        // The reason field said what it actually wanted — branches — so the
+        // intent was fine and only the noun was noise.
+        //
+        // So these words mean "you choose", which is exactly what a bare
+        // gather already means.
+        const NO_PREFERENCE = ['none', 'nothing', 'any', 'anything', 'whatever', 'null', 'undefined', '-'];
+        const asked = typeof g.item === 'string' ? g.item.trim().toLowerCase() : '';
+        const want = NO_PREFERENCE.includes(asked) ? '' : (typeof g.item === 'string' ? g.item : '');
         const drop = this.nearestDrop(want);
         const wood = want && !namesTheSame('wood', want) && !namesTheSame('branches', want)
           ? null
