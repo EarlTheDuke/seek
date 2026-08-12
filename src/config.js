@@ -956,6 +956,17 @@ export const AGENTS = {
   // Was 0.2 and a real run sat at 0.11 for 83 minutes without a word.
   unwellAbove: 0.08,
 
+  // How long before an ALREADY-WARNED seat may say so again.
+  //
+  // The warning used to be latched true forever, which turned "said once so it
+  // cannot become noise" into "said once so it cannot be heard again" — a seat
+  // that went bad, recovered and went bad again reported only the first spell,
+  // and silence reads as recovery. Five minutes is far enough apart to stay
+  // readable in a two-hour run and near enough that a returning fault is not
+  // discovered in the report afterwards. Shared with the fleet-clock drift
+  // warning, which has exactly the same "true but repetitive" problem.
+  unwellRepeatSeconds: 300,
+
   // ── staying alive, which is not a decision ──
   //
   // The reflex layer's half of survival. A mind chooses where to go and what to

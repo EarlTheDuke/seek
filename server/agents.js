@@ -35,6 +35,7 @@ import { assignPersonas, PERSONA_IDS } from '../src/minds/personas.js';
 import { AGENTS } from '../src/config.js';
 import { buildReport, summarise } from './playreport.js';
 import { boardState, serveBoard, boardPortFromEnv, mindHealth } from './board.js';
+import { FleetClock } from './fleetclock.js';
 import { appendNote, NOTES_FILE } from './notes.js';
 
 const args = process.argv.slice(2);
@@ -344,12 +345,23 @@ async function main() {
   }
   console.log('');
 
+  // FIXED STEP, AND IT MUST STAY FIXED. A seeded run has to reproduce, and a
+  // variable dt makes every body's path depend on how busy the machine was.
+  // What was wrong was never this number — it was counting ticks of it and
+  // calling the total "seconds". See `fleetclock.js`.
   const STEP = 1 / 30; // agents think at half the sim rate; nothing needs more
+  const clock = new FleetClock();
   let reported = 0;
+  let laggedAt = 0;
 
   const timer = setInterval(() => {
     for (const a of agents) a.update(STEP);
-    elapsed += STEP;
+    clock.tick(STEP);
+    // The wall, not the tick count. `elapsed` feeds the console line, the
+    // report's `meta.seconds`, the board and the `for=` stop — and every one of
+    // them was 26% slow on the hour run, which is why that run did not stop at
+    // the hour it was asked for.
+    elapsed = clock.wall;
 
     if (elapsed - reported >= 15) {
       reported = elapsed;
@@ -421,13 +433,40 @@ async function main() {
         // "fine". Below about 8% you are arguing with ordinary API flakiness;
         // above it you are measuring the scripted brain and calling it a model.
         const bad = h.fellBack || (h.calls >= 5 && h.failureRate > AGENTS.unwellAbove);
-        if (!bad || agents[i]._warnedUnwell) continue;
-        agents[i]._warnedUnwell = true;
+        // ── SAID ONCE PER AGENT MEANT SAID ONCE PER RUN, FOREVER ──
+        //
+        // `_warnedUnwell` was set true and never cleared, so a seat that went
+        // bad, recovered, and went bad again was reported for the first spell
+        // and silent for every one after — and "silent" is exactly what a
+        // watcher reads as "fine now". Worse, the warning is worth MORE the
+        // second time: one bad patch is API weather, a returning one is a seat
+        // that should not be in the comparison at all.
+        //
+        // So the latch now RESETS when the seat recovers, and repeats are
+        // rationed by time rather than suppressed outright — loud enough not to
+        // be scrolled past, quiet enough not to become the wallpaper it was
+        // originally silenced for being.
+        if (!bad) { agents[i]._warnedUnwell = 0; continue; }
+        const since = elapsed - (agents[i]._warnedUnwell ?? 0);
+        if (agents[i]._warnedUnwell && since < AGENTS.unwellRepeatSeconds) continue;
+        const again = agents[i]._warnedUnwell ? ' (still)' : '';
+        agents[i]._warnedUnwell = elapsed;
         console.log(
-          `  ⚠ ${agents[i].name} is on ${h.model ?? h.provider} and ` +
+          `  ⚠ ${agents[i].name}${again} is on ${h.model ?? h.provider} and ` +
             `${h.failures} of ${h.calls} calls FAILED — it is answering from the scripted brain.\n` +
             `    last error: ${h.lastError ?? 'none recorded'}`
         );
+      }
+
+      // ── AND WHETHER THE FLEET IS KEEPING UP WITH REAL TIME AT ALL ──
+      //
+      // A number nobody had, because `elapsed` WAS the tick count and could not
+      // disagree with itself. Now it can, and the gap is a finding: a fleet
+      // running 26% behind is asking every mind to think 26% less often than
+      // the roster says, which silently changes the experiment.
+      if (clock.lagging && elapsed - laggedAt >= AGENTS.unwellRepeatSeconds) {
+        laggedAt = elapsed;
+        console.log(`  ${clock.driftLine()}`);
       }
       if (spent.exhausted && !budget.announced) {
         budget.announced = true;

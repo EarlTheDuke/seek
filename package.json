@@ -80,7 +80,8 @@
     "carrycheck": "node server/carrycheck.js",
     "bowcheck": "node server/bowcheck.js",
     "nopetcheck": "node server/nopetcheck.js",
-    "foodcheck": "node server/foodcheck.js"
+    "foodcheck": "node server/foodcheck.js",
+    "fleetcheck": "node server/fleetcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

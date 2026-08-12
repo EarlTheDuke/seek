@@ -81,23 +81,40 @@ and it is not worth the tokens it cost.
      The tally is also now **once per decision** rather than once per retarget:
      it read `gather: 73` against 50 decisions, from a mind holding 16 branches
      it had picked up, which reads as a broken verb when the verb was working.
-  2. **The fleet clock counts ticks, not time.** `agents.js` does
-     `elapsed += STEP` inside a `setInterval` — nominal 30 Hz. Under real load
-     the interval slips, so `elapsed` drifts behind the wall: 110 minutes
-     reported against 150 actual, 26% slow. It is also the clock `shutdown()`
-     reads, which is why an hour run did not stop at the hour. *Fix it with the
-     wall clock, and note this is the RUNNER, not the sim — determinism forbids
-     wall-clock inside the simulation, not in the thing measuring how long a
-     session took.*
-  3. **The unwell alarm fires once per agent, ever.** `_warnedUnwell` is set and
-     never cleared, so a seat that degrades, recovers and degrades again is
-     reported once. Paired with (4) below, a failing model can look quiet.
-  4. **A rate below the threshold is invisible.** An 11% call-failure rate sat
-     under a 20% alarm for 83 minutes. A threshold with no trend behind it only
-     catches disasters.
-  5. **Speech is dropped by a gag whose units do not match the cadence** — 65
-     sentences gagged, 0 logged as spoken, in a run whose whole point was
-     model-to-model talk.
+  2. ✅ **CLOSED 2026-08-12. The fleet clock counts real time.** It did
+     `elapsed += STEP` inside a `setInterval` — counting ticks and calling them
+     seconds. Under load an interval fires late, so the clock ran 26% slow: 110
+     minutes reported against 150 actual. It is also the clock `shutdown()`
+     read, **which is why an hour run kept spending past the hour it was given.**
+     Now `server/fleetclock.js`, extracted so it can be tested at all, with
+     `fleetcheck` 13/13 — including the assertion that guards the budget.
+     *The fixed `STEP` fed to `agent.update()` is untouched and must stay: a
+     seeded run has to reproduce. Determinism forbids a wall clock in the SIM,
+     not in the stopwatch.*
+  3. ✅ **CLOSED 2026-08-12. The unwell alarm repeats.** `_warnedUnwell` was
+     latched true forever, so a seat that degraded, recovered and degraded again
+     reported only the first spell — and silence reads as recovery. The latch
+     now resets on recovery and repeats every `AGENTS.unwellRepeatSeconds`.
+
+  **AND A CORRECTION TO THIS LIST, which was written on 2026-08-11 claiming all
+  five were "verified against the tree".** Three were. The two below were
+  ALREADY FIXED when they were written down, and were carried over from
+  STATE.md's account of the hour run without being re-checked — which is the
+  exact failure this file was corrected for the day before. A closed bug listed
+  as open costs somebody an afternoon proving it is not there.
+
+  4. ✅ *Already closed when listed.* "A rate below the threshold is invisible" —
+     `AGENTS.unwellAbove` is **0.08**, not the 0.2 the hour run sat under, and
+     the console line already names failures per seat rather than aggregating.
+  5. ✅ *Already closed when listed.* "Speech dropped by a gag whose units do not
+     match" — the success branch reaches `onLog`, and the gate compares
+     decisions against `speakEveryDecisions`, which is decisions. The 65-gagged /
+     0-said figure is from the hour run, before that fix. Speech worked
+     throughout the 2026-08-11 proof run.
+
+  **So arc-2's standing debt list is EMPTY.** That is not the same as arc 2 being
+  done — "a person who has never seen the code can watch a run and say why each
+  mind did what it did" is the bar, and it has not been tested on a person.
 
 ### 3. The recorder — a camera that flies itself
 
