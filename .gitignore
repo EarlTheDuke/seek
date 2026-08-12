@@ -41,3 +41,13 @@ keys.cmd.*
 # is in what gets WRITTEN UP from them (see runs/*.md, which are committed) —
 # not in the samples themselves.
 runs/*.jsonl
+
+# Run logs — working files, regenerated every session
+run-*.out
+run-*.err
+trio*.out
+trio*.err
+srv.out
+srv.err
+vite.out
+vite.err

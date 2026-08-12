@@ -3,6 +3,31 @@
 **Last updated: 2026-08-11**, by a session that found the diagnosis it was handed
 was stale, and found another session writing into the same tree while it worked.
 
+## START HERE — the next two fixes, both small, both proven
+
+From the hour run (`runs/HOUR-2026-08-11.md` — 635 decisions, 0 meals). Do these
+before spending another token on models: neither is a guess, both are quoted from
+a real run, and together they are most of arc 1.
+
+1. **`branch` singular cannot reach the firewood.** 82 of 98 gather decisions
+   named `branch`; every one was refused. `src/net/agent.js:2845` accepts only
+   `wood` and `branches`. One line. This is the 08-10 gather fix creating a NEW
+   way to fail — giving a verb a parameter creates new ways to answer it badly,
+   and nothing was checking which words actually land.
+
+2. **No mind has a word for eating.** There is no `eat` verb in the goal
+   vocabulary at all, so a model holding food has no way to say it wants to eat
+   it. Not a bug — a MISSING VERB, and it is why "the models cannot feed
+   themselves" survived every fix aimed at the FOOD end of the chain.
+
+Then re-run the trio as a FAIR comparison. Coinneach's 116 failures were a
+3000-token ceiling truncating kimi mid-thought (fixed, now 12000), so the hour
+run was never a three-model test and nothing about Grok-vs-Kimi may be read from
+it.
+
+**AND ONE WRITER AT A TIME.** Pause `highlands-triage` before working here, and
+before Ben plays. The bill for ignoring it is immediately below.
+
 ## READ THIS BEFORE ANYTHING ELSE, 2026-08-11
 
 **TWO SESSIONS RAN IN THIS TREE AT ONCE AND IT COST MORE THAN ANY BUG THIS WEEK.**
