@@ -285,6 +285,9 @@ export class ModelProvider {
       // "no parameters" made explicit so nobody sends an item and gets a
       // `dropped` field back for their trouble.
       'eat takes nothing — you eat the best food in your own pack, where you stand.',
+      'craft takes what you want MADE, named by the thing itself — "arrows", "a cloak",',
+      '"cooked venison". All making needs a fire in reach; craft walks you to one you',
+      'can see. A bare craft makes whatever you most need.',
       // ── SPEAKING IS FREE, AND THE PROMPT HAS TO SAY SO ──
       //
       // `say` used to be a VERB, so speaking meant not hunting — a real cost,

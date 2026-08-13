@@ -956,6 +956,19 @@ export const AGENTS = {
   // Was 0.2 and a real run sat at 0.11 for 83 minutes without a word.
   unwellAbove: 0.08,
 
+  // ── the hunger at which arrows matter more than firewood ──
+  //
+  // `spareWood` (14) keeps ten branches back for a fire before a body will
+  // spend any on arrows — right, because the cold does not miss. It is also
+  // silent about starving, and in a scarce valley the silence is fatal: no
+  // arrows means no kills means no food, and a body will hold the wood that
+  // would have armed it right up until it dies. Seen twice on 2026-08-12.
+  //
+  // Below this the reserve drops to nothing. Chosen between `eatBelow` (45,
+  // "go and eat something") and `eatRawBelow` (18, "dying with meat in the
+  // pack"): 30 is hungry, and not getting better on its own.
+  arrowsBeatFirewoodBelow: 30,
+
   // How long before an ALREADY-WARNED seat may say so again.
   //
   // The warning used to be latched true forever, which turned "said once so it

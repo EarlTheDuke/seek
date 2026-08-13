@@ -22,7 +22,7 @@ hour spent. See [runs/GROK46-2026-08-12.md](runs/GROK46-2026-08-12.md) and
 **The one-line summary of both runs: the food chain works, and the ARROW chain
 does not.** Every starving seat in both runs was a seat that could not shoot.
 
-### 0a. There is no verb for MAKING anything **[S]** — arc 1
+### 0a. There is no verb for MAKING anything **[S]** — arc 1 ✅ DONE 2026-08-12
 `GOAL_IDS` has fifteen verbs and none of them is `craft`. A mind holding wood and
 no arrows cannot say *"make arrows"*, and a mind holding raw venison at a fire
 cannot say *"cook"*. **This is the `eat` bug exactly** — a channel that does not
@@ -30,14 +30,19 @@ exist, which reads from outside as a model too stupid to feed itself.
 *Quoted from the run:* Fingal asked the group out loud, twice, *"Who has arrows?
 Need arrows by dawn"* — while carrying six wood, which is three fletches.
 
-### 0b. Fletching is gated behind a fire it does not need **[S]** — arc 1
-`fletch_arrows` is `station: none` and the SERVER honours that
-(`recipe.requires !== 'fire' || …` in world.js). But `i.craft` is assigned in
-exactly ONE place in agent.js — inside the `if (fire && fire.d <= fireReach)`
-branch of `upkeep`. **So a body only ever fletches while standing at a fire it
-does not require.** The world permits it; the body can never ask. One `if`.
+### 0b. ~~Fletching is gated behind a fire it does not need~~ **WRONG — I misread the table** ✅ closed 2026-08-12
+**EVERY recipe carries `requires: 'fire'`, arrows included.** The diagnostic that
+said otherwise printed `r.station` — a field that does not exist on a recipe —
+and reported "none" for all six. I shipped a branch for it before `craftcheck`'s
+first sentinel caught the mistake. **Kept here rather than deleted, because the
+cost of getting started IS the real problem and somebody will rediscover this
+and re-fix it.** To arm itself, an unarmed body needs **ten branches for a fire
+plus two more to fletch** — a design question about the entry cost of the arrow
+economy, not a missing channel. Candidates if it needs solving: a cheaper first
+fire, arrows off a carcass, or a `requires: null` recipe that genuinely has no
+station. `craftcheck` now asserts the truth so the wrong fix cannot come back.
 
-### 0c. A starving body will not spend fire-wood on arrows **[S]** — arc 1
+### 0c. A starving body will not spend fire-wood on arrows **[S]** — arc 1 ✅ DONE 2026-08-12
 `AGENTS.spareWood: 14` protects ten branches for a fire before it will fletch —
 *"a fire you cannot light is worse than a shot you cannot take, because the cold
 does not miss."* Sound, until you starve: no arrows → no kills → no food, while

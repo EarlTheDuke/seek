@@ -137,6 +137,37 @@ export const GOALS = {
     params: [],
   },
 
+  // ── THE VERB THAT LETS A MIND ARM ITSELF ──
+  //
+  // Fifteen verbs, and until now not one of them made anything. A mind holding
+  // wood and no arrows could not say *"make arrows"*; a mind holding raw meat
+  // at a fire could not say *"cook"*. The reflex did both, on its own terms and
+  // only on its own terms, and a mind that disagreed with those terms had no
+  // way to say so.
+  //
+  // **It is the `eat` bug exactly, one economy over.** Both were a channel that
+  // did not exist, and both read from outside as a model too stupid to look
+  // after itself. Quoted from the run that caused this, 2026-08-12: Fingal
+  // asked the others out loud, twice — *"Who has arrows? Need arrows by dawn"*
+  // — while carrying six wood, which is three fletches. He could not have
+  // fletched them if he had thought of it, and he did think of it.
+  //
+  // The noun is OPTIONAL and `optional: true` says so, because `sanitiseGoal`
+  // turns a goal whose every declared param is missing into `wander` — the trap
+  // `gather` fell into for a day. A bare `craft` means "make whatever is most
+  // useful", which is what the reflex already decides.
+  craft: {
+    id: 'craft',
+    describe: (p) => (p?.thing ? `make ${p.thing}` : 'make something useful'),
+    // Named by what comes OUT, not by the recipe id: a model says "arrows" and
+    // "cooked venison", never `fletch_arrows`. Resolved through the same
+    // `resolveItemId` the nouns go through, which is the lesson `gather` paid
+    // for — the registry already knew the words, and the one caller that needed
+    // it never asked.
+    params: ['thing'],
+    optional: true,
+  },
+
   makeCamp: {
     id: 'makeCamp',
     describe: () => 'find shelter and settle for the night',

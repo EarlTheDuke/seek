@@ -1608,6 +1608,11 @@ export class Agent {
           i[this.target.act] = this.target.actValue ?? true;
           for (const [k, v] of Object.entries(this.target.actAlso ?? {})) i[k] = v;
           this.acted[this.target.act] = (this.acted[this.target.act] ?? 0) + 1;
+          // Some acts need bookkeeping ON THIS BODY as well as a field on the
+          // wire — a craft has to open the window that will later confirm it.
+          // A hook rather than a special case for `craft`, so the next act that
+          // needs one does not add a second branch here.
+          this.target.after?.(this);
           // Reached it and used our hands on it, so stop being offered it.
           if (this.target.key) this.taken.add(this.target.key);
         }
@@ -1676,15 +1681,77 @@ export class Agent {
     }
     // Arrows, but never out of the last of the fuel: a fire you cannot light is
     // worse than a shot you cannot take, because the cold does not miss.
+    //
+    // ── UNLESS YOU ARE STARVING, AND THEN IT IS EXACTLY BACKWARDS ──
+    //
+    // That rule is right about cold and silent about hunger, and in a lean
+    // valley the silence kills. Watched twice on 2026-08-12: a body with no
+    // arrows cannot hunt, so it cannot eat, so it starves — WHILE CARRYING THE
+    // WOOD THAT WOULD HAVE ARMED IT. Iseabail hunted a deer with an empty bow
+    // and five branches in her pack; Fingal asked the others for arrows out
+    // loud, twice, holding three fletches' worth.
+    //
+    // Fourteen wood reserves ten for a fire and four to spare. Below
+    // `arrowsBeatFirewoodBelow` the reserve goes to nothing, because YOU CANNOT
+    // EAT A FIRE: warmth buys you the night, and an empty bow means there is no
+    // reason to survive it. `canCraft` still demands the two wood the recipe
+    // actually costs, so this spends the minimum and never the pack.
     const fletch = RECIPES.fletch_arrows;
+    const starving = this.food !== undefined && this.food < AGENTS.arrowsBeatFirewoodBelow;
+    const reserve = starving ? 0 : AGENTS.spareWood;
     if (
       this.count('arrow') < AGENTS.lowArrows &&
-      this.count('wood') >= AGENTS.spareWood &&
+      this.count('wood') >= reserve &&
       canCraft(fletch, this.pack)
     ) {
       return fletch.id;
     }
     return null;
+  }
+
+  /**
+   * Which recipe a mind meant, from the words a model actually types.
+   *
+   * NAMED BY WHAT COMES OUT. A model says "arrows", "a cloak", "cooked
+   * venison" — never `fletch_arrows`. So the noun goes through `resolveItemId`,
+   * the registry's own spoken-word lookup, and the recipe is found by its
+   * OUTPUT. That is the lesson `gather` paid for twice: the registry already
+   * knew every spelling, and the one caller that needed it never asked.
+   *
+   * A bare `craft` means "whatever is most useful", which is a question the
+   * reflex already answers — so it defers to `recipeToWork` and only falls back
+   * to "anything at all I can make" if the reflex wants nothing.
+   *
+   * Returns the recipe whether or not the inputs are in the pack. Deciding it
+   * cannot be made is the CALLER's job, because the caller is the one that can
+   * say so in words instead of refusing blankly.
+   */
+  recipeNamed(said = '') {
+    const want = String(said ?? '').trim().toLowerCase();
+    if (!want) {
+      const reflex = this.recipeToWork();
+      if (reflex) return RECIPES[reflex];
+      return Object.values(RECIPES).find((r) => canCraft(r, this.pack)) ?? null;
+    }
+    if (RECIPES[want]) return RECIPES[want];
+    const id = resolveItemId(want);
+    if (id) {
+      const byOutput = Object.values(RECIPES).find((r) => Object.keys(r.outputs).includes(id));
+      if (byOutput) return byOutput;
+    }
+    // "cook the venison", "fletch some arrows" — the verb, when the noun missed.
+    const byVerb = Object.values(RECIPES).filter((r) => r.verb && want.includes(r.verb));
+    return byVerb.find((r) => canCraft(r, this.pack)) ?? byVerb[0] ?? null;
+  }
+
+  /** What a recipe still needs, in words a mind can act on. */
+  missingFor(recipe) {
+    const short = [];
+    for (const [id, n] of Object.entries(recipe.inputs)) {
+      const have = this.count(id);
+      if (have < n) short.push(`${n - have} more ${itemWords(id, n - have)}`);
+    }
+    return short.join(' and ');
   }
 
   /**
@@ -1745,6 +1812,19 @@ export class Agent {
     const recipe = this.recipeToWork();
     if (!recipe && !cold) return this.eatRaw(i);
 
+    // ── AND NO, FLETCHING IS NOT STATION-LESS ──
+    //
+    // A note left because I got this wrong on 2026-08-12 and shipped a branch
+    // for it. Every recipe in `RECIPES` carries `requires: 'fire'` — arrows
+    // included. The diagnostic that said otherwise printed `r.station`, a field
+    // that does not exist, so it read "none" for all six and looked like a
+    // finding. `craftcheck`'s first sentinel asserts the truth now.
+    //
+    // The arrow economy IS the problem the runs found; it is just not a bug in
+    // this file. To arm itself an unarmed body needs ten branches for a fire
+    // plus two more to fletch, which is a DESIGN question about the cost of
+    // getting started, not a channel that was missing.
+
     // 2. A FIRE — somebody's, if there is one, because a fire already burning
     // costs no branch.
     const fire = this.nearestFire();
@@ -1752,7 +1832,7 @@ export class Agent {
       i.forward = 0;
       i.sprint = i.crouch = false;
       if (recipe) {
-        i.craft = recipe;
+        this.beginMake(recipe, i);
         // ── A PRESS IS NOT A MAKE ──
         //
         // This used to write the deed right here, and the deed was a keypress
@@ -1772,16 +1852,6 @@ export class Agent {
         // the gather deed already is — the pack RISING on the server's own
         // snapshot, which is a thing that happened rather than a thing wanted.
         // See `noteMake`.
-        this.acted.craftTried = (this.acted.craftTried ?? 0) + 1;
-        this._making = recipe;
-        // ── this make owns the next change to the pack ──
-        // A cook turns venison into venison_cooked and the cooked line RISES,
-        // which is indistinguishable from picking one up if you only watch the
-        // number. Held open for a second and a half of real time rather than
-        // one snapshot, because the server resolves the craft on its own tick
-        // and the new item can land several snapshots after the intent. See
-        // `notePack`.
-        this._made = AGENTS.makeOwnsPackFor;
       }
       // No recipe means we are here to get warm, so stand at it. Self-limiting:
       // the moment `coreC` climbs back over the line this returns false and the
@@ -2108,6 +2178,27 @@ export class Agent {
    * whatever else the same snapshot brought, or the steak's own arrival could
    * be reported twice, once as a make and once as a find.
    */
+  /**
+   * Ask for a make, and open the window that will confirm it.
+   *
+   * Shared by the reflex (`upkeep`) and by a mind that chose `craft`, because
+   * the bookkeeping is the interesting part and duplicating it is how the two
+   * paths drift. Everything here is a REQUEST — `noteMake` decides whether it
+   * happened, off the pack the server sends back.
+   */
+  beginMake(recipe, i) {
+    i.craft = recipe;
+    this.acted.craftTried = (this.acted.craftTried ?? 0) + 1;
+    this._making = recipe;
+    // ── this make owns the next change to the pack ──
+    // A cook turns venison into venison_cooked and the cooked line RISES, which
+    // is indistinguishable from picking one up if you only watch the number.
+    // Held open for `makeOwnsPackFor` of real time rather than one snapshot,
+    // because the server resolves the craft on its own tick and the new item
+    // can land several snapshots after the intent. See `notePack`.
+    this._made = AGENTS.makeOwnsPackFor;
+  }
+
   /**
    * A MEAL CONFIRMED — the belly rising on the server's own snapshot.
    *
@@ -3089,6 +3180,43 @@ export class Agent {
         // this into a deed if and only if the belly actually rises.
         this._mealAskedBy = 'choice';
         return { x: this._x, z: this._z, act: 'eat', within: REACH };
+      }
+      // ── MAKING SOMETHING, WHICH NO MIND COULD ASK FOR UNTIL NOW ──
+      //
+      // Three ways to end up here and all three say something true out loud:
+      // the recipe is not a thing in this world, the inputs are short, or the
+      // station is somewhere else. The old silence — `World.update` drops a
+      // craft with no station, no inputs or `maxHeld` met and says nothing —
+      // is exactly what let a body press at a cold fire all night.
+      case 'craft': {
+        const recipe = this.recipeNamed(g.thing);
+        if (!recipe) {
+          this.refuse('craft', g.thing
+            ? `there is no way to make "${g.thing}" in this country`
+            : 'there is nothing you have the makings of');
+          return this.roam();
+        }
+        if (!canCraft(recipe, this.pack)) {
+          this.refuse('craft', `to make that you need ${this.missingFor(recipe)}`);
+          return this.roam();
+        }
+        // A station-less recipe happens where you stand — the same shape as
+        // `eat`, and for the same reason: distance zero arrives this tick.
+        if (recipe.requires !== 'fire') {
+          return { x: this._x, z: this._z, act: 'craft', actValue: recipe.id, within: REACH,
+            after: (self) => self.beginMake(recipe.id, self.intent) };
+        }
+        // A cook needs a fire, so this is `makeCamp` with a purpose: walk to
+        // one we can see. Refusing outright would be a lie — the mind is right,
+        // it just is not standing in the right place yet.
+        const fire = this.nearestFire();
+        if (!fire) {
+          this.refuse('craft', 'that needs a fire and there is none you can see');
+          return this.roam();
+        }
+        return { x: fire.x, z: fire.z, act: 'craft', actValue: recipe.id,
+          within: SURVIVAL.fireReach,
+          after: (self) => self.beginMake(recipe.id, self.intent) };
       }
       // Camp is a place with fuel in reach, so this is gather with a reason.
       // It used to fall through to `roam()` — which meant an agent that decided

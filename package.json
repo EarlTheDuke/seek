@@ -81,7 +81,8 @@
     "bowcheck": "node server/bowcheck.js",
     "nopetcheck": "node server/nopetcheck.js",
     "foodcheck": "node server/foodcheck.js",
-    "fleetcheck": "node server/fleetcheck.js"
+    "fleetcheck": "node server/fleetcheck.js",
+    "craftcheck": "node server/craftcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

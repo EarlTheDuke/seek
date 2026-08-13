@@ -76,6 +76,9 @@ const BASELINE = [
   // Shared-floor mechanics like every line around it: it says what the verb
   // takes and where the food comes from, and nothing about when to be hungry.
   'eat takes nothing — you eat the best food in your own pack, where you stand.',
+  'craft takes what you want MADE, named by the thing itself — "arrows", "a cloak",',
+  '"cooked venison". All making needs a fire in reach; craft walks you to one you',
+  'can see. A bare craft makes whatever you most need.',
   // ── A SEVENTH TIME, when speech stopped being a verb. Same commit. ──
   //
   // `say` WAS a verb, so speaking meant not hunting — a cost built into the
