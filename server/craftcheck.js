@@ -36,6 +36,7 @@ import { GOAL_IDS, sanitiseGoal, describeGoal } from '../src/minds/goals.js';
 import { AGENTS } from '../src/config.js';
 import { RECIPES } from '../src/items/recipes.js';
 import { requireFreePort } from './freeport.js';
+import { briefToText } from '../src/minds/perception.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.argv[2] ?? 8151);
@@ -202,6 +203,34 @@ try {
   check('  …and answers NOTHING when nothing can be made, rather than guessing',
     smith.recipeNamed('') === null, String(smith.recipeNamed('')?.id ?? 'null'));
   smith.carrying = packWas;
+
+  // ── 4b. AND THE BRIEF SAYS SO BEFORE A DECISION IS SPENT ON IT (0k) ───────
+  //
+  // Fingal chose `craft` twice with an empty pack and was refused both times —
+  // correctly, in words, and he went and got wood on the very next decision.
+  // The refusal loop worked; the decision was still wasted. `lacking` exists
+  // for the identical reason one step earlier ("no arrows — you cannot shoot"),
+  // because a model will not infer an absence, and it will not infer a recipe
+  // it has never seen either.
+  smith.carrying = { wood: 9, stone: 2, hide: 1 };
+  const canMake = smith.makeable();
+  check('THE BRIEF NAMES WHAT THE PACK COULD BECOME — not just what it lacks',
+    canMake.length > 0, JSON.stringify(canMake));
+  check('  …headed by what a BARE craft would actually make, so the two agree',
+    /arrow/.test(canMake[0] ?? ''), `first: "${canMake[0]}" · bare craft picks ${smith.recipeNamed('')?.id}`);
+  check('  …named by the OUTPUT, which is the word the verb takes',
+    canMake.every((w) => !/_/.test(w)), canMake.join(', '));
+
+  smith.carrying = {};
+  check('  …and an empty pack claims nothing, rather than listing what it cannot afford',
+    smith.makeable().length === 0, JSON.stringify(smith.makeable()));
+
+  // It has to reach the TEXT a model reads, not merely the object.
+  smith.carrying = { wood: 9 };
+  const text = briefToText(smith.brief());
+  check('  …and it reaches the words a model actually reads',
+    /You could make:/.test(text) && /fire must be in reach/.test(text),
+    (text.match(/You could make:.*/) ?? ['NO LINE IN THE BRIEF'])[0].slice(0, 100));
 
   // ── 5. REFUSALS, IN WORDS ─────────────────────────────────────────────────
   smith.outcomes = []; smith.refusedVerbs = {};

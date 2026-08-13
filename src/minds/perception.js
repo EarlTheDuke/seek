@@ -202,6 +202,11 @@ export function briefToText(b) {
   // Stated, not left to be inferred from a gap in the line above. See the
   // `lacking` comment in agent.js — one mind hunted for an hour on an empty bow.
   if (b.lacking?.length) lines.push(`You have ${b.lacking.join('; ')}.`);
+  // ...and what those two add up to. `lacking` says what stops you; this says
+  // what you could DO about it without going anywhere. A mind that has to infer
+  // "two branches is a fletch" from a recipe table it has never seen will guess,
+  // and did: three chosen crafts, two of them with nothing to make anything from.
+  if (b.canMake?.length) lines.push(`You could make: ${b.canMake.join(', ')} — a fire must be in reach.`);
   // The mirror of `lacking`. A mind not told a thing is full goes on choosing
   // to fill it — 32 per cent of every decision in one measured hour was picking
   // things up, by bodies already carrying more than they could ever use.

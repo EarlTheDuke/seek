@@ -1092,6 +1092,28 @@ export class Agent {
         this.count('wood') <= 0 && 'no firewood — you cannot lay a fire or make arrows',
         !EDIBLE.some((id) => this.count(id) > 0) && 'no food',
       ].filter(Boolean),
+      // ── AND WHAT YOU COULD MAKE, RIGHT NOW, OUT OF WHAT YOU ARE HOLDING ──
+      //
+      // The same argument as `lacking`, one step on. A mind is told what it has
+      // and what it has run out of, and is left to work out for itself which
+      // RECIPE those add up to — which is a lookup against a table it has never
+      // seen. So it guesses.
+      //
+      // Watched in the first journal, 2026-08-13: Fingal chose `craft` twice
+      // with an empty pack and was refused both times. Correctly, and in words,
+      // and he went and got wood on the very next decision — the refusal loop
+      // working exactly as designed. But that is a decision spent finding out
+      // something the brief could simply have told him. Of the first three
+      // chosen crafts in this project, ONE produced anything.
+      //
+      // Ordered by need, the same ranking `recipeNamed('')` uses for a bare
+      // craft, so the first thing named is the thing a bare craft would make.
+      // Named by the OUTPUT, because that is the word `craft` takes.
+      //
+      // Only what is actually makeable NOW. A list of everything you cannot
+      // afford is the brief nobody reads, which is the rule `lacking` and
+      // `full` were both written under.
+      canMake: this.makeable(),
       // ── AND WHAT YOU CANNOT CARRY ANY MORE OF ──
       //
       // The mirror of `lacking`, and it exists for the same reason: a mind that
@@ -1761,6 +1783,31 @@ export class Agent {
     // "cook the venison", "fletch some arrows" — the verb, when the noun missed.
     const byVerb = Object.values(RECIPES).filter((r) => r.verb && want.includes(r.verb));
     return byVerb.find((r) => canCraft(r, this.pack)) ?? byVerb[0] ?? null;
+  }
+
+  /**
+   * What this pack could become, best first.
+   *
+   * Deliberately the same order `recipeNamed('')` ranks by, so the head of this
+   * list IS what a bare `craft` will make. A brief that named them in table
+   * order would be telling the mind something subtly different from what the
+   * verb does, which is worse than saying nothing.
+   */
+  makeable() {
+    const out = [];
+    const seen = new Set();
+    const rank = [];
+    if (this.count('arrow') < AGENTS.lowArrows) rank.push(RECIPES.fletch_arrows);
+    for (const r of Object.values(RECIPES)) if (r.verb === 'cook') rank.push(r);
+    rank.push(...Object.values(RECIPES));
+    for (const r of rank) {
+      if (!r || seen.has(r.id) || !canCraft(r, this.pack)) continue;
+      seen.add(r.id);
+      const id = Object.keys(r.outputs)[0];
+      const n = r.outputs[id] ?? 1;
+      out.push(n > 1 ? `${n} ${itemWords(id, n)}` : itemWords(id, 1));
+    }
+    return out.slice(0, 4);
   }
 
   /** What a recipe still needs, in words a mind can act on. */

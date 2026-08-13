@@ -63,7 +63,7 @@ branch short of a fire, with the verb in his prompt the whole time. Not *"the
 models can't"* — **"the models don't."** The brief should say *"you are carrying
 food you could eat now"* the way `lacking` already says *"no arrows"*.
 
-### 0k. The brief says what you LACK — it should say what you can MAKE **[S]** — arc 1
+### 0k. The brief says what you LACK — it should say what you can MAKE **[S]** — arc 1 ✅ DONE 2026-08-13
 **NEW, from the first journal, 2026-08-13.** Fingal chose `craft` twice and was
 refused both times because his pack was empty — correctly, and in words, and he
 went and got wood on the very next decision, which is the refusal loop working
@@ -76,8 +76,18 @@ saying **"you have the makings of: arrows, a torch"** turns a wasted decision
 into a made thing. `canCraft` over `RECIPES` against the pack is the whole
 computation, and `recipeNamed('')` already ranks them by need.
 
-Evidence it is worth it: of the three chosen crafts across two runs, ONE produced
+Evidence it was worth it: of the first three chosen crafts, ONE produced
 anything. The other two were a mind reaching for a verb it had no materials for.
+
+**DONE.** `Agent.makeable()` ranks by the SAME need order `recipeNamed('')` uses
+for a bare craft, so the head of the list is literally what a bare craft will
+make and the brief cannot disagree with the verb. Rendered as
+*"You could make: 4 arrows, torch — a fire must be in reach."* Named by the
+OUTPUT, because that is the word `craft` takes; capped at four; and an empty
+pack claims nothing rather than listing what it cannot afford — the rule
+`lacking` and `full` were both written under. `craftcheck` 26/26 -> 31/31,
+including one that the line reaches the TEXT a model reads and not merely the
+brief object.
 
 ### 0f. An append-only event log **[M]** — arc 2, was 5b ✅ DONE 2026-08-13
 `deeds` is a ring `AGENTS.logSize` (400) deep **per seat**, and it is the only
