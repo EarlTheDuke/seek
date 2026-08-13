@@ -63,6 +63,22 @@ branch short of a fire, with the verb in his prompt the whole time. Not *"the
 models can't"* — **"the models don't."** The brief should say *"you are carrying
 food you could eat now"* the way `lacking` already says *"no arrows"*.
 
+### 0k. The brief says what you LACK — it should say what you can MAKE **[S]** — arc 1
+**NEW, from the first journal, 2026-08-13.** Fingal chose `craft` twice and was
+refused both times because his pack was empty — correctly, and in words, and he
+went and got wood on the very next decision, which is the refusal loop working
+beautifully. But he should not have had to spend a decision finding out.
+
+The brief already carries **`lacking`** — *"no arrows, you cannot shoot"* — added
+because absence from a list is not a fact a model reliably notices, and one mind
+hunted for an hour on an empty bow. The same argument applies exactly: a line
+saying **"you have the makings of: arrows, a torch"** turns a wasted decision
+into a made thing. `canCraft` over `RECIPES` against the pack is the whole
+computation, and `recipeNamed('')` already ranks them by need.
+
+Evidence it is worth it: of the three chosen crafts across two runs, ONE produced
+anything. The other two were a mind reaching for a verb it had no materials for.
+
 ### 0f. An append-only event log **[M]** — arc 2, was 5b ✅ DONE 2026-08-13
 `deeds` is a ring `AGENTS.logSize` (400) deep **per seat**, and it is the only
 record. Run 2's transfers rolled off within minutes; the run survives at all only
