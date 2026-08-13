@@ -155,7 +155,14 @@ try {
 
   const deed = smith.deeds.filter((d) => d.what === 'craft').pop();
   check('  …and the deed says a MAKE, not a find — the pack rose and it was not foraging',
-    /I made/.test(deed?.text ?? ''), deed?.text ?? 'no craft deed');
+    /I (made|chose to make)/.test(deed?.text ?? ''), deed?.text ?? 'no craft deed');
+  // WHO ASKED. Bodies have cooked and fletched on instinct since long before
+  // this verb existed, so a board full of makes says nothing about whether the
+  // VERB is used. Watched live on the night it shipped: the scripted control
+  // fletching by reflex was momentarily read as the new verb working.
+  check('  …and it records that a MIND chose it, not that a reflex fired',
+    deed?.by === 'choice' && /^I chose to make/.test(deed?.text ?? ''),
+    `by=${deed?.by} text="${deed?.text}" id=${deed?.id} n=${deed?.n}`);
 
   // ── 4. THE WORDS A MODEL ACTUALLY TYPES ───────────────────────────────────
   const SPELLINGS = ['arrows', 'arrow', 'an arrow', 'fletch_arrows', 'fletch arrows'];

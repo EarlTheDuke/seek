@@ -2203,8 +2203,15 @@ export class Agent {
    * paths drift. Everything here is a REQUEST — `noteMake` decides whether it
    * happened, off the pack the server sends back.
    */
-  beginMake(recipe, i) {
+  beginMake(recipe, i, askedBy = 'reflex') {
     i.craft = recipe;
+    // WHO ASKED — the same distinction `noteMeal` keeps, and for the same
+    // reason. Bodies have always cooked and fletched on instinct; a MIND
+    // deciding to is the new thing, and a report that cannot tell them apart
+    // cannot say whether the `craft` verb is earning its place. Learned the
+    // hard way on the night the verb shipped: the board showed makes happening
+    // and there was no way to know which were chosen.
+    this._makeAskedBy = askedBy;
     this.acted.craftTried = (this.acted.craftTried ?? 0) + 1;
     this._making = recipe;
     // ── this make owns the next change to the pack ──
@@ -2314,7 +2321,13 @@ export class Agent {
       // stitch, and conjugating them is a English problem this does not need to
       // have. What matters is that it does not read like "I picked up".
       const what = gained > 1 ? `${gained} ${Agent.plural(noun, gained)}` : `a ${noun}`;
-      this.did('craft', `I made ${what} at the fire`);
+      const asked = this._makeAskedBy;
+      this._makeAskedBy = null;
+      this.did('craft', asked === 'choice'
+        ? `I chose to make ${what}`
+        : `I made ${what} at the fire`);
+      const last = this.deeds[this.deeds.length - 1];
+      if (last && last.what === 'craft') { last.id = id; last.n = gained; last.by = asked ?? 'reflex'; }
       return;
     }
   }
@@ -3221,7 +3234,7 @@ export class Agent {
         // `eat`, and for the same reason: distance zero arrives this tick.
         if (recipe.requires !== 'fire') {
           return { x: this._x, z: this._z, act: 'craft', actValue: recipe.id, within: REACH,
-            after: (self) => self.beginMake(recipe.id, self.intent) };
+            after: (self) => self.beginMake(recipe.id, self.intent, 'choice') };
         }
         // A cook needs a fire, so this is `makeCamp` with a purpose: walk to
         // one we can see. Refusing outright would be a lie — the mind is right,
@@ -3233,7 +3246,7 @@ export class Agent {
         }
         return { x: fire.x, z: fire.z, act: 'craft', actValue: recipe.id,
           within: SURVIVAL.fireReach,
-          after: (self) => self.beginMake(recipe.id, self.intent) };
+          after: (self) => self.beginMake(recipe.id, self.intent, 'choice') };
       }
       // Camp is a place with fuel in reach, so this is gather with a reason.
       // It used to fall through to `roam()` — which meant an agent that decided
