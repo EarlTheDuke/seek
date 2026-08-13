@@ -660,7 +660,26 @@ export class OpenAiProvider extends ModelProvider {
       // is a mind with a different contract.
       text: data?.choices?.[0]?.message?.content ?? '',
       tokensIn: data?.usage?.prompt_tokens ?? 0,
-      tokensOut: data?.usage?.completion_tokens ?? 0,
+      // ── AND THE THINKING, WHICH IS BILLED AND WAS NOT COUNTED ──
+      //
+      // xAI reports a reasoning model as `completion_tokens: 23` alongside
+      // `completion_tokens_details.reasoning_tokens: 1507` — the visible answer
+      // and the thinking, SEPARATELY. Reading `completion_tokens` alone
+      // therefore counted the one line of JSON and threw away 98% of what the
+      // call actually cost.
+      //
+      // Measured on the 2026-08-12 run: the board reported $1.84 of xAI spend
+      // against roughly $3.37 actually billable — the two grok-4.6 seats were
+      // each reporting about 1% of their real output. A budget you cannot see
+      // is not a budget, and `budgetCalls` only ever capped the number of
+      // CALLS, which is the wrong unit when one seat thinks 65 times harder
+      // than another.
+      //
+      // Summed rather than max'd: providers that already fold reasoning INTO
+      // `completion_tokens` report no details block at all, so the extra term
+      // is zero for them and nothing is double-counted.
+      tokensOut: (data?.usage?.completion_tokens ?? 0)
+        + (data?.usage?.completion_tokens_details?.reasoning_tokens ?? 0),
     };
   }
 }
