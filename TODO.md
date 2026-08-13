@@ -120,12 +120,33 @@ BUDGET: `budgetCalls` caps CALLS, and grok-4.6 costs about **9× per decision**
 what grok-4.20-non-reasoning does. Cap spend, and show $/seat on the board while
 it runs.
 
-### 0h. A model cannot be told apart from its seat **[M]** — methodology
+### 0h. A model cannot be told apart from its seat **[M]** — methodology ✅ DONE 2026-08-13
 Runs 1 and 2 reached OPPOSITE verdicts on grok-4.6 (3 kills from 24 answers, then
 1 from 135) because each model is pinned to one seat, one persona and one spawn.
 **Rotate models across seats between runs** — the roster already carries
 everything needed. Without this, no model claim from this project is worth
 quoting.
+
+**DONE.** `ROTATE=1 npm run agents`, implemented as `rotateMinds` in roster.js.
+The split it rests on: a **SEAT** is a name, a character and a spawn; a **MIND**
+is a provider, a model, and the operating parameters that model needs. Cadence,
+timeout and token ceiling travel WITH the mind — grok-4.6 dropped into a
+12-second seat is a queue, and a queue is how a good model is made to look
+broken. `ROTATE=0` is byte-identical, the same control-arm discipline
+`personacheck` holds personas to, and the startup line and journal header both
+record the rotation so two runs cannot be confused. `rotatecheck` 21/21.
+
+**It found a real bug on the way in, and only against the REAL roster.** Everything
+passed against a hand-built fixture while the live thing was broken: `loadRoster`
+fills an absent provider with the string `'scripted'` — truthy — so filtering on
+`p.provider` swept the control into the rotation. At `ROTATE=1` Eachann went
+scripted and **Iseabail acquired a kimi model**, which would have destroyed the
+control arm in every rotated run. A seat has a mind when it NAMES A MODEL.
+`rotatecheck` now loads the real file through the real loader.
+
+**How to use it:** run the same roster at `ROTATE=0,1,2,…` and average a model's
+score over seats. Nothing before 2026-08-13 was rotated, so every model claim in
+`runs/` older than that is about a model-and-seat pair, not a model.
 
 ### 0i. They agree to share and then do not **[M]** — arc 1
 `offer` is one of the most-reached-for verbs (Ailsa's top goal in run 2), and

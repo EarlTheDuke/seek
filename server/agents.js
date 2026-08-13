@@ -29,7 +29,7 @@
 
 import { Agent } from '../src/net/agent.js';
 import { ScriptedProvider, makeProvider, Budget } from '../src/minds/providers.js';
-import { loadRoster, providerFor as providerForEntry, describeRoster } from './roster.js';
+import { loadRoster, providerFor as providerForEntry, describeRoster, rotateMinds } from './roster.js';
 import { makeRandom } from '../src/world/noise.js';
 import { assignPersonas, PERSONA_IDS } from '../src/minds/personas.js';
 import { AGENTS } from '../src/config.js';
@@ -156,8 +156,20 @@ const BOARD_PORT = boardPortFromEnv(process.env);
 // The roster names every player and gives each its own vendor, model and
 // character. Without one this behaves exactly as it always did: `COUNT` players
 // off the name list, all on whatever the MINDS_* variables say. See roster.js.
+// ── ROTATE: move every mind one seat along ──
+//
+//   ROTATE=1 npm run agents
+//
+// A model welded to one seat, one character and one spawn cannot be told apart
+// from that seat. Two runs of the same roster reached opposite verdicts on
+// grok-4.6 on 2026-08-12 for exactly this reason. Run the same roster at
+// ROTATE=0,1,2,… and a model's score is the average over seats rather than a
+// property of where it happened to wake up. 0 is byte-identical to no rotation.
+// See `rotateMinds`.
+const ROTATE = Math.trunc(Number(process.env.ROTATE) || 0);
+
 const ROSTER = process.env.MINDS_ROSTER
-  ? loadRoster(process.env.MINDS_ROSTER)
+  ? rotateMinds(loadRoster(process.env.MINDS_ROSTER), ROTATE)
   : null;
 
 // ── PERSONAS: the experiment, and its control ──
@@ -247,6 +259,12 @@ if (ROSTER) {
 }
 if (ROSTER) {
   console.log(`  roster: ${process.env.MINDS_ROSTER}`);
+  // SAY IT OUT LOUD. A rotated run and an unrotated one are the same seven names
+  // in the same order, and comparing two runs without knowing which is which is
+  // worse than not rotating at all.
+  if (ROSTER.rotatedBy) {
+    console.log(`  ROTATED by ${ROSTER.rotatedBy} — every mind has moved seat. Characters and spawns stayed put.`);
+  }
   for (const line of describeRoster(ROSTER, providers)) console.log(line);
 } else if (anyModel) {
   console.log(`  minds: ${providers[0].name} · ${providers[0].model}`);
@@ -376,6 +394,7 @@ async function main() {
   // a run.
   const journal = openJournal(path.join(ROOT, 'runs', `journal-${RUN_ID}.jsonl`));
   journal.begin({ url: URL, roster: process.env.MINDS_ROSTER ?? 'roster.json',
+                  rotate: ROSTER?.rotatedBy ?? 0,
                   seats: agents.map((a) => ({ name: a.name, model: a.provider?.model ?? a.provider?.name ?? 'scripted' })) });
   let journalledAt = 0;
   let reported = 0;

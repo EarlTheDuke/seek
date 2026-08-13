@@ -122,6 +122,85 @@ export function loadRoster(path) {
 }
 
 /**
+ * Move every mind one seat along, so a MODEL is not welded to a PERSONA.
+ *
+ * ── WHY THIS EXISTS ────────────────────────────────────────────────────────
+ *
+ * On 2026-08-12 two runs of the same roster reached OPPOSITE verdicts on
+ * grok-4.6 — 3 kills from 24 answers in one, 1 from 135 in the next. Nothing
+ * about the model changed. What differed was the seat: a name, a written
+ * character, a spawn point and whoever happened to be standing nearby.
+ *
+ * Every model in this project is welded to one seat, so "grok-4.6 hunts well"
+ * and "Ailsa's spawn is near the deer" are the same sentence and cannot be told
+ * apart. **Until this exists, no model claim from this project is quotable.**
+ *
+ * ── THE SPLIT THAT MAKES IT WORK ───────────────────────────────────────────
+ *
+ * A SEAT is a name, a character and where it wakes up. A MIND is a provider, a
+ * model, and THE OPERATING PARAMETERS THAT MODEL NEEDS. The second half is the
+ * part that is easy to get wrong: cadence, timeout and token ceiling belong to
+ * the MIND and must travel with it. grok-4.6 thinks for 26 seconds — drop it
+ * into a seat on a 12-second cadence and you have built a queue, and a queue is
+ * how a good model is made to look broken. Measured, on this roster.
+ *
+ * ── AND THE CONTROL NEVER MOVES ────────────────────────────────────────────
+ *
+ * A seat with no provider is scripted ON PURPOSE — Iseabail is the reference
+ * for whether a startling thing was the model or the world, and she has
+ * out-performed the whole field twice. Rotation skips those seats entirely, so
+ * the control stays a control and never quietly acquires a model.
+ *
+ * `by = 0` returns the roster UNCHANGED, byte for byte. That is the same
+ * discipline `personacheck` holds the persona control to: an experiment whose
+ * off-state has drifted is measuring two things at once.
+ */
+export function rotateMinds(roster, by = 0) {
+  const shift = Math.trunc(Number(by) || 0);
+  if (!shift) return roster;
+
+  // Everything that describes HOW A MIND THINKS travels; everything that
+  // describes WHO IS SITTING THERE stays. Listed rather than inferred, because
+  // a field added later must be classified deliberately — a new model knob that
+  // silently stayed behind would confound the very comparison this enables.
+  const MIND_FIELDS = [
+    'provider', 'model', 'keyEnv', 'baseUrl',
+    'cadenceSeconds', 'timeoutSeconds', 'maxTokens', 'think', 'effort',
+  ];
+
+  const players = roster.players.map((p) => ({ ...p }));
+  // ── WHAT COUNTS AS A SEAT WITH A MIND IN IT ──
+  //
+  // `p.provider` is the WRONG test and cost a real bug: `loadRoster` fills an
+  // absent provider with the string `'scripted'`, which is truthy, so a naive
+  // filter swept the control into the rotation. Caught by running this against
+  // the actual roster file rather than a hand-built one — at ROTATE=1 Eachann
+  // went scripted and ISEABAIL ACQUIRED A KIMI MODEL, which would have silently
+  // destroyed the control arm in every rotated run.
+  //
+  // A seat has a mind when it NAMES A MODEL. That is the same thing
+  // `describeRoster` prints and `providerFor` acts on.
+  const hasMind = (p) => !!p.model && p.provider !== 'scripted';
+  const seated = players.map((p, i) => (hasMind(p) ? i : -1)).filter((i) => i >= 0);
+  if (seated.length < 2) return roster;
+
+  const minds = seated.map((i) => {
+    const m = {};
+    for (const f of MIND_FIELDS) m[f] = players[i][f];
+    return m;
+  });
+  // Positive `by` moves each mind FORWARD to the next model seat, which is what
+  // "rotate the roster" reads as. Modulo the seat count, so ROTATE equal to the
+  // number of seats is the identity again.
+  const n = seated.length;
+  seated.forEach((seatIndex, k) => {
+    const from = ((k - shift) % n + n) % n;
+    Object.assign(players[seatIndex], minds[from]);
+  });
+  return { ...roster, players, rotatedBy: ((shift % n) + n) % n };
+}
+
+/**
  * Turn one roster line into a provider.
  *
  * The environment it hands `makeProvider` is BUILT, not the process's own: the
