@@ -63,13 +63,28 @@ branch short of a fire, with the verb in his prompt the whole time. Not *"the
 models can't"* — **"the models don't."** The brief should say *"you are carrying
 food you could eat now"* the way `lacking` already says *"no arrows"*.
 
-### 0f. An append-only event log **[M]** — arc 2, was 5b, now urgent
+### 0f. An append-only event log **[M]** — arc 2, was 5b ✅ DONE 2026-08-13
 `deeds` is a ring `AGENTS.logSize` (400) deep **per seat**, and it is the only
 record. Run 2's transfers rolled off within minutes; the run survives at all only
 because board.json was snapshotted to `runs/RUN2-timeline.jsonl` every 45 seconds
 from outside the game. **Nothing can be analysed after the fact, and every
 downstream thing — the report, a score, the recorder, computer vision — needs a
 durable timeline.** Highest-value item in this tier for everything after it.
+
+**DONE.** `server/journal.js` — append-only JSONL per run under `runs/`, flushed
+as it goes, drained once a second off a monotonic `seq` stamped on every deed and
+decision. Each line carries seat AND model; a decision keeps its `why`; a make
+and a meal keep `by`, so chosen and reflex stay separable after the fact. A run
+killed without a goodbye keeps everything up to that moment, and a reader can
+tell a killed run from a finished one. `journalcheck` 17/17.
+
+**And it admits its own holes.** The first assertion written for it — "a burst
+bigger than the ring loses nothing" — FAILED, because a ring drain cannot be
+lossless when a burst outruns the ring. Rather than soften the claim, the journal
+writes a `gap` line saying how many it missed; the check holds it to *15 kept + 5
+admitted = 20 accounted for*. Unreachable in practice at 400 deep against a
+once-a-second drain, but "cannot happen" is what was said about a stale server
+on port 8080.
 
 ### 0g. Spend, per seat, live, in the unit that matters **[S]** — arc 2
 Reasoning tokens were **not counted at all** until 2026-08-12: xAI reports

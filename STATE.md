@@ -4,7 +4,42 @@
 food chain, watched the chain complete live for the first time, and then fixed
 the three instrument bugs that run exposed.
 
-## START HERE — THE CHAIN WORKS LIVE. The verb does not, yet.
+## START HERE — 2026-08-13: minds can now MAKE things, and runs are recorded
+
+**Four TIER 0 items landed overnight. Read TODO.md's TIER 0 for the full list.**
+
+1. **`craft` — a verb for making things (0a).** Fifteen goals and not one of them
+   made anything: a mind holding wood and no arrows could not say *"make
+   arrows"*. It is the `eat` bug one economy over. Takes an optional noun named
+   by what comes OUT ("arrows", "cooked venison"), resolved through
+   `resolveItemId`; walks to a fire when the recipe needs one; refuses in words
+   otherwise. **Used by live models within 39 minutes** — far faster adoption
+   than `eat`, which took three runs to be used once.
+2. **You cannot eat a fire (0c).** Below hunger 30 the 14-wood fire reserve drops
+   to nothing, so a body no longer starves holding the wood that would arm it.
+3. **The run is written down (0f).** `server/journal.js`, append-only JSONL under
+   `runs/`. The 400-deep rings were the ONLY record and they ate five transfers
+   in one evening; three runs survive only because board.json was snapshotted
+   from outside by hand. Every deed and decision now has a `seq`, and gaps are
+   ADMITTED rather than swallowed.
+4. **Makes and meals record WHO ASKED.** `by: 'choice'` vs `by: 'reflex'` on the
+   deed. Without it the scripted control fletching by reflex read as the new verb
+   working — which it briefly did, to me.
+
+**AND ONE I GOT WRONG, WHICH MATTERS MORE THAN THE THREE I GOT RIGHT.** TIER 0b
+said fletching was gated behind a fire it did not need. **Every recipe carries
+`requires: 'fire'`.** My diagnostic printed `r.station`, a field that does not
+exist on a recipe, read "none" for all six, and I shipped a branch AND a prompt
+line telling the models "arrows need no fire". `craftcheck`'s first assertion now
+pins the truth. The real arrow problem survives and is a DESIGN question, stated
+in TODO 0b: arming yourself costs ten branches for a fire plus two to fletch.
+
+**WHAT IS STILL UNPROVEN LIVE:** that a bare `craft` picks ARROWS when arrows are
+genuinely needed. `craftcheck` proves it in the harness; in the wild the reflex
+keeps fletching first, which is 0c working. Watch for `by: 'choice'` with
+`id: 'arrow'` in a journal.
+
+## The state before that — the chain works live. The eat verb barely does.
 
 **[runs/FOODTEST-2026-08-11.md](runs/FOODTEST-2026-08-11.md) — the full chain
 executed in a live run for the first time in this project:** kill → gather
