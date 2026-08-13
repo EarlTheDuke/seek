@@ -11,6 +11,91 @@ Sizes: **[S]** an afternoon · **[M]** a day · **[L]** more.
 
 ---
 
+# TIER 0 — what two live runs proved, 2026-08-11 and 2026-08-12
+
+**Added after the first runs in which minds actually fed themselves.** Everything
+here is quoted from a run, not reasoned from the code. Ordered by what moves arc
+1 (*minds worth watching*) and arc 2 (*a world a human can read*) soonest per
+hour spent. See [runs/GROK46-2026-08-12.md](runs/GROK46-2026-08-12.md) and
+[runs/FOODTEST-2026-08-11.md](runs/FOODTEST-2026-08-11.md).
+
+**The one-line summary of both runs: the food chain works, and the ARROW chain
+does not.** Every starving seat in both runs was a seat that could not shoot.
+
+### 0a. There is no verb for MAKING anything **[S]** — arc 1
+`GOAL_IDS` has fifteen verbs and none of them is `craft`. A mind holding wood and
+no arrows cannot say *"make arrows"*, and a mind holding raw venison at a fire
+cannot say *"cook"*. **This is the `eat` bug exactly** — a channel that does not
+exist, which reads from outside as a model too stupid to feed itself.
+*Quoted from the run:* Fingal asked the group out loud, twice, *"Who has arrows?
+Need arrows by dawn"* — while carrying six wood, which is three fletches.
+
+### 0b. Fletching is gated behind a fire it does not need **[S]** — arc 1
+`fletch_arrows` is `station: none` and the SERVER honours that
+(`recipe.requires !== 'fire' || …` in world.js). But `i.craft` is assigned in
+exactly ONE place in agent.js — inside the `if (fire && fire.d <= fireReach)`
+branch of `upkeep`. **So a body only ever fletches while standing at a fire it
+does not require.** The world permits it; the body can never ask. One `if`.
+
+### 0c. A starving body will not spend fire-wood on arrows **[S]** — arc 1
+`AGENTS.spareWood: 14` protects ten branches for a fire before it will fletch —
+*"a fire you cannot light is worse than a shot you cannot take, because the cold
+does not miss."* Sound, until you starve: no arrows → no kills → no food, while
+carrying the cure. Needs a starvation override. Related: **2.5d**.
+
+### 0d. Deadfall never grows back, and now it matters **[S]** — arc 1, was 4a
+With `SCARCE=on` the valley is strip-mined inside an hour and the death spiral
+becomes structural rather than behavioural. *Quoted:* Eachann was refused **128
+gathers** across ~375 decisions — a third of his run spent asking for wood that
+no longer existed. 4b calls scarcity "the dial that makes them social"; without
+regrowth it is a dial that makes them dead.
+
+### 0e. The `eat` verb is advertised and almost never used **[S]** — arc 1
+Used **once in the project's history** (Seònaid, kimi, 2026-08-12, at food 25 —
+above the reflex's raw threshold of 18, so genuinely a decision). Meanwhile
+Eachann spent a run at **food 28 holding three raw venison and nine wood**, one
+branch short of a fire, with the verb in his prompt the whole time. Not *"the
+models can't"* — **"the models don't."** The brief should say *"you are carrying
+food you could eat now"* the way `lacking` already says *"no arrows"*.
+
+### 0f. An append-only event log **[M]** — arc 2, was 5b, now urgent
+`deeds` is a ring `AGENTS.logSize` (400) deep **per seat**, and it is the only
+record. Run 2's transfers rolled off within minutes; the run survives at all only
+because board.json was snapshotted to `runs/RUN2-timeline.jsonl` every 45 seconds
+from outside the game. **Nothing can be analysed after the fact, and every
+downstream thing — the report, a score, the recorder, computer vision — needs a
+durable timeline.** Highest-value item in this tier for everything after it.
+
+### 0g. Spend, per seat, live, in the unit that matters **[S]** — arc 2
+Reasoning tokens were **not counted at all** until 2026-08-12: xAI reports
+`completion_tokens: 23` beside `reasoning_tokens: 1507`, and only the first was
+read, under-reporting real spend by ~45%. Fixed. What is still wrong is the
+BUDGET: `budgetCalls` caps CALLS, and grok-4.6 costs about **9× per decision**
+what grok-4.20-non-reasoning does. Cap spend, and show $/seat on the board while
+it runs.
+
+### 0h. A model cannot be told apart from its seat **[M]** — methodology
+Runs 1 and 2 reached OPPOSITE verdicts on grok-4.6 (3 kills from 24 answers, then
+1 from 135) because each model is pinned to one seat, one persona and one spawn.
+**Rotate models across seats between runs** — the roster already carries
+everything needed. Without this, no model claim from this project is worth
+quoting.
+
+### 0i. They agree to share and then do not **[M]** — arc 1
+`offer` is one of the most-reached-for verbs (Ailsa's top goal in run 2), and
+transfers are rare and late. Four minds across two vendors agreed a shared hunt
+in words — *"camp now, south deer at dawn, we share"* — and executed none of it.
+The plan survives in the `plan` field; it does not survive into the next
+decision. Related: **2.5g** (`give` does not land at 1 m) and **2c**.
+
+### 0j. Drive the recorder **[M]** — arc 3
+`?watch=1` gives a camera that flies and is never corrected, and `capture()`
+writes frames. Nothing drives them. `board.json` is ground truth — every mind's
+position, goal and reason — so a recorder or a vision experiment has something to
+check itself against. Blocked on **0f** for anything after the fact.
+
+---
+
 # TIER 1 — the game lies about outcomes  ✅ DONE 2026-08-09
 
 All three landed and all three were verified in a live browser against a live
