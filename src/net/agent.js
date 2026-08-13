@@ -1731,7 +1731,24 @@ export class Agent {
     if (!want) {
       const reflex = this.recipeToWork();
       if (reflex) return RECIPES[reflex];
-      return Object.values(RECIPES).find((r) => canCraft(r, this.pack)) ?? null;
+      // ── "SOMETHING USEFUL" MEANS WHAT YOU LACK, NOT WHAT IS FIRST IN THE TABLE ──
+      //
+      // The first cut fell through to `Object.values(RECIPES).find(canCraft)`,
+      // which is table order, and table order begins with `make_axe`. Watched
+      // live within forty minutes of the verb existing: Fingal chose `craft`
+      // with the reason "need them to hunt", holding ZERO arrows and nine wood
+      // — and was handed a hand axe. The verb worked and the choice was
+      // useless, which is its own kind of broken.
+      //
+      // `recipeToWork` has already said no by here, and it says no for good
+      // reasons — it protects the fire's wood above `arrowsBeatFirewoodBelow`.
+      // But a mind that ASKED is overriding the reflex on purpose, so the
+      // fallback ranks by what the body is actually short of.
+      const need = [];
+      if (this.count('arrow') < AGENTS.lowArrows) need.push(RECIPES.fletch_arrows);
+      for (const r of Object.values(RECIPES)) if (r.verb === 'cook') need.push(r);
+      need.push(...Object.values(RECIPES));
+      return need.find((r) => canCraft(r, this.pack)) ?? null;
     }
     if (RECIPES[want]) return RECIPES[want];
     const id = resolveItemId(want);

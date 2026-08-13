@@ -173,6 +173,24 @@ try {
   smith.carrying = { hide: 3 };
   check('  …and a bare craft picks whatever the pack can actually make',
     smith.recipeNamed('')?.id === 'make_cloak', String(smith.recipeNamed('')?.id));
+
+  // ── "SOMETHING USEFUL" MUST MEAN WHAT YOU LACK ──
+  //
+  // Watched live 2026-08-12, forty minutes after the verb shipped: Fingal chose
+  // `craft` with the reason "need them to hunt", holding ZERO arrows and nine
+  // wood, and was handed a HAND AXE — because the fallback was table order and
+  // `make_axe` is first in the table. The verb worked; the choice was useless.
+  smith.carrying = { wood: 9, stone: 2, hide: 1 };   // an axe AND arrows are possible
+  smith.food = 70;                                   // fed, so the reflex guards its wood
+  check('A BARE CRAFT WITH AN EMPTY QUIVER MAKES ARROWS, not the first row of the table',
+    smith.recipeNamed('')?.id === 'fletch_arrows',
+    `${smith.recipeNamed('')?.id} — arrows ${smith.count('arrow')}, wood ${smith.count('wood')}`);
+  smith.carrying = { wood: 9, stone: 2, hide: 1, arrow: 20 };
+  check('  …and with a full quiver it makes something else instead',
+    smith.recipeNamed('')?.id !== 'fletch_arrows', String(smith.recipeNamed('')?.id));
+  smith.carrying = { venison: 2, arrow: 20 };
+  check('  …and raw meat in the pack is cooked before anything ornamental',
+    smith.recipeNamed('')?.id === 'cook_venison', String(smith.recipeNamed('')?.id));
   smith.carrying = {};
   check('  …and answers NOTHING when nothing can be made, rather than guessing',
     smith.recipeNamed('') === null, String(smith.recipeNamed('')?.id ?? 'null'));
