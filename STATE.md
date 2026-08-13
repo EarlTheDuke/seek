@@ -1,6 +1,8 @@
 # State of play — read this first, it is short on purpose
 
-**Last updated: 2026-08-11 (late)**, by a session that fixed four breaks in the
+**Last updated: 2026-08-13**, by a session that gave minds a verb for MAKING
+things, made runs survive being killed, and got one diagnosis badly wrong. The
+entry below it is the 2026-08-11 session that fixed four breaks in the
 food chain, watched the chain complete live for the first time, and then fixed
 the three instrument bugs that run exposed.
 
