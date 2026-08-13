@@ -36,7 +36,21 @@ import { AGENTS } from '../src/config.js';
 import { buildReport, summarise } from './playreport.js';
 import { boardState, serveBoard, boardPortFromEnv, mindHealth } from './board.js';
 import { FleetClock } from './fleetclock.js';
+import { openJournal } from './journal.js';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { appendNote, NOTES_FILE } from './notes.js';
+
+// `new URL(...).pathname` percent-encodes the spaces in this repo's own path and
+// node cannot open the result — the trap `keycheck` already wrote down.
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.join(HERE, '..');
+
+// A wall clock, IN THE RUNNER. A file needs a name and a run needs a date, and
+// neither is simulation — the same line `fleetclock.js` draws. Nothing seeded
+// reads this, so a run still reproduces from its seed whatever it is called.
+const RUN_ID = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+$/, '').replace('T', '-');
+const round1 = (n) => Math.round(n * 10) / 10;
 
 const args = process.argv.slice(2);
 const positional = args.filter((a) => /^\d+$/.test(a)).map(Number);
@@ -351,12 +365,32 @@ async function main() {
   // calling the total "seconds". See `fleetclock.js`.
   const STEP = 1 / 30; // agents think at half the sim rate; nothing needs more
   const clock = new FleetClock();
+
+  // ── THE RUN, WRITTEN DOWN AS IT HAPPENS ──
+  //
+  // `deeds` and `intentions` are 400-deep rings and DEV-NOTES is only written
+  // on a clean exit, so until now a killed window — which is what STOP.cmd
+  // does — left nothing behind but whatever was still in the ring. This is
+  // append-only and flushed as it goes: a run killed mid-sentence keeps
+  // everything up to that sentence. Nothing reads it back, so it cannot change
+  // a run.
+  const journal = openJournal(path.join(ROOT, 'runs', `journal-${RUN_ID}.jsonl`));
+  journal.begin({ url: URL, roster: process.env.MINDS_ROSTER ?? 'roster.json',
+                  seats: agents.map((a) => ({ name: a.name, model: a.provider?.model ?? a.provider?.name ?? 'scripted' })) });
+  let journalledAt = 0;
   let reported = 0;
   let laggedAt = 0;
 
   const timer = setInterval(() => {
     for (const a of agents) a.update(STEP);
     clock.tick(STEP);
+    // Drained on a timer rather than every tick: the events are rare and the
+    // cost is a file write, so once a second keeps the file honest without
+    // making a 30 Hz loop do IO thirty times a second for nothing.
+    if (clock.wall - journalledAt >= 1) {
+      journalledAt = clock.wall;
+      journal.drain(agents, clock.wall);
+    }
     // The wall, not the tick count. `elapsed` feeds the console line, the
     // report's `meta.seconds`, the board and the `for=` stop — and every one of
     // them was 26% slow on the hour run, which is why that run did not stop at
@@ -479,6 +513,9 @@ async function main() {
 
   function shutdown() {
     clearInterval(timer);
+    // One last drain BEFORE anything else, so the final decisions of a run are
+    // in the file even if the report below throws.
+    try { journal.drain(agents, clock.wall); journal.end({ seconds: round1(clock.wall), lines: journal.lines }); } catch { /* never block a shutdown on the record of it */ }
     console.log('\n  ── what they did ──\n');
     for (const a of agents) {
       const s = a.status;

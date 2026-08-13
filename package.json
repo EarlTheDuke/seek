@@ -82,7 +82,8 @@
     "nopetcheck": "node server/nopetcheck.js",
     "foodcheck": "node server/foodcheck.js",
     "fleetcheck": "node server/fleetcheck.js",
-    "craftcheck": "node server/craftcheck.js"
+    "craftcheck": "node server/craftcheck.js",
+    "journalcheck": "node server/journalcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

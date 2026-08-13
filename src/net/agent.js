@@ -1370,7 +1370,9 @@ export class Agent {
           // with the reason it gave, and it is what makes a session legible
           // afterwards — "three models disagreed about a carcass" is a story
           // you can only tell if each of them said why.
+          this._seq = (this._seq ?? 0) + 1;
           this.intentions.push({
+            seq: this._seq,
             h: +this.hours.toFixed(2),
             goal: describeGoal(action),
             why: action.why ?? null,
@@ -2055,7 +2057,17 @@ export class Agent {
     // free, and a deed added later cannot forget to.
     this.noteOutcome(text);
     this.memory.add(this.hours, text);
-    this.deeds.push({ h: +this.hours.toFixed(2), what, text });
+    // ── THE SEQUENCE NUMBER THAT LETS THE RUN BE KEPT ──
+    //
+    // `deeds` is a ring `logSize` deep and it was the only record a run left.
+    // "Everything after index N" is wrong the moment the ring shifts, which is
+    // precisely when a busy seat is producing the events worth keeping — five
+    // transfers vanished out of one on 2026-08-12. A monotonic id per body
+    // makes the drain exact: see `server/journal.js`.
+    //
+    // Shared with `intentions` on purpose, so one high-water mark covers both.
+    this._seq = (this._seq ?? 0) + 1;
+    this.deeds.push({ seq: this._seq, h: +this.hours.toFixed(2), what, text });
     if (this.deeds.length > AGENTS.logSize) this.deeds.shift();
   }
 
