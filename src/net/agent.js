@@ -2151,7 +2151,24 @@ export class Agent {
     for (const id of EDIBLE) {
       if ((before?.[id] ?? 0) - (iv[id] ?? 0) > 0) { ate = id; break; }
     }
-    const noun = ate ? (getItem(ate)?.name ?? ate).toLowerCase() : 'something';
+
+    // ── A RESPAWN IS NOT A MEAL, AND THIS IS HOW WE FOUND OUT ──
+    //
+    // The first cut reported ANY rise, on the reasoning that "the belly is the
+    // fact and the label is a convenience". Watched live on 2026-08-12, two
+    // seats STARVED TO DEATH and the board announced `I ate something` for each
+    // of them: `Body.revive()` calls `reset()`, which sets hunger to
+    // `SURVIVAL.hungerStart` (85). A body coming back from the dead has the
+    // fullest belly in the game.
+    //
+    // So a meal now needs BOTH halves — the belly up AND an edible gone from
+    // the pack. That is the same conservatism `notePack` applies to a craft:
+    // the cost is a meal unrecorded in some corner case, and the alternative is
+    // a death reported as dinner, which is worse in exactly the way this whole
+    // file exists to prevent. It is also the second time in two days that the
+    // honest-looking rule turned out to describe something that did not happen.
+    if (!ate) return;
+    const noun = (getItem(ate)?.name ?? ate).toLowerCase();
 
     // WHO ASKED. The reflex and the verb are the whole reason this distinction
     // is worth keeping: bodies have always eaten on instinct below `eatBelow`,
@@ -2162,7 +2179,7 @@ export class Agent {
     this._mealAskedBy = null;
     // "a venison" or plain "something" — never "a something", which is what the
     // first cut printed whenever the rise could not be pinned to an item.
-    const what = ate ? `a ${noun}` : 'something';
+    const what = `a ${noun}`;
     const text = asked === 'choice'
       ? `I chose to eat ${what}`
       : asked === 'reflex-raw'

@@ -51,7 +51,7 @@ import { Agent } from '../src/net/agent.js';
 import { ScriptedProvider, ModelProvider } from '../src/minds/providers.js';
 import { makeRandom } from '../src/world/noise.js';
 import { GOAL_IDS, sanitiseGoal, describeGoal } from '../src/minds/goals.js';
-import { AGENTS } from '../src/config.js';
+import { AGENTS, SURVIVAL } from '../src/config.js';
 import { requireFreePort } from './freeport.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -302,14 +302,33 @@ try {
     control.deeds.length === before,
     `${control.deeds.length - before} deed(s) appeared from a snapshot where nothing changed`);
 
-  // And the other half of honest: a belly that DID rise is reported even when
-  // the asking is unattributable, because the belly is the fact.
+  // ── AND THE SENTINEL THAT COST A WRONG HEADLINE: A RESPAWN IS NOT A MEAL ──
+  //
+  // The first cut of `noteMeal` reported ANY rise in hunger, reasoning that the
+  // belly is the fact and the item name is a convenience. Then two seats
+  // STARVED TO DEATH in the 2026-08-12 run and the board announced `I ate
+  // something` for both: `Body.revive()` calls `reset()`, which sets hunger to
+  // `SURVIVAL.hungerStart` — 85, the fullest belly in the game. A death was
+  // reported as dinner, and the run was briefly written up as a recovery.
+  //
+  // A meal now needs BOTH halves. This drives the exact shape of that bug: the
+  // belly leaps by a full `hungerStart` and NOTHING leaves the pack.
   const before2 = control.deeds.length;
   control._mealAskedBy = null;
-  control.notePack({ ...control.carrying }, control.food - 14);
+  control.notePack({ ...control.carrying }, control.food - SURVIVAL.hungerStart);
+  check('SENTINEL: a RESPAWN is not a meal — a belly that rose with nothing leaving the pack',
+    control.deeds.length === before2,
+    `${control.deeds.length - before2} deed(s) from a hunger reset of +${SURVIVAL.hungerStart}`);
+
+  // ...while a real meal with nobody owning the ask IS still reported, because
+  // the pack says it happened. Both halves, or the rule is just "trust nothing".
+  const before2b = control.deeds.length;
+  control.carrying = { venison_cooked: 2 };
+  control._mealAskedBy = null;
+  control.notePack({ venison_cooked: 1 }, control.food - 14);
   const orphan = control.deeds[control.deeds.length - 1];
-  check('  …but a belly that rose IS reported, even with nobody owning the ask',
-    control.deeds.length === before2 + 1 && orphan?.what === 'eat',
+  check('  …but an unowned meal that DID leave the pack is still reported',
+    control.deeds.length === before2b + 1 && orphan?.what === 'eat' && orphan?.id === 'venison_cooked',
     `${orphan?.text ?? 'no deed'} (filled ${orphan?.filled})`);
 
   // ── 5c. COOK THEN EAT, WHICH IS THE COMMON CASE AND NEARLY GOT SWALLOWED ──
@@ -323,9 +342,10 @@ try {
   // cooked and ate inside the same recorded second. So `noteMeal` runs ABOVE
   // the window, and this holds it there.
   const before3 = control.deeds.length;
+  control.carrying = { venison_cooked: 2 };
   control._made = 1;                      // a craft owns the pack right now
   control._mealAskedBy = 'reflex';
-  control.notePack({ ...control.carrying }, control.food - 9);
+  control.notePack({ venison_cooked: 1 }, control.food - 9);
   const inWindow = control.deeds[control.deeds.length - 1];
   check('A MEAL INSIDE THE CRAFT WINDOW IS STILL REPORTED — cook-then-eat is the common case',
     control.deeds.length === before3 + 1 && inWindow?.what === 'eat',
