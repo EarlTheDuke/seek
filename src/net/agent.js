@@ -242,7 +242,20 @@ export class Agent {
     // name the same branch for ever. A `Pickups` instance remembers what it has
     // collected; an agent has no `Pickups`, so it remembers here. Without this
     // the `gather` goal walks two metres, presses E, and never moves again.
+    // ── THE BODY'S OWN "I ALREADY TOOK THAT" MEMO, AND IT NOW FORGETS ──
+    //
+    // Purely an optimisation — it stops a body walking back to a branch it just
+    // lifted — but it was a Set that never emptied, so over a long run it grew
+    // into a list of everywhere worth going. Deadfall now REGROWS
+    // (`TakenDeadfall`), and a memo that never forgets would keep a body away
+    // from wood that is standing there again.
+    //
+    // Expired on the body's OWN monotonic clock, not on `this.hours`: that
+    // comes off `clock.hours`, which wraps at 24. Every place in this project
+    // that has used the wrapping clock for a deadline has been a bug.
     this.taken = new Set();
+    this._takenAt = new Map();
+    this._lived = 0;
     // id -> count, straight off the snapshot. Empty until the first one lands.
     this.carrying = {};
     this.hours = 0;
@@ -804,6 +817,18 @@ export class Agent {
 
   update(dt) {
     if (!this.connected || !this.snapshot) return;
+
+    // The body's own monotonic clock. Used ONLY for forgetting where it has
+    // already been — see `this.taken`. Nothing seeded reads it, so it cannot
+    // affect a run's reproducibility.
+    this._lived += dt;
+    if (this._takenAt.size) {
+      for (const [key, at] of this._takenAt) {
+        if (this._lived - at < AGENTS.forgetTakenSeconds) continue;
+        this._takenAt.delete(key);
+        this.taken.delete(key);
+      }
+    }
 
     // The window in which a cook or a craft owns the pack's changes — see
     // `notePack`. Counted in REAL seconds off `dt`, because the game clock
@@ -1638,7 +1663,10 @@ export class Agent {
           // needs one does not add a second branch here.
           this.target.after?.(this);
           // Reached it and used our hands on it, so stop being offered it.
-          if (this.target.key) this.taken.add(this.target.key);
+          if (this.target.key) {
+            this.taken.add(this.target.key);
+            this._takenAt.set(this.target.key, this._lived);
+          }
         }
         this.target = null;
       }

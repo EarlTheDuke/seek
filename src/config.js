@@ -956,6 +956,27 @@ export const AGENTS = {
   // Was 0.2 and a real run sat at 0.11 for 83 minutes without a word.
   unwellAbove: 0.08,
 
+  // ── HOW LONG A BODY REMEMBERS WHERE IT ALREADY GATHERED ──
+  //
+  // The memo that stops it walking back to a branch it just lifted. It used to
+  // be permanent, which was fine while deadfall never regrew — and deadfall now
+  // regrows after `STRUCTURES.regrowHours` (30 game hours, about half a real
+  // hour). A memo that never forgets would keep a body away from wood standing
+  // in front of it.
+  //
+  // MUST OUTLAST THE REGROWTH, and the arithmetic is the point: `TIME.dayMinutes`
+  // is 26, so 24 game hours take 26 real minutes and `STRUCTURES.regrowHours`
+  // (30) is **1950 real seconds**. Forgetting EARLY costs a walk to a branch
+  // that is not back yet — and the body re-adds the key on arrival, so an early
+  // forget is a LOOP, not a one-off.
+  //
+  // The first version of this was 1800, which is 150 seconds SHORT, and the
+  // assertion guarding it only checked `>= 600` — a test that claimed a
+  // relationship it never computed. 2400 clears 1950 with room for the day
+  // length to be tuned a little either way; `regrowcheck` now does the
+  // conversion and fails if this ever drops under it.
+  forgetTakenSeconds: 2400,
+
   // ── the hunger at which arrows matter more than firewood ──
   //
   // `spareWood` (14) keeps ten branches back for a fire before a body will

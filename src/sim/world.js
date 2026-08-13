@@ -1332,7 +1332,9 @@ export class SimWorld {
     this.updateWildlife(dt, worldCtx);
 
     this.projectiles.update(dt);
-    this.pickups.update(dt, anchorPos);
+    // The MONOTONIC hour, so gathered deadfall can regrow — `clock.hours` wraps
+    // at 24 and would bring a branch back yesterday. Same clock `Harvest` needs.
+    this.pickups.update(dt, anchorPos, this.totalHours);
     // ── TORCHES BURNING ON THE GROUND ──
     //
     // The server owns the flame, so everybody sees the same one go out at the

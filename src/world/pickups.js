@@ -13,7 +13,7 @@
 // recovered, so a future crossbow and its bolts work without edits.
 
 import * as THREE from 'three';
-import { PICKUP, PLAYER, WATER_LEVEL } from '../config.js';
+import { PICKUP, PLAYER, WATER_LEVEL, STRUCTURES } from '../config.js';
 import { heightAt, slopeAt, clumpAt } from './noise.js';
 import { richnessAt } from './scarcity.js';
 import { getItem } from '../items/registry.js';
@@ -23,6 +23,63 @@ const _v = new THREE.Vector3();
 
 let nextDropId = 1;
 
+/**
+ * Deadfall that has been picked up — and comes BACK.
+ *
+ * ── WHY IT NOW COMES BACK ───────────────────────────────────────────────────
+ *
+ * This was a plain `Set` and the comment beside it said "never come back". That
+ * was survivable while the valley was generous and fatal the moment `SCARCE=on`
+ * arrived: measured 2026-08-12, Eachann was refused **128 gathers across ~375
+ * decisions** — a third of his run spent asking for wood that no longer existed
+ * anywhere he had been. TODO 4b calls scarcity "the dial that makes them
+ * social"; without regrowth it is a dial that makes them dead, and the death
+ * spiral stops being behaviour and becomes arithmetic.
+ *
+ * ── AND IT IS THE SHAPE `Harvest` ALREADY USES ──────────────────────────────
+ *
+ * Trees and rocks have regrown for a long time (`STRUCTURES.regrowHours`), and
+ * `Harvest` stores key -> THE HOUR IT COMES BACK. This is the same map with the
+ * same units, deliberately, rather than a second mechanism with its own bugs.
+ *
+ * THE HOURS MUST BE MONOTONIC. `clock.hours` wraps at 24 and a regrow time of
+ * `hours + 30` computed from a wrapping clock is a branch that came back
+ * yesterday. `Harvest` carries a comment saying this project has been caught by
+ * that clock three times; this is the fifth place that needs `world.totalHours`.
+ *
+ * Duck-typed as a Set (`has`/`add`) so every existing call site — including
+ * `nearestDeadfall(..., taken)` — keeps working untouched.
+ */
+export class TakenDeadfall {
+  constructor(regrowHours = STRUCTURES.regrowHours) {
+    this.until = new Map();   // key -> in-game hour it is back
+    this.regrowHours = regrowHours;
+    this.hours = 0;
+  }
+
+  /** The world tells it the time. Until it does, nothing ever regrows. */
+  at(hours) {
+    if (Number.isFinite(hours)) this.hours = hours;
+    return this;
+  }
+
+  has(key) {
+    const until = this.until.get(key);
+    if (until === undefined) return false;
+    if (this.hours >= until) { this.until.delete(key); return false; }
+    return true;
+  }
+
+  add(key) {
+    this.until.set(key, this.hours + this.regrowHours);
+    return this;
+  }
+
+  delete(key) { return this.until.delete(key); }
+  clear() { this.until.clear(); }
+  get size() { return this.until.size; }
+}
+
 export class Pickups {
   constructor(scene, deps) {
     this.scene = scene;
@@ -30,7 +87,9 @@ export class Pickups {
     this.recovered = []; // { projectile, item, count }
     this.dropped = []; // { obj, item, count, vel, resting }
     this.loot = new Map(); // key -> { obj, item, count, x, z, baseY }
-    this.taken = new Set(); // loot keys already collected — never come back
+    // Keys already collected. NOT a Set and no longer forever — see
+    // `TakenDeadfall`. A branch comes back after `STRUCTURES.regrowHours`.
+    this.taken = new TakenDeadfall();
     this.anchor = new THREE.Vector3(Infinity, 0, Infinity);
     this.nearest = null;
     this.time = 0;
@@ -210,8 +269,11 @@ export class Pickups {
 
   // ── per frame ────────────────────────────────────────────────────────────
 
-  update(dt, playerPos) {
+  update(dt, playerPos, hours) {
     this.time += dt;
+    // The MONOTONIC hour, so regrowth can be judged. A caller that never passes
+    // one keeps the old behaviour exactly: nothing ever comes back.
+    this.taken.at(hours);
 
     if (Math.hypot(playerPos.x - this.anchor.x, playerPos.z - this.anchor.z) > 45) {
       this.anchor.set(playerPos.x, 0, playerPos.z);

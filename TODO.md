@@ -48,12 +48,37 @@ station. `craftcheck` now asserts the truth so the wrong fix cannot come back.
 does not miss."* Sound, until you starve: no arrows → no kills → no food, while
 carrying the cure. Needs a starvation override. Related: **2.5d**.
 
-### 0d. Deadfall never grows back, and now it matters **[S]** — arc 1, was 4a
+### 0d. Deadfall never grows back, and now it matters **[S]** — arc 1, was 4a ✅ DONE 2026-08-13
 With `SCARCE=on` the valley is strip-mined inside an hour and the death spiral
 becomes structural rather than behavioural. *Quoted:* Eachann was refused **128
 gathers** across ~375 decisions — a third of his run spent asking for wood that
 no longer existed. 4b calls scarcity "the dial that makes them social"; without
 regrowth it is a dial that makes them dead.
+
+**DONE.** `Pickups.taken` was a plain `Set` with "never come back" written
+beside it; it is now `TakenDeadfall`, a map of key → THE HOUR IT RETURNS, on the
+same `STRUCTURES.regrowHours` (30) and the same shape `Harvest` already uses for
+trees and rocks — one mechanism, not two. Duck-typed as a Set so every caller,
+including `nearestDeadfall(..., taken)`, is untouched. A world that never passes
+an hour keeps the old behaviour exactly.
+
+**Fed the MONOTONIC hour** (`world.totalHours`), because `clock.hours` wraps at
+24 and a regrow of `hours + 30` off a wrapping clock is a branch that came back
+yesterday. `Harvest` carries a note saying this project has been caught by that
+clock three times; this was the fifth place that needed it, and `regrowcheck`
+now pins it with a taken-at-23 sentinel.
+
+**And the body forgets too.** An agent's private "I already took that" memo was
+a Set that never emptied — with wood regrowing, it would keep a body away from
+branches standing in front of it. Expired on the agent's own monotonic clock,
+never on `this.hours`, which is the wrapping one.
+
+**A bug caught by writing the assertion honestly:** the first cut set
+`forgetTakenSeconds: 1800` and guarded it with `>= 600`. At `TIME.dayMinutes` 26,
+30 game hours is **1950 real seconds** — so the body would have forgotten 150
+seconds BEFORE the wood returned, and since it re-adds the key on arrival that is
+a loop, not a one-off. Now 2400, and `regrowcheck` does the conversion rather
+than asserting a relationship it never computed.
 
 ### 0e. The `eat` verb is advertised and almost never used **[S]** — arc 1
 Used **once in the project's history** (Seònaid, kimi, 2026-08-12, at food 25 —
