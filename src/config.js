@@ -1240,6 +1240,41 @@ export const STRUCTURES = {
   regrowHours: 30,
 };
 
+// ── WHAT A DECISION COSTS, IN MONEY ─────────────────────────────────────────
+//
+// USD per MILLION tokens, in and out. Read from xAI's own
+// `/v1/language-models` on 2026-08-12 and divided to per-million; a model not
+// in this table is priced as UNKNOWN, never as zero, because a silent zero is
+// how a bill becomes a surprise.
+//
+// ── WHY THIS EXISTS AT ALL ──────────────────────────────────────────────────
+//
+// `budgetCalls` caps CALLS, and calls stopped being a useful unit the moment
+// two seats in one roster cost different amounts. Measured on 2026-08-12:
+// grok-4.20-non-reasoning made 375 calls for about $0.69; the two grok-4.6
+// seats made 135 between them for about $1.63. **Roughly nine times the cost
+// per decision, and the budget could not see the difference.**
+//
+// REASONING IS BILLED AS OUTPUT and is most of the bill for a thinking model:
+// grok-4.6 spends ~1500 reasoning tokens per decision against grok-4.5's ~350.
+// It went uncounted entirely until 2026-08-12 (xAI reports it in
+// `completion_tokens_details`, separately from `completion_tokens`), which
+// under-reported real spend by about 45%.
+//
+// LIST PRICE, NOT A BILL. Vendors change these, discounts exist, and the
+// provider's own console is the authority. This is here so a RUN can tell you
+// roughly what it is spending WHILE it spends it, which no invoice can.
+export const PRICES = {
+  // xAI
+  'grok-4.20-0309-non-reasoning': { in: 1.25, out: 2.50 },
+  'grok-4.3': { in: 1.25, out: 2.50 },
+  'grok-4.5': { in: 2.00, out: 6.00 },
+  'grok-4.6': { in: 2.00, out: 6.00 },
+  // Your own hardware. Genuinely free per token — the electricity is not this
+  // file's business, and stating 0 here is a measured fact rather than a gap.
+  'kimi-k2.6': { in: 0, out: 0 },
+};
+
 // ── Company: parties, PvP and what dying costs ──────────────────────────────
 //
 // The rules for being in a world with other people. See src/sim/world.js.

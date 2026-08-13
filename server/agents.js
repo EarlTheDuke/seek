@@ -192,6 +192,16 @@ const hasKey = !!process.env.MINDS_API_KEY;
 // twelve times what one does.
 const budget = new Budget({
   maxCalls: Number(process.env.MINDS_MAX_CALLS ?? ROSTER?.budgetCalls ?? AGENTS.maxCallsTotal),
+  // ── A CAP IN THE UNIT THAT ACTUALLY MATTERS ──
+  //
+  //   BUDGET_USD=5 npm run agents
+  //
+  // Calls stopped being a useful unit the moment two seats in one roster cost
+  // different amounts. Measured 2026-08-12: grok-4.20-non-reasoning made 375
+  // calls for ~$0.69 while two grok-4.6 seats made 135 between them for ~$1.63
+  // — about NINE TIMES the cost per decision — and `budgetCalls` could not see
+  // the difference. Off unless asked, so nothing that used to run changes.
+  maxUsd: Number(process.env.BUDGET_USD) > 0 ? Number(process.env.BUDGET_USD) : Infinity,
   label: 'agents',
 });
 
@@ -455,6 +465,20 @@ async function main() {
           (said || gagged ? ` · ${said} said / ${gagged} gagged` : '') +
           (anyModel
             ? ` · ${spent.calls}/${spent.of} calls, ${spent.tokensIn + spent.tokensOut} tokens` +
+              // ── AND WHAT IT HAS COST, WHILE IT IS COSTING IT ──
+              // No invoice can tell you this while a run is happening, and the
+              // only number that used to be on this line was CALLS — the unit
+              // that hides a nine-fold difference between two seats.
+              (spent.usd > 0
+                ? `, $${spent.usd.toFixed(2)}${Number.isFinite(spent.ofUsd) ? `/$${spent.ofUsd}` : ''}` +
+                  ` (${spent.perModel.filter((m) => (m.usd ?? 0) > 0)
+                    .map((m) => `${m.model.replace(/^grok-/, '').slice(0, 14)} $${m.usd.toFixed(2)}`)
+                    .join(', ')})`
+                : '') +
+              // Named, never silently priced at zero. A model nobody has a price
+              // for is a hole in the number, and a hole you cannot see is how a
+              // bill becomes a surprise.
+              (spent.unpriced?.length ? `, UNPRICED: ${spent.unpriced.join(', ')}` : '') +
               // ── NAMED, NOT JUST COUNTED ──
               // `52 FAILED` is a number nobody can act on. The loud warning
               // below only fires past 20%, so a steady 11% — one decision in
@@ -523,7 +547,8 @@ async function main() {
       }
       if (spent.exhausted && !budget.announced) {
         budget.announced = true;
-        console.log('  budget spent — everyone is on scripted brains from here');
+        console.log(`  budget spent (${spent.calls}/${spent.of} calls, $${spent.usd.toFixed(2)}` +
+          `${Number.isFinite(spent.ofUsd) ? ` of $${spent.ofUsd}` : ''}) — everyone is on scripted brains from here`);
       }
     }
 

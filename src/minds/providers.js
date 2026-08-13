@@ -20,6 +20,7 @@
 import { GOAL_IDS, sanitiseGoal } from './goals.js';
 import { briefToText } from './perception.js';
 import { itemVocabulary } from '../items/registry.js';
+import { PRICES } from '../config.js';
 
 /**
  * A rule set that reads the same brief a model would.
@@ -402,7 +403,7 @@ export class ModelProvider {
       // leaving you to find out from a bill.
       this.lastTokensIn = answer?.tokensIn ?? 0;
       this.lastTokensOut = answer?.tokensOut ?? 0;
-      this.budget?.spend(this.lastTokensIn, this.lastTokensOut);
+      this.budget?.spend(this.lastTokensIn, this.lastTokensOut, this.model);
       const match = String(answer?.text ?? '').match(/\{[\s\S]*\}/);
       if (!match) throw new Error('no json in reply');
       const goal = sanitiseGoal(JSON.parse(match[0]));
@@ -701,18 +702,36 @@ export { AnthropicProvider as LlmProvider };
  * only that the world goes back to scripted brains.
  */
 export class Budget {
-  constructor({ maxCalls = Infinity, label = 'session' } = {}) {
+  /**
+   * @param {number} maxCalls  a hard stop in CALLS. Kept, because it is the one
+   *   limit that works when nothing is priced.
+   * @param {number} maxUsd    a hard stop in MONEY, which is the unit that
+   *   actually matters once one seat costs nine times another. See `PRICES`.
+   */
+  constructor({ maxCalls = Infinity, maxUsd = Infinity, label = 'session' } = {}) {
     this.maxCalls = maxCalls;
+    this.maxUsd = maxUsd;
     this.label = label;
     this.calls = 0;
     this.tokensIn = 0;
     this.tokensOut = 0;
+    // Per model, because "what did this run cost" is never as useful as "which
+    // seat cost it". grok-4.6 made 135 calls for twice what 375 calls of
+    // grok-4.20-non-reasoning cost, and nothing on the board could say so.
+    this.byModel = new Map();
     this.exhaustedAt = null;
   }
 
-  /** Reserve one call. False once the purse is empty. */
+  /**
+   * Reserve one call. False once the purse is empty.
+   *
+   * THE MONEY CAP IS CHECKED BEFORE A CALL AND SPENT AFTER IT, so a fleet can
+   * overshoot by at most one call per seat. Said plainly rather than papered
+   * over: the alternative is predicting a call's cost before making it, which
+   * for a reasoning model is exactly the number you cannot know in advance.
+   */
   take() {
-    if (this.calls >= this.maxCalls) {
+    if (this.calls >= this.maxCalls || this.usd >= this.maxUsd) {
       this.exhaustedAt ??= this.calls;
       return false;
     }
@@ -720,18 +739,56 @@ export class Budget {
     return true;
   }
 
-  spend(inTokens, outTokens) {
+  spend(inTokens, outTokens, model = null) {
     this.tokensIn += inTokens;
     this.tokensOut += outTokens;
+    if (!model) return;
+    const m = this.byModel.get(model) ?? { calls: 0, tokensIn: 0, tokensOut: 0 };
+    m.calls++;
+    m.tokensIn += inTokens;
+    m.tokensOut += outTokens;
+    this.byModel.set(model, m);
+  }
+
+  /** What one model has cost so far, or null when nobody has priced it. */
+  static costOf(model, tokensIn, tokensOut) {
+    const p = PRICES[model];
+    if (!p) return null;              // UNKNOWN, never zero — see PRICES
+    return (tokensIn / 1e6) * p.in + (tokensOut / 1e6) * p.out;
+  }
+
+  /** Everything priced so far. Unpriced models contribute nothing and are named. */
+  get usd() {
+    let total = 0;
+    for (const [model, m] of this.byModel) {
+      total += Budget.costOf(model, m.tokensIn, m.tokensOut) ?? 0;
+    }
+    return total;
+  }
+
+  /** The models nobody can price, so a report can say so out loud. */
+  get unpriced() {
+    return [...this.byModel.keys()].filter((m) => !PRICES[m]);
   }
 
   get spent() {
+    const perModel = [...this.byModel.entries()].map(([model, m]) => ({
+      model,
+      calls: m.calls,
+      tokensIn: m.tokensIn,
+      tokensOut: m.tokensOut,
+      usd: Budget.costOf(model, m.tokensIn, m.tokensOut),
+    })).sort((a, b) => (b.usd ?? 0) - (a.usd ?? 0));
     return {
       calls: this.calls,
       of: this.maxCalls,
       tokensIn: this.tokensIn,
       tokensOut: this.tokensOut,
-      exhausted: this.calls >= this.maxCalls,
+      usd: this.usd,
+      ofUsd: this.maxUsd,
+      unpriced: this.unpriced,
+      perModel,
+      exhausted: this.calls >= this.maxCalls || this.usd >= this.maxUsd,
     };
   }
 }

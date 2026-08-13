@@ -137,13 +137,32 @@ admitted = 20 accounted for*. Unreachable in practice at 400 deep against a
 once-a-second drain, but "cannot happen" is what was said about a stale server
 on port 8080.
 
-### 0g. Spend, per seat, live, in the unit that matters **[S]** — arc 2
+### 0g. Spend, per seat, live, in the unit that matters **[S]** — arc 2 ✅ DONE 2026-08-13
 Reasoning tokens were **not counted at all** until 2026-08-12: xAI reports
 `completion_tokens: 23` beside `reasoning_tokens: 1507`, and only the first was
 read, under-reporting real spend by ~45%. Fixed. What is still wrong is the
 BUDGET: `budgetCalls` caps CALLS, and grok-4.6 costs about **9× per decision**
 what grok-4.20-non-reasoning does. Cap spend, and show $/seat on the board while
 it runs.
+
+**DONE.** `PRICES` in config — USD per million tokens, in and out, read from
+xAI's own `/v1/language-models` and dated. `Budget` now tallies PER MODEL,
+prices each seat, and takes `maxUsd`: **`BUDGET_USD=5 npm run agents`**. The
+15-second console line and `board.json` both carry the running total and the
+per-model split, dearest first, because no invoice can tell you what a run is
+costing while it is going.
+
+**An unpriced model is NAMED, never silently costed at zero** — `costOf` returns
+null and the line reads `UNPRICED: <model>`. A model priced at genuine zero
+(kimi on your own box) is priced, not "unknown"; the two are different facts and
+the difference is the whole point.
+
+**The money cap is checked BEFORE a call and paid AFTER it**, so a fleet can
+overshoot by at most one call per seat. Said plainly in the code rather than
+papered over — the alternative is predicting a reasoning model's cost before
+making the call, which is exactly the number you cannot know in advance.
+`costcheck` 16/16, including a replay of the 2026-08-12 run shape that prices at
+$1.63 against $0.69 — the same numbers reached by hand that day.
 
 ### 0h. A model cannot be told apart from its seat **[M]** — methodology ✅ DONE 2026-08-13
 Runs 1 and 2 reached OPPOSITE verdicts on grok-4.6 (3 kills from 24 answers, then
