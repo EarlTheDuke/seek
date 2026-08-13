@@ -36,10 +36,24 @@ line telling the models "arrows need no fire". `craftcheck`'s first assertion no
 pins the truth. The real arrow problem survives and is a DESIGN question, stated
 in TODO 0b: arming yourself costs ten branches for a fire plus two to fletch.
 
-**WHAT IS STILL UNPROVEN LIVE:** that a bare `craft` picks ARROWS when arrows are
-genuinely needed. `craftcheck` proves it in the harness; in the wild the reflex
-keeps fletching first, which is 0c working. Watch for `by: 'choice'` with
-`id: 'arrow'` in a journal.
+**PROVEN LIVE, 2026-08-13, and the journal is how we know.** A BARE craft picked
+arrows because arrows were what the body lacked:
+
+    h=7.47  Ailsa (grok-4.6) DECIDED  make something useful — "shivering, fire and hides here"
+    h=7.75  Ailsa            DID      I chose to make 4 arrows   [by=choice]
+    h=7.78  Ailsa            DID      I chose to make a torch    [by=choice]
+
+One standing goal, two makes: the need-ranking put arrows first because she had
+none, then a torch once arrows were no longer scarce. She asked for "something
+useful" while shivering and got the thing she could not hunt without AND the
+thing she was cold without.
+
+**And the refusal loop works too, which is the better result.** Fingal chose
+`craft` with an empty pack, was refused in words, and his VERY NEXT decision was
+`pick up what is lying about — need wood for fire`. A mind read a refusal and
+acted on it. That is what **TODO 0k** is about: the brief already says what you
+LACK, and should say what you can MAKE, so that decision is not spent finding
+out.
 
 ## The state before that — the chain works live. The eat verb barely does.
 
