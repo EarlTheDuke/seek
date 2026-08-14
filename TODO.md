@@ -314,6 +314,50 @@ Related: **0j**'s camera driver will BE a watcher, so it inherits both problems.
 Doing this first makes the recorder possible; doing it after means every filmed
 run has a ghost in it.
 
+### 0.5h. THE FLY VIEW FLASHES AND GLITCHES **[M]** — arc 3/5 · *Ben, watching*
+
+Traced to `src/world/terrain.js`. **Two independent causes, both about speed.**
+
+**1. Removal is instant; building is rationed.** `plan()` deletes every chunk
+that has left the wanted set *in one pass*, and pushes the replacements onto a
+queue that `drain()` works through **a few per frame on a budget**. On foot you
+cross a chunk boundary every several seconds and the queue keeps up. Flying, you
+cross several a second — so the far side vanishes at once while the near side
+trickles in. **You are looking at holes.**
+
+**2. LOD churn rebuilds chunks that never left.** Resolution is chosen by
+`ring = max(|dx|, |dz|)`, and a chunk whose ring changes gets torn down and
+rebuilt (`if (old) this.remove(job.key, old)` inside `drain`). At flight speed
+almost every chunk changes ring constantly, so most of the visible grid is being
+destroyed and recreated over and over — a pop in the MIDDLE of the view, not just
+at the edges. This is probably the dominant one.
+
+**3. And the shadow box goes with the camera, not the ground.**
+`atmosphere.update(camera.position)` centres a ±70–115 m orthographic shadow
+camera (`near 10`, `far 1200`) on the camera. Fly 300 m up and the terrain below
+is outside that box, so shadows flicker off and on across the whole view.
+
+**Fix shape, cheapest first:**
+- **Hysteresis on LOD.** Do not rebuild for a one-ring change; require a
+  deadband. Kills most of cause 2 on its own and helps ordinary walking too.
+- **Do not delete until the replacement exists.** Keep the old mesh until its
+  rebuild lands, or defer removal by a ring. Cause 1 becomes invisible.
+- **Anchor the shadow box to the ground under the camera**, not the camera, and
+  widen the extent with altitude.
+- Consider pausing streaming above some speed and doing one rebuild on stop —
+  a watcher crossing a kilometre does not need every chunk in between.
+
+**NOT diagnosed from the render.** I opened the game to look and the browser pane
+would not composite a frame for a screenshot, so this is read from the code and
+from Ben's description. The mechanism is specific enough to test: fly slowly and
+the flashing should largely stop, which is the cheap way to confirm cause 1 and 2
+before touching anything.
+
+**Latent, and worth knowing while in here:** terrain and scatter follow
+`ctrl.position` while sky, lake, rain and wildlife follow `camera.position`.
+Those are the same point in normal play and only diverge for a flying or
+spectating camera — exactly the case being fixed.
+
 ### 0.5b. "3 venisons" — the registry has no plural exception **[S]** — arc 2
 `Agent.plural` knows venison, trout and fish take no plural. `itemWords` in the
 item registry does not, so the brief says *"You are carrying: 3 venisons"* and,
