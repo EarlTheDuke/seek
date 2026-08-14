@@ -19,6 +19,8 @@
 // because it manufactures evidence for bugs that do not exist. So: look first,
 // and say so plainly.
 
+import net from 'node:net';
+
 /**
  * Resolve once the port is free, or throw with something worth reading.
  *
@@ -34,15 +36,28 @@ export async function requireFreePort(port, who) {
   const answered = await new Promise((resolve) => {
     let settled = false;
     const done = (v) => { if (!settled) { settled = true; resolve(v); } };
-    let ws;
-    try {
-      ws = new WebSocket(`ws://127.0.0.1:${port}`);
-    } catch {
-      return done(false);
-    }
-    ws.onopen = () => { done(true); try { ws.close(); } catch { /* going anyway */ } };
-    ws.onerror = () => done(false);
-    setTimeout(() => done(false), 700);
+    // ── A TCP CONNECT, NOT A WEBSOCKET HANDSHAKE ──
+    //
+    // This probed with `new WebSocket(...)` and therefore only ever detected a
+    // WEBSOCKET server. The BOARD is a plain HTTP server, so the handshake
+    // failed against it, `onerror` fired, and the port was reported FREE while
+    // something was plainly listening on it.
+    //
+    // The cost, on 2026-08-14: a live run held 8090, `boardcheck` sailed past
+    // this guard, `serveBoard` logged "could not listen — carrying on without
+    // one", and the file reported "the board binds — it did not". I read that
+    // as a regression TWICE and diagnosed it twice. Adding a `requireFreePort`
+    // call to boardcheck did nothing, because the guard itself was blind.
+    //
+    // A TCP connection answers the actual question — is anything accepting on
+    // this port — regardless of what protocol it speaks. Still CONNECTING and
+    // not binding, for the reason above: binding to test and then releasing
+    // leaves a window for something else to race into the slot.
+    const sock = net.connect({ port, host: '127.0.0.1' });
+    sock.setTimeout(700);
+    sock.on('connect', () => { done(true); sock.destroy(); });
+    sock.on('error', () => { done(false); sock.destroy(); });
+    sock.on('timeout', () => { done(false); sock.destroy(); });
   });
 
   if (answered) {

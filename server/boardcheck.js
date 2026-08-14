@@ -302,11 +302,44 @@ async function main() {
   const live = [first, second];
 
   let seconds = 0;
+  // ── THE PORT, ASKED FOR BEFORE IT IS ASSUMED ──
+  //
+  // `requireFreePort` is already used for the game port thirty lines up and was
+  // never used for the BOARD port. `serveBoard` logs "could not listen on 8090
+  // — carrying on without one" and returns null, so a live run holding 8090
+  // turned this file into "the board binds — it did not" and then "boardcheck
+  // could not run". On 2026-08-14 I read that as a REGRESSION twice and
+  // diagnosed it twice.
+  //
+  // That is the exact failure `freeport.js` exists for: a stale server on a port
+  // once had `bitecheck` reporting 3/10 and it was written up as a product
+  // defect that never existed. Ask first, and say plainly what is in the way.
+  await requireFreePort(BOARD, 'boardcheck (board)');
   const served = await serveBoard({
     port: BOARD,
     state: () => boardState(live, { seconds, minds: 'model', model: 'stub-1' }),
   });
   check('the board binds, on loopback', !!served, served?.url ?? 'it did not');
+
+  // ── AND THE GUARD THAT LETS IT SAY WHY, WHEN IT DOES NOT ──
+  //
+  // `requireFreePort` probed with a WEBSOCKET, so it only ever detected the game
+  // server. The board is a plain HTTP server: the handshake failed against it,
+  // the port was reported FREE, and a live run holding 8090 turned this file
+  // into "the board binds — it did not" with no reason attached. Read as a
+  // regression twice on 2026-08-14 and diagnosed twice. It probes by TCP now,
+  // which answers the actual question whatever protocol is on the other end.
+  const httpHeld = await (async () => {
+    const http = await import('node:http');
+    const srv = http.createServer((q, r) => r.end('x'));
+    await new Promise((r) => srv.listen(8099, '127.0.0.1', r));
+    let caught = false;
+    try { await requireFreePort(8099, 'boardcheck self-test'); } catch { caught = true; }
+    await new Promise((r) => srv.close(r));
+    return caught;
+  })();
+  check('SENTINEL: the port guard sees a plain HTTP server, not only a websocket one',
+    httpHeld, httpHeld ? 'an HTTP listener is detected' : 'BLIND to HTTP — the board port is unguarded');
   if (!served) throw new Error('no board to check');
 
   // Drive them until both have decided at least once. `decide` is async and
