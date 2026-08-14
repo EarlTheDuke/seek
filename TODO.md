@@ -222,11 +222,32 @@ Both lines are covered by the new **`briefcheck`** (13/13), which also asserts
 they are MECHANICS and not strategy — no "should", "must" or "better to" anywhere
 in a brief, which is the line `personacheck` exists to hold.
 
-### 0j. Drive the recorder **[M]** — arc 3
+### 0j. Drive the recorder **[M]** — arc 3 ◐ FIRST HALF DONE 2026-08-13
 `?watch=1` gives a camera that flies and is never corrected, and `capture()`
 writes frames. Nothing drives them. `board.json` is ground truth — every mind's
 position, goal and reason — so a recorder or a vision experiment has something to
 check itself against. Blocked on **0f** for anything after the fact.
+
+**THE DIRECTOR'S BRAIN IS DONE; ITS HANDS ARE NOT.** `npm run story` reads a
+journal and answers the only question a director has — *where should it be
+looking, and when* — as a ranked, time-stamped list of moments. That question was
+unanswerable at all until 0f landed. Pointing the existing camera at those
+timestamps is now a small job rather than a guess, and the list is immediately
+useful on its own: it is what a person reads after a run, and what a vision
+experiment checks itself against.
+
+**Two faults it committed the first time it saw real data, both now asserted by
+`storycheck` (11/11):**
+1. It filmed **twelve identical deer kills** and cut all four chosen crafts — the
+   rarest events in the file. A pure ranking always does this; each kind is now
+   capped, so rare things survive by construction.
+2. It told the story **out of order**, because it sorted on the world hour —
+   which is each agent's `clock.hours` and WRAPS AT 24. `h1.37` at 1173 s came
+   before `h16.67` at 608 s. **The fifth time that clock has caught this
+   project.** Wall time is the only monotonic thing in a journal.
+
+**Still to do for the second half:** drive `?watch=1` to those timestamps and
+call `capture()`. Unblocked and specified.
 
 ---
 
