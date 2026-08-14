@@ -80,13 +80,19 @@ seconds BEFORE the wood returned, and since it re-adds the key on arrival that i
 a loop, not a one-off. Now 2400, and `regrowcheck` does the conversion rather
 than asserting a relationship it never computed.
 
-### 0e. The `eat` verb is advertised and almost never used **[S]** — arc 1
+### 0e. The `eat` verb is advertised and almost never used **[S]** — arc 1 ✅ DONE 2026-08-13
 Used **once in the project's history** (Seònaid, kimi, 2026-08-12, at food 25 —
 above the reflex's raw threshold of 18, so genuinely a decision). Meanwhile
 Eachann spent a run at **food 28 holding three raw venison and nine wood**, one
 branch short of a fire, with the verb in his prompt the whole time. Not *"the
 models can't"* — **"the models don't."** The brief should say *"you are carrying
 food you could eat now"* the way `lacking` already says *"no arrows"*.
+
+**DONE.** `couldEat` — only when hungry (below the reflex's own `eatBelow`, so
+the line cannot drift from the behaviour) AND holding something edible. Reads:
+*"You are hungry and carrying 3 venisons — \"eat\" would fill you now."* Counted
+and worded exactly as the `carrying` line words it; the first cut dropped the
+number and read "carrying venisons" two lines under "3 venisons".
 
 ### 0k. The brief says what you LACK — it should say what you can MAKE **[S]** — arc 1 ✅ DONE 2026-08-13
 **NEW, from the first journal, 2026-08-13.** Fingal chose `craft` twice and was
@@ -192,12 +198,29 @@ control arm in every rotated run. A seat has a mind when it NAMES A MODEL.
 score over seats. Nothing before 2026-08-13 was rotated, so every model claim in
 `runs/` older than that is about a model-and-seat pair, not a model.
 
-### 0i. They agree to share and then do not **[M]** — arc 1
+### 0i. They agree to share and then do not **[M]** — arc 1 ✅ DONE 2026-08-13
 `offer` is one of the most-reached-for verbs (Ailsa's top goal in run 2), and
 transfers are rare and late. Four minds across two vendors agreed a shared hunt
 in words — *"camp now, south deer at dawn, we share"* — and executed none of it.
 The plan survives in the `plan` field; it does not survive into the next
 decision. Related: **2.5g** (`give` does not land at 1 m) and **2c**.
+
+**DONE — and the mechanism was not personality.** A walk to another person takes
+longer than a cadence (12-100 s against thirty or forty metres), so an errand
+aimed at somebody was routinely replaced before it arrived, BY A MIND WITH NO WAY
+OF KNOWING IT WAS HALFWAY THERE. The brief now carries `errand`: *"You are
+part-way through something: give venison to Coinneach — about 40 m still to
+walk."*
+
+**It does not override the mind.** The body is not pinned and the goal is not
+sticky — the mind is told, and may carry on or drop it. Same bargain `outcome`
+strikes, and the opposite of making `give` a commitment a mind cannot escape.
+Only verbs aimed at a PERSON are announced; `gather` and `hunt` re-resolve to
+whatever is nearest and lose nothing by being re-decided.
+
+Both lines are covered by the new **`briefcheck`** (13/13), which also asserts
+they are MECHANICS and not strategy — no "should", "must" or "better to" anywhere
+in a brief, which is the line `personacheck` exists to hold.
 
 ### 0j. Drive the recorder **[M]** — arc 3
 `?watch=1` gives a camera that flies and is never corrected, and `capture()`

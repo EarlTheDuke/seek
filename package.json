@@ -86,7 +86,8 @@
     "journalcheck": "node server/journalcheck.js",
     "rotatecheck": "node server/rotatecheck.js",
     "regrowcheck": "node server/regrowcheck.js",
-    "costcheck": "node server/costcheck.js"
+    "costcheck": "node server/costcheck.js",
+    "briefcheck": "node server/briefcheck.js"
   },
   "dependencies": {
     "simplex-noise": "4.0.3",

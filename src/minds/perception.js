@@ -206,7 +206,18 @@ export function briefToText(b) {
   // what you could DO about it without going anywhere. A mind that has to infer
   // "two branches is a fletch" from a recipe table it has never seen will guess,
   // and did: three chosen crafts, two of them with nothing to make anything from.
+  // ── WHAT YOU ARE HALFWAY THROUGH ──
+  //
+  // Placed ABOVE what you could make and eat, because it is about a decision
+  // already taken rather than an option. A mind that has walked thirty metres
+  // toward somebody should be told so before it is offered something new.
+  if (b.errand) lines.push(`You are part-way through something: ${b.errand}.`);
   if (b.canMake?.length) lines.push(`You could make: ${b.canMake.join(', ')} — a fire must be in reach.`);
+  // The mirror of `lacking` again, and the sharpest one: hungry, with the cure
+  // in the pack. The `eat` verb was chosen ONCE in this project's history while
+  // a body sat at food 28 holding three venison. Three inferences is two too
+  // many; this makes it none.
+  if (b.couldEat?.length) lines.push(`You are hungry and carrying ${b.couldEat.join(', ')} — "eat" would fill you now.`);
   // The mirror of `lacking`. A mind not told a thing is full goes on choosing
   // to fill it — 32 per cent of every decision in one measured hour was picking
   // things up, by bodies already carrying more than they could ever use.

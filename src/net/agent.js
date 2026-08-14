@@ -59,6 +59,11 @@ import { RECIPES, canCraft } from '../items/recipes.js';
 import { EDIBLE, getItem, itemWords, resolveItemId } from '../items/registry.js';
 import { AGENTS, BOW, PLAYER, NET, SURVIVAL, PICKUP, MINDS, SOCIAL } from '../config.js';
 
+// Verbs aimed at a PERSON — the only ones whose walk outlasts a deliberation,
+// and so the only ones worth telling a mind it is halfway through. See
+// `errandNow`.
+const ERRAND_VERBS = new Set(['give', 'offer', 'accept', 'approach', 'follow', 'guard']);
+
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 // How close a body walks to something it means to pick up. Inside
@@ -1138,7 +1143,54 @@ export class Agent {
       // Only what is actually makeable NOW. A list of everything you cannot
       // afford is the brief nobody reads, which is the rule `lacking` and
       // `full` were both written under.
+      // ── WHAT YOU ARE ALREADY PART-WAY THROUGH ──
+      //
+      // A mind decides, walks, and then decides again — and until now the second
+      // decision was made in complete ignorance of the first. A walk to another
+      // person takes longer than a cadence (12-100 s against thirty or forty
+      // metres), so an errand aimed at somebody was routinely replaced before it
+      // arrived, by a mind that had no way of knowing it was halfway there.
+      //
+      // Measured 2026-08-12: `offer` was one of the most-reached-for verbs in
+      // the run — Ailsa's top goal — and TRANSFERS WERE RARE AND LATE. Four
+      // minds agreed a shared hunt in words, in their own private plans, and
+      // executed none of it. This is the mechanism, and it is not a personality
+      // finding.
+      //
+      // IT DOES NOT OVERRIDE THE MIND. The body is not pinned and the goal is
+      // not sticky: the mind is simply TOLD, and may carry on or drop it. That
+      // is the same bargain `outcome` strikes — the brief informs, the mind
+      // decides — and the opposite of making `give` a commitment the mind
+      // cannot escape.
+      errand: this.errandNow(),
       canMake: this.makeable(),
+      // ── AND WHEN THE CURE IS ALREADY IN THE PACK ──
+      //
+      // `lacking` says what stops you. This says when nothing is stopping you
+      // and you have simply not noticed — the same failure, mirrored.
+      //
+      // The `eat` verb has been advertised in every brief since it shipped and
+      // has been CHOSEN ONCE in the project's history. Meanwhile Eachann spent a
+      // run at food 28 holding three raw venison and nine wood, one branch short
+      // of a fire, with the verb in his prompt the whole time. Not "the models
+      // cannot" — "the models do not". A model will not reliably join "I am
+      // hungry" to "there is meat in my pack" to "there is a verb for that";
+      // that is three inferences and it is the same one-step-too-far that let a
+      // mind hunt for an hour on an empty bow.
+      //
+      // MECHANICS, NOT STRATEGY. It states a fact about the pack and names the
+      // verb that acts on it — the shared floor `lacking` and `full` are written
+      // to, not a nudge about when to be hungry. Only when BOTH halves are true,
+      // because a brief that mentions food to a fed body is noise.
+      // Counted, and worded EXACTLY as the `carrying` line above words it —
+      // "3 venisons", the registry's own plural. The first cut dropped the
+      // number and read "carrying venisons", which is a brief disagreeing with
+      // itself two lines apart.
+      couldEat: (this.food !== undefined && this.food < AGENTS.eatBelow)
+        ? EDIBLE.filter((id) => this.count(id) > 0)
+            .map((id) => `${this.count(id)} ${itemWords(id, this.count(id))}`)
+            .slice(0, 3)
+        : [],
       // ── AND WHAT YOU CANNOT CARRY ANY MORE OF ──
       //
       // The mirror of `lacking`, and it exists for the same reason: a mind that
@@ -1836,6 +1888,30 @@ export class Agent {
       out.push(n > 1 ? `${n} ${itemWords(id, n)}` : itemWords(id, 1));
     }
     return out.slice(0, 4);
+  }
+
+  /**
+   * The errand this body is part-way through, in its own words, or null.
+   *
+   * Only the verbs aimed at a PERSON: those are the ones whose walk outlasts a
+   * cadence, and the ones the 2026-08-12 runs showed being abandoned. `gather`
+   * and `hunt` re-resolve to whatever is nearest and lose nothing by being
+   * re-decided; `give` loses the whole point.
+   *
+   * Reuses `describeGoal`, so the brief says the errand in exactly the words the
+   * board and the report say it. Three ways to phrase one intention is how a
+   * log stops being readable.
+   */
+  errandNow() {
+    const g = this.goal;
+    const t = this.target;
+    if (!g || !t || typeof t.x !== 'number') return null;
+    if (!ERRAND_VERBS.has(g.kind)) return null;
+    const d = Math.hypot(t.x - this._x, t.z - this._z);
+    // Arrived, or as good as: there is no errand left to describe, and saying
+    // "0 m still to walk" to a body already standing there is noise.
+    if (d <= (t.within ?? AGENTS.arriveWithin)) return null;
+    return `${describeGoal(g)} — about ${Math.round(d)} m still to walk`;
   }
 
   /** What a recipe still needs, in words a mind can act on. */
