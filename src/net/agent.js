@@ -2455,6 +2455,10 @@ export class Agent {
     // them apart cannot tell you whether the verb is earning its place.
     const asked = this._mealAskedBy;
     this._mealAskedBy = null;
+    // The decision that asked for this has now been served. Only a CHOSEN meal
+    // counts: a reflex meal is not answering a decision, and must not cancel
+    // one the mind is still waiting on.
+    if (asked === 'choice') this._mealDoneFor = this.goal;
     // "a venison" or plain "something" — never "a something", which is what the
     // first cut printed whenever the rise could not be pinned to an item.
     const what = `a ${noun}`;
@@ -3350,6 +3354,27 @@ export class Agent {
       // own field and not a second timer: a body has one throat, and a mind that
       // chooses to eat should also hold off the reflex meal that follows.
       case 'eat': {
+        // ── ONE DECISION IS ONE MEAL, AND THE COOLDOWN WAS NOT ENOUGH ──
+        //
+        // `eatCooling` stops a body swallowing twice in a tick. It does NOT stop
+        // a standing goal from firing again the moment it lapses, and a chosen
+        // `eat` is a standing goal like any other. Watched live 2026-08-14, in
+        // the first seven minutes the verb was properly used:
+        //
+        //     351.0s Ailsa I chose to eat a venison
+        //     354.1s Ailsa I chose to eat a venison
+        //     356.1s Ailsa I chose to eat a venison
+        //     359.2s Ailsa I chose to eat a venison
+        //
+        // Four venison in eight seconds, off ONE decision, in a valley where
+        // `SCARCE=on` and meat is the whole problem. The fourth was thrown
+        // away against a belly already full — exactly the waste the reflex's
+        // swallow timer exists to prevent, arriving through the new door.
+        //
+        // A decision to eat is HONOURED by eating once. The goal object is
+        // replaced wholesale on every deliberation, so reference equality is
+        // the precise question: has this particular decision been served yet?
+        if (this._mealDoneFor === g) return null;
         if ((this.eatCooling ?? 0) > 0) return null;
         const meal = EDIBLE.find((id) => this.count(id) > 0);
         if (!meal) {

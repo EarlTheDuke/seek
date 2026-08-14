@@ -231,14 +231,9 @@ try {
     eater.count('venison') === beforeMeat - 1,
     `venison ${beforeMeat} -> ${eater.count('venison')} · swallow ${AGENTS.swallowSeconds}s`);
 
-  // ── 3b. AND THE MEAL IS VISIBLE, WHICH IS A SEPARATE QUESTION ─────────────
-  //
-  // On the night the verb shipped it worked and left NO TRACE: a chosen meal
-  // wrote no deed, so the board could not show it and the report could not
-  // count it, and the only way to answer "has any mind chosen to eat?" was to
-  // read the raw goal history by hand. A verb nobody can see used is
-  // indistinguishable from a verb nobody wanted — which is the exact confusion
-  // `playreport` exists to prevent.
+  // Counted AFTER the meal above and BEFORE anything else eats, or this
+  // asserts the wrong number — which it did, reading 2, when a later block
+  // was spliced in above it.
   const meals = eater.deeds.filter((d) => d.what === 'eat');
   check('THE CHOSEN MEAL IS ON THE RECORD — one deed, not zero and not two',
     meals.length === 1, `${meals.length} eat deeds: ${meals.map((m) => m.text).join(' | ')}`);
@@ -251,12 +246,56 @@ try {
     meals[0]?.id === 'venison' && meals[0]?.filled > 0,
     `id=${meals[0]?.id} filled=${meals[0]?.filled}`);
 
+  // ── AND IT STAYS ONE MEAL AFTER THE COOLDOWN LAPSES ──
+  //
+  // `eatCooling` only stops a second swallow inside a tick. Watched live on
+  // 2026-08-14: Ailsa ate FOUR venison in eight seconds off one decision,
+  // because the standing goal fired again each time the timer ran out — in a
+  // scarce valley, with a belly that was full by the third. The swallow timer
+  // is 2.5s, so this holds the same goal for four times that.
+  const afterOne = eater.count('venison');
+  await run([eater], AGENTS.swallowSeconds * 4, () => {
+    eater.goal = wantsToEat;          // the SAME decision, still standing
+    eater.retarget = 0;
+  });
+  check('  …and it is STILL one meal four cooldowns later, off the same decision',
+    eater.count('venison') === afterOne,
+    `venison ${afterOne} -> ${eater.count('venison')} across ${(AGENTS.swallowSeconds * 4).toFixed(1)}s`);
+
+  // ...but a NEW decision to eat is a new meal. The rule is "one per decision",
+  // not "one per run", and a mind that decides twice should eat twice.
+  const beforeSecond = eater.count('venison');
+  const decidesAgain = sanitiseGoal({ kind: 'eat', why: 'still hungry' });
+  let ateAgain = false;
+  await run([eater], 2.5, () => {
+    if (ateAgain) return;
+    eater.goal = decidesAgain;
+    eater.retarget = 0;
+    ateAgain = eater.count('venison') < beforeSecond;
+  });
+  check('  …while a FRESH decision to eat is served — one per decision, not one per run',
+    ateAgain, `venison ${beforeSecond} -> ${eater.count('venison')} after a new decision`);
+
+  // ── 3b. AND THE MEAL IS VISIBLE, WHICH IS A SEPARATE QUESTION ─────────────
+  //
+  // On the night the verb shipped it worked and left NO TRACE: a chosen meal
+  // wrote no deed, so the board could not show it and the report could not
+  // count it, and the only way to answer "has any mind chosen to eat?" was to
+  // read the raw goal history by hand. A verb nobody can see used is
+  // indistinguishable from a verb nobody wanted — which is the exact confusion
+  // `playreport` exists to prevent.
+
   // ── 4. THE CONTROL ARM ────────────────────────────────────────────────────
   // Same stock, same hunger, same server, never given the goal. If this body
   // ate too then the reflex did it and everything above is worthless.
+  // "Did not eat" is a pack that did not fall and a belly that did not RISE.
+  // The first version demanded `food === HUNGER` exactly, which is a slow
+  // stopwatch masquerading as a control: hunger DECAYS on its own, so the
+  // assertion broke the moment the test ran fifteen seconds longer. Eating is
+  // the only thing that raises it — `body.eat()` is the one line that does.
   check('THE CONTROL DID NOT EAT — so the meal above was the VERB and not the reflex',
-    control.count('venison') === 2 && control.food === HUNGER,
-    `Seonag: venison ${control.count('venison')}, hunger ${control.food}`);
+    control.count('venison') === 2 && control.food <= HUNGER,
+    `Seonag: venison ${control.count('venison')}, hunger ${control.food} (started ${HUNGER}, only falls)`);
 
   // ── 5. THE REFUSAL ────────────────────────────────────────────────────────
   // `world.js` resolves `eat` against the pack and does nothing whatever when
