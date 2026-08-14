@@ -112,7 +112,12 @@ export function openJournal(file) {
           if (!d?.seq || d.seq <= from) continue;
           high = Math.max(high, d.seq);
           put({ k: 'deed', at: round(elapsed), h: d.h, who, model, what: d.what,
-                text: d.text, ...(d.id ? { id: d.id } : {}), ...(d.n ? { n: d.n } : {}),
+                text: d.text,
+                // Where it happened, so a recorder can fly there. Stamped by
+                // `did()` at the moment of the deed, not here — a body walks
+                // four metres in the second between the two.
+                ...(d.x !== undefined ? { x: d.x, z: d.z } : {}),
+                ...(d.id ? { id: d.id } : {}), ...(d.n ? { n: d.n } : {}),
                 ...(d.by ? { by: d.by } : {}), ...(d.filled ? { filled: d.filled } : {}) });
         }
         for (const t of a.intentions ?? []) {
@@ -120,6 +125,7 @@ export function openJournal(file) {
           high = Math.max(high, t.seq);
           put({ k: 'decision', at: round(elapsed), h: t.h, who, model,
                 goal: t.goal, why: t.why ?? null, where: t.where ?? null,
+                ...(t.x !== undefined ? { x: t.x, z: t.z } : {}),
                 ...(t.said ? { said: t.said } : {}) });
         }
         if (high > from) seen.set(who, high);

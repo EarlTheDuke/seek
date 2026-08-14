@@ -148,7 +148,26 @@ export function tellStory(lines, { top = 12 } = {}) {
   if (!chosen('craft')) absences.push('no mind CHOSE to make anything — every make was the reflex');
   if (!counts('killed')) absences.push('nothing was killed, so nothing was ever cooked from a hunt');
 
+  // ── THE SHOT LIST — the story in the form a CAMERA can read ──
+  //
+  // The prose above is for a person. This is the same moments as coordinates
+  // and seconds, which is all a recorder needs and all it can use: fly to
+  // (x, z), be there at `at`, hold for `hold`, and know whose face it is.
+  //
+  // A moment with no position is DROPPED and counted, never silently included
+  // with a guessed one — pointing a camera at 0,0 and calling it a kill is the
+  // silent-zero disease with a lens on it. Deeds only carry coordinates from
+  // 2026-08-14; an older journal will report every moment as unplaceable, which
+  // is the honest answer for a file that does not contain the information.
+  const placeable = moments.filter((m) => typeof m.x === 'number');
+  const shots = placeable.map((m) => ({
+    at: m.at, hold: 6, x: m.x, z: m.z, who: m.who, model: m.model,
+    what: m.what, chosen: m.by === 'choice', text: m.text,
+  }));
+
   return {
+    shots,
+    unplaceable: moments.length - placeable.length,
     roster: head.roster ?? 'unknown',
     rotate: head.rotate ?? 0,
     seats: [...seats.values()].sort((a, b) => b.decisions - a.decisions),
@@ -196,6 +215,24 @@ export function storyToMarkdown(s, file) {
     L.push(`- **${mm}:${ss}** *(world h${(m.h ?? 0).toFixed(1)})* — **${m.who}** ` +
       `(${m.model ?? 'scripted'}) ${m.text}${m.by === 'choice' ? ' — **CHOSEN**' : ''}`);
   }
+  if (s.shots.length || s.unplaceable) {
+    L.push('');
+    L.push('## The shot list');
+    L.push('');
+    L.push('_Where a camera would have to be, and when. Written to `shots.json` beside the journal._');
+    L.push('');
+    for (const sh of s.shots) {
+      L.push(`- \`${String(Math.floor(sh.at / 60)).padStart(2, '0')}:` +
+        `${String(Math.round(sh.at % 60)).padStart(2, '0')}\` at **${sh.x}, ${sh.z}** — ` +
+        `${sh.who}${sh.chosen ? ' *(chosen)*' : ''}`);
+    }
+    if (s.unplaceable) {
+      L.push('');
+      L.push(`> ${s.unplaceable} moment(s) carry no position and were DROPPED from the shot ` +
+        `list rather than guessed at. Journals written before 2026-08-14 have no coordinates.`);
+    }
+  }
+
   if (s.absences.length) {
     L.push('');
     L.push('## What never happened');
@@ -234,5 +271,14 @@ if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith
   const { lines, broken } = readJournal(file);
   const story = tellStory(lines);
   process.stdout.write(storyToMarkdown(story, file));
+  // The markdown claims `runs/shots.json` exists, so it had better. A document
+  // that names a file nobody writes is the same class of lie as a check that is
+  // green over a path no caller can reach.
+  if (story.shots.length) {
+    const out = path.join(path.dirname(file), 'shots.json');
+    fs.writeFileSync(out, JSON.stringify({ from: path.basename(file), shots: story.shots }, null, 2));
+    console.error(`
+  wrote ${story.shots.length} shots to ${out}`);
+  }
   if (broken) console.error(`\n  (${broken} unreadable line(s) — a killed run can leave half a line behind)`);
 }

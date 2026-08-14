@@ -140,6 +140,9 @@ try {
 
   const arrowsBefore = smith.count('arrow');
   const woodBefore = smith.count('wood');
+  // Where the body is standing as the make begins, so the deed's own position
+  // can be checked against the truth rather than against where it ended up.
+  const madeAt = { x: smith._x, z: smith._z };
   const wantArrows = sanitiseGoal({ kind: 'craft', thing: 'arrows', why: 'empty quiver' });
   let made = false;
   await run([smith], 4, () => {
@@ -161,6 +164,26 @@ try {
   // this verb existed, so a board full of makes says nothing about whether the
   // VERB is used. Watched live on the night it shipped: the scripted control
   // fletching by reflex was momentarily read as the new verb working.
+  // ── AND WHERE IT HAPPENED, WHICH THE RECORDER CANNOT DO WITHOUT ──
+  //
+  // Stamped by `did()` at the moment of the deed rather than when the journal
+  // drains a second later — a body walks four metres in that. Asserted on a
+  // REAL agent over a REAL socket, because the whole point is that these are
+  // the body's own coordinates in the world and not a fixture's.
+  check('  …and the deed carries WHERE IT HAPPENED, so a camera could fly there',
+    typeof deed?.x === 'number' && typeof deed?.z === 'number'
+      && Math.hypot(deed.x - madeAt.x, deed.z - madeAt.z) < 4,
+    `deed at ${deed?.x}, ${deed?.z} · body was at ${madeAt.x.toFixed(1)}, ${madeAt.z.toFixed(1)} ` +
+    `when it made them, and is at ${smith._x.toFixed(1)}, ${smith._z.toFixed(1)} now`);
+  // THE GAP IS THE POINT, and the first version of this assertion got it exactly
+  // backwards by demanding the deed match the body's CURRENT position. A deed
+  // stamped at drain time would read wherever the body wandered to in the
+  // second afterwards — here, ten metres away. That is the bug this stamping
+  // exists to avoid, so it is asserted rather than assumed.
+  check('  …and it is the position at the TIME, not wherever the body wandered to after',
+    Math.hypot(smith._x - deed.x, smith._z - deed.z) > 1,
+    `${Math.hypot(smith._x - deed.x, smith._z - deed.z).toFixed(1)} m walked since the deed`);
+
   check('  …and it records that a MIND chose it, not that a reflex fired',
     deed?.by === 'choice' && /^I chose to make/.test(deed?.text ?? ''),
     `by=${deed?.by} text="${deed?.text}" id=${deed?.id} n=${deed?.n}`);

@@ -1473,6 +1473,10 @@ export class Agent {
           this.intentions.push({
             seq: this._seq,
             h: +this.hours.toFixed(2),
+            // Where the mind was standing when it decided. The place NAME below
+            // is for the mind to read; these two are for a camera to fly to.
+            x: +(this._x ?? 0).toFixed(1),
+            z: +(this._z ?? 0).toFixed(1),
             goal: describeGoal(action),
             why: action.why ?? null,
             where: this.where(),
@@ -2218,7 +2222,21 @@ export class Agent {
     //
     // Shared with `intentions` on purpose, so one high-water mark covers both.
     this._seq = (this._seq ?? 0) + 1;
-    this.deeds.push({ seq: this._seq, h: +this.hours.toFixed(2), what, text });
+    // ── AND WHERE IT HAPPENED, WHICH A CAMERA CANNOT DO WITHOUT ──
+    //
+    // Stamped HERE and not at drain time. The journal drains once a second and
+    // a body walks four metres in that — so a position read when the line is
+    // written down is a position the deed did not happen at. The whole point of
+    // recording it is that something can later fly to the spot.
+    //
+    // Found the moment the recorder was specified: the story could say WHEN a
+    // kill happened and WHO made it, and had no way to say WHERE, so nothing
+    // could be pointed at it. A decision already carried a place NAME for the
+    // mind to read; a name is not a camera target.
+    this.deeds.push({
+      seq: this._seq, h: +this.hours.toFixed(2), what, text,
+      x: +(this._x ?? 0).toFixed(1), z: +(this._z ?? 0).toFixed(1),
+    });
     if (this.deeds.length > AGENTS.logSize) this.deeds.shift();
   }
 
