@@ -283,6 +283,37 @@ the render, the analysis is from two independent readings of the code rather
 than from an image, and a one-character sign error here would look identically
 wrong. Worth ten seconds of eyes before and after.
 
+### 0.5g. A WATCHER IS STILL A BODY IN THE WORLD **[M]** — arc 3 · *Ben, watching*
+*"Make the fly option not vulnerable to the elements so we can watch only."*
+
+**`?watch=1` is entirely client-side.** It makes the browser send no intents and
+accept no position corrections, which is why the camera can fly at last. THE
+SERVER IS NEVER TOLD. Grepped: there is no `spectator` or `watcher` concept in
+`world.js`, `server.js` or the protocol — a watcher joins through the same
+`players.set(id, p)` as anybody else and gets a full body.
+
+So a watcher's body is standing in the valley the whole time, and:
+
+1. **IT FREEZES AND STARVES.** Hunger decays and `coreC` falls on a body nobody
+   is steering, so a long watch ends in the death screen. That is what Ben hit.
+2. **AND — the larger problem — IT IS A PERSON THE MINDS CAN SEE.** It is in the
+   snapshot, so it reaches every agent's `also out there` and contacts. Minds can
+   walk to it, hail it, offer to it, and on unsettled ground shoot at it. **An
+   observer other minds react to is not an observer**, and every run watched this
+   way is quietly contaminated by a motionless stranger standing in it.
+
+Point 2 matters more than point 1 for what this project is measuring, and
+neither is fixable from the browser: both need the SERVER to know.
+
+**Shape of the fix:** carry a `watch` flag on `C_HELLO`; the world then skips
+hunger, cold and damage for that player, excludes it from `canHarm` and wildlife
+aggro, and — the important half — **leaves it out of the snapshot other players
+and agents receive**. It should be possible to watch a run without being in it.
+
+Related: **0j**'s camera driver will BE a watcher, so it inherits both problems.
+Doing this first makes the recorder possible; doing it after means every filmed
+run has a ghost in it.
+
 ### 0.5b. "3 venisons" — the registry has no plural exception **[S]** — arc 2
 `Agent.plural` knows venison, trout and fish take no plural. `itemWords` in the
 item registry does not, so the brief says *"You are carrying: 3 venisons"* and,
