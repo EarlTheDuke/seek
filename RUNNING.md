@@ -15,6 +15,12 @@ explorer, not a terminal. There are three files you ever need to touch.
    mind-board in your browser.
 4. **Double-click `STOP.cmd`** when you are done. That is what stops the money.
 
+**AND STOP.cmd IS STILL NEEDED AFTER A TIMED RUN.** `--for` / `AGENT_SECONDS`
+stops the MINDS — the world keeps running and keeps port 8080. Nothing is
+spending once the minds are done, but the next run and `boardcheck` will both
+fail on the held port until you close it. The minds print a line saying so as
+they finish.
+
 Everything else in this file is detail you only need when something is wrong.
 
 ---

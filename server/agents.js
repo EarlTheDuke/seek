@@ -574,6 +574,23 @@ async function main() {
       const s = budget.spent;
       console.log(`\n    ${s.calls} calls · ${s.tokensIn} in / ${s.tokensOut} out tokens`);
     }
+    // -- AND THE WORLD IS STILL RUNNING, WHICH NOBODY EXPECTS --
+    //
+    // `--for` / AGENT_SECONDS stops the MINDS. The server is a different process
+    // that this one did not start and cannot politely stop -- and it holds port
+    // 8080. So a run that has finished, printed its report and gone quiet leaves
+    // a world standing, which then blocks the next run and makes `boardcheck`
+    // fail on a held port.
+    //
+    // Hit twice on 2026-08-14: once while writing a run up, once while starting
+    // the next. Deliberately NOT solved with a remote-kill message -- any
+    // connected client could then close the world, which is a far worse thing to
+    // have than a port to tidy up. So it says so, plainly, at the one moment
+    // somebody is certainly looking at this console.
+    console.log(`  THE WORLD IS STILL RUNNING at ${URL} -- the minds stopped, it did not.`);
+    console.log('  Nothing is spending now. But it holds the port, so the next run and');
+    console.log('  boardcheck will fail until it is closed: double-click STOP.cmd.');
+    console.log('');
 
     // ── and file it ──
     // The console scrolls away and the findings go with it. A run that noticed
