@@ -251,6 +251,73 @@ call `capture()`. Unblocked and specified.
 
 ---
 
+# TIER 0.5 — what the eye and the hand find, 2026-08-14
+
+Two different sources, kept apart on purpose. **The first is Ben's, from
+watching the game.** The rest are mine, from the data and the code — and I have
+**not been looking at the render at all**, so this list is honestly short on
+visual bugs and long on papercuts. A pass with somebody actually watching would
+find more in ten minutes than I found all day.
+
+### 0.5a. THE BOW IS BACKWARD when drawn **[S]** — arc 5 · *Ben, watching*
+Reported from the game; traced to `bowGeometry()` in `src/net/avatars.js`.
+
+The avatar group is rotated `yaw + Math.PI` (avatars.js:264), so **+Z is forward**
+for the figure. The bowstring agrees: its nock runs `0.03 → -0.23` as the draw
+comes back, under a comment reading *"the nocking point comes back as the string
+is pulled"*. So −Z is toward the archer, +Z toward the target.
+
+The limb curve is the other way round:
+
+    (0, -0.46,  0.03)   tip
+    (0,  0,    -0.055)  belly  <-- bulges toward the ARCHER
+    (0,  0.46,  0.03)   tip
+
+A bow bulges AWAY from its string: tips near the archer, belly toward the target.
+This has it mirrored, which is exactly what "backward" looks like.
+
+**The likely fix is to negate Z on all five curve points** — tips to `-0.03`,
+belly to `+0.055` — and move the string's rest nock to `-0.03` so it still spans
+the tips, keeping the same `- draw * 0.26` pull. **Not applied**: I cannot see
+the render, the analysis is from two independent readings of the code rather
+than from an image, and a one-character sign error here would look identically
+wrong. Worth ten seconds of eyes before and after.
+
+### 0.5b. "3 venisons" — the registry has no plural exception **[S]** — arc 2
+`Agent.plural` knows venison, trout and fish take no plural. `itemWords` in the
+item registry does not, so the brief says *"You are carrying: 3 venisons"* and,
+since 0e, *"hungry and carrying 3 venisons"*. Two plural rules, one of them
+wrong. Fixing `itemWords` touches every brief and several checks, so it wants
+doing deliberately rather than in passing.
+
+### 0.5c. `AGENT_SECONDS` stops the minds and leaves the world running **[S]**
+Hit twice on 2026-08-14. The fleet ends cleanly at its hour and **the server
+keeps port 8080**, which blocks the next run and makes `boardcheck` fail. The
+minds process cannot politely stop a server it did not start, so this is either
+a note in RUNNING.md or a `--stop-server` flag. Right now it is a trap.
+
+### 0.5d. `boardcheck` does not use `requireFreePort` **[S]** — arc 2
+It prints *"could not run: no board to check"* when a live run holds 8090, which
+I misread as a regression once today and had to diagnose twice. `freeport.js`
+exists in this repo BECAUSE a stale server on a port made `bitecheck` report a
+product defect that did not exist. This is the same failure, in the file next
+door.
+
+### 0.5e. A craft can make several things off ONE decision **[S]** — arc 1
+`eat` is now one meal per decision, after a body ate four venison in eight
+seconds. `craft` still fires on every retarget: Ailsa made arrows AND a torch off
+a single "make something useful". That is arguably RIGHT — she used spare
+materials well — but the two verbs now behave differently for no stated reason.
+**Decide it deliberately** rather than leaving it as an accident of which bug got
+found first.
+
+### 0.5f. Nothing changed hands in the rotated run **— watch, do not fix yet**
+The 0i errand line was live and produced no transfer in an hour. Run 2 on
+2026-08-12 produced five. One run each way is not a finding; it is a thing to
+count over the next few.
+
+---
+
 # TIER 1 — the game lies about outcomes  ✅ DONE 2026-08-09
 
 All three landed and all three were verified in a live browser against a live
