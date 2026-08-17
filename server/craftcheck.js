@@ -33,7 +33,7 @@ import { Agent } from '../src/net/agent.js';
 import { ScriptedProvider, ModelProvider } from '../src/minds/providers.js';
 import { makeRandom } from '../src/world/noise.js';
 import { GOAL_IDS, sanitiseGoal, describeGoal } from '../src/minds/goals.js';
-import { AGENTS } from '../src/config.js';
+import { AGENTS, SURVIVAL } from '../src/config.js';
 import { RECIPES } from '../src/items/recipes.js';
 import { requireFreePort } from './freeport.js';
 import { briefToText } from '../src/minds/perception.js';
@@ -84,12 +84,18 @@ check('SENTINEL: making anything needs a fire, arrows included',
 // ── 2. A REAL SERVER ────────────────────────────────────────────────────────
 await requireFreePort(PORT, 'craftcheck');
 const server = spawn(process.execPath, [path.join(HERE, 'server.js'), String(PORT)], {
-  // Twelve wood: ten to lay a fire and two to fletch with. STOCK ADDS TO the
-  // starting loadout rather than replacing it, so this body also has the
-  // standard bow and twelve arrows — which is why every assertion below is a
-  // DELTA. The first cut asserted `arrow === 0` and "a mind got arrows" passed
-  // before anything had happened.
-  env: { ...process.env, DANGER: 'none', MINDS_HUNTERS: '0', HUNGER: '60', STOCK: 'wood:12' },
+  // Thirty wood, of which a body can hold twenty — one stack. `woodToLight` is
+  // 10 to lay the fire and the recipe is 2 to fletch with, so this leaves eight
+  // spare, and the eight are the point: an assertion that a body did NOT spend
+  // its wood is empty against a body with no wood, and at STOCK 12 that is
+  // exactly what it was. Caught by its own premise sentinel, which is the only
+  // reason anybody knows.
+  //
+  // STOCK ADDS TO the starting loadout rather than replacing it, so this body
+  // also has the standard bow and twelve arrows — which is why every assertion
+  // below is a DELTA. The first cut asserted `arrow === 0` and "a mind got
+  // arrows" passed before anything had happened.
+  env: { ...process.env, DANGER: 'none', MINDS_HUNTERS: '0', HUNGER: '60', STOCK: 'wood:30' },
   stdio: 'ignore',
 });
 const stop = () => { try { server.kill(); } catch { /* gone */ } };
@@ -117,20 +123,46 @@ try {
   const smith = await body('Mairi', 'smith');
   await sleep(900);
 
-  check('a body on a real socket with wood enough for a fire and a fletch',
-    smith.count('wood') >= 12, `wood ${smith.count('wood')} · arrow ${smith.count('arrow')}`);
+  check('a body on a real socket with wood enough for a fire, a fletch and a spare',
+    smith.count('wood') >= 20, `wood ${smith.count('wood')} · arrow ${smith.count('arrow')}`);
 
   // ── 3. THE ONE THAT MATTERS ───────────────────────────────────────────────
   //
   // A fire has to exist first, because everything needs one. Laid through the
   // ordinary target machinery — the same `act` the reflex uses — rather than by
   // reaching into the world, so the fire is as real as any other.
+  //
+  const woodAtStart = smith.count('wood');
   smith.retarget = 999;                       // do not let resolve() replace it
   smith.target = { x: smith._x, z: smith._z, act: 'place', within: 2 };
-  await run([smith], 1.5);
+  // ONE TICK is all it takes, and it used to take everything. See the
+  // assertion below: an intent is a level the server re-reads, so this single
+  // press was applied twice until `place` was given edge detection.
+  await run([smith], STEP);                   // exactly ONE press
+  // Then wait for the snapshot to catch up: `nearestFire` reads what the body
+  // can SEE, which is a few frames behind the server that lit it.
+  for (let i = 0; i < 300 && !smith.nearestFire(); i++) await run([smith], STEP);
+  await run([smith], 0.3);
   const fire = smith.nearestFire();
   check('SENTINEL: a fire is lit and in reach, so the craft has a station to use',
     !!fire && fire.d <= 6, fire ? `fire ${fire.d.toFixed(1)} m away` : 'NO FIRE — staging failed');
+  // ── AND IT COST ONE FIRE'S WORTH, NOT AS MUCH AS THE PACK COULD PAY ───────
+  //
+  // An intent is a LEVEL the server re-reads every tick until the next packet
+  // arrives, so a single press used to be applied twice — measured here, one
+  // `[CLI target place]` against two `[SRV place]`. `lightFireFor` treats the
+  // second claim as FUEL for the first fire, so it did not even show up as two
+  // fires: one fire, twenty wood, silence. Hidden for months by poverty, since
+  // 10 to light means a body with 12 cannot afford the second application.
+  //
+  // Fixed by giving `place` and `craft` the edge detection that `primary`,
+  // `drop`, `give`, `offer`, `accept` and `eat` have always had. Asserted here
+  // because this is the only test in the repo that ever hands a body a full
+  // stack of wood, which is the only reason anybody found out.
+  check('  …and it cost ONE fire, not as many as a full pack could pay for',
+    woodAtStart - smith.count('wood') === SURVIVAL.woodToLight,
+    `${woodAtStart} -> ${smith.count('wood')} wood for one press · ` +
+    `a fire is ${SURVIVAL.woodToLight}`);
 
   // Twelve arrows is well ABOVE `lowArrows`, so `recipeToWork` wants nothing:
   // the reflex will not fletch here. Anything that appears was CHOSEN.
@@ -175,14 +207,86 @@ try {
       && Math.hypot(deed.x - madeAt.x, deed.z - madeAt.z) < 4,
     `deed at ${deed?.x}, ${deed?.z} · body was at ${madeAt.x.toFixed(1)}, ${madeAt.z.toFixed(1)} ` +
     `when it made them, and is at ${smith._x.toFixed(1)}, ${smith._z.toFixed(1)} now`);
-  // THE GAP IS THE POINT, and the first version of this assertion got it exactly
-  // backwards by demanding the deed match the body's CURRENT position. A deed
-  // stamped at drain time would read wherever the body wandered to in the
-  // second afterwards — here, ten metres away. That is the bug this stamping
-  // exists to avoid, so it is asserted rather than assumed.
-  check('  …and it is the position at the TIME, not wherever the body wandered to after',
-    Math.hypot(smith._x - deed.x, smith._z - deed.z) > 1,
-    `${Math.hypot(smith._x - deed.x, smith._z - deed.z).toFixed(1)} m walked since the deed`);
+
+  // ── ONE DECISION IS ONE MAKE ──────────────────────────────────────────────
+  //
+  // The mirror of foodcheck's one-decision-one-meal, and the same mechanism
+  // underneath: a craft resolves INSTANTLY on the server (`RECIPES.seconds` is
+  // presentation), `after` fires on arrival, arrival at a fire you are standing
+  // at is distance zero, and the standing goal presses again every retarget.
+  // One decision, unbounded makes.
+  //
+  // `fletch_arrows` has no `maxHeld`, so nothing stops it: 2 wood -> 4 arrows,
+  // repeated until the pack is empty — straight through `AGENTS.spareWood`, the
+  // firewood reserve `recipeToWork` guards so carefully that 0c needed a
+  // starvation override to get past it.
+
+  // THE PREMISE, STATED, so it cannot quietly go vacuous. "It did not repeat"
+  // proves nothing against a pack with no wood in it, and a test that cannot
+  // fail is how this project has fooled itself before.
+  const spareFletches = Math.floor(smith.count('wood') / RECIPES.fletch_arrows.inputs.wood);
+  check('SENTINEL: there is wood for several more fletches, so a repeat COULD happen',
+    spareFletches >= 3 && !smith.recipeToWork(),
+    `${smith.count('wood')} wood = ${spareFletches} more fletches · reflex wants ${smith.recipeToWork() ?? 'nothing'}`);
+
+  const afterOne = { arrows: smith.count('arrow'), wood: smith.count('wood') };
+  await run([smith], AGENTS.retargetSeconds * 4, () => {
+    smith.goal = wantArrows;      // the SAME decision object, still standing
+    smith.retarget = 0;           // and retargeting as hard as it possibly can
+  });
+  check('ONE DECISION IS ONE MAKE — the same standing goal does not fletch again',
+    smith.count('arrow') === afterOne.arrows && smith.count('wood') === afterOne.wood,
+    `arrows ${afterOne.arrows} -> ${smith.count('arrow')}, wood ${afterOne.wood} -> ${smith.count('wood')}, ` +
+    `across ${(AGENTS.retargetSeconds * 4).toFixed(1)}s of forced retargets at the fire`);
+
+  // AND THE RECORD AGREES, which is the half that was actually complained about:
+  // the deed log filed one craft per PRESS, so a standing goal wrote ten crafts
+  // against one decision and the run report read as a mind that had decided ten
+  // times. A log that misrepresents what a mind chose is worse than no log.
+  check('  …and the record agrees — ONE craft deed for ONE decision',
+    smith.deeds.filter((d) => d.what === 'craft').length === 1,
+    `${smith.deeds.filter((d) => d.what === 'craft').length} craft deeds · ` +
+    `${spareFletches} more fletches were affordable and none were taken`);
+
+  // ...but the rule is ONE PER DECISION, not one per run. A mind that decides
+  // twice makes twice, or the verb is a one-shot and the guard has overreached.
+  const decidesAgain = sanitiseGoal({ kind: 'craft', thing: 'arrows', why: 'still short' });
+  await run([smith], 3, () => {
+    smith.goal = decidesAgain;
+    smith.retarget = 0;
+  });
+  check('  …but a NEW decision IS a new make — the guard is per decision, not permanent',
+    smith.count('arrow') === afterOne.arrows + RECIPES.fletch_arrows.outputs.arrow,
+    `arrows ${afterOne.arrows} -> ${smith.count('arrow')} on a second, separate decision`);
+
+  check('  …and both makes are on the record as CHOSEN, not as reflexes',
+    smith.deeds.filter((d) => d.what === 'craft' && d.by === 'choice').length === 2,
+    smith.deeds.filter((d) => d.what === 'craft').map((d) => `${d.by}:${d.text}`).join(' | '));
+  // ── AND NOW THE BODY IS SENT FOR A WALK, ON PURPOSE ───────────────────────
+  //
+  // THE GAP IS THE POINT, and the first version of this assertion got it
+  // exactly backwards by demanding the deed match the body's CURRENT position.
+  // A deed stamped at drain time would read wherever the body wandered to in
+  // the second afterwards, which is the bug the stamping exists to avoid.
+  //
+  // But it used to get that gap BY ACCIDENT. The chosen craft repeated until
+  // the wood ran out, at which point the refusal dropped it into `roam()` and
+  // the body strolled off — ten metres, reliably, every run. When 0.5e made one
+  // decision mean one make, the body correctly stood still, and this assertion
+  // failed on a change that fixed something.
+  //
+  // A premise riding on a bug is not a premise. So the walk is now ORDERED,
+  // and the assertion tests only what it claims to: that the numbers on the
+  // deed are frozen at the moment of the deed.
+  const walkFrom = { x: smith._x, z: smith._z };
+  smith.goal = sanitiseGoal({ kind: 'wander', why: 'to put ground between body and deed' });
+  smith.retarget = 0;
+  await run([smith], 4);
+  check('  …and it is the position at the TIME, not wherever the body walked to after',
+    Math.hypot(smith._x - deed.x, smith._z - deed.z) > 1
+      && Math.hypot(smith._x - walkFrom.x, smith._z - walkFrom.z) > 1,
+    `${Math.hypot(smith._x - deed.x, smith._z - deed.z).toFixed(1)} m from the deed, ` +
+    `${Math.hypot(smith._x - walkFrom.x, smith._z - walkFrom.z).toFixed(1)} m walked since it was written`);
 
   check('  …and it records that a MIND chose it, not that a reflex fired',
     deed?.by === 'choice' && /^I chose to make/.test(deed?.text ?? ''),

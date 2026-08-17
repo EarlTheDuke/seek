@@ -1627,7 +1627,34 @@ export class SimWorld {
     // A fire costs `SURVIVAL.woodToLight` branches to LAY and one to feed. See
     // the note on the constant: at one apiece, `place` was the cheapest action
     // in the game and 106 of them went down in a single run.
-    if (intent.place && p.inventory.countOf('wood') >= SURVIVAL.woodToLight) {
+    // ── ONE PRESS IS ONE FIRE ─────────────────────────────────────────────
+    //
+    // MEASURED on 2026-08-16, after four wrong theories about where a body's
+    // wood was going: one client press, TWO server applications.
+    //
+    //     [CLI target place] Mairi wood 20
+    //     [SRV place]        Mairi wood 20
+    //     [SRV place]        Mairi wood 10
+    //
+    // An intent is a LEVEL, not an event. The server keeps the last packet it
+    // received and reads it on every tick until the next one arrives, and it
+    // ticks faster than any client sends — so a single press was being applied
+    // for as many ticks as the packet stayed current. `lightFireFor` treats a
+    // claim landing on an existing fire as FUEL for it, so the second one did
+    // not even show up as a second fire: one fire on the board, twenty wood
+    // gone, and nothing anywhere said so.
+    //
+    // Every other intent in this file that MOVES something already knows this —
+    // `primary`, `drop`, `give`, `offer`, `accept` and `eat` all edge-detect,
+    // and `eat` does it fourteen lines below. `place` and `craft` were simply
+    // never given the same treatment.
+    //
+    // INVISIBLE UNTIL NOW BECAUSE OF POVERTY. `woodToLight` is 10 and a body
+    // rarely carries 20, so the second application usually could not afford
+    // itself and returned in silence. It took a test that deliberately stocked
+    // a full stack to make it happen at all.
+    const wantsPlace = intent.place;
+    if (wantsPlace && !p.placeWasHeld && p.inventory.countOf('wood') >= SURVIVAL.woodToLight) {
       // In front of them, at the same reach the browser uses. Facing is
       // (-sin, -cos) — the convention `yawTo` and the controller share.
       const fx = p.ctrl.position.x - Math.sin(p.ctrl.yaw) * SURVIVAL.firePlaceDistance;
@@ -1640,6 +1667,7 @@ export class SimWorld {
         p.dirty = true;
       }
     }
+    p.placeWasHeld = wantsPlace;
 
     // ── and the third: cooking ──
     //
@@ -1652,7 +1680,18 @@ export class SimWorld {
     // Instant, like the browser's. `RECIPES.seconds` is presentation today —
     // main.js does not run a timer either — and a server-side craft timer is a
     // thing to add on both sides at once or not at all.
-    if (intent.craft) {
+    //
+    // AND THE SAME FOR A CRAFT, for the same reason and by the same measurement
+    // — 2 wood to fletch, held across two ticks, is 4 wood and eight arrows off
+    // one press. Hidden by exactly the same poverty: after laying a fire a body
+    // had two branches left, the second application could not buy a second
+    // fletch, and it failed quietly.
+    //
+    // Compared by VALUE rather than by truthiness, the way `give`, `offer` and
+    // `accept` do it, because this one carries a recipe id: holding the same
+    // craft is one craft, and changing to a different recipe is a new press.
+    const wantsCraft = intent.craft;
+    if (wantsCraft && wantsCraft !== p.craftWasHeld) {
       // Already checked against the table by `sanitiseIntent`; what is checked
       // HERE is everything the table cannot know — that the station it needs is
       // actually within reach, that the inputs are in the pack, and that you do
@@ -1689,6 +1728,7 @@ export class SimWorld {
         this.events.push({ k: 'nomake', by: p.id, n: p.name, id: recipe.id, why });
       }
     }
+    p.craftWasHeld = wantsCraft;
 
     const env = sampleEnvironment(p.ctrl.position, {
       ...worldCtx,

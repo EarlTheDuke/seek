@@ -2392,6 +2392,22 @@ export class Agent {
     // hard way on the night the verb shipped: the board showed makes happening
     // and there was no way to know which were chosen.
     this._makeAskedBy = askedBy;
+    // ── AND A CHOSEN MAKE IS SERVED HERE, NOT ON SUCCESS ────────────────────
+    //
+    // The one place this deliberately parts company with `noteMeal`, which
+    // waits for the belly to rise before it counts a meal as eaten.
+    //
+    // Wanting a meal is not having one, and a failed eat leaves you hungry, so
+    // the reflex gets another go and marking early would starve somebody. A
+    // craft fails for exactly three reasons and NONE of them are fixed by
+    // pressing again: no fire in reach, no makings, or `maxHeld` already met.
+    // Marking on success would leave a body pressing at a cold fire until the
+    // next deliberation — which is the precise disease this verb was added to
+    // cure, arriving through the door built to cure it.
+    //
+    // So: beginning it is honouring it. If it worked, the deed says so; if it
+    // did not, the mind gets to think again instead of pressing.
+    if (askedBy === 'choice') this._makeDoneFor = this.goal;
     this.acted.craftTried = (this.acted.craftTried ?? 0) + 1;
     this._making = recipe;
     // ── this make owns the next change to the pack ──
@@ -3424,6 +3440,38 @@ export class Agent {
       // craft with no station, no inputs or `maxHeld` met and says nothing —
       // is exactly what let a body press at a cold fire all night.
       case 'craft': {
+        // ── ONE DECISION IS ONE MAKE, for the reason `eat` is one meal ──
+        //
+        // A craft is INSTANT on the server. `RECIPES.seconds` is presentation —
+        // `World.update` resolves `intent.craft` on the tick it arrives, and
+        // main.js does not run a timer either. So there is no long action here
+        // to hold a body in place; there is a press, and a press that happened.
+        //
+        // Which means the loop is exactly the one that let Ailsa eat four
+        // venison in eight seconds. `after` fires on arrival, arrival at a fire
+        // you are already standing at is distance zero, the target completes,
+        // `retarget` comes round in `AGENTS.retargetSeconds` and the same
+        // standing goal presses again. One decision, unbounded makes.
+        //
+        // On the two recipes with no `maxHeld` that is not cosmetic:
+        //
+        //   cook_venison  turns the whole raw stock into cooked, one at a time,
+        //                 for as long as the mind leaves the goal standing
+        //   fletch_arrows 2 wood -> 4 arrows, and it will spend EVERY branch —
+        //                 straight through `AGENTS.spareWood`, the firewood
+        //                 reserve that `recipeToWork` keeps so carefully that
+        //                 0c had to write a starvation override to get past it
+        //
+        // The reflex is allowed to repeat, because the reflex is re-deciding
+        // each time and it holds that reserve. A CHOICE is not: the mind said
+        // one thing and the body did it nine more times, so nine of those makes
+        // were the simulation's opinion wearing the mind's name — and the deed
+        // log said so, ten crafts filed against one decision.
+        //
+        // Nothing is lost by stopping. The reflex still cooks and still
+        // fletches, on its own judgement, with its own reserve intact. What
+        // stops is the sim inventing intent.
+        if (this._makeDoneFor === g) return null;
         const recipe = this.recipeNamed(g.thing);
         if (!recipe) {
           this.refuse('craft', g.thing
