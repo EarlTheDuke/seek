@@ -122,8 +122,9 @@ export class NetClient {
     this.onStatus = onStatus;
   }
 
-  connect(url, name, pet = null) {
+  connect(url, name, pet = null, watching = false) {
     this.pet = pet;
+    this.watching = !!watching;
     this.status('connecting');
     try {
       this.ws = new WebSocket(url);
@@ -138,7 +139,18 @@ export class NetClient {
       // The animal you walked in with. Said once, on the way in: the server
       // makes its own copy of it and everybody else's snapshots carry it from
       // then on. Before this, a companion was a thing only its owner could see.
-      this.send(C_HELLO, { name, version: PROTOCOL_VERSION, pet: this.pet ?? undefined });
+      // ── AND WHETHER YOU CAME TO PLAY OR TO LOOK ──
+      //
+      // `?watch=1` has always stopped this end SENDING. It never told the
+      // server, which went on holding a body for you at the spawn: freezing,
+      // starving, and — the half that actually mattered — visible to every
+      // mind in the world through `perceivableBy`. Models walked over to it,
+      // hailed it, and waited. One word on the way in, and the server leaves
+      // it out of the world instead.
+      this.send(C_HELLO, {
+        name, version: PROTOCOL_VERSION, pet: this.pet ?? undefined,
+        ...(this.watching ? { w: true } : {}),
+      });
       this.pingTimer = setInterval(() => this.send(C_PING, { t: performance.now() }), 2000);
     };
 

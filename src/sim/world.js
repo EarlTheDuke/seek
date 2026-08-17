@@ -398,7 +398,7 @@ export class SimWorld {
     this.projectiles.deps.playerHitTest = (from, to, exceptId) => {
       let best = null;
       for (const p of this.players.values()) {
-        if (p.id === exceptId || p.body.dead || !p.connected) continue;
+        if (p.id === exceptId || !this.inPlay(p)) continue;   // an arrow flies through a watcher
         const t = segmentCylinder(from, to, p.ctrl.position, PLAYER_RADIUS, PLAYER_HEIGHT);
         if (t !== null && (!best || t < best.t)) best = { t, player: p };
       }
@@ -439,7 +439,7 @@ export class SimWorld {
 
   // ── players ───────────────────────────────────────────────────────────────
 
-  addPlayer(id, name, { pet = null } = {}) {
+  addPlayer(id, name, { pet = null, watching = false } = {}) {
     // Everyone opens their eyes on the same shore, spread just enough that two
     // people do not spawn inside each other.
     const spot = this.spawn.position.clone();
@@ -482,6 +482,24 @@ export class SimWorld {
     // Assigned once, not per tick: `refreshTimber` clears and refills this
     // field IN PLACE, so the reference stays good for the life of the world.
     if (this.solid) p.ctrl.solids = [this.scatterColliders];
+    // ── A PAIR OF EYES, NOT A BODY ──
+    //
+    // `?watch=1` has flown a camera since the day it shipped, and it always
+    // only did half the job: the CLIENT stopped sending, and the SERVER kept a
+    // body. So a watcher stood at the spawn for the whole run — freezing,
+    // starving, eventually dying — while its owner flew about a kilometre away
+    // looking at something else.
+    //
+    // The freezing is the small half. The large half is that the body was
+    // PERCEIVABLE. `perceivableBy` is the honesty chokepoint every mind's brief
+    // is built from, so every model in every watched run was told there was
+    // someone standing on the shore, and some of them walked over to it, hailed
+    // it, offered it things and waited. A watched run and an unwatched run were
+    // not the same experiment, and the difference was the person watching.
+    //
+    // So a watcher is flagged here and excluded by `inPlay` everywhere a body
+    // is asked to be a body.
+    p.watching = !!watching;
     this.players.set(id, p);
     if (pet) this.giveCompanion(id, pet);
     return p;
@@ -624,12 +642,26 @@ export class SimWorld {
     return fuel === undefined ? this.fires.light(x, z) : this.fires.light(x, z, fuel);
   }
 
+  /**
+   * IS THIS BODY ACTUALLY IN THE WORLD?
+   *
+   * Five places used to spell `p.body.dead || !p.connected` out by hand — the
+   * arrow hit test, creature targeting, the perception chokepoint, the
+   * head-count and the snapshot. Five copies of a rule is four chances to
+   * forget the next clause, and `watching` is exactly that next clause.
+   *
+   * Anything that asks "is there somebody there" goes through here.
+   */
+  inPlay(p) {
+    return !!p && p.connected && !p.body.dead && !p.watching;
+  }
+
   /** Nearest living player to a point — how a creature picks a target. */
   nearestPlayer(pos, maxRange = Infinity) {
     let best = null;
     let bestD = maxRange;
     for (const p of this.players.values()) {
-      if (p.body.dead || !p.connected) continue;
+      if (!this.inPlay(p)) continue;                        // nothing hunts a watcher
       const d = Math.hypot(p.ctrl.position.x - pos.x, p.ctrl.position.z - pos.z);
       if (d < bestD) {
         bestD = d;
@@ -654,7 +686,10 @@ export class SimWorld {
     const out = [];
     for (const p of this.players.values()) {
       if (p.ctrl.position === self.position) continue; // itself
-      if (!p.connected || p.body.dead) continue;
+      // AND NOT A WATCHER. This is the chokepoint the whole honesty rule hangs
+      // on, so it is also the one place where getting this wrong changed what
+      // the models were told about the world.
+      if (!this.inPlay(p)) continue;
       out.push({
         position: p.ctrl.position,
         label: p.isMind ? 'a hunter' : 'someone',
@@ -698,7 +733,7 @@ export class SimWorld {
   countPlayersNear(pos, range) {
     let n = 0;
     for (const p of this.players.values()) {
-      if (p.body.dead || !p.connected) continue;
+      if (!this.inPlay(p)) continue;                        // a watcher is not a crowd
       if (Math.hypot(p.ctrl.position.x - pos.x, p.ctrl.position.z - pos.z) <= range) n++;
     }
     return n;
@@ -1195,6 +1230,10 @@ export class SimWorld {
    */
   canHarm(a, b) {
     if (!a || !b || a === b) return false;
+    // Both directions. A watcher cannot be shot, and cannot shoot — it sends no
+    // intents at all, but saying so here means the rule does not depend on the
+    // client keeping its promise.
+    if (a.watching || b.watching) return false;
     if (a.party && a.party === b.party) return false;
     if (!this.rules.pvp) return false;
     if (this.rules.pvpEverywhere) return true;
@@ -1739,7 +1778,11 @@ export class SimWorld {
       env,
       insulationC: insulationOf(p.inventory),
       drawing: !!p.weapons.getState()?.drawing,
-      enabled: true,
+      // A WATCHER DOES NOT GET COLD. `enabled` already gated the whole of
+      // vitals — hunger, core temperature, damage, drowning, the lot — and it
+      // has been hard-coded true since the server was written. It is the exact
+      // switch this needed and it was already here.
+      enabled: !p.watching,
     });
 
     p.weapons.update(dt);
@@ -1931,6 +1974,12 @@ export class SimWorld {
         }
         continue;
       }
+      // NOT IN ANYBODY ELSE'S SNAPSHOT. `pl` is what another player's client
+      // draws and what an agent's `others` map is built from, so leaving a
+      // watcher in it puts a motionless figure on the shore of everyone's
+      // world. It still gets its own `me` above — the branch that continues
+      // before reaching here — because a watcher needs somewhere to land.
+      if (!this.inPlay(p)) continue;
       players.push(p.snapshot());
     }
 

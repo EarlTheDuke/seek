@@ -837,7 +837,10 @@ function boot() {
     // always been ready for this — `Player.companion` defaults to null and
     // `if (pet) giveCompanion(...)` is the only way one appears.
     net.connect(joinUrl, params.get('name') ?? 'wanderer',
-      chosenCompanion === 'none' ? null : chosenCompanion);
+      chosenCompanion === 'none' ? null : chosenCompanion,
+      // A watcher is told to the server, not just to this browser. See the
+      // note on `watching` above, and `World.inPlay`.
+      watching);
   }
 
   // How much of the world is hunting you. Read from `?danger=` or from what you
@@ -4010,7 +4013,7 @@ function boot() {
       avatars.clear();
       petAvatars.clear();
       net = new NetClient(netHandlers());
-      net.connect(url, name, pet.species.id);
+      net.connect(url, name, pet.species.id, watching);
       return `connecting to ${url}`;
     },
     say: (text) => (net ? (net.say(text), 'sent') : 'not connected'),

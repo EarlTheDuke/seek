@@ -18,7 +18,7 @@
 export const PROTOCOL_VERSION = 1;
 
 // ── client -> server ──
-export const C_HELLO = 'hello'; // { name, version, pet }
+export const C_HELLO = 'hello'; // { name, version, pet, w }  w: watching, not playing
 export const C_INTENT = 'i'; // { i: <intent>, t: clientTick }
 export const C_PING = 'p'; // { t: clientTimeMs }
 export const C_CHAT = 'c'; // { m: text }

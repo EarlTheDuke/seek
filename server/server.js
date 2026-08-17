@@ -263,13 +263,18 @@ wss.on('connection', (ws, req) => {
         // than about the world, so it is allowed — same class of assertion as
         // your name, and sanitised the same way.
         const pet = cleanPet(msg.data.pet);
-        world.addPlayer(client.id, client.name, { pet });
+        // WATCHING, not playing. A claim about what this connection INTENDS,
+        // like the name and the pet, and sanitised the same way — the worst a
+        // liar can do with it is make themselves invisible and invulnerable
+        // while giving up every verb in the game.
+        client.watching = msg.data.w === true;
+        world.addPlayer(client.id, client.name, { pet, watching: client.watching });
         for (const [item, n] of STOCK) world.players.get(client.id).inventory.add(item, n);
         if (Number.isFinite(HUNGER)) world.players.get(client.id).body.hunger = Math.max(0, Math.min(100, HUNGER));
         ws.send(encode(S_WELCOME, world.hello(client.id)));
         broadcast(S_JOIN, { id: client.id, n: client.name }, ws);
         console.log(
-          `  + ${client.name} (#${client.id}) from ${where} — ${clients.size} here` +
+          `  + ${client.name} (#${client.id})${client.watching ? ' WATCHING' : ''} from ${where} — ${clients.size} here` +
             (pet ? ` · with a ${world.players.get(client.id).companion.species.name.toLowerCase()}` : '')
         );
         if (RAID && !raided) {
