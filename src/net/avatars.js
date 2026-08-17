@@ -69,18 +69,108 @@ let bowShared = null;
  * The whole value is that the shape reads as a bow at a glance and reads as
  * DRAWN at a glance, and both of those are answered by the outline alone.
  */
+// ── WHICH WAY ROUND A BOW GOES ──────────────────────────────────────────────
+//
+// Ben, watching a run on 2026-08-14: "the bow is backward when they pull it
+// back to fire it." He was right, and it had been backward since the day it
+// was added.
+//
+// The body is built facing +Z — see the arm code below, and the `rotation.y =
+// p.y + Math.PI` that places these — so +Z is where the target is and -Z is the
+// archer's own face. The old profile put the GRIP at z = -0.055 and the TIPS at
+// z = +0.03: the bow bulged into the archer's chest while its tips reached out
+// toward the target. That is a bow held back to front.
+//
+// A strung bow is the other way round, and the string is what forces it. The
+// string is straight, it runs tip to tip, and it is drawn toward the archer's
+// own face — so the string plane must lie BETWEEN the archer and the grip, and
+// therefore the grip must be the part of the bow FURTHEST from the archer.
+// Every number below follows from that one sentence:
+//
+//   grip   z = +0.08  the part the bow hand pushes against, furthest forward
+//   limbs  z = -0.03  sweeping back toward the archer to meet the string
+//   tips   z = +0.01  flicking forward again — that is what makes it a recurve
+//   string z = +0.01  straight between the tips, so 7cm inside the grip. That
+//                     gap is the brace height, and it is the thing that reads
+//                     as "strung bow" at a hundred metres.
+//
+// Kept as plain numbers out here rather than buried in a geometry call so that
+// `bowcheck` can assert the three facts that actually matter — grip forward of
+// tips, string inside grip, nock travelling toward the archer — without having
+// to stand up a browser. Any one of those three would have caught this on the
+// day it was written.
+export const BOW_MODEL = {
+  /** Half-height: the y of both tips. */
+  tipY: 0.46,
+  /** [y, z] from the lower tip up. +Z is toward the target. */
+  profile: [
+    [-0.46, 0.01],
+    [-0.34, -0.03],
+    [-0.16, 0.045],
+    [0, 0.08],
+    [0.16, 0.045],
+    [0.34, -0.03],
+    [0.46, 0.01],
+  ],
+  /** Where the string sits at brace: level with the tips, by definition. */
+  stringZ: 0.01,
+  /** How far the nock travels toward the archer at full draw. */
+  drawZ: 0.3,
+  /**
+   * ...and how far it comes ACROSS while it does.
+   *
+   * The bow is held in the left hand at x = +0.3 and the face is at x = 0, so a
+   * nock that only moved in Z would be drawn to a point thirty centimetres to
+   * the side of the archer's head. This brings it back toward the centreline as
+   * it comes, which is the same motion the string arm is making.
+   */
+  drawX: 0.16,
+
+  // ── AND THE POSE, WHICH IS THE OTHER HALF OF THE COMPLAINT ────────────────
+  //
+  // Ben, same sitting: "both arms are directly out straight but really only one
+  // should be out and the other one back like it is pulling the bow back."
+  //
+  // Also correct, and the old numbers said so plainly once you worked out what
+  // they meant. An arm hangs down at (0, -1, 0), and rotating it about X by an
+  // angle t sends it to (0, -cos t, -sin t). The old pair was -1.62 and -0.95:
+  //
+  //   -1.62  ->  (0, +0.05, +1.00)   straight out toward the target
+  //   -0.95  ->  (0, -0.58, +0.81)   ALSO out toward the target, and drooping
+  //
+  // Two arms forward is a man pushing a door. The string arm has to go the
+  // other way, so it is now the exact mirror:
+  //
+  //   +1.62  ->  (0, +0.05, -1.00)   straight back, past the ribs
+  //
+  // The same angle on purpose. This figure has no elbow joint, so the only
+  // thing a distant silhouette can say about an arm is which way it POINTS, and
+  // one forward against one back IS the pose. The couple of degrees of lift
+  // both get out of the +/-1.62 (cos 1.62 is -0.05) is what keeps it from
+  // reading as a shrug.
+  pose: {
+    /** rotation.x at full draw: [bow arm, string arm]. */
+    armAim: [-1.62, 1.62],
+    /**
+     * rotation.z at full draw: a tuck inward on the string arm so it passes
+     * the ribs rather than sticking out square. Smaller than the 0.42 it
+     * replaces, which was bringing the hand across a chest it is now behind.
+     */
+    armTuck: [0, 0.22],
+    /** Where the bow itself sits, slung and drawn: position, then rotation. */
+    slung: { pos: [-0.12, 1.28, -0.24], rot: [0.15, 0.35, 0.95] },
+    drawn: { pos: [0.3, 1.42, 0.34], rot: [0, 0, 0] },
+  },
+};
+
 function bowGeometry() {
   if (bowShared) return bowShared;
 
-  // The arc, swept as a tube along a shallow recurve so the tips flick back —
-  // a plain semicircle reads as a croquet hoop rather than a weapon.
-  const curve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0, -0.46, 0.03),
-    new THREE.Vector3(0, -0.3, -0.035),
-    new THREE.Vector3(0, 0, -0.055),
-    new THREE.Vector3(0, 0.3, -0.035),
-    new THREE.Vector3(0, 0.46, 0.03),
-  ]);
+  // The arc, swept as a tube along the recurve in `BOW_MODEL.profile` — a plain
+  // semicircle reads as a croquet hoop rather than a weapon.
+  const curve = new THREE.CatmullRomCurve3(
+    BOW_MODEL.profile.map(([y, z]) => new THREE.Vector3(0, y, z))
+  );
   const limb = new THREE.TubeGeometry(curve, 14, 0.014, 5, false);
   bowShared = { limb: paint(limb, BOWWOOD) };
   return bowShared;
@@ -229,10 +319,12 @@ class Avatar {
     bowMesh.castShadow = true;
     bowPivot.add(bowMesh);
 
+    // Straight between the tips, so its z IS the tips' z. Only the middle
+    // vertex ever moves, and only when somebody draws.
     const stringGeo = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, 0.46, 0.03),
-      new THREE.Vector3(0, 0, 0.03),
-      new THREE.Vector3(0, -0.46, 0.03),
+      new THREE.Vector3(0, BOW_MODEL.tipY, BOW_MODEL.stringZ),
+      new THREE.Vector3(0, 0, BOW_MODEL.stringZ),
+      new THREE.Vector3(0, -BOW_MODEL.tipY, BOW_MODEL.stringZ),
     ]);
     const bowString = new THREE.Line(stringGeo, stringMaterial);
     bowPivot.add(bowString);
@@ -300,21 +392,14 @@ class Avatar {
       // Arms counter-swing, unless the bow is up, in which case they come
       // forward together and hold still.
       const walk = Math.sin(this.phase + off + Math.PI) * 0.5 * swing;
-      // ── AN ARCHER'S ARMS ARE NOT SYMMETRICAL ──
-      //
-      // Both used to swing forward to the same angle, which reads as a man
-      // pushing a door. The bow arm goes STRAIGHT out and locks; the string arm
-      // comes back and up toward the ear. That asymmetry is most of what makes
-      // a distant figure legible as drawing rather than reaching.
+      // ── ONE ARM OUT, ONE ARM BACK ──
       //
       // `arms[0]` is at x = +0.27 on a body built facing +Z, which is its LEFT
       // — the bow arm for a right-handed archer, and the side the bow swings
-      // round to below.
-      const aim = i === 0 ? -1.62 : -0.95;
-      this.parts.arms[i].rotation.x = lerp(walk, aim, this.draw);
-      // The string arm also comes across the chest, which is the other half of
-      // the shape. Only the string arm — the bow arm stays out on its side.
-      this.parts.arms[i].rotation.z = lerp(0, i === 0 ? 0 : 0.42, this.draw);
+      // round to below. `arms[1]` at -0.27 is the right, and it is the one that
+      // draws. The numbers, and why they are those numbers, are in `BOW_MODEL.pose`.
+      this.parts.arms[i].rotation.x = lerp(walk, BOW_MODEL.pose.armAim[i], this.draw);
+      this.parts.arms[i].rotation.z = lerp(0, BOW_MODEL.pose.armTuck[i], this.draw);
     }
 
     // ── AND THE BOW GOES ROUND WITH THEM ──
@@ -323,24 +408,26 @@ class Avatar {
     // drawn. Lerped rather than switched, because the half-second of it coming
     // off the shoulder is the tell that somebody has decided to shoot — and at
     // range that half-second is the only warning you get.
-    const bp = this.parts.bowPivot;
-    bp.position.set(
-      lerp(-0.12, 0.3, this.draw),
-      lerp(1.28, 1.42, this.draw),
-      lerp(-0.24, 0.34, this.draw)
-    );
     // Slung: tipped over the shoulder and lying flat against the back.
     // Drawn: upright and square to the way the body faces.
+    const bp = this.parts.bowPivot;
+    const A = BOW_MODEL.pose.slung, Z = BOW_MODEL.pose.drawn;
+    bp.position.set(
+      lerp(A.pos[0], Z.pos[0], this.draw),
+      lerp(A.pos[1], Z.pos[1], this.draw),
+      lerp(A.pos[2], Z.pos[2], this.draw)
+    );
     bp.rotation.set(
-      lerp(0.15, 0, this.draw),
-      lerp(0.35, 0, this.draw),
-      lerp(0.95, 0, this.draw)
+      lerp(A.rot[0], Z.rot[0], this.draw),
+      lerp(A.rot[1], Z.rot[1], this.draw),
+      lerp(A.rot[2], Z.rot[2], this.draw)
     );
 
     // The nocking point comes back as the string is pulled. Three numbers, and
     // the whole reason this reads as archery rather than as a man with a hoop.
     const pos = this.parts.bowString.geometry.attributes.position;
-    pos.setZ(1, 0.03 - this.draw * 0.26);
+    pos.setZ(1, BOW_MODEL.stringZ - this.draw * BOW_MODEL.drawZ);
+    pos.setX(1, -this.draw * BOW_MODEL.drawX);
     pos.needsUpdate = true;
     this.parts.body.rotation.x = lerp(0, 0.18, this.draw) + Math.sin(this.phase * 2) * 0.03 * swing;
     // Head follows their pitch, so you can tell what someone is looking at.

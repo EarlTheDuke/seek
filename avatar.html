@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Highlands — the figure, on its own</title>
+<!--
+  ── avatar.html ────────────────────────────────────────────────────────────
+  One person, standing still, big, from any angle you like.
+
+    npm run dev   →   http://localhost:5173/avatar.html
+
+  WHY THIS EXISTS. On 2026-08-14 Ben said the bow was on back to front and that
+  both arms pointed forward while drawing. Both were true. Both had been true
+  since the day the avatar bow was written. Two hundred passing checks, a dozen
+  runs and several builds went straight past them, because a shape does not
+  report to a test — it reports to an eye, and until now the only way to get an
+  eye onto this figure was to start a server, join a world, find another player,
+  wait for them to draw, and hope they were side-on.
+
+  `bowcheck` now asserts the MECHANISM (grip forward of the tips, string inside
+  the grip, one arm out and one arm back) and would have caught both of these.
+  It still cannot tell you it looks right. This can.
+
+  It is dev-only by construction: vite builds `index.html` and nothing else, so
+  this page cannot end up in a production bundle.
+
+  RENDERING ONLY READS, and this reads even less than that — there is no
+  simulation here at all, just the real `Avatars` class fed a snapshot shaped by
+  hand. It exercises the code the game uses. It is not a copy of it, because a
+  copy would drift, and a drifted copy is how you get a green page over a
+  backward bow.
+-->
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #10151c; overflow: hidden; }
+  canvas { display: block; }
+  #hud {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    font: 13px/1.55 ui-monospace, "Cascadia Mono", Consolas, monospace;
+    color: #b9c6d4; background: rgba(10,14,19,.86);
+    padding: 10px 14px; border-top: 1px solid #26313d;
+  }
+  #hud b { color: #f0d9a8; font-weight: 600; }
+  #hud .k { color: #7f8fa0; }
+  #hud .row { display: flex; gap: 26px; flex-wrap: wrap; align-items: baseline; }
+  #look { margin-top: 6px; color: #8fa4b8; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div class="row">
+    <span><b>drag</b> <span class="k">orbit</span></span>
+    <span><b>wheel</b> <span class="k">zoom</span></span>
+    <span><b>S</b> <span class="k">side</span></span>
+    <span><b>F</b> <span class="k">front</span></span>
+    <span><b>B</b> <span class="k">behind</span></span>
+    <span><b>T</b> <span class="k">top</span></span>
+    <span><b>Space</b> <span class="k">spin</span></span>
+  </div>
+  <div id="look">
+    Three figures, all facing the same way: at rest, half drawn, full draw.
+    On <b>S</b> they face RIGHT, so the target is off to the right.
+    What to check: the bow should bulge <b>toward the target</b>, the string
+    should sit <b>between the archer and the bow</b> and go back as it is drawn,
+    and the two arms should point in <b>opposite</b> directions.
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { Avatars } from './src/net/avatars.js';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x10151c);
+scene.fog = new THREE.Fog(0x10151c, 14, 40);
+
+// Two lights and a floor: enough to read a silhouette, which is the whole
+// question this page exists to answer.
+scene.add(new THREE.HemisphereLight(0x9fb6cd, 0x2b2a28, 1.5));
+const sun = new THREE.DirectionalLight(0xfff0d8, 2.1);
+sun.position.set(-5, 9, 4);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.camera.left = -8; sun.shadow.camera.right = 8;
+sun.shadow.camera.top = 8; sun.shadow.camera.bottom = -8;
+scene.add(sun);
+
+const floor = new THREE.Mesh(
+  new THREE.CircleGeometry(9, 48),
+  new THREE.MeshStandardMaterial({ color: 0x35402f, roughness: 1 })
+);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+// A line along +Z from each figure: where they are looking, and therefore where
+// the bow ought to be pointing. Without it "toward the target" is a matter of
+// opinion, which is how this got shipped backward in the first place.
+const aimMat = new THREE.LineBasicMaterial({ color: 0x4b6f8e });
+const SPOTS = [-2.4, 0, 2.4];
+for (const x of SPOTS) {
+  const g = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(x, 0.02, 0), new THREE.Vector3(x, 0.02, 6),
+  ]);
+  scene.add(new THREE.Line(g, aimMat));
+}
+
+const avatars = new Avatars(scene);
+
+// A snapshot, shaped by hand. `p` position, `y` yaw, `s` speed, `c` crouch,
+// `d` drawing, `t` pitch, `x` dead. The bodies are built facing +Z and the
+// snapshot yaw is a LOOK direction whose forward is -Z, so a yaw of PI is a
+// figure facing +Z — down the aim lines drawn above.
+const DRAWS = [0, 0.55, 1];
+const snapshot = {
+  pl: SPOTS.map((x, i) => ({
+    id: `fig${i}`, n: ['at rest', 'half drawn', 'full draw'][i],
+    p: [x, 0, 0], y: Math.PI, s: 0, c: 0, d: DRAWS[i] > 0, t: 0, x: 0,
+  })),
+};
+
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
+const target = new THREE.Vector3(0, 1.15, 0);
+// Spherical, kept by hand — one page-local orbit beats importing controls for
+// three lines of arithmetic.
+let yaw = 0, pitch = 0.13, dist = 7.6, spin = false;
+const VIEWS = { s: [0, 0.10], f: [Math.PI / 2, 0.10], b: [-Math.PI / 2, 0.10], t: [0, 1.35] };
+function view(k) { [yaw, pitch] = VIEWS[k]; spin = false; }
+view('s');
+
+function placeCamera() {
+  camera.position.set(
+    target.x - Math.cos(pitch) * Math.cos(yaw) * dist,
+    target.y + Math.sin(pitch) * dist,
+    target.z - Math.cos(pitch) * Math.sin(yaw) * dist
+  );
+  camera.lookAt(target);
+}
+
+let dragging = false, lastX = 0, lastY = 0;
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  dragging = true; spin = false; lastX = e.clientX; lastY = e.clientY;
+  renderer.domElement.setPointerCapture(e.pointerId);
+});
+renderer.domElement.addEventListener('pointerup', () => { dragging = false; });
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  yaw -= (e.clientX - lastX) * 0.008;
+  pitch = Math.max(-0.4, Math.min(1.45, pitch + (e.clientY - lastY) * 0.006));
+  lastX = e.clientX; lastY = e.clientY;
+});
+renderer.domElement.addEventListener('wheel', (e) => {
+  dist = Math.max(2.2, Math.min(20, dist * (1 + Math.sign(e.deltaY) * 0.11)));
+  e.preventDefault();
+}, { passive: false });
+addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (VIEWS[k]) view(k);
+  if (e.code === 'Space') { spin = !spin; e.preventDefault(); }
+});
+
+function resize() {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+}
+addEventListener('resize', resize);
+resize();
+
+let last = performance.now();
+renderer.setAnimationLoop((now) => {
+  const dt = Math.min((now - last) / 1000, 0.05);
+  last = now;
+  if (spin) yaw += dt * 0.5;
+
+  avatars.update(dt, snapshot);
+  // Hold each figure at its own draw. `apply` damps toward `p.d`, so it is
+  // overridden and re-applied with dt = 0 — damp over no time returns what it
+  // was given, and everything downstream then poses from the held value.
+  snapshot.pl.forEach((p, i) => {
+    const a = avatars.byId.get(p.id);
+    if (!a) return;
+    a.draw = DRAWS[i];
+    a.apply(p, 0);
+  });
+
+  placeCamera();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>
