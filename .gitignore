@@ -41,6 +41,10 @@ keys.cmd.*
 # is in what gets WRITTEN UP from them (see runs/*.md, which are committed) —
 # not in the samples themselves.
 runs/*.jsonl
+# The live board, written every few seconds while a run is going. Same class
+# of thing as playthrough.save.json: a snapshot of a moment, not a record of it.
+# What survives a run is the write-up in runs/*.md.
+runs/.now.json
 
 # Run logs — working files, regenerated every session
 run-*.out
