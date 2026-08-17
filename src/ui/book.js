@@ -26,20 +26,21 @@
 
 import { BUILDABLE } from '../world/structures.js';
 import { RECIPES } from '../items/recipes.js';
-import { ITEMS, getItem } from '../items/registry.js';
+import { ITEMS, itemWords } from '../items/registry.js';
 import { COMPANIONS } from '../creatures/companions.js';
 import { SPECIES } from '../creatures/registry.js';
 import { SURVIVAL, ARROW } from '../config.js';
 
-/** "6 branches", "1 hide" — plural where a person would pluralise. */
+/**
+ * "6 branches", "1 hide", "3 venison" — plural where a person would pluralise.
+ *
+ * The third of three copies of this rule, and the second of two that said
+ * "3 venisons". It is now the item table's own words, which is the only way
+ * the HUD a human reads and the brief a model reads can be guaranteed to
+ * agree — and they have to agree, because they are describing the same pack.
+ */
 export function amountText(id, n) {
-  const def = getItem(id);
-  const name = def?.name ?? id.replace(/_/g, ' ');
-  if (n === 1) return `1 ${name.toLowerCase()}`;
-  // English, not code: "2 stones", "6 branches", "3 hides". Every material in
-  // the game takes a plain -s or -es, so this stays honest until one does not.
-  const plural = /(s|sh|ch|x)$/i.test(name) ? `${name}es` : `${name}s`;
-  return `${n} ${plural.toLowerCase()}`;
+  return `${n} ${itemWords(id, n)}`;
 }
 
 /** Seconds, said the way a person would say them. */

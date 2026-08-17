@@ -585,8 +585,44 @@ export const getItem = (id) => ITEMS[id] ?? null;
  * business.
  */
 export function itemWords(id, n) {
-  const name = (getItem(id)?.name ?? id.replace(/_/g, ' ')).toLowerCase();
-  return n > 1 ? `${name}${/(s|x|ch)$/.test(name) ? 'es' : 's'}` : name;
+  return plural((getItem(id)?.name ?? id.replace(/_/g, ' ')).toLowerCase(), n);
+}
+
+/**
+ * "2 branches", "3 venison", "6 gold" — a noun said the way a person says it.
+ *
+ * ── THIS WAS WRITTEN THREE TIMES AND WAS WRONG TWICE ────────────────────────
+ *
+ * The same rule lived in three files and none of the three agreed:
+ *
+ *   `itemWords` here          -s, or -es after s/x/ch.  "3 venisons", "3 trouts"
+ *   `Agent.plural`            the above, plus a meat-and-fish exception, plus
+ *                             -ies — but still "3 golds"
+ *   `amountText` in book.js   -s, or -es after s/sh/ch/x. "3 venisons" again
+ *
+ * So a mind's brief said "3 venisons" while its own deed line, written four
+ * hundred lines away in the same class, said "3 venison". Same body, same
+ * tick, same animal, two spellings — and the brief is the one a MODEL reads,
+ * so the wrong one was the one going out over the wire, every request, all
+ * session.
+ *
+ * It is one rule and it belongs to the item table, because the exceptions are
+ * facts about the ITEMS and not about grammar: venison and trout and gold do
+ * not take a plural in English, and no amount of regex over the letters will
+ * ever discover that. Everything else in this game takes a plain -s or -es.
+ *
+ * The end-anchor matters: it is what makes "cooked venison" behave like
+ * "venison" without listing it twice, and it keeps working when somebody adds
+ * smoked trout.
+ */
+export function plural(name, n) {
+  if (n === 1) return name;
+  const w = String(name).toLowerCase();
+  // Mass nouns and the fish rule. Facts about these things, not about spelling.
+  if (/(venison|trout|fish|gold)$/.test(w)) return name;
+  if (/(s|x|z|ch|sh)$/.test(w)) return `${name}es`;
+  if (/[^aeiou]y$/.test(w)) return `${name.slice(0, -1)}ies`;
+  return `${name}s`;
 }
 
 const SPOKEN = new Map();

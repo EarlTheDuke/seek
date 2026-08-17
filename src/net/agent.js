@@ -56,7 +56,7 @@ import { bearingName, describePosition, findDistrict, nearbyDistricts } from '..
 // callers, one table, which is the only way "cook" means the same thing in all
 // three places.
 import { RECIPES, canCraft } from '../items/recipes.js';
-import { EDIBLE, getItem, itemWords, resolveItemId } from '../items/registry.js';
+import { EDIBLE, getItem, itemWords, plural, resolveItemId } from '../items/registry.js';
 import { AGENTS, BOW, PLAYER, NET, SURVIVAL, PICKUP, MINDS, SOCIAL } from '../config.js';
 
 // Verbs aimed at a PERSON — the only ones whose walk outlasts a deliberation,
@@ -2243,16 +2243,15 @@ export class Agent {
   /**
    * "3 branches", "2 stones", "3 trout" — a count and a noun that reads right.
    *
-   * `id + 's'` gives "branchs", and the item whose id is `wood` is called a
-   * Branch, so the naive version is wrong on the commonest pickup in the game.
-   * Meat and fish do not take a plural at all.
+   * The rule itself now lives in the item registry, next to the words it is
+   * pluralising, because it was written three times and only this copy had the
+   * meat-and-fish exception. A body's DEED line said "3 venison" while the
+   * BRIEF the same body sent to its own model said "3 venisons". Kept as a
+   * static because two dozen call sites say `Agent.plural` and the indirection
+   * costs nothing.
    */
   static plural(noun, n) {
-    if (n === 1) return noun;
-    if (/(venison|trout|fish)$/.test(noun)) return noun;
-    if (/(s|x|z|ch|sh)$/.test(noun)) return `${noun}es`;
-    if (/[^aeiou]y$/.test(noun)) return `${noun.slice(0, -1)}ies`;
-    return `${noun}s`;
+    return plural(noun, n);
   }
 
   /**
