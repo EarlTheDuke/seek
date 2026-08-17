@@ -259,60 +259,74 @@ watching the game.** The rest are mine, from the data and the code — and I hav
 visual bugs and long on papercuts. A pass with somebody actually watching would
 find more in ten minutes than I found all day.
 
-### 0.5a. THE BOW IS BACKWARD when drawn **[S]** — arc 5 · *Ben, watching*
-Reported from the game; traced to `bowGeometry()` in `src/net/avatars.js`.
+### 0.5a. ~~THE BOW IS BACKWARD when drawn~~ ✅ **DONE 2026-08-16**
 
-The avatar group is rotated `yaw + Math.PI` (avatars.js:264), so **+Z is forward**
-for the figure. The bowstring agrees: its nock runs `0.03 → -0.23` as the draw
-comes back, under a comment reading *"the nocking point comes back as the string
-is pulled"*. So −Z is toward the archer, +Z toward the target.
+Both halves of what Ben saw, and both had been true since the day the avatar
+bow was written.
 
-The limb curve is the other way round:
+**The bow.** The body is built facing +Z. The profile put the GRIP at z = −0.055
+and the TIPS at +0.03 — it bulged into the archer's chest while its tips reached
+at the target. Reprofiled from the one sentence that forces it: the string is
+straight, runs tip to tip, and is drawn toward the archer, so the string plane
+lies BETWEEN archer and grip and the grip is the furthest-forward part of the
+bow. Real recurve flick at the tips. The nock now also comes ACROSS toward the
+face — it was being drawn to a point 30 cm beside the archer's head.
 
-    (0, -0.46,  0.03)   tip
-    (0,  0,    -0.055)  belly  <-- bulges toward the ARCHER
-    (0,  0.46,  0.03)   tip
+**The arms.** An arm hangs at (0,−1,0); `rotation.x` by *t* sends it to
+(0,−cos t,−sin t). The pair was −1.62 and −0.95, which are (0,+.05,+1.00) and
+(0,−.58,+.81): **both forward**, the second one drooping. A man pushing a door.
+The string arm is now the exact mirror, +1.62, because this figure has no elbow
+and the only thing a distant silhouette can say is which way each arm POINTS.
 
-A bow bulges AWAY from its string: tips near the archer, belly toward the target.
-This has it mirrored, which is exactly what "backward" looks like.
+Renamed the export `BOW_MODEL` — `config.js` already owns `BOW` for the weapon's
+tuning, and two of those is a trap.
 
-**The likely fix is to negate Z on all five curve points** — tips to `-0.03`,
-belly to `+0.055` — and move the string's rest nock to `-0.03` so it still spans
-the tips, keeping the same `- draw * 0.26` pull. **Not applied**: I cannot see
-the render, the analysis is from two independent readings of the code rather
-than from an image, and a one-character sign error here would look identically
-wrong. Worth ten seconds of eyes before and after.
+`bowcheck` (25) asserts the MECHANISM, not the numbers: grip forward of tips,
+string inside grip, nock travelling toward the archer, the two arms opposed by
+dot product. A check that said `grip.z === -0.055` would have passed for months.
+Both sentinels feed the real shipped bugs back in and require rejection.
 
-### 0.5g. A WATCHER IS STILL A BODY IN THE WORLD **[M]** — arc 3 · *Ben, watching*
-*"Make the fly option not vulnerable to the elements so we can watch only."*
+**`avatar.html` is the other half, and the more honest one.** Geometry reports
+to an eye, not to a test. `npm run dev` → `/avatar.html`: one person, at rest /
+half / full draw, from any angle, with an aim line on the ground so "toward the
+target" is not a matter of opinion. Dev-only by construction — vite builds
+`index.html` and nothing else. Getting an eye on this figure used to mean
+starting a server, joining a world, finding another player and hoping they were
+side-on.
 
-**`?watch=1` is entirely client-side.** It makes the browser send no intents and
-accept no position corrections, which is why the camera can fly at last. THE
-SERVER IS NEVER TOLD. Grepped: there is no `spectator` or `watcher` concept in
-`world.js`, `server.js` or the protocol — a watcher joins through the same
-`players.set(id, p)` as anybody else and gets a full body.
+### 0.5g. ~~A WATCHER IS STILL A BODY IN THE WORLD~~ ✅ **DONE 2026-08-16**
 
-So a watcher's body is standing in the valley the whole time, and:
+`?watch=1` had always done half the job: the CLIENT stopped sending, the SERVER
+kept a body standing at the spawn for the whole run — freezing, starving, and
+eventually dying — while its owner flew a kilometre away.
 
-1. **IT FREEZES AND STARVES.** Hunger decays and `coreC` falls on a body nobody
-   is steering, so a long watch ends in the death screen. That is what Ben hit.
-2. **AND — the larger problem — IT IS A PERSON THE MINDS CAN SEE.** It is in the
-   snapshot, so it reaches every agent's `also out there` and contacts. Minds can
-   walk to it, hail it, offer to it, and on unsettled ground shoot at it. **An
-   observer other minds react to is not an observer**, and every run watched this
-   way is quietly contaminated by a motionless stranger standing in it.
+**The freezing was the small half.** `perceivableBy` is the chokepoint every
+mind's brief is built through, and a watcher went through it like anybody else.
+So every model in every watched run was told, several times a minute, that
+somebody was standing on the shore. Sociable models walked over, hailed it,
+offered it things and waited. **A watched run and an unwatched run were not the
+same experiment, and the difference was the person watching** — the observer
+effect, built by hand, in a project whose first rule is that a mind gets its
+body's senses and nothing else.
 
-Point 2 matters more than point 1 for what this project is measuring, and
-neither is fixable from the browser: both need the SERVER to know.
+Five places spelled `p.body.dead || !p.connected` out by hand — arrow hit test,
+creature targeting, perception, head-count, snapshot. Five copies is four
+chances to forget the next clause, and `watching` was that clause. All five now
+go through `World.inPlay`. Vitals needed nothing new: `Body.update` already took
+an `enabled` flag gating hunger, core, damage and drowning, hard-coded true
+since the server was written; it is `!p.watching`. The flag rides on `C_HELLO`
+as `w` — JSON on the wire, so old clients are unaffected and no version bump is
+needed. `canHarm` refuses in both directions so the rule does not depend on the
+client keeping its promise.
 
-**Shape of the fix:** carry a `watch` flag on `C_HELLO`; the world then skips
-hunger, cold and damage for that player, excludes it from `canHarm` and wildlife
-aggro, and — the important half — **leaves it out of the snapshot other players
-and agents receive**. It should be possible to watch a run without being in it.
-
-Related: **0j**'s camera driver will BE a watcher, so it inherits both problems.
-Doing this first makes the recorder possible; doing it after means every filmed
-run has a ghost in it.
+`eyescheck` (9) is built entirely out of control arms, because "the watcher is
+invisible" passes for a hundred wrong reasons. Every question is asked twice —
+once about a watcher, once about an ordinary player two metres away — and the
+answers must differ. It also makes the watcher LIE and sprint, to prove the
+server is what refuses. Its vitals sentinel earned its keep on the first run:
+measuring FOOD, both bodies read a flat 12 across nine seconds, and it failed
+and said the PREMISE was wrong rather than the code. Core temperature is what
+moves in a short run.
 
 ### 0.5h. ~~THE FLY VIEW FLASHES AND GLITCHES~~ **WITHDRAWN — NOT A GAME BUG** ✅ closed 2026-08-14
 
@@ -340,33 +354,97 @@ observe the symptom and reasoned from the code to a mechanism anyway.** The bow
 visible in the source — but it is the same risk, and it is why that fix is
 written to be checked by eye.
 
-### 0.5b. "3 venisons" — the registry has no plural exception **[S]** — arc 2
-`Agent.plural` knows venison, trout and fish take no plural. `itemWords` in the
-item registry does not, so the brief says *"You are carrying: 3 venisons"* and,
-since 0e, *"hungry and carrying 3 venisons"*. Two plural rules, one of them
-wrong. Fixing `itemWords` touches every brief and several checks, so it wants
-doing deliberately rather than in passing.
+### 0.5b. ~~"3 venisons"~~ ✅ **DONE 2026-08-16**
 
-### 0.5c. `AGENT_SECONDS` stops the minds and leaves the world running **[S]**
-Hit twice on 2026-08-14. The fleet ends cleanly at its hour and **the server
-keeps port 8080**, which blocks the next run and makes `boardcheck` fail. The
-minds process cannot politely stop a server it did not start, so this is either
-a note in RUNNING.md or a `--stop-server` flag. Right now it is a trap.
+One rule, written three times, and no two agreed:
 
-### 0.5d. `boardcheck` does not use `requireFreePort` **[S]** — arc 2
-It prints *"could not run: no board to check"* when a live run holds 8090, which
-I misread as a regression once today and had to diagnose twice. `freeport.js`
-exists in this repo BECAUSE a stale server on a port made `bitecheck` report a
-product defect that did not exist. This is the same failure, in the file next
-door.
+| where | rule | says |
+|---|---|---|
+| `itemWords` (registry) | −s, −es after s/x/ch | "3 venisons" |
+| `Agent.plural` (agent) | …plus a meat-and-fish exception | "3 venison" |
+| `amountText` (book) | −s, −es after s/sh/ch/x | "3 venisons" |
 
-### 0.5e. A craft can make several things off ONE decision **[S]** — arc 1
-`eat` is now one meal per decision, after a body ate four venison in eight
-seconds. `craft` still fires on every retarget: Ailsa made arrows AND a torch off
-a single "make something useful". That is arguably RIGHT — she used spare
-materials well — but the two verbs now behave differently for no stated reason.
-**Decide it deliberately** rather than leaving it as an accident of which bug got
-found first.
+Two were wrong about venison and trout. **All three were wrong about gold**,
+which took a plural in every one of them.
+
+Not a typo, because the BRIEF is the copy a language model reads several times a
+minute, and it is the whole basis on which that model decides what to do. A
+brief saying "venisons" teaches the model a word, the model says it back, and
+the parser has to know a noun nobody designed. A refusal the game provoked looks
+exactly like a stupid model.
+
+The rule now lives once, in the item table, because the exceptions are facts
+about the ITEMS and not about grammar. `wordcheck` (22) asserts that every word
+we say resolves back through `resolveItemId` to the thing we said it about — the
+honesty rule in miniature — and that the brief, the deed line and the HUD
+produce byte-identical strings, which needs no opinion about English at all.
+
+### 0.5c. ~~`AGENT_SECONDS` leaves the world running~~ ✅ **DONE 2026-08-16**
+
+A finished run now says so, plainly, in the console somebody is certainly
+looking at: the minds have stopped, the world has not, nothing is spending, but
+it holds 8080 and the next run and `boardcheck` will fail until STOP.cmd closes
+it. Also documented beside the STOP.cmd step in RUNNING.md.
+
+Deliberately **not** a remote-kill protocol message. Any connected client could
+then close the world, which is a far worse thing to have than a port to tidy.
+
+### 0.5d. ~~`boardcheck` does not use `requireFreePort`~~ ✅ **DONE 2026-08-14**
+
+It printed *"could not run: no board to check"* when a live run held 8090 —
+which I misread as a regression once and had to diagnose twice. `freeport.js`
+exists BECAUSE a stale server on a port made `bitecheck` report a product defect
+that did not exist.
+
+**And the guard itself was blind to it.** The first fix — adding a
+`requireFreePort(BOARD, …)` call — was completely inert, because the probe
+opened a WebSocket and the board is a plain HTTP server. Changed to a TCP
+connect, which detects anything holding the port at all. `boardcheck` 40 → 41,
+with a self-test that stands up an HTTP listener on 8099 and requires the guard
+to see it.
+
+### 0.5e. ~~A craft can make several things off ONE decision~~ ✅ **DONE 2026-08-16**
+
+**One decision is one make**, matching `eat`. A craft is INSTANT on the server
+(`RECIPES.seconds` is presentation), so there is no long action holding a body
+in place — there is a press. `after` fires on arrival, arrival at a fire you are
+standing at is distance zero, the target completes, `retarget` comes round, and
+the same standing goal presses again.
+
+On the two recipes with no `maxHeld` that is not cosmetic: `cook_venison` turns
+the whole raw stock into cooked one at a time, and `fletch_arrows` spends EVERY
+branch — straight through `AGENTS.spareWood`, the firewood reserve `recipeToWork`
+guards so carefully that 0c needed a starvation override to get past it. And the
+deed log filed one craft per press, so a standing goal wrote ten crafts against
+one decision.
+
+Marked when the make BEGINS, which is where this parts company with `noteMeal`.
+A failed eat leaves you hungry so the reflex needs another go; a craft fails for
+three reasons — no fire, no makings, `maxHeld` — and none are fixed by pressing
+again.
+
+### 0.5i. ~~ONE PRESS, TWO SERVER APPLICATIONS~~ ✅ **DONE 2026-08-16** — found by 0.5e's sentinel
+
+0.5e's premise sentinel ("there is wood for several more fletches, so a repeat
+COULD happen") failed: the body had none. Four wrong theories later, measured:
+
+```
+[CLI target place] Mairi wood 20
+[SRV place]        Mairi wood 20
+[SRV place]        Mairi wood 10
+```
+
+**One client press, two server applications.** An intent is a LEVEL the server
+re-reads every tick until the next packet, and it ticks faster than anything
+sends. `lightFireFor` treats a claim on an existing fire as FUEL for it, so it
+did not even appear as two fires: one fire, twenty wood, silence. Same for
+`craft`.
+
+`primary`, `drop`, `give`, `offer`, `accept` and `eat` all edge-detect — `eat`
+does it fourteen lines away. `place` and `craft` never got it. **Hidden for
+months by poverty**: `woodToLight` is 10, a body rarely holds 20, so the second
+application could not afford itself and returned quietly. It took a test that
+deliberately stocked a full stack to make it happen at all.
 
 ### 0.5f. Nothing changed hands in the rotated run **— watch, do not fix yet**
 The 0i errand line was live and produced no transfer in an hour. Run 2 on
