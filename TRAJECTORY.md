@@ -26,6 +26,18 @@ When the foundation and a feature compete, the foundation wins. Every time.
 Corollary: **nothing counts until an outcome test says so over a real socket.**
 Not "did it deliberate" — did it eat.
 
+**And a second corollary, bought on 2026-08-17: TEST THE GESTURE, NOT THE
+FIELD.** Dropping was broken for every human player — the mouse wheel changed
+the hand in the browser and never told the server, so the server stayed on slot
+one and refused every drop by naming the bow. Three socket-level checks were
+green over it the whole time, and green for the same reason: `dropcheck`,
+`inventorycheck` and `pulsecheck` all set `selectSlot` by hand. **A check that
+drives the protocol agrees with a client that never sends it.** The failure is
+one layer above the one this repo learned to test, and no amount of socket
+discipline reaches it. Where a gesture cannot be driven — a wheel is a DOM
+event, there is no socket to press it over — assert it from the source and say
+in the check that the assertion is the weak one. See `handcheck`.
+
 ---
 
 ## THE SIX ARCS
@@ -52,13 +64,48 @@ groups, hold grudges, and change their minds for reasons you can read.
   vendors, 0 failed calls. **And the scripted control came last but one** — she
   out-foraged every model and starved anyway, because she cannot hunt. With
   gather fixed, THE BINDING CONSTRAINT MOVED UPSTREAM TO HUNTING.
+  **AND FEEDING IS NOW ROUTINE, 2026-08-17** —
+  [runs/GROK46DUO-2026-08-17.md](runs/GROK46DUO-2026-08-17.md). Two grok-4.6
+  seats, 40 minutes, 55 calls, $0.66, **0 failed calls between them**. Both
+  hunted, gathered, lit fires, cooked and ate; both finished at 100hp having
+  also fletched arrows. That is the food chain running unremarkably rather than
+  being demonstrated, which is the difference between a fix and a foundation.
 - **Done looks like.** A model-driven seat survives a night unaided, and two
-  seats reach an outcome neither could reach alone. **Neither has happened yet** —
-  the proof run was 17 minutes, not a night, and nothing was achieved jointly.
-  A green check is not this milestone and must never be reported as it.
+  seats reach an outcome neither could reach alone. **Neither has happened yet.**
+  The 2026-08-17 pair got closest anything has: both converged on the same fire,
+  one offering meat for the use of it. They still arrived as two individuals who
+  wanted the same object. A green check is not this milestone and must never be
+  reported as it, and neither is a friendly-looking transcript.
 - **Also still open:** no mind has CHOSEN the `eat` verb — every meal in the
   proof run was the reflex. The verb is for eating early, above the threshold
   the reflex waits for, and it wants `SCARCE=on` to have a reason to exist.
+- **AND THE NEW BINDING CONSTRAINT, 2026-08-17 — THEY BARGAIN IN WORDS AND
+  NEVER REACH FOR THE VERB.** `offer`, `give`, `accept`, `attack` and `guard`
+  have still never been used by a real model, and the duo run finally shows why
+  that is not indifference. The pair argued over a carcass for twenty minutes
+  from a consistent position — *"that deer is mine"* / *"that deer is no one's
+  till it's down"* — and then bargained over a fire in plain, priced language:
+
+      Fingal:  "need that fire. meat for the use of it"
+      Fingal:  "mine. gold if you want a share"
+      Ailsa:   "coming for your fire"
+
+  A stated price, a counter, and a share put up for gold — **priced in a
+  currency neither of them held a single coin of.** Both finished the run on
+  gold 0, and there is no way in the world to earn one except from each other.
+  **The intention is fully present and the execution is absent.** So the gap is
+  not motivation, and it is not the brief failing to describe the world. It is
+  the distance between saying a price and reaching for the verb that settles
+  one — and the strong suspicion that talking is simply the cheaper move,
+  because nothing in the world ever enforces or rewards a deal. A trade that
+  changes nothing is a trade no rational seat needs a verb for.
+
+  **This is arc 1's front now.** Feeding is behind us; trading is where
+  "human-like interaction between models" is actually blocked. The next work is
+  a fair test of that suspicion rather than another verb: make a deal worth
+  striking, and see whether the verb gets reached for on its own. If it still
+  does not, the fault is in how the brief offers the verb, and that is a
+  different fix from making trade matter.
 
 ### 2. A world a human can read  ← THE MULTIPLIER
 
@@ -115,6 +162,21 @@ and it is not worth the tokens it cost.
   **So arc-2's standing debt list is EMPTY.** That is not the same as arc 2 being
   done — "a person who has never seen the code can watch a run and say why each
   mind did what it did" is the bar, and it has not been tested on a person.
+
+  **TWO INSTRUMENTS SPOKE UP ON 2026-08-17, and both were working correctly.**
+  Neither is a regression; both are findings, and both want tuning rather than
+  fixing.
+  - **The fleet clock warned that the run was 23% behind real time** — 1856 s of
+    thinking inside 2404 s of wall clock. That is debt item 2 doing its job: the
+    clock is honest now, and what it is honestly reporting is that a slow seat
+    cannot hold a cadence. **Every cadence in that run was effectively a fifth
+    longer than `roster-grok46duo.json` claims**, which quietly invalidates any
+    comparison drawn against a run that kept up. A roster's cadence is a request,
+    not a fact, and the write-up has to say which it got.
+  - **The gag swallowed 11 of 29 lines as "too soon".** `speakEveryDecisions` was
+    tuned against fast seats; against a 60–75 s thinker it throws away a third of
+    the output of the very seats whose output costs the most. Arc 2 is about
+    legibility, and a third of the talking discarded is a legibility problem.
 
 ### 3. The recorder — a camera that flies itself
 
@@ -174,7 +236,52 @@ scenarios worth benchmarking.
 - **Personas ship with an off switch, and off is byte-identical.** The control
   arm is what makes any personality result mean anything.
 
-## WHERE WE ACTUALLY ARE, 2026-08-11
+## WHERE WE ACTUALLY ARE, 2026-08-17
+
+**Arc 1 is still the live front. The food chain is no longer the whole of it —
+trade is.**
+
+What changed since the entry below. Feeding stopped being the question: on the
+17th two grok-4.6 seats hunted, cooked, ate and fletched for forty minutes with
+0 failed calls and no intervention. Nobody had to prove it; it simply happened
+while the run was doing something else. That is what a solved foundation looks
+like, and this file should say so plainly having spent two entries refusing to.
+
+**The blocker moved to trade, and for a reason worth writing down.** The same
+pair bargained fluently — a stated price, a counter, an offer of a share — and
+never once called `offer`, `give` or `accept`. Five verbs shipped, socket-tested
+and unused. The evidence now says this is not a missing intention, so the next
+move is NOT a sixth verb. It is to make a deal worth striking and see whether
+the verb is reached for unprompted. **`SCARCE` hard, one fire between two, and
+something only the other seat can give you** is the run that decides it.
+
+**And a warning of the same shape the entry below carries.** On the 17th two
+bugs turned up that had nothing to do with the minds, in a tree with a fully
+green suite over both:
+
+- **Dropping was broken for every human player** and had been for some time. The
+  wheel never told the server; the server refused every drop by naming the bow.
+  Three green socket checks sat over it because all three drove the protocol
+  field directly instead of the gesture. Now `handcheck`, 17/17, with a
+  counterfactual that drives the old behaviour and asserts it still puts down
+  the wrong thing.
+- **The 25-second autosave had been writing nothing at all**, throwing inside
+  the world step where the loop's own fault tolerance swallowed it. Found by
+  reading a console during a live run — there is no `savecheck`, and a silent
+  `catch` around a step is exactly where this class of bug goes to live.
+
+Both were found by STANDING THE GAME UP AND LOOKING AT IT, not by the suite.
+The suite's job is to stop a fixed thing breaking again; it has never been the
+thing that finds them. **Budget a look at the running game into every session,
+and read the console while it runs.**
+
+Arcs 3–6 stay shut. The rule that nothing in them starts while arc 1 is unproven
+still holds — "unproven" now means *no two seats have reached an outcome neither
+could reach alone*, which is a harder bar than the feeding one it replaces.
+
+---
+
+## PREVIOUS ENTRY, 2026-08-11 — kept as the warning it asks you to read it as
 
 Arc 1 is still the live front, and the food chain is the whole of it.
 
