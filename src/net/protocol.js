@@ -118,6 +118,11 @@ export const INTENT_KEYS = [
   'offerWant',
   'accept',
   'selectSlot',
+  // Which item that slot turned out to be, by name. Added here at the same
+  // moment as everywhere else, because THIS LIST IS AN ALLOW-LIST: a field
+  // missing from it is dropped silently at the socket, and the feature then
+  // works perfectly in-process while doing nothing at all over the wire.
+  'selectItem',
 ];
 
 export function pickIntent(raw) {

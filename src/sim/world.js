@@ -1541,7 +1541,25 @@ export class SimWorld {
       if (intent.primary) p.weapons.beginPrimary();
       else p.weapons.endPrimary();
     }
-    if (intent.selectSlot >= 0) p.inventory.select(intent.selectSlot);
+    // ── WHICH SLOT DID THEY MEAN? ASK BY NAME, NOT BY NUMBER ──
+    //
+    // `selectSlot` is an index into the CLIENT's slot array, and the two sides
+    // do not always agree on that order. Carry 28 branches with a stone picked
+    // up between the two armfuls and the server holds
+    //   [bow, arrow, wood20, stone, wood8]
+    // while the browser draws
+    //   [bow, arrow, wood20, wood8, stone]
+    // — the same index, a different item. Pressing Q then drops the wrong
+    // thing, or refuses on the bow, which is what was reported.
+    //
+    // So the name wins where it is given. The index stays as the fallback for
+    // everything that sends only a number: every agent, and `dropcheck` and
+    // `inventorycheck`, which drive the field directly.
+    if (intent.selectItem) {
+      const at = p.inventory.slots.findIndex((s) => s.item === intent.selectItem);
+      if (at >= 0) p.inventory.select(at);
+      else if (intent.selectSlot >= 0) p.inventory.select(intent.selectSlot);
+    } else if (intent.selectSlot >= 0) p.inventory.select(intent.selectSlot);
     // ── EDGE-DETECTED, like the trigger and for the same reason ──
     //
     // The intent PERSISTS on the server between packets, and packets arrive at

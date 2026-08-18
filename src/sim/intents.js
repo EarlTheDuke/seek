@@ -146,6 +146,17 @@ export function createIntent() {
     // their own field on the wire.
     alternate: false,
     selectSlot: -1, // -1 = no change
+    // ── AND WHAT THAT SLOT IS, BY NAME ──
+    //
+    // An index alone cannot say which thing you are holding, because the two
+    // sides do not always agree on slot order. `me.iv` crosses the wire as a
+    // flat {item: count} map — deliberately, so the HUD only churns when the
+    // goods really change — and a stack split across two server slots arrives
+    // as ONE entry that `applyRemote` then re-splits somewhere else in the
+    // list. Same number, different thing.
+    //
+    // '' means "no change", like -1 above. Where both are set, the NAME wins.
+    selectItem: '',
   };
 }
 
@@ -178,6 +189,7 @@ export function clearIntent(i) {
   i.letdown = false;
   i.alternate = false;
   i.selectSlot = -1;
+  i.selectItem = '';
   return i;
 }
 
@@ -210,6 +222,7 @@ export function copyIntent(to, from) {
   to.letdown = from.letdown;
   to.alternate = from.alternate;
   to.selectSlot = from.selectSlot;
+  to.selectItem = from.selectItem;
   return to;
 }
 
@@ -273,6 +286,11 @@ export function sanitiseIntent(i, maxLookPerTick = 0.35) {
   i.letdown = !!i.letdown;
   i.alternate = !!i.alternate;
   i.selectSlot = Number.isInteger(i.selectSlot) ? i.selectSlot : -1;
+  // Clamped as a plain short string and NOT checked against the registry here:
+  // the server only ever uses it to look for a slot it already holds, so an id
+  // that means nothing simply matches nothing. A second list to validate
+  // against is a second list to forget to update.
+  i.selectItem = typeof i.selectItem === 'string' ? i.selectItem.slice(0, 24) : '';
   return i;
 }
 

@@ -113,7 +113,14 @@ export function createSimWorld({ seed = SEED, hours = TIME.startHour } = {}) {
       if (intent.primary) weapons.beginPrimary();
       else weapons.endPrimary();
     }
-    if (intent.selectSlot >= 0) inventory.select(intent.selectSlot);
+    // The same two-step as `world.js`. In-process there is only one pack and
+    // the index cannot be stale — but the paths are kept identical on purpose,
+    // so a bug can never live in one of them and not in the others.
+    if (intent.selectItem) {
+      const at = inventory.slots.findIndex((s) => s.item === intent.selectItem);
+      if (at >= 0) inventory.select(at);
+      else if (intent.selectSlot >= 0) inventory.select(intent.selectSlot);
+    } else if (intent.selectSlot >= 0) inventory.select(intent.selectSlot);
     if (intent.interact) pickups.collect();
 
     if (clock.running) {
@@ -232,6 +239,7 @@ export function scriptedIntent(tick, out = createIntent()) {
   out.interact = false;
   out.drop = false;
   out.selectSlot = -1;
+  out.selectItem = '';
   return out;
 }
 

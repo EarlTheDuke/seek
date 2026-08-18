@@ -2916,7 +2916,38 @@ function boot() {
   renderer.domElement.addEventListener(
     'wheel',
     (e) => {
-      inventory.cycle(Math.sign(e.deltaY));
+      // ── THE WHEEL HAS TO GO THROUGH THE INTENT, NOT ROUND IT ──
+      //
+      // This called `inventory.cycle()` and nothing else, so the wheel moved
+      // the hand IN THIS BROWSER and the server never heard a word about it.
+      // Connected, the server owns the pack and resolves `drop` against its
+      // OWN equipped slot — which, never having been told otherwise, is still
+      // slot one. Slot one is the bow. That is the whole of the report:
+      //
+      //   > if i have branches selected, and i hit Q it tells me i can not
+      //   > drop my bow. but i dont have the bow selected.
+      //
+      // He did have branches selected. The server did not know, and the
+      // refusal it sent back named the only thing it thought was in his hand.
+      //
+      // `pendingSlot` is the same field the number keys set, so the tick
+      // applies it locally AND `selectSlot` goes out with the next packet.
+      // THE DIGITS WERE NEVER BROKEN, which is exactly why every check passed:
+      // dropcheck and inventorycheck both drive `selectSlot` directly and so
+      // never touched the one path a player actually uses. The HUD advertises
+      // the wheel first — see `hud.js`, '1 2 / wheel'.
+      const n = inventory.slots.length;
+      if (n > 0) {
+        const dir = Math.sign(e.deltaY);
+        // COUNT FROM A NOTCH ALREADY QUEUED THIS FRAME, not from the hand.
+        // `equipped` does not move until the tick applies `pendingSlot`, so
+        // three notches inside one frame would otherwise all compute the same
+        // single step, and a flick of the wheel would crawl one slot where it
+        // used to spin three. Measured by dispatching three real wheel events
+        // in one go: `pendingSlot` came out 1 instead of 3.
+        const from = input.pendingSlot >= 0 ? input.pendingSlot : inventory.equipped;
+        input.pendingSlot = (((from + dir) % n) + n) % n;
+      }
       e.preventDefault();
     },
     { passive: false }
@@ -3025,7 +3056,17 @@ function boot() {
       else weapons.endPrimary();
     }
 
-    if (intent.selectSlot >= 0) inventory.select(intent.selectSlot);
+    if (intent.selectSlot >= 0) {
+      inventory.select(intent.selectSlot);
+      // ── ...AND TELLS THE SERVER WHAT THAT SLOT TURNED OUT TO BE ──
+      //
+      // Set here rather than in `input.js` because THIS is the moment the
+      // index becomes an item: the pack it resolves against is the browser's
+      // own, and that is the one the player is looking at. The packet does not
+      // leave until `net.sendIntent` further down this same tick, so
+      // annotating the intent here is enough to carry it.
+      intent.selectItem = inventory.equippedSlot?.item ?? '';
+    }
 
     if (intent.interact && interaction) {
       const msg = interaction.run();

@@ -51,7 +51,10 @@ import { NET } from '../config.js';
 // hole, losing two presses in three, and everything in-process still passes.
 // The pairing is asserted from the source in `pulsecheck`.
 const PULSE_BOOL = ['interact', 'drop', 'dropHalf', 'place', 'eat', 'letdown'];
-const PULSE_TEXT = ['craft', 'give', 'giveItem', 'offer', 'offerItem', 'offerWant', 'accept'];
+const PULSE_TEXT = ['craft', 'give', 'giveItem', 'offer', 'offerItem', 'offerWant', 'accept',
+  // Paired with `selectSlot`: a wheel notch that falls between two packets
+  // must not be lost, for the same reason a keypress must not be.
+  'selectItem'];
 const PULSE_NUM = ['giveCount', 'dropBurn']; // 0 means "not set"
 const PULSE_SLOT = 'selectSlot'; // -1 means "no change"
 
