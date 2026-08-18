@@ -78,6 +78,29 @@ export class TakenDeadfall {
   delete(key) { return this.until.delete(key); }
   clear() { this.until.clear(); }
   get size() { return this.until.size; }
+
+  /**
+   * The keys still taken.
+   *
+   * A plain `Set` used to live on `Pickups.taken`, and `captureSave` still
+   * spreads it — `lootTaken: [...pickups.taken]`. When this class replaced
+   * the Set it inherited `has`/`add`/`delete`/`clear`/`size` and not the one
+   * thing a spread needs, so EVERY autosave threw "pickups.taken is not
+   * iterable" from inside the world step. The loop catches and carries on,
+   * which is why it looked like nothing was wrong — but nothing was ever
+   * written, and a 25 s autosave that silently saves nothing is the worst
+   * shape a persistence bug can take.
+   *
+   * Yields only what has NOT regrown, which is the same question `has`
+   * answers. A branch that has come back is not something a save should
+   * remember: on load it would be re-taken and the player would walk to bare
+   * ground the world had already given back.
+   */
+  *[Symbol.iterator]() {
+    for (const [key, until] of this.until) {
+      if (this.hours < until) yield key;
+    }
+  }
 }
 
 export class Pickups {
