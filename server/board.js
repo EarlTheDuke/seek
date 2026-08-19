@@ -175,6 +175,13 @@ export function boardState(agents, meta = {}) {
   return {
     at: Math.round(meta.seconds ?? 0),
     minds: meta.minds ?? 'scripted',
+    // ── THE BUTCHER'S BILL ──
+    //
+    // One agent's copy is the whole world's: every mind hears every kill and
+    // death event, so the first that carries a tally speaks for the fleet —
+    // including what the HUMAN killed, which no per-card thread has ever
+    // shown. Null when nobody has one (bare invented agents, old saves).
+    tally: live.find((a) => a.tally)?.tally ?? null,
     model: meta.model ?? null,
     url: meta.url ?? null,
     spend: meta.spend ?? null,
@@ -353,11 +360,18 @@ export function boardHtml() {
   .tag.spent { background:#4a1f1f; color:#ff9a8a; }
   .empty { color:#4a5259; font-style:italic; }
   footer { padding:10px 18px 24px; color:#4a5259; font-size:12px; }
+  .tally { padding:8px 18px; border-bottom:1px solid #23282c; font-size:12.5px;
+           color:#9aa4ae; display:flex; gap:18px; flex-wrap:wrap; }
+  .tally b { color:#c8c2b4; font-weight:600; }
+  .tally .k { color:#a8d5a2; }
+  .tally .d { color:#d08b74; }
+  .tally:empty { display:none; }
 </style>
 <header>
   <h1>THE MINDS</h1>
   <span class="meta" id="meta">connecting…</span>
 </header>
+<div class="tally" id="tally"></div>
 <main id="board"></main>
 <footer>Reading only. This page never touches the world — it watches the fleet that does.</footer>
 <script>
@@ -471,6 +485,16 @@ async function tick() {
       + (s.model ? ' · ' + s.model : '')
       + (s.spend ? ' · ' + s.spend.calls + '/' + s.spend.of + ' calls' : '');
     document.getElementById('board').innerHTML = s.players.map(card).join('');
+    // ── the butcher's bill, one line under the header ──
+    // Victims sorted by count, players' deaths on the right. Empty until
+    // something dies, and the CSS hides an empty strip entirely.
+    const t = s.tally;
+    document.getElementById('tally').innerHTML = !t ? '' : [
+      Object.entries(t.kills ?? {}).sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => '<span class="k">' + esc(k.toLowerCase()) + ' ×<b>' + v + '</b></span>').join(' '),
+      Object.entries(t.deaths ?? {}).sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => '<span class="d">' + esc(k) + ' died ×<b>' + v + '</b></span>').join(' '),
+    ].filter(Boolean).join(' &nbsp;·&nbsp; ');
   } catch (err) {
     document.getElementById('meta').textContent = 'the fleet has gone (' + err.message + ')';
   }

@@ -208,6 +208,16 @@ async function main() {
     bare?.error ?? 'renders with everything empty');
   check('and a board of nobody is still a board', boardState([]).players.length === 0);
 
+  // ── the butcher's bill rides one agent's ears to the top of the page ──
+  const heard = { name: 'Y', provider: { name: 'scripted' }, where: () => null,
+    tally: { kills: { Deer: 3, Goblin: 1 }, deaths: { Eachann: 2 } } };
+  const bt = boardState([{ name: 'X', provider: { name: 'scripted' }, where: () => null }, heard]);
+  check('the tally is taken from whichever mind carries one — every ear hears every death',
+    bt.tally?.kills?.Deer === 3 && bt.tally?.deaths?.Eachann === 2,
+    JSON.stringify(bt.tally));
+  check('...and a fleet of bare agents simply has none', boardState([{ name: 'X', provider: { name: 'scripted' }, where: () => null }]).tally === null);
+
+
   // ── IS THIS MIND STILL A MIND? ──
   //
   // Every failure inside `decide()` falls through to the scripted brain — the

@@ -187,6 +187,14 @@ export class Agent {
     this.talkingWith = null;
     this.addressed = null;
     this.deals = [];
+    // ── THE WORLD'S BUTCHER'S BILL, kept by every ear that hears it ──
+    //
+    // Every mind receives every kill and death event, so any ONE mind can
+    // answer "what has died in this world, and how much of it" — including
+    // what the HUMAN killed, which the mind's own `kills` thread never sees.
+    // The board reads one agent's copy and gets the whole war. Victim names
+    // as keys, so "deer 7 · goblin 2" needs no lookup table.
+    this.tally = { kills: {}, deaths: {} };
     this.provider = provider;
     this.rand = rand;
     this.onLog = onLog;
@@ -734,6 +742,10 @@ export class Agent {
         // difference between meat it earned and meat it found. Everything that
         // asks "can this thing hunt" has to read this rather than the sentence
         // above, which is equally true when a wolf did the work.
+        // The world's tally first, whoever's arrow it was — the human's
+        // kills land here too, and nowhere else a board could read.
+        (this.tally ??= { kills: {}, deaths: {} });
+        this.tally.kills[e.n] = (this.tally.kills[e.n] ?? 0) + 1;
         if (mine) {
           this.kills.push({ h: +this.hours.toFixed(2), what: e.n, at: e.at });
           this.did('killed', `I brought down a ${e.n.toLowerCase()}`);
@@ -741,6 +753,10 @@ export class Agent {
         break;
       case 'death':
         this.memory.add(this.hours, `${e.n} was killed by ${e.by} ${e.where ?? ''}`.trim(), MINDS.weight.kill);
+        // A PLAYER died. Names as keys, same shape as kills — the board's
+        // "deaths: Eachann ×2" column is this object verbatim.
+        (this.tally ??= { kills: {}, deaths: {} });
+        this.tally.deaths[e.n] = (this.tally.deaths[e.n] ?? 0) + 1;
         break;
     }
   }
