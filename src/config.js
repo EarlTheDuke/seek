@@ -952,6 +952,33 @@ export const AGENTS = {
   // and still get a word in later; 1 would let it talk every single time.
   speakEveryDecisions: 2,
 
+  // ── ATTENTION IS EVENT-DRIVEN, NOT ONLY METRONOMIC ──
+  //
+  // The cadence above is a metronome, and a metronome cannot hold a
+  // conversation. Measured on 2026-08-17: a human typed at a mind on a 75 s
+  // cadence and the reply — when the gag did not eat it — came a minute and a
+  // half later, which is indistinguishable from being ignored. A person does
+  // not reconsider the world every N seconds; they reconsider it WHEN
+  // SOMETHING HAPPENS. So three events now wake a mind ahead of its cadence:
+  // being spoken to, being shot, and being made an offer.
+  //
+  // The refractory is the budget guard: however loud the world gets, wakes
+  // cannot fire a think more often than this. It is real seconds, because the
+  // bill is in real seconds. Note the metronome ALSO arms it — a mind that
+  // just thought on schedule has current knowledge, and a wake one second
+  // later would spend a call to learn nothing.
+  reactRefractorySeconds: 15,
+
+  // ── AND A CONVERSATION, ONCE STARTED, HOLDS IT ──
+  //
+  // Being spoken to from within hail range opens a window in which the mind
+  // reconsiders on the short cadence below rather than its roster one — so an
+  // exchange can actually volley instead of one line per minute. The window
+  // closes this many real seconds after the last line heard. The body half
+  // already exists: `noteHail` stops the legs; this is the mind matching it.
+  conversationSeconds: 45,
+  conversationCadenceSeconds: 12,
+
   // The failure rate at which a seat is called unwell and named loudly.
   // Was 0.2 and a real run sat at 0.11 for 83 minutes without a word.
   unwellAbove: 0.08,

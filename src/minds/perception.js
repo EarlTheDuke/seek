@@ -273,6 +273,14 @@ export function briefToText(b) {
   }
   // Stated plainly and above what it heard, because being shot outranks gossip.
   if (b.shotBy) lines.push(`${b.shotBy} shot you.`);
+  // The unanswered line, above the hearing for the same reason: a question
+  // owed is not gossip either. One line, present until anything is said.
+  if (b.asked) lines.push(b.asked);
+  // Deals on the table are pinned facts, not memories — see `pinDeal`.
+  if (b.deals?.length) {
+    lines.push('On the table:');
+    for (const d of b.deals) lines.push(`  - ${d}`);
+  }
   if (b.heard?.length) {
     lines.push('You have heard:');
     for (const h of b.heard) lines.push(`  - ${h}`);

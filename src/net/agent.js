@@ -165,6 +165,24 @@ export class Agent {
     // How often THIS mind reconsiders. See the note at the deliberation gate:
     // the body keeps running at 30 Hz whatever this is set to.
     this.cadenceSeconds = cadenceSeconds;
+    // ── EVENT-DRIVEN ATTENTION ──
+    //
+    // `wakePending` asks the next update to deliberate ahead of the cadence;
+    // `reactCooldown` is the refractory that keeps wakes from becoming a
+    // billing method; `talkSeconds` is the open conversation window;
+    // `addressed` is the one line somebody said to this mind that it has not
+    // yet answered — the debt the speak gate honours ahead of its own rules.
+    // `deals` is the short pinned list of offers on the table: unlike memory,
+    // which samples, a deal stays in the brief until settled or lapsed,
+    // because forgetting the bargain you are walking toward is how four minds
+    // agreed a hunt in words and executed none of it.
+    this.wakePending = false;
+    this.wakeReason = null;
+    this.reactCooldown = 0;
+    this.talkSeconds = 0;
+    this.talkingWith = null;
+    this.addressed = null;
+    this.deals = [];
     this.provider = provider;
     this.rand = rand;
     this.onLog = onLog;
@@ -453,6 +471,29 @@ export class Agent {
             // See `SOCIAL.hailRange`. This is the whole of the playtester's
             // "I could close to 0.02 m and then lose them".
             this.noteHail(msg.data.n);
+            // ── AND NOTICE WHEN IT WAS SAID *TO YOU* ──
+            //
+            // Two ways a line is yours: it opens with your name — the same
+            // convention `takeOrder` reads — or the speaker is close enough
+            // that `noteHail` just held the body for them, which is what
+            // "talking to someone" physically is in this world. Either way
+            // the mind now owes an answer, the conversation window opens, and
+            // the mind is woken to the moment instead of hearing about it a
+            // cadence later. A human typed four questions at six models on
+            // 2026-08-05 and got not one reply; the first half of that was
+            // the gag, and the other half was this — nobody's attention was
+            // ever ON the question while it was still a question.
+            {
+              const who = /^\s*([a-z][a-z'’-]{1,17})\s*[,:]/i.exec(msg.data.m);
+              const named = !!who && who[1].toLowerCase() === this.name.toLowerCase();
+              const near = this.hailedBy === msg.data.n && this.hailFor > 0;
+              if (named || near) {
+                this.addressed = { by: msg.data.n, text: msg.data.m, named, answered: false };
+                this.talkSeconds = AGENTS.conversationSeconds;
+                this.talkingWith = msg.data.n;
+                this.wake(named ? `${msg.data.n} spoke to you by name` : `${msg.data.n} spoke to you, close by`);
+              }
+            }
             break;
           case S_ERROR:
             this.onLog?.(`${this.name}: server says ${msg.data.m}`);
@@ -553,14 +594,26 @@ export class Agent {
       // undercut another, or notice that somebody has promised the same venison
       // twice.
       case 'offer':
-        if (e.to === this.id) this.memory.add(this.hours, `${e.from} offers me ${e.item} for ${e.want}`, MINDS.weight.trade);
-        else if (mine) this.memory.add(this.hours, `I offered ${e.item} to ${e.n} for ${e.want}`, MINDS.weight.trade);
-        else this.memory.add(this.hours, `${e.from} offers ${e.n} ${e.item} for ${e.want}`, MINDS.weight.trade);
+        // A deal on the table is PINNED, not merely remembered — memory
+        // samples, and a bargain that can fall out of the brief mid-walk is
+        // the mechanism behind "agreed a hunt in words, executed none of it".
+        // And an offer AT you wakes you: somebody is standing there waiting.
+        if (e.to === this.id) {
+          this.memory.add(this.hours, `${e.from} offers me ${e.item} for ${e.want}`, MINDS.weight.trade);
+          this.pinDeal(`${e.from} offers you their ${e.item} for your ${e.want} — accept ${e.from} takes it`, e.from);
+          this.wake(`${e.from} made you an offer`);
+        } else if (mine) {
+          this.memory.add(this.hours, `I offered ${e.item} to ${e.n} for ${e.want}`, MINDS.weight.trade);
+          this.pinDeal(`you offered ${e.n} your ${e.item} for their ${e.want} — it stands until they accept`, e.n);
+        } else {
+          this.memory.add(this.hours, `${e.from} offers ${e.n} ${e.item} for ${e.want}`, MINDS.weight.trade);
+        }
         break;
 
       case 'trade':
-        if (mine) this.did('trade', `I traded ${e.gave} to ${e.n} for ${e.got}`);
-        else if (e.to === this.id) this.did('trade', `I got ${e.gave} from ${e.from} for ${e.got}`);
+        // A settled deal comes off the pin — on both ends.
+        if (mine) { this.did('trade', `I traded ${e.gave} to ${e.n} for ${e.got}`); this.deals = this.deals.filter((d) => d.with !== e.n); }
+        else if (e.to === this.id) { this.did('trade', `I got ${e.gave} from ${e.from} for ${e.got}`); this.deals = this.deals.filter((d) => d.with !== e.from); }
         else this.memory.add(this.hours, `${e.from} traded ${e.gave} to ${e.n} for ${e.got}`, MINDS.weight.trade);
         break;
 
@@ -581,6 +634,9 @@ export class Agent {
           const who = e.n ?? this.others.get(e.by) ?? 'someone';
           this.memory.add(this.hours, `${who} shot me for ${e.dmg}`, MINDS.weight.shot);
           this.shotBy = who;
+          // An arrow in the body is the loudest sentence in the world, and it
+          // used to wait its turn behind the metronome like gossip.
+          this.wake(`${who} shot you`);
         }
         break;
       case 'wound':
@@ -879,8 +935,28 @@ export class Agent {
     //
     // It is also free characterisation — a ponderous mind and a twitchy one on
     // the same hillside read as different people before either says a word.
-    if (!this.thinking && this.since >= (this.cadenceSeconds ?? AGENTS.cadenceSeconds)) {
+    // ── ...AND EVENTS CAN BRING THE APPOINTMENT FORWARD ──
+    //
+    // A wake asks for one early deliberation; the refractory rations them.
+    // In an open conversation the metronome itself runs fast, because twelve
+    // seconds is a slow reply and seventy-five is not a reply at all. The
+    // refractory is armed by EVERY think, scheduled or woken — a mind that
+    // just thought has nothing to learn from thinking again one second later.
+    if (this.reactCooldown > 0) this.reactCooldown -= dt;
+    if (this.talkSeconds > 0) {
+      this.talkSeconds -= dt;
+      if (this.talkSeconds <= 0) this.talkingWith = null;
+    }
+    for (const d of this.deals) d.ttl -= dt;
+    this.deals = this.deals.filter((d) => d.ttl > 0);
+    const cadence = this.talkSeconds > 0
+      ? Math.min(this.cadenceSeconds ?? AGENTS.cadenceSeconds, AGENTS.conversationCadenceSeconds)
+      : (this.cadenceSeconds ?? AGENTS.cadenceSeconds);
+    if (!this.thinking && (this.wakePending || this.since >= cadence)) {
       this.since = 0;
+      this.wakePending = false;
+      this.wakeReason = null;
+      this.reactCooldown = AGENTS.reactRefractorySeconds;
       this.deliberate();
     }
     // ── THE ARROW LEAVES HERE, whatever the body thought it was doing ──
@@ -1097,6 +1173,21 @@ export class Agent {
       // that is worth a field of its own. Null for anybody nobody has shot.
       shotBy: this.shotBy ?? null,
       heard: this.heard.slice(-AGENTS.hears),
+      // ── THE ONE LINE YOU OWE AN ANSWER TO ──
+      //
+      // `heard` is eight lines of undifferentiated hearing, and a question
+      // aimed at this mind by name was just one of them — which is why a
+      // human's direct question ranked exactly as high as Fingal muttering
+      // about firewood. Stated separately, as a debt, until the mind says
+      // anything at all: the point is the itch to respond, not a transcript.
+      asked: (this.addressed && !this.addressed.answered)
+        ? `${this.addressed.by} said to you: "${this.addressed.text}" — you have not answered`
+        : null,
+      // ── AND THE BARGAINS CURRENTLY ON THE TABLE ──
+      // Pinned, not sampled. See `pinDeal`. `?? []` like `carrying` above it:
+      // briefcheck borrows this method onto a bare body that never ran the
+      // constructor, and a brief that assumes constructor state throws there.
+      deals: (this.deals ?? []).map((d) => d.text),
       memory: this.memory.recent(this.hours),
       // ── what is in the pack ──
       // Hard-coded empty until the snapshot started carrying it. A mind that
@@ -1425,7 +1516,16 @@ export class Agent {
         // unit, and it is immune to cadence, day length, and anyone's future
         // config change.
         const sinceDecisions = this.spokeAt < 0 ? Infinity : this.decisions - this.spokeAt;
-        if (said && sinceDecisions >= AGENTS.speakEveryDecisions) {
+        // ── A REPLY OUTRANKS THE RATION ──
+        //
+        // The gate is spam control, and it could not tell a reply from
+        // chatter: on 2026-08-17 it swallowed "coming to your fire" — an
+        // answer — as "too soon". A mind that has been spoken to and has not
+        // answered may speak NOW, whatever the decision count says. The debt
+        // clears when anything is said, so this is one extra line per
+        // question, not an open microphone.
+        const owedReply = !!(this.addressed && !this.addressed.answered);
+        if (said && (owedReply || sinceDecisions >= AGENTS.speakEveryDecisions)) {
           this.spoke = this.hours;
           this.spokeAt = this.decisions;
           this.send(C_CHAT, { m: said });
@@ -1438,6 +1538,7 @@ export class Agent {
           // voice repeats itself, which is exactly what was observed.
           this.memory.add(this.hours, `I said "${said}"`, MINDS.weight.spoke);
           this.noteOutcome(`you said "${said}" out loud`);
+          if (owedReply) this.addressed.answered = true;
           // ── AND IT GOES IN THE LOG, WHICH IT DID NOT ──
           //
           // Only the REFUSAL branch below called `onLog`, so the console
@@ -1516,6 +1617,38 @@ export class Agent {
       this.hailAt = { x: p.p[0], z: p.p[2] };
       return;
     }
+  }
+
+  /**
+   * Ask for one deliberation ahead of the cadence.
+   *
+   * The mind's counterpart of `noteHail`: the body stops NOW, and this is how
+   * the mind gets to the moment while it is still a moment. Refused inside the
+   * refractory — that refusal is the whole difference between "reacts to
+   * events" and "bills per event". Returns whether the wake was taken, so a
+   * check can assert the rationing as easily as the waking.
+   */
+  wake(reason) {
+    if (this.reactCooldown > 0) return false;
+    this.wakePending = true;
+    this.wakeReason = reason;
+    return true;
+  }
+
+  /**
+   * Pin a live bargain where the brief cannot lose it.
+   *
+   * Memory SAMPLES — forty entries of noticing, weighted draw — so the deal a
+   * mind is walking toward can vanish from its own head mid-walk. These do
+   * not sample: a deal stays in every brief until it is settled, replaced, or
+   * its clock runs out. Real seconds, not game hours, because game hours wrap
+   * at midnight and this project has already paid for that lesson once — see
+   * chatcheck's midnight arm.
+   */
+  pinDeal(text, withName, ttl = 180) {
+    this.deals = this.deals.filter((d) => d.with !== withName);
+    this.deals.push({ text, with: withName, ttl });
+    if (this.deals.length > 4) this.deals.shift();
   }
 
   /**

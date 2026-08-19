@@ -72,6 +72,7 @@
     "importcheck": "node server/importcheck.js",
     "dropcheck": "node server/dropcheck.js",
     "handcheck": "node server/handcheck.js",
+    "wakecheck": "node server/wakecheck.js",
     "inventorycheck": "node server/inventorycheck.js",
     "pulsecheck": "node server/pulsecheck.js",
     "nouncheck": "node server/nouncheck.js",

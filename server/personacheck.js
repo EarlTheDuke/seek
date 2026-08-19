@@ -95,6 +95,18 @@ const BASELINE = [
   '"say" is not a verb — add it to ANY decision and you speak while you act.',
   '  {"kind":"hunt","quarry":"deer","say":"that one is mine, I hit it"}',
   'Keep it under fifteen words and in character. It costs you nothing.',
+  // ── A TENTH TIME, when the format learned to converse. Same commit. ──
+  //
+  // Forty minutes of two 4.6 seats produced eighteen lines and not one
+  // question — every example the prompt gave was a war-cry, so war-cries are
+  // what it got. These three lines teach answering, asking back, and the
+  // name-prefix `takeOrder` already reads. Shared-floor mechanics, not
+  // strategy: they say a reply is ALLOWED and how to aim one, and nothing
+  // about what to want. Every mind gets them identically, personas on or off,
+  // which is exactly why they belong in the control.
+  'If somebody has spoken to you and you have not answered, ANSWER them in "say" —',
+  'up to thirty words then, and a question back is a fine answer.',
+  'To speak TO somebody, open with their name: "Ben, the deer are north of the loch."',
   // ── AN EIGHTH TIME, when a mind got somewhere to put step two. Same commit. ──
   //
   // `plan` and `note` are the only two things in the brief a mind writes for

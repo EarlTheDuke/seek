@@ -298,6 +298,17 @@ export class ModelProvider {
       '"say" is not a verb — add it to ANY decision and you speak while you act.',
       '  {"kind":"hunt","quarry":"deer","say":"that one is mine, I hit it"}',
       'Keep it under fifteen words and in character. It costs you nothing.',
+      // ── AND TEACH IT TO CONVERSE, NOT ONLY TO ANNOUNCE ──
+      //
+      // Forty minutes of two 4.6 seats produced eighteen lines and not one
+      // question: every example this prompt gave was a war-cry, so war-cries
+      // are what it got. The three lines below are the whole difference
+      // between minds that broadcast claims and minds that talk — and the
+      // brief's `asked` line does nothing if the format never says a reply
+      // is allowed to be one.
+      'If somebody has spoken to you and you have not answered, ANSWER them in "say" —',
+      'up to thirty words then, and a question back is a fine answer.',
+      'To speak TO somebody, open with their name: "Ben, the deer are north of the loch."',
       // ── SOMEWHERE TO PUT STEP TWO ──
       //
       // A mind worked out it had firewood and no meat, that the other had meat,
