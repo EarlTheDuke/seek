@@ -28,6 +28,7 @@ import {
   encode, decode,
 } from '../src/net/protocol.js';
 import { KothMatch, cleanTeam } from '../src/sim/match.js';
+import { loadRoster } from './roster.js';
 import { requireFreePort } from './freeport.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -189,6 +190,17 @@ async function main() {
   check('  …and the muster points face each other across the ring',
     m.muster.red[0] < m.hillAt[0] && m.muster.blue[0] > m.hillAt[0],
     `red at x ${m.muster.red[0]}, blue at x ${m.muster.blue[0]}, hill at ${m.hillAt[0]}`);
+
+  // ── the roster carries the side through its own allow-list ───────────────
+  //
+  // loadRoster maps rows through a field whitelist, and 'team' spent its
+  // first hour missing from it: five minds silently join-order balanced
+  // while the roster named sides — the INTENT_KEYS failure, in roster form.
+  const roster = loadRoster('roster-koth.json');
+  check('the roster allow-list carries the team through',
+    roster.players.every((p) => ['red', 'blue', null].includes(p.team))
+    && roster.players.some((p) => p.team === 'red') && roster.players.some((p) => p.team === 'blue'),
+    roster.players.map((p) => p.name + ':' + (p.team ?? 'assign')).join(' '));
 
   // ── the team hello is tamed ───────────────────────────────────────────────
   check('a team claim is clamped to the two sides that exist',

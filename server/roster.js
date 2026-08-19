@@ -67,6 +67,14 @@ export function loadRoster(path) {
       keyEnv: p.keyEnv ? String(p.keyEnv) : undefined,
       character: p.character ? String(p.character) : null,
       pet: p.pet ? String(p.pet) : null,
+      // ── THE SIDE, IN A MATCH SERVER ──
+      //
+      // This map is an ALLOW-LIST, and 'team' spent its first hour missing
+      // from it: the roster said red and blue, this line did not exist, and
+      // five minds were silently join-order balanced instead — the exact
+      // INTENT_KEYS failure, in roster form. Anything not red or blue means
+      // 'assign me', the same rule cleanTeam applies on the wire.
+      team: p.team === 'red' || p.team === 'blue' ? String(p.team) : null,
       // ── UNDEFINED IS NOT 'decides' ──
       //
       // This said `p.orders === 'obeys' ? 'obeys' : 'decides'`, which turned a
