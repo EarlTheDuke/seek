@@ -346,6 +346,9 @@ async function main() {
       // Nothing can be concluded about kimi-k2.6 against claude-opus-5 when one
       // gets four times the turns. `CADENCE=30` now equalises the table, and
       // the budget is the thing you vary instead.
+      // The roster's side in a match server ('team': 'red' | 'blue').
+      // Ignored by any server not running one.
+      team: entry?.team ?? null,
       cadenceSeconds: Number(process.env.CADENCE) > 0
         ? Number(process.env.CADENCE)
         : (Number(entry?.cadenceSeconds) > 0 ? Number(entry.cadenceSeconds) : AGENTS.cadenceSeconds),

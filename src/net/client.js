@@ -125,9 +125,12 @@ export class NetClient {
     this.onStatus = onStatus;
   }
 
-  connect(url, name, pet = null, watching = false) {
+  connect(url, name, pet = null, watching = false, team = null) {
     this.pet = pet;
     this.watching = !!watching;
+    // Which side of a match this player wants, when the server runs one.
+    // A claim about intent, like the name — the server balances if absent.
+    this.team = team;
     this.status('connecting');
     try {
       this.ws = new WebSocket(url);
@@ -153,6 +156,7 @@ export class NetClient {
       this.send(C_HELLO, {
         name, version: PROTOCOL_VERSION, pet: this.pet ?? undefined,
         ...(this.watching ? { w: true } : {}),
+        ...(this.team ? { t: this.team } : {}),
       });
       this.pingTimer = setInterval(() => this.send(C_PING, { t: performance.now() }), 2000);
     };

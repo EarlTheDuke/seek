@@ -17,6 +17,8 @@
 
 import { WebSocketServer } from 'ws';
 import { SimWorld } from '../src/sim/world.js';
+import { KothMatch, cleanTeam } from '../src/sim/match.js';
+import { TIME } from '../src/config.js';
 import { getItem } from '../src/items/registry.js';
 import { makeProvider } from '../src/minds/providers.js';
 import { addRivalHunter } from '../src/minds/hunter.js';
@@ -150,6 +152,20 @@ function parseStock(raw) {
 // into a trunk instead of hunting.
 const SOLID = /^(on|yes|1|true)$/i.test(process.env.SOLID ?? '');
 
+const MODE = String(process.env.MODE ?? '').trim().toLowerCase();
+let matchPlan = null;
+if (MODE === 'koth') {
+  const at = String(process.env.HILL_AT ?? '').trim();
+  matchPlan = {
+    hillAt: /^spawn$/i.test(at) ? 'spawn'
+      : /^-?[\d.]+\s*,\s*-?[\d.]+$/.test(at) ? at.split(',').map(Number) : null,
+    radius: Math.max(8, Number(process.env.HILL_RADIUS) || 28),
+    pointsToWin: Math.max(5, Number(process.env.POINTS_TO_WIN) || 120),
+    minutes: Math.max(1, Number(process.env.MATCH_MINUTES) || 30),
+    respawnSeconds: Math.max(1, Number(process.env.RESPAWN_SECONDS) || 25),
+  };
+}
+
 const world = new SimWorld({
   headless: true,
   solid: SOLID,
@@ -188,6 +204,19 @@ if (/^(on|yes|1|true)$/i.test(process.env.PVP_EVERYWHERE ?? '')) {
 }
 
 const DANGER = process.env.DANGER ?? 'full';
+
+// ── MODE: the game as it was, or a match ──
+//
+//   MODE=koth             king of the hill — see PLAN-KOTH.md
+//   HILL_AT=x,z           put the hill somewhere exact (HILL_AT=spawn for
+//                         the spawn itself — matchcheck stands on this)
+//   HILL_RADIUS=28        metres; wider than a bowshot on purpose
+//   POINTS_TO_WIN=120     seconds of SOLE occupancy that end it
+//   MATCH_MINUTES=30      real minutes to the cap, best standing wins
+//   RESPAWN_SECONDS=25    how long a death sits out
+//
+// Anything else — including unset — is the game exactly as it has always
+// been: no match object, no match fields, no match events.
 const banned = bannedSpecies(DANGER);
 world.wildlife.setBanned(banned);
 
@@ -201,6 +230,21 @@ world.wildlife.setBanned(banned);
 //   npm run serve                                    scripted minds
 //   MINDS_PROVIDER=claude MINDS_API_KEY=... npm run serve
 //
+if (matchPlan) {
+  const m = new KothMatch({
+    hillAt: matchPlan.hillAt === 'spawn'
+      ? [world.spawn.position.x, world.spawn.position.z] : matchPlan.hillAt,
+    radius: matchPlan.radius,
+    pointsToWin: matchPlan.pointsToWin,
+    respawnSeconds: matchPlan.respawnSeconds,
+  });
+  // Real minutes to game hours: a day is TIME.dayMinutes real minutes.
+  m.capAfterHours = matchPlan.minutes * (24 / TIME.dayMinutes) / 60;
+  world.match = m.start(world);
+  console.log('  MODE: KING OF THE HILL — first to ' + m.pointsToWin + ' seconds of sole hold, or best in ' + matchPlan.minutes + ' min');
+  console.log('  the hill: ' + m.hillName + ' — ring ' + m.radius + ' m · respawn ' + m.respawnSeconds + 's at the team muster');
+}
+
 const HUNTERS = num(1, Number(process.env.MINDS_HUNTERS ?? 1));
 const provider = makeProvider(makeRandom('minds'), process.env);
 const rivals = [];
@@ -269,6 +313,12 @@ wss.on('connection', (ws, req) => {
         // while giving up every verb in the game.
         client.watching = msg.data.w === true;
         world.addPlayer(client.id, client.name, { pet, watching: client.watching });
+        // In match mode every playing joiner gets a side: the one their
+        // hello asked for, or the smaller one. A watcher stays sideless.
+        if (world.match && !client.watching) {
+          const team = world.match.assignTeam(world, world.players.get(client.id), cleanTeam(msg.data.t));
+          console.log('  ' + client.name + ' fights for ' + team.toUpperCase());
+        }
         for (const [item, n] of STOCK) world.players.get(client.id).inventory.add(item, n);
         if (Number.isFinite(HUNGER)) world.players.get(client.id).body.hunger = Math.max(0, Math.min(100, HUNGER));
         ws.send(encode(S_WELCOME, world.hello(client.id)));

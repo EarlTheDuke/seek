@@ -1,0 +1,72 @@
+{
+  "_readme": [
+    "KING OF THE HILL, 2026-08-18 — the first match roster. See PLAN-KOTH.md.",
+    "",
+    "FAST SEATS ON PURPOSE. A match is decided in moments, and a 26-second",
+    "thinker gets maybe thirty decisions in a whole half hour. grok-4.20-non-",
+    "reasoning answers in under a second and was the best seat of the",
+    "2026-08-11 run — KotH may be the mode where the QUICK models finally beat",
+    "the deep ones, and that finding is worth a roster shaped to catch it.",
+    "Symmetric sides, model for model, so the match measures play, not seats.",
+    "",
+    "ISEABAIL IS THE CONTROL, as always — scripted, no model, no key, on red.",
+    "When a flank looks brilliant, she is how you tell the model from the",
+    "terrain. Jack joins blue by URL (&team=blue), which levels the sides at",
+    "three each.",
+    "",
+    "The characters are rivalries, not job descriptions: the match block in",
+    "the brief carries the score and the ground; these carry the temperament.",
+    "",
+    "No keys in this file. keyEnv is the NAME of an env var."
+  ],
+
+  "budgetCalls": 1200,
+
+  "players": [
+    {
+      "name": "Eachann",
+      "team": "red",
+      "provider": "xai",
+      "model": "grok-4.20-0309-non-reasoning",
+      "keyEnv": "XAI_API_KEY",
+      "cadenceSeconds": 15,
+      "timeoutSeconds": 20,
+      "character": "You are quick and you press. Ground held is ground won — you would rather stand on the hill hungry than eat in the heather while the enemy scores."
+    },
+    {
+      "name": "Tormod",
+      "team": "red",
+      "provider": "xai",
+      "model": "grok-4.5",
+      "keyEnv": "XAI_API_KEY",
+      "cadenceSeconds": 30,
+      "timeoutSeconds": 30,
+      "character": "You think one move ahead and say the plan out loud so your side can follow it. You count arrows, food and time, and you spend all three like a quartermaster."
+    },
+    {
+      "name": "Iseabail",
+      "team": "red",
+      "character": "The control — no model, no key, no network. She plays the survival game on the same hillside; when a model does something startling, she is the reference for whether that was the model or the world."
+    },
+    {
+      "name": "Fingal",
+      "team": "blue",
+      "provider": "xai",
+      "model": "grok-4.20-0309-non-reasoning",
+      "keyEnv": "XAI_API_KEY",
+      "cadenceSeconds": 15,
+      "timeoutSeconds": 20,
+      "character": "You are quick and you harass. You would rather cost the enemy the hill than hold it yourself — an arrow from the treeline is worth a minute of their score."
+    },
+    {
+      "name": "Ailsa",
+      "team": "blue",
+      "provider": "xai",
+      "model": "grok-4.5",
+      "keyEnv": "XAI_API_KEY",
+      "cadenceSeconds": 30,
+      "timeoutSeconds": 30,
+      "character": "You are patient and watchful, and you keep your side fed and armed. You call retreats early and you have never lost a fight you did not pick."
+    }
+  ]
+}

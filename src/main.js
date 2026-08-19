@@ -475,6 +475,18 @@ function boot() {
           if (mine || byMe) hud.chat(null, `the arrow glances off — ${e.why}`);
         } else if (e.k === 'death') {
           hud.chat(null, `${e.n} was killed by ${e.by} ${e.where ?? ''}`.trim());
+        } else if (e.k === 'hill') {
+          // The match speaks in transitions, so every line here is news.
+          hud.chat(null, e.s === 'taken' ? `${e.party.toUpperCase()} takes the hill at ${e.n}`
+            : e.s === 'contested' ? `the hill at ${e.n} is CONTESTED — nobody scores`
+            : `the hill at ${e.n} stands empty`);
+        } else if (e.k === 'score') {
+          hud.chat(null, `${e.party.toUpperCase()} at ${e.pts} of ${e.target}`);
+        } else if (e.k === 'win') {
+          hud.chat(null, e.party ? `${e.party.toUpperCase()} WINS at ${e.n} — red ${e.red}, blue ${e.blue}`
+            : `a DRAW at the cap — red ${e.red}, blue ${e.blue}`);
+        } else if (e.k === 'respawn') {
+          hud.chat(null, `${e.n} returns at the ${e.team} muster`);
         } else if (e.k === 'miss') {
           // Where it ACTUALLY went, in the words a person would use. `hit` is
           // the surface the arrow found: ground, tree, rock.
@@ -861,7 +873,10 @@ function boot() {
       chosenCompanion === 'none' ? null : chosenCompanion,
       // A watcher is told to the server, not just to this browser. See the
       // note on `watching` above, and `World.inPlay`.
-      watching);
+      watching,
+      // `&team=red` asks for a side in a match server; anything else and
+      // the server balances. Meaningless — and harmless — outside MODE=koth.
+      params.get('team'));
   }
 
   // How much of the world is hunting you. Read from `?danger=` or from what you

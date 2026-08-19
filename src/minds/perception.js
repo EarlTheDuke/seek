@@ -273,6 +273,29 @@ export function briefToText(b) {
   }
   // Stated plainly and above what it heard, because being shot outranks gossip.
   if (b.shotBy) lines.push(`${b.shotBy} shot you.`);
+  // ── THE MATCH, FIRST ──
+  //
+  // Above even the unanswered question, because while a match runs it is
+  // the thing every other fact bears on. Plain statements, no advice:
+  // what the score is, where the hill is, who holds it. What to DO about
+  // that is the mind's business — the same bargain lacking and canMake
+  // strike, and the reason personacheck stays byte-identical: none of
+  // this touches the system prompt.
+  if (b.match) {
+    const m = b.match;
+    if (m.state === 'won') {
+      lines.push('THE MATCH IS OVER: ' + (m.winner ? m.winner + ' won' : 'a draw') + ' — red ' + m.red + ', blue ' + m.blue + '.');
+    } else {
+      lines.push('KING OF THE HILL at ' + m.name + '. You fight for ' + (m.mine ?? 'no side') + '.');
+      if (m.mates?.length) lines.push('Your side: ' + m.mates.join(', ') + ' fight beside you.');
+      lines.push('Score: red ' + m.red + ', blue ' + m.blue + ' — first to ' + m.target +
+        (m.left != null ? ', about ' + m.left + ' minutes left' : '') + '.');
+      lines.push(m.inRing ? 'You are ON the hill.' : 'The hill is ' + m.dist + ' m to the ' + m.dir + '.');
+      lines.push(m.contested ? 'The hill is contested — nobody scores while both sides stand on it.'
+        : m.holder ? (m.holder === m.mine ? 'Your side holds it and is scoring.' : m.holder + ' holds it and is scoring.')
+          : 'Nobody holds the hill.');
+    }
+  }
   // The unanswered line, above the hearing for the same reason: a question
   // owed is not gossip either. One line, present until anything is said.
   if (b.asked) lines.push(b.asked);

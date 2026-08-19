@@ -199,6 +199,14 @@ export class SimWorld {
     // the Black Moss" is what turns a shared world into a shared story.
     this.events = [];
     this.rules = { ...SOCIAL.defaults };
+    // ── THE MATCH, IF ANYBODY ASKED FOR ONE ──
+    //
+    // Null is the default and null is the whole of the default: no match
+    // fields in any snapshot, no match events, byte-identical to the game
+    // before modes existed. The server constructs one for MODE=koth and
+    // hangs it here; the three hooks below (step, snapshot, death) are the
+    // entire surface the world gives it. See src/sim/match.js.
+    this.match = null;
 
     // Creatures attack whoever is nearest; the manager reports the creature and
     // the world decides who wore it. Single-player had exactly one candidate,
@@ -1310,6 +1318,10 @@ export class SimWorld {
       lost: dropped.length,
       where: describePosition(at.x, at.z).phrase,
     });
+    // In match mode a death also queues a respawn at the team muster. The
+    // pack has ALREADY dropped where they fell, and that stays: death costs
+    // time, position and the walk back — never the match.
+    this.match?.noteDeath(player);
     return dropped;
   }
 
@@ -1317,6 +1329,10 @@ export class SimWorld {
 
   step(dt) {
     this.tick++;
+    // The match sees the world before the world moves: respawns land, the
+    // ring is read, transitions are announced. Nothing else in step() knows
+    // a match exists.
+    if (this.match) this.match.step(dt, this);
 
     // ── A FIGHT NOBODY IS STILL HAVING ──
     //
@@ -2092,6 +2108,9 @@ export class SimWorld {
     return {
       t: this.tick,
       c: round3(this.clock.hours),
+      // The match, only when there is one — a default world sends nothing
+      // here, which is what byte-identical-off means on a wire.
+      ...(this.match ? { m: this.match.wire(this) } : {}),
       // The MONOTONIC hour, beside the wrapped one. `c` is for the sky; this
       // is for the stump map, whose stamps must never wrap — and for a tab
       // that sat hidden: rAF parks, the catch-up is clamped, and a client

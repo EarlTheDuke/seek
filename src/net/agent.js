@@ -114,7 +114,7 @@ export class Agent {
    */
   constructor({ name, provider, rand, onLog = null, orders = 'decides', pet = null, persona = null, narrate = false,
                 commitDetour = false, closeDetour = false, shootRange = AGENTS.shootRange,
-                cadenceSeconds = AGENTS.cadenceSeconds,
+                cadenceSeconds = AGENTS.cadenceSeconds, team = null,
                 // ── the memory arm ──
                 // `true` is the pre-2026-08-08 behaviour: one ring, recency
                 // only, perception evicting everything. An OPTION and not a
@@ -176,6 +176,10 @@ export class Agent {
     // which samples, a deal stays in the brief until settled or lapsed,
     // because forgetting the bargain you are walking toward is how four minds
     // agreed a hunt in words and executed none of it.
+    // Which side of a match the roster put this mind on ('red'/'blue'),
+    // carried in the hello. Null outside match mode, and ignored by any
+    // server not running one.
+    this.team = team;
     this.wakePending = false;
     this.wakeReason = null;
     this.reactCooldown = 0;
@@ -315,7 +319,8 @@ export class Agent {
       const fail = (e) => reject(new Error(`${this.name}: ${e?.message ?? 'socket error'}`));
       this.ws.onerror = fail;
       this.ws.onopen = () =>
-        this.send(C_HELLO, { name: this.name, version: PROTOCOL_VERSION, pet: this.pet ?? undefined });
+        this.send(C_HELLO, { name: this.name, version: PROTOCOL_VERSION, pet: this.pet ?? undefined,
+          ...(this.team ? { t: this.team } : {}) });
       this.ws.onclose = () => {
         this.connected = false;
       };
@@ -593,6 +598,33 @@ export class Agent {
       // than six private conversations — and it is the only way one mind can
       // undercut another, or notice that somebody has promised the same venison
       // twice.
+      // ── THE MATCH'S VOICE ──
+      //
+      // Transitions only, and each one is exactly the kind of moment the
+      // wake path exists for: the state of the game changed while this
+      // mind was mid-stride. The refractory still rations the thinking.
+      case 'hill': {
+        const my = this.snapshot?.m?.teams?.red?.includes(this.name) ? 'red'
+          : this.snapshot?.m?.teams?.blue?.includes(this.name) ? 'blue' : null;
+        if (e.s === 'taken') {
+          this.memory.add(this.hours, (e.party === my ? 'we took the hill at ' : e.party + ' took the hill at ') + e.n, MINDS.weight.shot);
+          if (e.party !== my) this.wake('the enemy took the hill');
+        } else if (e.s === 'contested') {
+          this.memory.add(this.hours, 'the hill at ' + e.n + ' is contested', MINDS.weight.shot);
+          this.wake('the hill is contested');
+        }
+        break;
+      }
+      case 'score':
+        this.memory.add(this.hours, e.party + ' stands at ' + e.pts + ' of ' + e.target, MINDS.weight.heard);
+        break;
+      case 'win':
+        this.memory.add(this.hours, (e.party ?? 'nobody') + ' won the match — red ' + e.red + ', blue ' + e.blue, MINDS.weight.shot);
+        this.wake('the match ended');
+        break;
+      case 'respawn':
+        if (e.id === this.id) this.memory.add(this.hours, 'I fell and came back at the ' + e.team + ' muster', MINDS.weight.shot);
+        break;
       case 'offer':
         // A deal on the table is PINNED, not merely remembered — memory
         // samples, and a bargain that can fall out of the brief mid-walk is
@@ -1188,6 +1220,12 @@ export class Agent {
       // briefcheck borrows this method onto a bare body that never ran the
       // constructor, and a brief that assumes constructor state throws there.
       deals: (this.deals ?? []).map((d) => d.text),
+      // ── THE MATCH, WHEN THERE IS ONE ──
+      //
+      // Straight off the snapshot, so it can never go stale or sample out —
+      // the same rule as `deals`. A mind cannot decide about something
+      // nobody has told it, and this is where the match is told.
+      match: this.matchBrief(),
       memory: this.memory.recent(this.hours),
       // ── what is in the pack ──
       // Hard-coded empty until the snapshot started carrying it. A mind that
@@ -1606,6 +1644,33 @@ export class Agent {
    * earshot means out of the conversation: somebody shouting from 400 m away
    * across the glen is not hailing you, and should not be able to stop you.
    */
+  /**
+   * The match as one small object for the brief, or null when the server
+   * is not running one. Everything a mind needs to PLAY the match rather
+   * than merely survive inside it: side, score, where the hill is from
+   * HERE, and whether it is standing in the ring right now.
+   */
+  matchBrief() {
+    const m = this.snapshot?.m;
+    if (!m) return null;
+    const mine = m.teams?.red?.includes(this.name) ? 'red'
+      : m.teams?.blue?.includes(this.name) ? 'blue' : null;
+    const dx = m.hill[0] - (this._x ?? 0);
+    const dz = m.hill[1] - (this._z ?? 0);
+    const dist = Math.hypot(dx, dz);
+    // The same eight winds every `where` phrase in this game uses.
+    const oct = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+    const dir = oct[((Math.round(Math.atan2(dx, -dz) / (Math.PI / 4)) % 8) + 8) % 8];
+    return {
+      mode: m.mode, name: m.name, mine,
+      mates: (mine ? m.teams[mine] : []).filter((x) => x !== this.name),
+      red: m.red, blue: m.blue, target: m.target,
+      holder: m.holder, contested: m.contested,
+      state: m.state, winner: m.winner, left: m.left,
+      dist: Math.round(dist), dir, inRing: dist <= m.r,
+    };
+  }
+
   noteHail(who) {
     if (!who || who === this.name) return;
     for (const p of this.snapshot?.pl ?? []) {
