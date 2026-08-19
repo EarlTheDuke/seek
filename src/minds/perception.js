@@ -293,6 +293,10 @@ export function briefToText(b) {
       lines.push('Score: red ' + m.red + ', blue ' + m.blue + ' — first to ' + m.target +
         (m.left != null ? ', about ' + m.left + ' minutes left' : '') + '.');
       lines.push(m.inRing ? 'You are ON the hill.' : 'The hill is ' + m.dist + ' m to the ' + m.dir + '.');
+      // Mechanics, not advice — the same bargain lacking strikes: name the
+      // verb that acts on the fact. Without this line the one goal the mode
+      // turns on had no reachable noun, and the first mind to try it roamed.
+      lines.push('goTo "the hill" walks you to the ring.');
       lines.push(m.contested ? 'The hill is contested — nobody scores while both sides stand on it.'
         : m.holder ? (m.holder === m.mine ? 'Your side holds it and is scoring.' : m.holder + ' holds it and is scoring.')
           : 'Nobody holds the hill.');

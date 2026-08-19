@@ -3854,6 +3854,18 @@ export class Agent {
         const who = find((label) => namesTheSame(label, target))
           ?? anyone((label) => namesTheSame(label, target));
         if (who) return who;
+        // ── THE HILL IS A PLACE NOW ──
+        //
+        // Seònaid's first match decision was 'make for the hill — blue must
+        // score', and this case sent her ROAMING: the hill's name is a
+        // position phrase, not a gazetteer entry, so findDistrict shrugged and
+        // the one goal the whole mode turns on fell through to a random walk.
+        // Jack followed her for ten minutes to find the fight and found
+        // wandering. While a match is on, 'the hill' and 'the ring' mean the
+        // one place everybody is being told about.
+        if (this.snapshot?.m && /\b(hill|ring)\b/i.test(target)) {
+          return { x: this.snapshot.m.hill[0], z: this.snapshot.m.hill[1] };
+        }
         const place = target && findDistrict(target, this._x, this._z);
         if (place) return { x: place.x, z: place.z };
         this.noteOutcome(`you do not know the way to "${target}"`);
