@@ -73,7 +73,7 @@ REM  world - it keeps the port.
 set "AGENT_SECONDS=7200"
 set "MAX_CALLS=250"
 
-set "MYNAME=Ben"
+set "MYNAME=Jack"
 
 echo.
 echo   Starting the world...

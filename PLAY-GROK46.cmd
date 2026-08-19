@@ -72,7 +72,7 @@ set "HUNGER=52"
 REM  Two hours, in REAL seconds.
 set "AGENT_SECONDS=7200"
 
-set "MYNAME=Ben"
+set "MYNAME=Jack"
 
 echo   Starting the world...
 start "Highlands - SERVER  (leave me open)" cmd /k node server\server.js 8080

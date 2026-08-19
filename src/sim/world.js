@@ -2092,6 +2092,12 @@ export class SimWorld {
     return {
       t: this.tick,
       c: round3(this.clock.hours),
+      // The MONOTONIC hour, beside the wrapped one. `c` is for the sky; this
+      // is for the stump map, whose stamps must never wrap — and for a tab
+      // that sat hidden: rAF parks, the catch-up is clamped, and a client
+      // clock that quietly fell behind ages every "hours until it regrows"
+      // reading it makes. One number at 20 Hz is the cheapest sync there is.
+      th: round2(this.totalHours),
       // ── WHAT SOMEBODY IS FIGHTING, FOR EVERYBODY ──
       //
       // Top level and not inside `me`, because the whole point is that it is
@@ -2181,6 +2187,23 @@ export class SimWorld {
       // painting branches that are not there and every agent walking to them.
       // See world/scarcity.js.
       scarcity: scarcity(),
+      // ── AND WHAT HAS ALREADY BEEN CUT, ON WHOSE CLOCK ──
+      //
+      // Neither of these was ever sent, and between them they are the whole of
+      // "it says this tree is already cut but gives me branches anyway"
+      // (Jack, 2026-08-18). A joining client started at totalHours 0 with an
+      // empty stump map and learned only about cuts made WHILE IT WATCHED —
+      // so after any reload its prompt and this world disagreed about which
+      // trunks were spent. The prompt would say "already cut" from its own
+      // stale map, the E still crossed the wire, and this world cheerfully
+      // felled whatever IT considered the nearest standing tree.
+      //
+      // The stamps in `cut` are in THIS world's monotonic hours, which is why
+      // `th` rides along: the client adopts the clock first, and then the
+      // stamps mean the same thing on both sides. See Harvest.isTaken — hours
+      // never wrap here, exactly so this exchange can be this simple.
+      th: round2(this.totalHours),
+      cut: this.harvest.serialise(),
     };
   }
 

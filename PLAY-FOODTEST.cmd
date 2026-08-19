@@ -71,7 +71,7 @@ REM  SCARCE is deliberately OFF. With the ten-branch fire a lean valley is
 REM  genuinely hard, and tonight is a test of whether the chain works at all,
 REM  not of whether it works under pressure. Turn it on for the SECOND run.
 
-set "MYNAME=Ben"
+set "MYNAME=Jack"
 
 echo   Starting the world...
 start "Highlands - SERVER  (leave me open)" cmd /k node server\server.js 8080

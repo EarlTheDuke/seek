@@ -430,6 +430,18 @@ function boot() {
         // walk to one and press E on bare ground. One number, taken on the way
         // in. Absent (an older server) means the world as it always was.
         setScarcity(data.scarcity ?? null);
+        // ── the server's clock and the server's stumps, taken at the door ──
+        //
+        // This client was born at totalHours 0 into a world that may be hours
+        // old, with an empty stump map in a valley already part-harvested.
+        // Every divergence between the two produced a lying prompt: "already
+        // cut" over a trunk the server would happily fell, or "cut tree — 8
+        // wood" over a stump the server would silently refuse. The clock
+        // comes first, deliberately: the stamps in `cut` are in the server's
+        // monotonic hours and mean nothing until this clock is that clock.
+        // Absent on an older server, both fall back to the old behaviour.
+        if (Number.isFinite(data.th)) totalHours = data.th;
+        if (Array.isArray(data.cut)) harvest.restore(data.cut);
         if (data.scarcity?.plenty !== undefined && data.scarcity.plenty !== 1) {
           hud.chat(null, 'the country here is lean — fuel and game are thin, and not evenly spread');
         }
@@ -703,6 +715,15 @@ function boot() {
         // whatever it started at, which is how a browser drew a blue midday sky
         // while the server it was connected to was at 01:00 and sending so.
         atmosphere.applyRemote(snap.c);
+        // Snap the monotonic hour back to the server's whenever it drifts.
+        // 0.05 h is 78 real seconds of divergence — far past honest rAF
+        // jitter, and exactly what a tab left hidden produces (its catch-up
+        // is CLAMPED on purpose; see loop.js). Below that, leave it be:
+        // a clock nudged every snapshot would stutter every countdown drawn
+        // from it.
+        if (Number.isFinite(snap.th) && Math.abs(totalHours - snap.th) > 0.05) {
+          totalHours = snap.th;
+        }
         // ── and what is burning ──
         // Same channel, same reason. Until this, a fire existed on exactly one
         // screen: you could stand in somebody's camp, in the dark, beside a

@@ -79,7 +79,7 @@ REM  today. 90 minutes: long enough for a full night to pass in-world, short
 REM  enough to leave most of the 3000-call budget unspent.
 set "AGENT_SECONDS=5400"
 
-set "MYNAME=Ben"
+set "MYNAME=Jack"
 
 echo   Starting the world...
 start "Highlands - SERVER  (leave me open)" cmd /k node server\server.js 8080
