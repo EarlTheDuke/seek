@@ -1243,6 +1243,14 @@ export class SimWorld {
     // client keeping its promise.
     if (a.watching || b.watching) return false;
     if (a.party && a.party === b.party) return false;
+    // ── THE WAR ZONE OUTRANKS THE NOISE FIELD ──
+    //
+    // Only while a match runs, and only near its hill: the mode PROMISES a
+    // fight there, and the strangeness gradient — checked at the target's
+    // feet — was refusing shots inside the arena wherever the field dipped.
+    // The party rule above still protects teammates; everywhere else on the
+    // map the geography rules exactly as before.
+    if (this.match?.inWarZone(b.ctrl.position) || this.match?.inWarZone(a.ctrl.position)) return true;
     if (!this.rules.pvp) return false;
     if (this.rules.pvpEverywhere) return true;
     const s = placeStrangeness(b.ctrl.position.x, b.ctrl.position.z);

@@ -153,6 +153,29 @@ export class KothMatch {
     return team;
   }
 
+  /**
+   * Is this spot inside the match's war zone?
+   *
+   * The hill search only guarantees the CENTER is strange enough to fight on.
+   * Strangeness is a noisy field, and the first human match found the seams:
+   * shots landed on the summit and were refused a few steps downhill —
+   * "this ground is too settled to fight on", inside the arena, mid-duel.
+   * An arena with invisible no-fire pockets is not an arena.
+   *
+   * 3.5 radii covers the ring, both musters (at 2.5), and the approaches
+   * between them. Outside it, the world's own geography rules as it always
+   * did — the settled lowland is still the place you can run to, only now the
+   * boundary is one circle a player can learn instead of a noise field
+   * nobody can see.
+   */
+  inWarZone(pos) {
+    if (this.state !== 'on' || !this.hillAt) return false;
+    const dx = pos.x - this.hillAt[0];
+    const dz = pos.z - this.hillAt[1];
+    const r = this.radius * 3.5;
+    return dx * dx + dz * dz <= r * r;
+  }
+
   /** The team of a player, or null (watchers, the unassigned). */
   teamOf(player) {
     const g = player?.party ?? '';
