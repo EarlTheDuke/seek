@@ -11,6 +11,56 @@ Sizes: **[S]** an afternoon · **[M]** a day · **[L]** more.
 
 ---
 
+# THE ATTENTION BUILD — shipped 2026-08-18, and what it opens
+
+Built in one session off the 2026-08-17 duo run and Ben's question "what stops
+them talking to me?". All landed, `wakecheck` 20/20 over a real socket:
+
+- **Event-driven attention.** Being spoken to, shot, or made an offer wakes a
+  mind ahead of its cadence; a 15 s refractory keeps wakes from becoming a
+  billing method. A question at a TEN-MINUTE mind got its reply in under a
+  second of think latency.
+- **Conversation windows.** Being addressed opens 45 s of 12 s-cadence
+  attention, so an exchange can volley. The body half (`noteHail`) existed;
+  the mind now matches it.
+- **A reply outranks the ration.** The gag ate "coming to your fire" as spam;
+  an unanswered direct line now clears the gate once, then the ration resumes.
+- **The `asked` debt line.** A line said TO a mind rides every brief until it
+  answers — no longer one of eight undifferentiated heard lines.
+- **Pinned deals.** Offers on the table stay in the brief until settled or
+  lapsed (real seconds, not wrap-at-midnight game hours). Memory samples;
+  bargains must not.
+- **The prompt teaches conversing.** Answer what you owe, a question back is a
+  fine answer, open with a name to aim a line. (Control baseline updated in
+  `personacheck` the same commit, per its own rule.)
+
+**Still open from the same analysis, in rough order:**
+
+### A1. The trade-pressure run **[S]** — arc 1, THE decider
+`PLAY-TRADE.cmd` + `roster-trade.json` are ready: hard winter, same colliding
+pair as 2026-08-17. If offer/give/accept appear unprompted, the verbs were fine
+and the world was not worth a deal. If words-only bargaining persists, the fix
+is how the brief offers the verbs — a different fix, and next.
+
+### A2. Facing the speaker **[S]** — arc 5
+`noteHail` stops the legs; it does not turn the head. A mind that answers you
+while walking away reads as dismissive when it is only unembodied.
+
+### A3. Standing plans that survive interruption **[M]** — arc 1
+One goal slot, replaced each think, is why loops happen and why "arrows in the
+morning, hunt at dusk" cannot exist. `plan`/`note` are the seed; nothing makes
+a mind RETURN to a plan after an interruption.
+
+### A4. Fear as an upstream input **[M]** — arc 1
+Ailsa at 29hp behaves like Ailsa at 100hp until reflex takes over. Health and
+threat should colour the brief the way hunger already does.
+
+### A5. The gag is tuned for fast seats **[S]** — arc 2
+11 of 29 lines gagged on a 60-75 s roster. `speakEveryDecisions: 2` counts
+decisions; slow seats decide rarely and lose a third of their costliest output.
+Consider counting by conversation, or exempting the conversation window.
+
+---
 # TIER 0 — what two live runs proved, 2026-08-11 and 2026-08-12
 
 **Added after the first runs in which minds actually fed themselves.** Everything

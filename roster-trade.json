@@ -1,0 +1,66 @@
+{
+  "_readme": [
+    "THE TRADE-PRESSURE RUN, 2026-08-18. The experiment TRAJECTORY.md called",
+    "for: make a deal worth striking, and see whether the verb gets reached for",
+    "on its own.",
+    "",
+    "WHAT CHANGED SINCE THE 2026-08-17 DUO RUN, same seats, same characters:",
+    "",
+    "  ATTENTION IS EVENT-DRIVEN. Being spoken to, shot, or made an offer now",
+    "  wakes a mind ahead of its cadence (wakecheck 20/20), a conversation",
+    "  holds a 12 s reconsider window open, a direct question rides the brief",
+    "  as an unanswered debt, and a reply outranks the speech ration.",
+    "",
+    "  DEALS ARE PINNED. An offer on the table stays in every brief until",
+    "  settled or lapsed — it cannot sample out of memory mid-walk.",
+    "",
+    "  THE PROMPT TEACHES CONVERSATION. Answer what you have not answered,",
+    "  a question back is a fine answer, open with a name to speak TO somebody.",
+    "",
+    "THE PRESSURE. SCARCE=on is the hard winter — less of everything, pulled",
+    "into the good ground. Hungry from the start, and the characters collide:",
+    "one hoards and prices everything, one asks for what it needs. On",
+    "2026-08-17, in a GENTLE valley, this pair still produced 'need that fire.",
+    "meat for the use of it' and 'mine. gold if you want a share' — priced in",
+    "gold neither held a coin of. The only way to a coin is each other.",
+    "",
+    "WHAT DECIDES THE EXPERIMENT. If offer/give/accept appear unprompted, the",
+    "2026-08-17 suspicion was right: the verbs were fine and the world was not",
+    "worth a deal. If the pair STILL bargains only in words under this much",
+    "pressure with this much attention, the fault is in how the brief offers",
+    "the verbs, and that is the next fix — a different one.",
+    "",
+    "Seat settings per roster-grok46duo.json and the probe behind it:",
+    "maxTokens 6000 or 4.6 is cut off every call; 60/75 staggered or a 26 s",
+    "thinker becomes a queue. No scripted control: two minds, one question.",
+    "",
+    "No keys in this file. keyEnv is the NAME of an env var."
+  ],
+
+  "budgetCalls": 400,
+
+  "players": [
+    {
+      "name": "Fingal",
+      "provider": "xai",
+      "model": "grok-4.6",
+      "keyEnv": "XAI_API_KEY",
+      "cadenceSeconds": 60,
+      "timeoutSeconds": 120,
+      "think": true,
+      "maxTokens": 6000,
+      "character": "You hoard. What you pick up is yours and you do not hand it over for nothing — but you will name a price for anything, and you drive a hard bargain. Gold interests you more than company."
+    },
+    {
+      "name": "Ailsa",
+      "provider": "xai",
+      "model": "grok-4.6",
+      "keyEnv": "XAI_API_KEY",
+      "cadenceSeconds": 75,
+      "timeoutSeconds": 120,
+      "think": true,
+      "maxTokens": 6000,
+      "character": "You are blunt and you ask for what you need rather than going without. You would rather owe somebody than starve, and you say plainly what you think a thing is worth."
+    }
+  ]
+}
