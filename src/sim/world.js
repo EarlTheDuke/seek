@@ -32,6 +32,7 @@ import { findRegion } from '../world/regions.js';
  */
 const KEEP_ON_DEATH = new Set(['bow']);
 import { heightAt } from '../world/noise.js';
+import { COMBAT } from '../config.js';
 import { treesNear, rocksNear, setClearings as setTimberClearings } from '../world/timber.js';
 import { scarcity } from '../world/scarcity.js';
 import { ColliderField } from '../world/colliders.js';
@@ -48,6 +49,26 @@ import { COMPANION_IDS } from '../creatures/companions.js';
 // They live in PLAYER now so the arrow and the shoulder agree about one body.
 const PLAYER_RADIUS = PLAYER.bodyRadius;
 const PLAYER_HEIGHT = PLAYER.bodyHeight;
+
+/**
+ * Which zone of a standing body an impact height lands in. PURE, exported,
+ * and deliberately two-valued — see PLAN-COMBAT.md. Anything unreadable
+ * (a missing probe on an old wire) is the body: the conservative answer.
+ */
+export function playerStrikeZone(impactY, feetY) {
+  if (!Number.isFinite(impactY) || !Number.isFinite(feetY)) return 'body';
+  return impactY - feetY >= COMBAT.headshotAbove ? 'head' : 'body';
+}
+
+/**
+ * What an arrow actually costs a person: base × zone × cloak, in that order,
+ * so a head shot through a cloak is softened and not excused.
+ */
+export function playerDamage(base, zone, cloaked) {
+  let d = base * (zone === 'head' ? COMBAT.headshotMultiplier : 1);
+  if (cloaked) d *= COMBAT.cloakDamageFactor;
+  return d;
+}
 import { Projectiles } from '../world/projectiles.js';
 import { Pickups } from '../world/pickups.js';
 import { Controller } from '../player/controller.js';
@@ -425,12 +446,21 @@ export class SimWorld {
             : 'this ground is too settled to fight on' });
         return;
       }
-      target.body.damage(damage, by ? { name: by.name } : null);
+      // ── WHERE it struck, and what softened it ──
+      //
+      // The impact point was always in hand (`at` is the exact spot the
+      // segment test found); nothing ever read its height. Creatures have had
+      // zones all along — this is the same courtesy, finally paid to people.
+      const zone = playerStrikeZone(at?.y, target.ctrl.position.y);
+      const cloaked = target.inventory.countOf('cloak') > 0;
+      const dealt = playerDamage(damage, zone, cloaked);
+      target.body.damage(dealt, by ? { name: by.name } : null);
       target.dirty = true;
       // `n` is the SHOOTER'S NAME. The id has always been here and nothing on
       // the far side could turn it into a name — a body knew it had been shot
       // and not by whom, which is why no agent could ever return fire.
-      this.events.push({ k: 'hit', id: target.id, by: byId, n: by?.name ?? null, dmg: Math.round(damage) });
+      this.events.push({ k: 'hit', id: target.id, by: byId, n: by?.name ?? null,
+        dmg: Math.round(dealt), zone, ...(cloaked ? { cloaked: true } : {}) });
       if (target.body.dead) this.onPlayerDied(target, by);
     };
 

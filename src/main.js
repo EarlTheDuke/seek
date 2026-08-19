@@ -472,8 +472,12 @@ function boot() {
         const mine = net && e.id === net.id;
         const byMe = net && e.by === net.id;
         if (e.k === 'hit') {
-          if (mine) hud.chat(null, `an arrow hits you — ${e.dmg}`);
-          else if (byMe) hud.chat(null, `your arrow strikes home — ${e.dmg}`);
+          // A head shot and a cloak are the two facts worth a word each —
+          // the number alone reads the same for a graze and a killshot.
+          const how = (e.zone === 'head' ? ' — a HEAD SHOT' : '')
+            + (e.cloaked ? ', the cloak takes the worst of it' : '');
+          if (mine) hud.chat(null, `an arrow hits you for ${e.dmg}${how}`);
+          else if (byMe) hud.chat(null, `your arrow strikes home for ${e.dmg}${how}`);
         } else if (e.k === 'glance') {
           if (mine || byMe) hud.chat(null, `the arrow glances off — ${e.why}`);
         } else if (e.k === 'death') {

@@ -55,6 +55,19 @@ a mind RETURN to a plan after an interruption.
 Ailsa at 29hp behaves like Ailsa at 100hp until reflex takes over. Health and
 threat should colour the brief the way hunger already does.
 
+### A6. The cloak should CHANGE HOW A PLAYER LOOKS **[S]** — arc 5
+Asked 2026-08-18, the same session the cloak became armour (PLAN-COMBAT.md):
+a cloak that halves damage and shows nothing is invisible information — in a
+match you need to SEE who is worth shooting first. The avatar is procedural,
+so this is geometry on the player model when `cloak` is carried, drawn from
+the same snapshot pack data every client already receives.
+
+### A7. A REAL draw animation on other players **[S/M]** — arc 5
+Also 2026-08-18: "so it looks like you are really pulling a bow back." The
+avatar has the drawn-archer pose (bowcheck holds 25 assertions on it) but the
+pull snaps rather than draws. Interpolate nock-to-anchor over the draw time
+the server already knows, so a watcher can read "about to loose" from across
+the ring — in a match, exactly the information a defender wants.
 ### A5. The gag is tuned for fast seats **[S]** — arc 2
 11 of 29 lines gagged on a 60-75 s roster. `speakEveryDecisions: 2` counts
 decisions; slow seats decide rarely and lose a third of their costliest output.

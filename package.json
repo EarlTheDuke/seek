@@ -75,6 +75,7 @@
     "wakecheck": "node server/wakecheck.js",
     "stumpcheck": "node server/stumpcheck.js",
     "matchcheck": "node server/matchcheck.js",
+    "zonecheck": "node server/zonecheck.js",
     "inventorycheck": "node server/inventorycheck.js",
     "pulsecheck": "node server/pulsecheck.js",
     "nouncheck": "node server/nouncheck.js",

@@ -669,10 +669,10 @@ export class Agent {
         // had been shot and not by whom, so retaliation was impossible and no
         // duel could ever happen — the mind had no name to put in `attack`.
         // The event has carried the shooter's id all along; nobody resolved it.
-        if (mine) this.memory.add(this.hours, `my arrow struck ${e.n ?? 'someone'} for ${e.dmg}`, MINDS.weight.hurt);
+        if (mine) this.memory.add(this.hours, `my arrow struck ${e.n ?? 'someone'} for ${e.dmg}${e.zone === 'head' ? ' — in the head' : ''}`, MINDS.weight.hurt);
         else if (atMe) {
           const who = e.n ?? this.others.get(e.by) ?? 'someone';
-          this.memory.add(this.hours, `${who} shot me for ${e.dmg}`, MINDS.weight.shot);
+          this.memory.add(this.hours, `${who} shot me for ${e.dmg}${e.zone === 'head' ? ', in the head' : ''}${e.cloaked ? ' — my cloak took the worst of it' : ''}`, MINDS.weight.shot);
           this.shotBy = who;
           // An arrow in the body is the loudest sentence in the world, and it
           // used to wait its turn behind the metronome like gossip.

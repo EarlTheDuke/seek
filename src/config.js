@@ -1267,6 +1267,27 @@ export const STRUCTURES = {
   regrowHours: 30,
 };
 
+// ── COMBAT: where an arrow lands on a PERSON, and what softens it ───────────
+//
+// Creatures have had hit zones all along (Creature.zoneAt); players took flat
+// damage wherever the shaft struck until 2026-08-18. Two zones only: a
+// head/throat line at one height, everything else the body. A flat close shot
+// flies at eye height and eyes are on the head — distance makes head shots
+// rare through arc drop, not through rules. See PLAN-COMBAT.md.
+export const COMBAT = {
+  // Impact height above the FEET that counts as the head, on a 1.8 m body.
+  // 1.5 is collarbone-up: head and throat. One number, so the balance knob
+  // the first real matches will want is a single edit.
+  headshotAbove: 1.5,
+  headshotMultiplier: 3,
+  // "The cloak should add double the hit points" — implemented as incoming
+  // arrow damage HALVED while a cloak is carried: identical arithmetic, no
+  // max-health plumbing. Carried counts, not worn — the cloak's warmth
+  // already works that way, and one rule for both effects beats two.
+  // Applied AFTER the zone multiplier: a head shot through a cloak is 1.5×.
+  cloakDamageFactor: 0.5,
+};
+
 // ── WHAT A DECISION COSTS, IN MONEY ─────────────────────────────────────────
 //
 // USD per MILLION tokens, in and out. Read from xAI's own
