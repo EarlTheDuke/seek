@@ -242,7 +242,12 @@ if (matchPlan) {
     respawnSeconds: matchPlan.respawnSeconds,
   });
   // Real minutes to game hours: a day is TIME.dayMinutes real minutes.
-  m.capAfterHours = matchPlan.minutes * (24 / TIME.dayMinutes) / 60;
+  // Real minutes to game hours. A day is TIME.dayMinutes REAL minutes, so one
+  // real minute is (24 / dayMinutes) game hours — 0.92 at the default 26. The
+  // first version divided by 60 again, and the thirty-minute cap fired in
+  // thirty-three real seconds: the third match was over before its own HUD
+  // line finished rendering, RED 2-0. Caught BY that HUD line, live.
+  m.capAfterHours = matchPlan.minutes * (24 / TIME.dayMinutes);
   m.musterSpawn = matchPlan.musterSpawn;
   world.match = m.start(world);
   console.log('  MODE: KING OF THE HILL — first to ' + m.pointsToWin + ' seconds of sole hold, or best in ' + matchPlan.minutes + ' min');

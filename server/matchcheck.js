@@ -91,6 +91,16 @@ async function joined(name, url, team = null, watching = false) {
   return b;
 }
 
+function m2check() {
+  const c = new KothMatch({ hillAt: [0, 0], pointsToWin: 9999 });
+  c.capAfterHours = 30 * (24 / 26); // what server.js computes for MATCH_MINUTES=30
+  const w = { totalHours: 10, spawn: { position: { x: 0, y: 0, z: 0 } }, players: new Map(), events: [], rules: {} };
+  c.start(w); c.begin(w);
+  const len = c.capHours - 10;
+  check('a thirty-minute cap is about 27.7 game hours, not thirty-three seconds',
+    len > 26 && len < 29, len.toFixed(1) + ' game hours from the whistle');
+}
+
 async function main() {
   console.log('\n  Is the match real, and is its absence still absolute?\n');
 
@@ -222,6 +232,13 @@ async function main() {
   };
   m.start(stub);
   m.begin(stub); // the whistle — noteDeath rightly refuses a match not yet on
+  // ── the cap arithmetic, which shipped wrong once ──
+  //
+  // 30 real minutes at dayMinutes=26 is 27.7 GAME HOURS. The first formula
+  // divided by 60 twice and a thirty-minute match lasted thirty-three real
+  // seconds. Asserted against the stub clock: begin() at hour 10 with
+  // capAfterHours set must place the cap about a day out, not minutes.
+  m2check();
   m.noteDeath(p);
   m.step(2.0, stub);
   check('two seconds into a three-second respawn, still down', p.body.dead === true && m.waiting.has(7));
