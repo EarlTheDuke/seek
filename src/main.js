@@ -343,6 +343,9 @@ function boot() {
   // which is useless for "this tree regrows in thirty hours" — the expiry
   // would be in the past every morning.
   let totalHours = 0;
+  // The match as of the last snapshot, or null. Written by the snapshot
+  // handler, read by the status line. Nothing else touches it.
+  let lastMatch = null;
 
   // ── multiplayer ───────────────────────────────────────────────────────────
   //
@@ -729,6 +732,11 @@ function boot() {
         // whatever it started at, which is how a browser drew a blue midday sky
         // while the server it was connected to was at 01:00 and sending so.
         atmosphere.applyRemote(snap.c);
+        // The match, kept where the status line can read it. The MINDS get the
+        // hill's bearing in every brief; until this line the HUMAN got nothing
+        // directional at all, and the first live question was "what direction
+        // do i walk?" — asked from a muster 75 m from the ring.
+        lastMatch = snap.m ?? null;
         // Snap the monotonic hour back to the server's whenever it drifts.
         // 0.05 h is 78 real seconds of divergence — far past honest rAF
         // jitter, and exactly what a tab left hidden produces (its catch-up
@@ -3635,8 +3643,27 @@ function boot() {
 
     const wl = wildlife.stats;
     const pr = projectiles.stats;
+    // ── THE MATCH SEGMENT, FIRST, WHILE ONE RUNS ──
+    //
+    // Distance and one of the eight winds, live as you walk — the same answer
+    // a mind reads in its brief, finally shown to the person. ON THE HILL when
+    // you are standing in scoring position, because the ring is invisible and
+    // "am I in it" was otherwise a question only the score could answer.
+    let matchLine = '';
+    if (lastMatch && lastMatch.state !== 'won') {
+      const dx = lastMatch.hill[0] - ctrl.position.x;
+      const dz = lastMatch.hill[1] - ctrl.position.z;
+      const d = Math.hypot(dx, dz);
+      const oct = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+      const dir = oct[((Math.round(Math.atan2(dx, -dz) / (Math.PI / 4)) % 8) + 8) % 8];
+      matchLine = (d <= lastMatch.r ? '⚑ ON THE HILL' : `⚑ hill ${d.toFixed(0)} m ${dir}`)
+        + ` · red ${lastMatch.red} · blue ${lastMatch.blue} of ${lastMatch.target} · `;
+    } else if (lastMatch?.state === 'won') {
+      matchLine = `⚑ ${lastMatch.winner ? lastMatch.winner.toUpperCase() + ' won' : 'a draw'} ${lastMatch.red}-${lastMatch.blue} · `;
+    }
     hud.update(
       dt,
+      matchLine +
       `${atmosphere.clockText} · ${weather.label} · wind ${weather.bearingText} · ` +
         `${wl.alive} alive (${wl.alert} alert) · ${stealth.label}`
     );

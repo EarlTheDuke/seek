@@ -9,6 +9,12 @@
     "the deep ones, and that finding is worth a roster shaped to catch it.",
     "Symmetric sides, model for model, so the match measures play, not seats.",
     "",
+    "TWO KIMI SEATS, 2026-08-18 (Ben: 'add a couple of Kimi agents'): one per",
+    "side so the sides stay symmetric. ONE GPU, so the 70/100 stagger is",
+    "load-bearing — see roster-foodtest.json; two kimi seats on the same",
+    "cadence is how a tinybox gets suffocated. maxTokens 12000 for the same",
+    "reason as the 4.6 seats: truncation answers are scripted answers.",
+    "",
     "ISEABAIL IS THE CONTROL, as always — scripted, no model, no key, on red.",
     "When a flank looks brilliant, she is how you tell the model from the",
     "terrain. Jack joins blue by URL (&team=blue), which levels the sides at",
@@ -19,9 +25,7 @@
     "",
     "No keys in this file. keyEnv is the NAME of an env var."
   ],
-
   "budgetCalls": 1200,
-
   "players": [
     {
       "name": "Eachann",
@@ -42,6 +46,19 @@
       "cadenceSeconds": 30,
       "timeoutSeconds": 30,
       "character": "You think one move ahead and say the plan out loud so your side can follow it. You count arrows, food and time, and you spend all three like a quartermaster."
+    },
+    {
+      "name": "Coinneach",
+      "team": "red",
+      "provider": "openai-compatible",
+      "baseUrl": "https://tinybox.silverstarindustries.com/api",
+      "model": "kimi-k2.6",
+      "keyEnv": "TINYBOX_API_KEY",
+      "cadenceSeconds": 70,
+      "timeoutSeconds": 150,
+      "think": true,
+      "maxTokens": 12000,
+      "character": "You are blunt and certain, and a hill is a thing you take by walking onto it. You say what the side should do out loud and then you do your half of it."
     },
     {
       "name": "Iseabail",
@@ -67,6 +84,19 @@
       "cadenceSeconds": 30,
       "timeoutSeconds": 30,
       "character": "You are patient and watchful, and you keep your side fed and armed. You call retreats early and you have never lost a fight you did not pick."
+    },
+    {
+      "name": "Seònaid",
+      "team": "blue",
+      "provider": "openai-compatible",
+      "baseUrl": "https://tinybox.silverstarindustries.com/api",
+      "model": "kimi-k2.6",
+      "keyEnv": "TINYBOX_API_KEY",
+      "cadenceSeconds": 100,
+      "timeoutSeconds": 150,
+      "think": true,
+      "maxTokens": 12000,
+      "character": "You are loyal and stubborn, and you hold ground. Once your side has the ring you do not leave it — let the others chase; somebody has to stand on the thing that scores."
     }
   ]
 }
