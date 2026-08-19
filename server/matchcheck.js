@@ -43,9 +43,9 @@ const check = (name, pass, detail) => {
 
 /** A raw socket that keeps its snapshots and events. */
 class Body {
-  constructor(name, team = null) {
-    this.name = name; this.team = team; this.id = null;
-    this.m = null; this.events = []; this.g = new Map();
+  constructor(name, team = null, watching = false) {
+    this.name = name; this.team = team; this.watching = watching; this.id = null;
+    this.m = null; this.me = null; this.events = []; this.g = new Map();
   }
   connect(url) {
     return new Promise((resolve, reject) => {
@@ -54,6 +54,7 @@ class Body {
       this.ws.onopen = () => this.ws.send(encode(C_HELLO, {
         name: this.name, version: PROTOCOL_VERSION,
         ...(this.team ? { t: this.team } : {}),
+        ...(this.watching ? { w: true } : {}),
       }));
       this.ws.onmessage = (ev) => {
         const msg = decode(ev.data);
@@ -61,6 +62,7 @@ class Body {
         if (msg.type === S_WELCOME) { this.id = msg.data.id; resolve(this); }
         else if (msg.type === S_SNAPSHOT) {
           if ('m' in msg.data) this.m = msg.data.m;
+          this.me = msg.data.me ?? this.me;
           this.sawSnapshot = true;
           this.sawM = this.sawM || ('m' in msg.data);
           for (const p of msg.data.pl ?? []) if (p.g !== undefined) this.g.set(p.id, p.g);
@@ -79,11 +81,11 @@ function serverAt(port, env) {
   });
 }
 
-async function joined(name, url, team = null) {
+async function joined(name, url, team = null, watching = false) {
   let b = null;
   for (let i = 0; i < 40 && !b; i++) {
     await sleep(150);
-    b = await new Body(name, team).connect(url).catch(() => null);
+    b = await new Body(name, team, watching).connect(url).catch(() => null);
   }
   if (!b) throw new Error(`no server answered on ${url}`);
   return b;
@@ -114,7 +116,7 @@ async function main() {
   await requireFreePort(PORT, 'matchcheck');
   proc = serverAt(PORT, {
     MODE: 'koth', HILL_AT: 'spawn', HILL_RADIUS: '30',
-    POINTS_TO_WIN: '6', RESPAWN_SECONDS: '2',
+    POINTS_TO_WIN: '6', RESPAWN_SECONDS: '2', MATCH_SPAWN: 'off',
   });
   try {
     const URL = `ws://127.0.0.1:${PORT}`;
@@ -161,6 +163,46 @@ async function main() {
 
     red.close();
   } finally { try { proc.kill(); } catch { /* gone */ } }
+  await sleep(600);
+
+  // ── the clock waits for a body, and the muster is where a joiner stands ──
+  //
+  // THE FIRST LIVE MATCH burned its whole thirty minutes through a roster
+  // restart before a properly-teamed mind ever played, and the human report
+  // was 'did not see bad guys' — everyone spawned 359 m from the ring. Two
+  // fixes, both asserted here: 'waiting' until the first playing join, and a
+  // join that stands you at your team's muster.
+  console.log('\n  ── the whistle, and the muster ──\n');
+  await requireFreePort(PORT, 'matchcheck');
+  proc = serverAt(PORT, {
+    MODE: 'koth', HILL_AT: 'spawn', HILL_RADIUS: '30',
+    POINTS_TO_WIN: '9999', MATCH_MINUTES: '30',
+  });
+  try {
+    const URL2 = `ws://127.0.0.1:${PORT}`;
+    const w = await joined('Watcher', URL2, null, true);
+    await sleep(800);
+    check('a WATCHER does not start the match — the clock waits for a player',
+      w.m?.state === 'waiting',
+      `state ${w.m?.state} with only a watcher connected`);
+
+    const first = await joined('Aonghas', URL2, 'red');
+    for (let i = 0; i < 30 && !(first.m?.state === 'on'); i++) await sleep(100);
+    check('THE FIRST PLAYING JOIN IS THE WHISTLE', first.m?.state === 'on',
+      `state ${first.m?.state}`);
+    check('  …and it is said out loud', w.events.some((e) => e.k === 'match' && e.s === 'begins'),
+      'the begins event reaches everyone already connected');
+    // HILL_AT=spawn, so the hill IS the old spawn and the red muster sits
+    // radius*2.5 = 75 m west of it. The welcome's own spawn field is the
+    // muster now, so measure against the MATCH state instead.
+    for (let i = 0; i < 20 && !first.me; i++) await sleep(100);
+    const hillX = first.m?.hill?.[0] ?? 0;
+    const hillZ = first.m?.hill?.[1] ?? 0;
+    check('  …and the joiner stands at the RED muster, not the world spawn',
+      first.me != null && Math.abs(first.me.p[0] - (hillX - 75)) < 4 && Math.abs(first.me.p[2] - hillZ) < 4,
+      `me at [${first.me?.p?.[0]?.toFixed(0)}, ${first.me?.p?.[2]?.toFixed(0)}] against hill [${hillX}, ${hillZ}], muster 75 west`);
+    w.close(); first.close();
+  } finally { try { proc.kill(); } catch { /* gone */ } }
 
   // ── the respawn cycle, at the unit, against a stub world ──────────────────
   console.log('\n  ── the respawn: death sits out, then walks back from the muster ──\n');
@@ -179,6 +221,7 @@ async function main() {
     rules: {},
   };
   m.start(stub);
+  m.begin(stub); // the whistle — noteDeath rightly refuses a match not yet on
   m.noteDeath(p);
   m.step(2.0, stub);
   check('two seconds into a three-second respawn, still down', p.body.dead === true && m.waiting.has(7));

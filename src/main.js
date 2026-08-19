@@ -475,6 +475,8 @@ function boot() {
           if (mine || byMe) hud.chat(null, `the arrow glances off — ${e.why}`);
         } else if (e.k === 'death') {
           hud.chat(null, `${e.n} was killed by ${e.by} ${e.where ?? ''}`.trim());
+        } else if (e.k === 'match' && e.s === 'begins') {
+          hud.chat(null, `THE MATCH BEGINS — first to ${e.target} at ${e.n}`);
         } else if (e.k === 'hill') {
           // The match speaks in transitions, so every line here is news.
           hud.chat(null, e.s === 'taken' ? `${e.party.toUpperCase()} takes the hill at ${e.n}`

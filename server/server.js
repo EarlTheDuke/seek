@@ -22,7 +22,7 @@ import { TIME } from '../src/config.js';
 import { getItem } from '../src/items/registry.js';
 import { makeProvider } from '../src/minds/providers.js';
 import { addRivalHunter } from '../src/minds/hunter.js';
-import { makeRandom } from '../src/world/noise.js';
+import { makeRandom, heightAt } from '../src/world/noise.js';
 import { bannedSpecies, getDangerLevel } from '../src/modes/danger.js';
 import { solarPosition } from '../src/world/sky.js';
 import { setScarcity, scarcityFromEnv, scarce } from '../src/world/scarcity.js';
@@ -163,6 +163,9 @@ if (MODE === 'koth') {
     pointsToWin: Math.max(5, Number(process.env.POINTS_TO_WIN) || 120),
     minutes: Math.max(1, Number(process.env.MATCH_MINUTES) || 30),
     respawnSeconds: Math.max(1, Number(process.env.RESPAWN_SECONDS) || 25),
+    // MATCH_SPAWN=off keeps joiners at the world spawn — matchcheck's
+    // scoring arms need bodies that never walked to still be in the ring.
+    musterSpawn: !/^(off|no|0|false)$/i.test(process.env.MATCH_SPAWN ?? ''),
   };
 }
 
@@ -240,6 +243,7 @@ if (matchPlan) {
   });
   // Real minutes to game hours: a day is TIME.dayMinutes real minutes.
   m.capAfterHours = matchPlan.minutes * (24 / TIME.dayMinutes) / 60;
+  m.musterSpawn = matchPlan.musterSpawn;
   world.match = m.start(world);
   console.log('  MODE: KING OF THE HILL — first to ' + m.pointsToWin + ' seconds of sole hold, or best in ' + matchPlan.minutes + ' min');
   console.log('  the hill: ' + m.hillName + ' — ring ' + m.radius + ' m · respawn ' + m.respawnSeconds + 's at the team muster');
@@ -316,8 +320,9 @@ wss.on('connection', (ws, req) => {
         // In match mode every playing joiner gets a side: the one their
         // hello asked for, or the smaller one. A watcher stays sideless.
         if (world.match && !client.watching) {
-          const team = world.match.assignTeam(world, world.players.get(client.id), cleanTeam(msg.data.t));
-          console.log('  ' + client.name + ' fights for ' + team.toUpperCase());
+          const team = world.match.onJoin(world, world.players.get(client.id), cleanTeam(msg.data.t), heightAt);
+          console.log('  ' + client.name + ' fights for ' + team.toUpperCase()
+            + (world.match.state === 'on' ? '' : ' (' + world.match.state + ')'));
         }
         for (const [item, n] of STOCK) world.players.get(client.id).inventory.add(item, n);
         if (Number.isFinite(HUNGER)) world.players.get(client.id).body.hunger = Math.max(0, Math.min(100, HUNGER));

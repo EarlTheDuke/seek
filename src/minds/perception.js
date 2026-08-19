@@ -283,7 +283,9 @@ export function briefToText(b) {
   // this touches the system prompt.
   if (b.match) {
     const m = b.match;
-    if (m.state === 'won') {
+    if (m.state === 'waiting') {
+      lines.push('A match is set at ' + m.name + ' and has not begun.');
+    } else if (m.state === 'won') {
       lines.push('THE MATCH IS OVER: ' + (m.winner ? m.winner + ' won' : 'a draw') + ' — red ' + m.red + ', blue ' + m.blue + '.');
     } else {
       lines.push('KING OF THE HILL at ' + m.name + '. You fight for ' + (m.mine ?? 'no side') + '.');

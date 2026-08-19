@@ -43,7 +43,13 @@ export class KothMatch {
     this.scores = { red: 0, blue: 0 };
     this.holder = null;             // team currently scoring, or null
     this.contested = false;
-    this.state = 'on';              // 'on' | 'won'
+    // 'waiting' until the first playing body joins. THE FIRST LIVE MATCH
+    // taught this the hard way: the clock started at server boot, burned
+    // its thirty minutes through a roster restart, and five properly-
+    // teamed minds arrived to a brief that said THE MATCH IS OVER — read
+    // it correctly, and went hunting. A match with nobody in it is not
+    // being played, so its clock must not run.
+    this.state = 'waiting';         // 'waiting' | 'on' | 'won'
     this.winner = null;
     this.startedAt = null;
     // Deaths waiting out their respawn: id -> seconds left. Sim seconds, so a
@@ -69,8 +75,10 @@ export class KothMatch {
    * lowland stays what it always was, the place you can run to.
    */
   start(world) {
-    this.startedAt = world.totalHours;
-    if (this.capAfterHours) this.capHours = world.totalHours + this.capAfterHours;
+    // The GROUND is chosen at boot; the CLOCK waits for begin(). Splitting
+    // the two lets the server print the hill in its banner while the match
+    // holds its breath for a first body.
+    this.startedAt = null;
 
     if (!this.hillAt) {
       const s = world.spawn.position;
@@ -99,6 +107,40 @@ export class KothMatch {
     this.muster.red = [hx - d, hz];
     this.muster.blue = [hx + d, hz];
     return this;
+  }
+
+  /** The whistle: the clock arms on the first playing join. */
+  begin(world) {
+    if (this.state !== 'waiting') return;
+    this.state = 'on';
+    this.startedAt = world.totalHours;
+    if (this.capAfterHours) this.capHours = world.totalHours + this.capAfterHours;
+    world.events.push({ k: 'match', s: 'begins', n: this.hillName, target: this.pointsToWin });
+  }
+
+  /**
+   * Everything a playing join means in match mode: a side, a muster to
+   * stand at, and — for the first body through the door — the whistle.
+   *
+   * THE MUSTER SPAWN is why a match has a fight in it. The first live
+   * match spawned everybody at the world spawn, 359 m from the ring, and
+   * the human tester's whole report was "did not see bad guys". Placing
+   * each team at its own muster puts the enemy one ridge away and the
+   * ring in the middle. `musterSpawn=false` is the testing seam —
+   * matchcheck's raw sockets cannot walk, so its scoring arms bring the
+   * bodies to the hill instead.
+   */
+  onJoin(world, player, wanted = null, heightAt = null) {
+    const team = this.assignTeam(world, player, wanted);
+    if (this.musterSpawn !== false) {
+      const [mx, mz] = this.muster[team];
+      player.ctrl.position.x = mx;
+      player.ctrl.position.z = mz;
+      if (heightAt) player.ctrl.position.y = heightAt(mx, mz);
+      player.dirty = true;
+    }
+    this.begin(world);
+    return team;
   }
 
   /** Join-order balanced, honouring a hello's claim when it names a side. */
@@ -130,6 +172,8 @@ export class KothMatch {
 
   /** One simulation step. The world calls this from its own step(). */
   step(dt, world) {
+    // 'waiting' ticks nothing: no clock, no score, no events. The match
+    // does not exist as a happening until somebody is in the world.
     if (this.state !== 'on') return;
 
     // ── respawns first, so a revived body can score this very tick ──

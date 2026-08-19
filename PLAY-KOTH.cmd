@@ -67,6 +67,12 @@ set "POINTS_TO_WIN=120"
 set "HILL_RADIUS=28"
 set "RESPAWN_SECONDS=25"
 
+REM  A match starts FED - survival stays on but must not drown the game. The
+REM  first live match was forty minutes of deer hunting because every belly
+REM  was empty from the whistle.
+set "STOCK=venison_cooked:2,wood:8"
+set "HUNGER=85"
+
 set "DANGER=no-bears"
 set "SOLID=on"
 set "PERSONAS=on"
