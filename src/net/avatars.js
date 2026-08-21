@@ -294,6 +294,34 @@ class Avatar {
       arms.push(pivot);
     }
 
+    // ── THE CLOAK, WHEN ONE IS CARRIED ──
+    //
+    // Since 2026-08-18 a carried cloak halves arrow damage (PLAN-COMBAT.md),
+    // and armour nobody can see is information the enemy deserves and does
+    // not get — in a match you need to know who is worth shooting first.
+    // Shoulders-down drape in the hide colours the ITEM already uses
+    // (registry cloak: body 0x6b4d31, collar 0x4f3925), so the thing on the
+    // ground and the thing on a back read as the same object. Hidden until a
+    // snapshot says `ck`; arms clip through it at full draw and that is the
+    // price every game pays for capes.
+    const cloak = new THREE.Group();
+    const drape = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.24, 0.44, 0.85, 10, 1, true),
+      new THREE.MeshStandardMaterial({ color: 0x6b4d31, roughness: 0.92, side: THREE.DoubleSide })
+    );
+    drape.castShadow = true;
+    cloak.add(drape);
+    const collar = new THREE.Mesh(
+      new THREE.TorusGeometry(0.21, 0.05, 6, 12),
+      new THREE.MeshStandardMaterial({ color: 0x4f3925, roughness: 0.9 })
+    );
+    collar.rotation.x = Math.PI / 2;
+    collar.position.y = 0.44;
+    cloak.add(collar);
+    cloak.position.set(0, 0.98, 0.06);
+    cloak.visible = false;
+    g.add(cloak);
+
     // ── THE BOW, IN TWO PLACES ──
     //
     // Every figure in this world has carried a bow since the first day and not
@@ -335,7 +363,7 @@ class Avatar {
     g.add(plate);
 
     this.object = g;
-    this.parts = { body, neckPivot, headPivot, legs, arms, plate, bowPivot, bowString };
+    this.parts = { body, neckPivot, headPivot, legs, arms, plate, bowPivot, bowString, cloak };
     this.phase = 0;
     this.crouch = 0;
     this.draw = 0;
@@ -357,7 +385,13 @@ class Avatar {
 
     const speed = p.s ?? 0;
     this.crouch = damp(this.crouch, p.c ? 1 : 0, 10, dt);
-    this.draw = damp(this.draw, p.d ? 1 : 0, 8, dt);
+    // `d` is the CHARGE now, 0..1 — the same number the arrow's speed comes
+    // from — so the on-screen pull is the real pull, not a flag put through a
+    // half-second ease. The damp stays (snapshots arrive at 20 Hz and a
+    // stepped nock reads as lag), but faster, so it follows the ramp instead
+    // of trailing it. `Math.min` guards an old boolean server: true reads 1.
+    this.draw = damp(this.draw, Math.min(1, p.d || 0), 14, dt);
+    this.parts.cloak.visible = !!p.ck;
 
     // Crouched, the whole figure settles rather than the legs bending — at this
     // budget a believable crouch costs more than it returns.

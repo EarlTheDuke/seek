@@ -121,9 +121,17 @@ const DRAWS = [0, 0.55, 1];
 const snapshot = {
   pl: SPOTS.map((x, i) => ({
     id: `fig${i}`, n: ['at rest', 'half drawn', 'full draw'][i],
-    p: [x, 0, 0], y: Math.PI, s: 0, c: 0, d: DRAWS[i] > 0, t: 0, x: 0,
+    // `d` carries the CHARGE now — DRAWS was always [0, 0.55, 1] and this
+    // line used to have to flatten it to a boolean. "Half drawn" is finally
+    // half drawn. The full-draw figure also wears the cloak, so one page
+    // shows both of 2026-08-18's visual asks.
+    p: [x, 0, 0], y: Math.PI, s: 0, c: 0, d: DRAWS[i], t: 0, x: 0, ck: i === 2 ? 1 : 0,
   })),
 };
+// Dev-only page, dev-only handle: lets an automated eye interrogate the scene
+// (which figure wears the cloak, how far each nock has travelled) instead of
+// judging pixels it cannot see. Nothing imports this.
+window.__avatarLab = { scene, avatars, snapshot };
 
 const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
 const target = new THREE.Vector3(0, 1.15, 0);

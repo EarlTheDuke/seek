@@ -145,7 +145,25 @@ class Player {
       // drawing, are you dead.
       c: c.crouching ? 1 : 0,
       s: round2(c.horizontalSpeed),
-      d: this.weapons.getState()?.drawing ? 1 : 0,
+      // ── THE DRAW, AS A FRACTION AND NOT A FLAG ──
+      //
+      // This was `drawing ? 1 : 0`, and the bow already computed `charge` —
+      // the same 0..1 that decides the arrow's speed — and threw it away at
+      // the wire. So every remote archer SNAPPED to full draw: the avatar's
+      // damp gave the pull a fixed half-second regardless of how long the
+      // draw actually was, and "about to loose" was unreadable from across a
+      // ring. Now the on-screen nock travels exactly as far back as the shot
+      // has power, which is the information a defender is owed. Floored at
+      // 0.05 while drawing so a just-nocked arrow still reads truthy to any
+      // older client that treats this as the flag it used to be.
+      d: (() => {
+        const st = this.weapons.getState();
+        return st?.drawing ? Math.max(0.05, round2(st.charge ?? 1)) : 0;
+      })(),
+      // A carried cloak is visible armour and visible warmth — worth shooting
+      // around, worth trading for, and since 2026-08-18 it halves what an
+      // arrow does. Information the enemy is owed belongs on the body.
+      ...(this.inventory.countOf('cloak') > 0 ? { ck: 1 } : {}),
       h: Math.round(this.body.health),
       x: this.body.dead ? 1 : 0,
       // Party tag, so a client can draw its own people differently. Sent as

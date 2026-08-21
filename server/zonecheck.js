@@ -74,5 +74,17 @@ check('  …and deals the COMPUTED damage, not the base',
 check('  …and the hit event says zone and cloak, so both ends can say so',
   /zone,/.test(gate) && /cloaked: true/.test(gate));
 
+// ── and the two visual facts cross the wire (2026-08-18, TODO A6/A7) ──────
+//
+// The avatar interpolates by whatever number arrives; these hold that the
+// number is the CHARGE and the cloak flag exists at all — the reader-with-
+// no-writer hole, guarded from the writer side this time.
+check('the draw crosses the wire as the CHARGE, not a flag',
+  world.includes('Math.max(0.05, round2(st.charge'),
+  'pl.d used to flatten a computed 0..1 to a boolean at the last step');
+check('  …and the cloak rides beside it as ck',
+  world.includes("countOf('cloak') > 0 ? { ck: 1 }"),
+  'armour nobody can see is information the enemy is owed');
+
 const passed = results.filter((r) => r.pass).length;
 console.log(`\n  ${passed}/${results.length}${passed === results.length ? ' passed' : ' PASSED — SOMETHING IS WRONG'}\n`);
