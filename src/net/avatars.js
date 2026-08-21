@@ -306,19 +306,19 @@ class Avatar {
     // price every game pays for capes.
     const cloak = new THREE.Group();
     const drape = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.24, 0.44, 0.85, 10, 1, true),
+      new THREE.CylinderGeometry(0.19, 0.30, 0.74, 10, 1, true),
       new THREE.MeshStandardMaterial({ color: 0x6b4d31, roughness: 0.92, side: THREE.DoubleSide })
     );
     drape.castShadow = true;
     cloak.add(drape);
     const collar = new THREE.Mesh(
-      new THREE.TorusGeometry(0.21, 0.05, 6, 12),
+      new THREE.TorusGeometry(0.17, 0.04, 6, 12),
       new THREE.MeshStandardMaterial({ color: 0x4f3925, roughness: 0.9 })
     );
     collar.rotation.x = Math.PI / 2;
-    collar.position.y = 0.44;
+    collar.position.y = 0.39;
     cloak.add(collar);
-    cloak.position.set(0, 0.98, 0.06);
+    cloak.position.set(0, 1.02, 0.08);
     cloak.visible = false;
     g.add(cloak);
 
