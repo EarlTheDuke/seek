@@ -1,14 +1,45 @@
 # Highlands
 
-A walkable world in the browser. Rolling noise-carved hills, wind-rippled grass, a mirror lake, and
-stone landmarks on the far ridges to walk toward — under a sun that crosses the sky on a real solar
-path, weather that comes and goes, deer you have to stalk downwind, and bears that hunt you back.
+A walkable world in the browser — rolling noise-carved hills, wind-rippled grass, a mirror lake,
+deer you have to stalk downwind and bears that hunt you back — **with AI minds living in it**.
+Six model-driven players share your world over a real server: they hunt, cook, talk to each other
+and to you by name, trade, hold grudges, and fight you for a hill in a proper red-vs-blue
+KING OF THE HILL match. Every mind sits behind one seam, so Grok, Claude, Kimi and a scripted
+control all play the same game — which makes a match both a game and a benchmark.
 
 **Everything you see and hear is generated in code.** No models, no textures, no HDRIs, no audio
 files anywhere in this repository.
 
-> Where this is going: **[VISION.md](VISION.md)** — the folkloric pivot, survival, self-hosted
-> multiplayer and building, in sequence. This README describes what exists *today*.
+## Quick start (Windows)
+
+1. **Download** this repository (green Code button → Download ZIP) and unzip it anywhere.
+2. **Double-click `INSTALL.cmd`.** It checks for Node (installing it if missing), fetches the
+   packages, and puts a **Highlands** shortcut on your desktop.
+3. The menu opens. **`[1]` plays free, immediately — no API keys, no accounts, no cost.**
+
+When you want AI minds in your world, menu option `[4]` walks you through keys: every key is
+optional, any seat without one plays scripted for free, a full AI table costs roughly $1–2/hour
+with a hard budget cap it cannot spend past, and **`STOP.cmd` always stops the money instantly**.
+
+On anything with a shell: `npm install`, then `npm run dev` for the solo world, or see
+**[RUNNING.md](RUNNING.md)** for the full multiplayer/minds setup.
+
+## The ways to play
+
+| | | needs keys? |
+|---|---|---|
+| **Solo** (`PLAY-SOLO.cmd`) | the survival world alone: stalk, hunt, build, last the night | no — free |
+| **Survival with minds** (`PLAY.cmd`) | six AI players in your world, a live board of what each is thinking | optional |
+| **King of the hill** (`PLAY-KOTH.cmd`) | red vs blue for one ring; head shots ×3, cloaks halve damage, respawns at your muster | optional |
+| **Watch** (`?watch=1` on any join URL) | an invisible, invulnerable camera the minds cannot perceive | no |
+
+The mind board at `http://127.0.0.1:8090` shows one card per AI — what it means to do, why, what
+it said, what it refused — with the world's kill tally across the top.
+
+> Where this is going: **[VISION.md](VISION.md)** and **[TRAJECTORY.md](TRAJECTORY.md)** — and
+> **[PLAN-HOSTING.md](PLAN-HOSTING.md)** is the plain-steps plan for putting a world online.
+> **[RUNNING.md](RUNNING.md)** is the operations manual. The rest of this README is the solo
+> world's internals, and it all still holds.
 
 ![The view from the spawn point](docs/spawn.jpg)
 
@@ -20,15 +51,9 @@ files anywhere in this repository.
 | ![Standing stones on the ridge](docs/monoliths.jpg) | ![The same spot at dusk](docs/dusk.jpg) |
 | The monolith ring, backlit on the high ridge | The same world with the sun scrubbed down to dusk using `[` |
 
-**Everything you see is generated in code.** There are no models, no textures, no HDRIs, no audio
-files anywhere in this repository — the terrain comes out of a noise function, the sky out of an
-atmospheric-scattering shader, the water's normal map is baked at load time, and the wind and
-birdsong are synthesized with oscillators.
-
-```bash
-npm install
-npm run dev      # http://localhost:5173
-```
+The terrain comes out of a noise function, the sky out of an atmospheric-scattering shader, the
+water's normal map is baked at load time, and the wind and birdsong are synthesized with
+oscillators.
 
 ---
 
@@ -295,6 +320,13 @@ src/
     viewmodel.js       held item in its own scene on a cleared depth buffer
   audio/
     soundscape.js      synthesized wind, water, rain, bow, growls, footsteps
+  sim/                 the authoritative world a server runs (60 Hz, deterministic)
+    world.js           players, damage/hit zones, trade, harvest, events
+    match.js           king of the hill: teams, the ring, scoring, respawns
+  net/                 the wire: protocol allow-lists, client, avatars, agents
+    agent.js           an AI mind's whole body-brain loop behind the seam
+  minds/               providers (Grok/Claude/Kimi/scripted), briefs, personas
+server/                server.js, agents.js, the board, and ~80 *check scripts
   ui/
     hud.js             start screen, crosshair, hotbar, health, screenshots
   util/

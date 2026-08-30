@@ -1,3 +1,10 @@
+> **SNAPSHOT NOTICE (2026-08-18):** this file describes the world as of 2026-08-12
+> and is kept as a record. Since then: event-driven attention and conversation
+> (wakecheck), the KING OF THE HILL mode (PLAN-KOTH.md, matchcheck), hit zones and
+> the cloak-as-armour (PLAN-COMBAT.md, zonecheck), the harvest/stump sync
+> (stumpcheck), the board kill tally, and the installer and menu (INSTALL.cmd,
+> HIGHLANDS.cmd). For current state read TRAJECTORY.md, TODO.md, and runs/.
+
 # State of play — read this first, it is short on purpose
 
 **Last updated: 2026-08-13**, by a session that gave minds a verb for MAKING

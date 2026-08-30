@@ -7,12 +7,19 @@ explorer, not a terminal. There are three files you ever need to touch.
 
 ## The short version
 
-1. **Right-click `keys.cmd` → Edit.** Paste your API keys between the quotes.
-   Save. (Right-click → Edit, **not** double-click — double-clicking runs it.)
+**New machine? Double-click `INSTALL.cmd` once** — it installs Node if needed,
+fetches packages, and puts a Highlands shortcut on the desktop that opens the
+menu. The menu (`HIGHLANDS.cmd`) covers everything below; the steps are here
+for when you want the files directly.
+
+1. **`SETUP-KEYS.cmd`** (or right-click `keys.cmd` → Edit — **not**
+   double-click, double-clicking runs it). Every key is optional: an empty key
+   makes that seat SCRIPTED, which is free.
 2. **Double-click `CHECK-KEYS.cmd`.** It tells you, per player, whether they
    will actually think. Fix anything red. Costs nothing and sends no prompts.
-3. **Double-click `PLAY.cmd`.** Three black windows open, then the game and the
-   mind-board in your browser.
+3. **Double-click `PLAY.cmd`** (survival with minds), **`PLAY-KOTH.cmd`**
+   (king of the hill), or **`PLAY-SOLO.cmd`** (alone, free, no keys). Black
+   windows open, then the game and the mind-board in your browser.
 4. **Double-click `STOP.cmd`** when you are done. That is what stops the money.
 
 **AND STOP.cmd IS STILL NEEDED AFTER A TIMED RUN.** `--for` / `AGENT_SECONDS`
@@ -29,6 +36,11 @@ Everything else in this file is detail you only need when something is wrong.
 
 | File | What it is |
 |---|---|
+| `INSTALL.cmd` | **One-time setup**: Node, packages, keys file, desktop shortcut, menu. Safe to re-run. |
+| `HIGHLANDS.cmd` | **The menu** — every mode and control below, as numbered choices. |
+| `PLAY-SOLO.cmd` | The world alone. Free, no keys, no server. |
+| `PLAY-KOTH.cmd` | **King of the hill**: red vs blue for one ring. See PLAN-KOTH.md. |
+| `SETUP-KEYS.cmd` | Explains each key, opens the file, offers the free check. |
 | `keys.cmd` | **Your API keys.** Gitignored — never committed, never leaves this machine. The only file with secrets in it. |
 | `roster.json` | **Who is playing**: name, model, character, how often each thinks. The mixed six-model roster. |
 | `roster-kimi.json` | An all-Kimi roster — four minds on your own box, costs nothing. |

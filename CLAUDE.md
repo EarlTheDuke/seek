@@ -41,7 +41,7 @@ between models, in a world a human can watch and understand.**
 
 ```
 npm run build
-npm run <name>check      # the relevant ones — there are 60+
+npm run <name>check      # the relevant ones — there are ~80
 ```
 
 There is **no typecheck script** here. **A FAILING CHECK EXITS 0** — parse the
